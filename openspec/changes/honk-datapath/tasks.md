@@ -50,12 +50,9 @@
 
 ## 5. honk #456: the router reachable from the LAN (design D7)
 
-- [ ] 5.1 Add the test of "Connect to the router from the LAN" and reproduce the failure on the emulator; pin the mechanism with kprobes and honk's debug log before choosing a fix.
+- [ ] 5.1 Add the test of "Connect to the router from the LAN" and try to reproduce #456 on the emulator, pinning with honk's debug log the path the connections take; a fix only for a mechanism shown.
 
-  Verify: the test fails on the unpatched honk, with the mechanism recorded in the patch's write-up.
-- [ ] 5.2 Fix it in honk, a patch meant for upstream with its write-up.
-
-  Verify: the test passes on both boards, five runs in a row on the R4S; the transparent-proxy tests still pass.
+  Verify: the test runs LuCI and SSH connections over IPv4 and IPv6, under a configuration routing by address alone and under one with a domain rule, whose connections take honk's TPROXY path (honk's log); it passes on both boards; the findings are recorded in design D7. Not reproduced on the R4S (beta.6, Linux 6.18, br-lan): no patch, and the test stays as the regression guard.
 
 ## 6. honk #476: a reload keeps honk running (design D7)
 
