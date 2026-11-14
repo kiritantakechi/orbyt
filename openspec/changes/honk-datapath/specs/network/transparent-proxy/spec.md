@@ -1,15 +1,11 @@
 ## MODIFIED Requirements
 
 ### Requirement: Bind LAN-side interfaces only
-honk SHALL bind only br-lan, plus podman0 and tailscale0 when they exist. honk MUST NOT attach programs to any WAN interface. On the cgroup2 root honk SHALL attach only its `sock_ops` program, which acts only on sockets in honk's own network namespace, and its socket-identity programs, which record the process that owns a socket and allow every socket operation; honk MUST NOT redirect, mark or refuse the router's own sockets. A bound interface that appears after honk starts SHALL be bound within 60 seconds of appearing, also while honk is still starting or reloading.
+honk SHALL bind only br-lan, plus podman0 and tailscale0 when they exist. honk MUST NOT attach programs to any WAN interface. A bound interface that appears after honk starts SHALL be bound within 60 seconds of appearing, also while honk is still starting or reloading.
 
 #### Scenario: Check programs on each interface
 - **WHEN** honk is running and the BPF programs attached to br-lan and pppoe-wan are inspected
 - **THEN** br-lan has honk programs, and pppoe-wan has no honk programs at all
-
-#### Scenario: Check the cgroup programs
-- **WHEN** honk is running and the BPF programs attached to the cgroup2 root are inspected
-- **THEN** honk's programs there are its `sock_ops` program and its socket-identity programs on socket creation, `connect` and `sendmsg`, and nothing else; the router's own connections go out direct
 
 #### Scenario: Container bridge appears after the proxy
 - **WHEN** honk is already running and only then podman0 is created
@@ -33,11 +29,15 @@ Traffic from bound interfaces SHALL be split by honk's rules:
 - **THEN** the connection succeeds, and the target sees the proxy node's egress address as the source
 
 ### Requirement: Router-originated traffic goes direct
-Traffic originated by the router's own processes MUST NOT be proxied through honk.
+Traffic originated by the router's own processes MUST NOT be proxied through honk. On the cgroup2 root honk SHALL attach only its `sock_ops` program, which acts only on sockets in honk's own network namespace, and its socket-identity programs, which record the process that owns a socket and allow every socket operation; honk MUST NOT redirect, mark or refuse the router's own sockets.
 
 #### Scenario: Router accesses an external address
 - **WHEN** a command on the router accesses an external address that the rules would otherwise classify as proxied
 - **THEN** the target sees the router's WAN address as the source
+
+#### Scenario: Check the cgroup programs
+- **WHEN** honk is running and the BPF programs attached to the cgroup2 root are inspected
+- **THEN** honk's programs there are its `sock_ops` program and its socket-identity programs on socket creation, `connect` and `sendmsg`, and nothing else; the router's own connections go out direct
 
 ### Requirement: Optional CPU pinning
 honk SHALL be placed by the scheduler by default. An option SHALL pin it to the board's big cores instead: the CPUs with the highest capacity. These are the Cortex-A72 cores cpu4-5 on the NanoPi R4S, and the Cortex-A76 cores cpu4-7 on the NanoPi R6S.

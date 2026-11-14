@@ -139,7 +139,7 @@ def test_honk_binds_only_the_lan(proxy: Online) -> None:
     assert not any(honk.match(name) for names in wan.values() for name in names), wan
 
 
-@spec(CAPABILITY, "Bind LAN-side interfaces only", "Check the cgroup programs")
+@spec(CAPABILITY, "Router-originated traffic goes direct", "Check the cgroup programs")
 def test_honk_s_cgroup_programs_leave_the_router_s_sockets_alone(proxy: Online) -> None:
     tree = proxy.router.run("bpftool cgroup tree /sys/fs/cgroup")
     attached = set(re.findall(r"^\d+\s+(\S+)\s+\S+\s+(\S+)\s*$", tree, flags=re.MULTILINE))
