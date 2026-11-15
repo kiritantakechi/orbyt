@@ -2,8 +2,8 @@
 
 ## 1. Token mode on the router (design D1)
 
-- [ ] 1.1 honk's init writes `password_auth`, `allow_anonymous_loopback` and `config_write` as false into the firmware's settings.
-- [ ] 1.2 config-push reads the native API's booleans in honk's spellings, refuses anything but a false one for the three, refuses a blank `secret`, and says the router keeps them off anyway.
+- [x] 1.1 honk's init writes `password_auth`, `allow_anonymous_loopback` and `config_write` as false into the firmware's settings.
+- [x] 1.2 config-push reads the native API's booleans in honk's spellings, refuses anything but a false one for the three, refuses a blank `secret`, and says the router keeps them off anyway.
 - [x] 1.3 LuCI's switch replaces an empty secret with a new token (daeuniverse 0001).
 
   Verify:
@@ -13,9 +13,9 @@
 
 ## 2. The push puts back what it changed (design D2, D3)
 
-- [ ] 2.1 Putting honk back stops it when its start-at-boot switch is off; `write` returns whether its files went in, and `apply` puts the service back when they did not.
-- [ ] 2.2 SMB passwords go to `ksmbd.adduser` on standard input; ksmbd-tools' fix for a piped password is backported (packages 0014).
-- [ ] 2.3 config-push refuses the dae layout, naming `git mv dae honk`; on a router without honk, it fails before changing anything.
+- [x] 2.1 Putting honk back stops it when its start-at-boot switch is off; `write` returns whether its files went in, and `apply` puts the service back when they did not.
+- [x] 2.2 SMB passwords go to `ksmbd.adduser` on standard input; ksmbd-tools' fix for a piped password is backported (packages 0014).
+- [x] 2.3 config-push refuses the dae layout, naming `git mv dae honk`; on a router without honk, it fails before changing anything.
 
   Verify:
   - the push tests of a honk that was off, of the dae layout and of the secrets on the device pass: no recorded or sampled command line holds the added user's password, and its stored entry equals the one `-p` stores;
@@ -36,25 +36,25 @@
 
 ## 4. Packaging (design D5)
 
-- [ ] 4.1 No core dumps for honk; `check` creates no directory and takes an absolute path; a failed pinning is logged.
-- [ ] 4.2 Dependencies: `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for wrt-sync.
-- [ ] 4.3 The bindgen includes expand at compile time and stop the build when empty; `PKG_FILE_DEPENDS` rebuilds honk with bpf-linker or doona.
+- [x] 4.1 No core dumps for honk; `check` creates no directory and takes an absolute path; a failed pinning is logged.
+- [x] 4.2 Dependencies: `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for wrt-sync.
+- [x] 4.3 The bindgen includes expand at compile time and stop the build when empty; `PKG_FILE_DEPENDS` rebuilds honk with bpf-linker or doona.
 
   Verify:
   - both boards build; the image keeps bpftool-minimal and flock;
-  - honk re-prepares after a touch of doona's Makefile.
+  - honk's prepared stamp moves with a change to doona's or bpf-linker's package, and back with its undoing.
 
 ## 5. Tests that prove their point (design D6)
 
 - [ ] 5.1 The hook-order test waits for each restarted daemon; the NFQUEUE table is compared with its handles; the native API's negatives have positive controls; the `ss` check goes; the LuCI save test's ping always ends.
-- [ ] 5.2 The push's watchers pause with ucode's `sleep`; argument recording covers `ksmbd.adduser`.
-- [ ] 5.3 netprobe's flow count is exact and its unit test checks the count and the pacing; the pinned versions come from the feed's Makefiles.
+- [x] 5.2 The push's watchers pause with ucode's `sleep`; argument recording covers `ksmbd.adduser`.
+- [x] 5.3 netprobe's flow count is exact and its unit test checks the count and the pacing; the pinned versions come from the feed's Makefiles.
 
   Verify: `just check` passes; the unit tests pass on the VM.
 
 ## 6. einat 0.2.0 (design D8)
 
-- [ ] 6.1 einat goes to 0.2.0 with its mark patch carried over, and the NAT tests expect the pinned version.
+- [x] 6.1 einat goes to 0.2.0 with its mark patch carried over, and the NAT tests expect the pinned version.
 
   Verify: the R4S builds; the NAT tests pass; the register of reviewed warnings has no stale or unreviewed entry.
 
