@@ -46,7 +46,7 @@
 
 ## 5. Tests that prove their point (design D6)
 
-- [ ] 5.1 The hook-order test waits for each restarted daemon; the NFQUEUE table is compared with its handles; the native API's negatives have positive controls; the `ss` check goes; the LuCI save test's ping always ends.
+- [x] 5.1 The hook-order test waits for each restarted daemon; the NFQUEUE table is compared with its handles; the native API's negatives have positive controls; the `ss` check goes; the LuCI save test's ping always ends.
 - [x] 5.2 The push's watchers pause with ucode's `sleep`; argument recording covers `ksmbd.adduser`.
 - [x] 5.3 netprobe's flow count is exact and its unit test checks the count and the pacing; the pinned versions come from the feed's Makefiles.
 
