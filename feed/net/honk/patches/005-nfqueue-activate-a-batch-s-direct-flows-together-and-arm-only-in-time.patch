@@ -26,47 +26,71 @@ round again, as before. Arm -> originals -> Activate stays in FIFO
 order, and a failure after arming stays fatal.
 
 An armed flow that misses its hold is fatal by design, so arm a flow
-only with the time left for its activation, which comes after that of
-the flows armed before it in the batch: its deadline less a 300 ms
-margin and the activation work of those flows and its own, at a moving
-average per flow of the work without the waits for the backend (a
-stall must not inflate it), and never more than half the hold, so that
-a flow fresh from the queue is always armed and the average stays
-current rather than locking every direct flow out. A later flow expires
+only with the time left for its activation, which comes after the rest
+of the batch's commit and the release of the originals of every flow
+the batch arms: its deadline less a 300 ms margin, the commit work of
+the batch's requests still to visit, itself included, and the
+activation work of the flows armed before it and of those still to
+visit. The commit work goes at the slower of a moving average per
+request, from the batch's first visit until its armed flows can be
+activated, and the batch's own rate so far; the activation work at a
+moving average per flow without the waits for the backend (a stall
+must not inflate it). The reserve is at least half the hold: under load
+the work and waits between arming and activation outgrow what the
+measured work foretells, reaching a second on the emulator, where every
+flow that missed its hold had been armed with less than that left. And
+it is at most all of the hold but the margin, so that a flow fresh from
+the queue is always armed and the averages stay current rather than
+locking every direct flow out. A later flow expires
 unarmed, without conn mutation, as a late request already does; its
 originals are dropped and its client retries. Overload sheds new flows
-instead of ending the process.
+instead of ending the process. Reserving the activation work of the
+flows armed before it alone was not enough: under host load, a flow
+visited early in a batch of 44 was armed with 365 ms left and missed
+its hold while the 43 requests after it committed, 8 ms each, and
+during a firewall reload one of a batch of 81, armed by the recorded
+2.6 ms a request, missed it while the rest committed at 6.4 ms each and
+the batch's 81 flows had their originals released.
 
 Tests: direct flows decided together, while a scanner holds the backend
 for reading 150 ms at a time, are all activated (unpatched: the later
 ones fail with ArmedInProgress); a flow without time for its activation
 expires unarmed, nothing armed and nothing fatal (unpatched: armed);
-a flow fresh from the queue is armed however long activations took;
-a batch's first armed flow reserves its own activation only and a
-later one those before it too; and the reserve follows the recorded
-work, up to its bound. The design
-document describes both.
+a flow fresh from the queue is armed however long commits and
+activations took; a flow past half its hold expires unarmed however
+little its batch's work (without the floor: armed); a flow visited
+early in a batch reserves the commit
+work of the requests after it (without that: armed); a batch slowed
+down reserves at its own rate (by the recorded one: armed); a flow
+reserves the activation work of the flows its batch may still arm (of
+those before it alone: armed); and the reserve follows the recorded
+work, up to its bound. The design document describes both.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
- .../honk-core/src/control/nfqueue/commit.rs   |  92 +++++--
- crates/honk-core/src/control/nfqueue/mod.rs   |   9 +
- .../src/control/nfqueue/tests/batching.rs     | 184 ++++++++++++++
- .../src/control/nfqueue/transition.rs         | 227 +++++++++++++-----
- .../honk-core/src/control/nfqueue/watchdog.rs |  29 ---
+ .../honk-core/src/control/nfqueue/commit.rs   | 133 ++++++--
+ crates/honk-core/src/control/nfqueue/mod.rs   |  16 +
+ .../src/control/nfqueue/tests/batching.rs     | 290 ++++++++++++++++++
+ .../src/control/nfqueue/transition.rs         | 227 ++++++++++----
+ .../honk-core/src/control/nfqueue/watchdog.rs |  29 --
  doc/en/design/nfqueue.md                      |   2 +-
  doc/zh/design/nfqueue.md                      |   2 +-
- 7 files changed, 428 insertions(+), 117 deletions(-)
+ 7 files changed, 582 insertions(+), 117 deletions(-)
 
 diff --git a/crates/honk-core/src/control/nfqueue/commit.rs b/crates/honk-core/src/control/nfqueue/commit.rs
-index 2042fef..010f72d 100644
+index 2042fef..6e9d7b3 100644
 --- a/crates/honk-core/src/control/nfqueue/commit.rs
 +++ b/crates/honk-core/src/control/nfqueue/commit.rs
-@@ -9,6 +9,10 @@ pub(super) struct CommitPump {
+@@ -9,6 +9,15 @@ pub(super) struct CommitPump {
      task: tokio::sync::Mutex<CommitTask>,
      stop: watch::Sender<bool>,
      work: AtomicUsize,
++    /// The commit work each request of a batch has lately taken, from the
++    /// batch's first visit until its armed flows can be activated: the
++    /// visits, the release of the fences and the completion of the batch's
++    /// other requests. A moving average over the batches.
++    commit_cost: Mutex<Duration>,
 +    /// The activation work each armed flow has lately taken, off and under
 +    /// the backend lock but without waiting for it: a moving average over the
 +    /// batches.
@@ -74,56 +98,89 @@ index 2042fef..010f72d 100644
      #[cfg(test)]
      pub(super) after_lock_delay: Mutex<Option<Duration>>,
  }
-@@ -30,6 +34,7 @@ impl CommitPump {
+@@ -30,6 +39,8 @@ impl CommitPump {
              }),
              stop,
              work: AtomicUsize::new(0),
++            commit_cost: Mutex::new(Duration::ZERO),
 +            activation_cost: Mutex::new(Duration::ZERO),
              #[cfg(test)]
              after_lock_delay: Mutex::new(None),
          }
-@@ -38,6 +43,24 @@ impl CommitPump {
+@@ -38,6 +49,48 @@ impl CommitPump {
      pub(super) fn is_idle(&self) -> bool {
          self.work.load(Ordering::Acquire) == 0
      }
 +
-+    /// The hold that arming must leave for the activation of a batch's
-+    /// `place`-th armed flow, which waits for the activation of the flows
-+    /// armed before it (activation is FIFO).
-+    pub(super) fn activation_reserve(&self, place: usize) -> Duration {
-+        let flows = u32::try_from(place).unwrap_or(u32::MAX);
++    /// The hold that arming must leave for the activation of a batch's flow
++    /// visited after `armed` of its flows were armed, with `remaining` of its
++    /// requests still to commit, itself included. Activation follows the rest
++    /// of the batch's commit, at the slower of the recorded rate and `rate`,
++    /// the batch's own so far, and the release of the originals of every flow
++    /// the batch arms, which comes before any of them is activated.
++    pub(super) fn activation_reserve(
++        &self,
++        armed: usize,
++        remaining: usize,
++        rate: Option<Duration>,
++    ) -> Duration {
++        let count = |n: usize| u32::try_from(n).unwrap_or(u32::MAX);
++        let recorded = *self.commit_cost.lock();
++        let commit = rate.map_or(recorded, |rate| rate.max(recorded));
 +        ACTIVATION_MARGIN
-+            .saturating_add(self.activation_cost.lock().saturating_mul(flows))
-+            .min(ACTIVATION_RESERVE_MAX)
++            .saturating_add(commit.saturating_mul(count(remaining)))
++            .saturating_add(
++                self.activation_cost
++                    .lock()
++                    .saturating_mul(count(armed + remaining)),
++            )
++            .clamp(ACTIVATION_RESERVE_MIN, ACTIVATION_RESERVE_MAX)
++    }
++
++    pub(super) fn record_commits(&self, elapsed: Duration, requests: usize) {
++        record(&self.commit_cost, elapsed, requests);
 +    }
 +
 +    pub(super) fn record_activations(&self, elapsed: Duration, flows: usize) {
-+        let Some(flows) = u32::try_from(flows).ok().filter(|&flows| flows > 0) else {
-+            return;
-+        };
-+        let mut cost = self.activation_cost.lock();
-+        *cost = (*cost * 3 + elapsed / flows) / 4;
++        record(&self.activation_cost, elapsed, flows);
 +    }
++}
++
++/// Fold `elapsed`, the work of `items`, into `cost`, a moving average per item.
++fn record(cost: &Mutex<Duration>, elapsed: Duration, items: usize) {
++    let Some(items) = u32::try_from(items).ok().filter(|&items| items > 0) else {
++        return;
++    };
++    let mut cost = cost.lock();
++    *cost = (*cost * 3 + elapsed / items) / 4;
  }
  
  struct CommitRequest {
-@@ -231,9 +254,14 @@ impl PendingUdpVerdicts {
+@@ -231,9 +284,22 @@ impl PendingUdpVerdicts {
              transition: request.transition,
          }));
          completed.resize_with(batch.len(), || Completion::NotRun);
-+        let mut armed_before = 0;
++        let mut armed = 0;
++        let mut visiting = None;
          let result = blocking_section(|| {
              backend.commit_udp_batch(requests, &mut |index, apply| {
 -                completed[index] = self.apply_pending_commit(&batch[index], apply)?;
-+                let reserve = self.commits.activation_reserve(armed_before + 1);
++                let first = *visiting.get_or_insert_with(Instant::now);
++                let rate = u32::try_from(index)
++                    .ok()
++                    .filter(|&visited| visited > 0)
++                    .map(|visited| first.elapsed() / visited);
++                let reserve = self
++                    .commits
++                    .activation_reserve(armed, batch.len() - index, rate);
 +                completed[index] = self.apply_pending_commit(&batch[index], reserve, apply)?;
 +                if matches!(completed[index], Completion::Armed) {
-+                    armed_before += 1;
++                    armed += 1;
 +                }
                  Ok(())
              })
          });
-@@ -254,32 +282,41 @@ impl PendingUdpVerdicts {
+@@ -254,32 +320,44 @@ impl PendingUdpVerdicts {
              }
              return;
          }
@@ -148,6 +205,9 @@ index 2042fef..010f72d 100644
 +                self.complete_request(request, completion);
              }
          }
++        if let Some(visiting) = visiting {
++            self.commits.record_commits(visiting.elapsed(), batch.len());
++        }
 +        if armed.is_empty() {
 +            return;
 +        }
@@ -183,7 +243,7 @@ index 2042fef..010f72d 100644
              Completion::Terminal(verdicts, outcome) => {
                  let mut result = Ok(());
                  for verdict in verdicts {
-@@ -294,6 +331,11 @@ impl PendingUdpVerdicts {
+@@ -294,6 +372,11 @@ impl PendingUdpVerdicts {
                  Err(self.fatal_error("commit batch", "backend omitted item".into()))
              }
          };
@@ -195,7 +255,7 @@ index 2042fef..010f72d 100644
          let result = result.and_then(|()| {
              if let Some(lease) = request.lease.as_mut()
                  && !lease.commit_kernel_handoff()
-@@ -315,10 +357,20 @@ impl PendingUdpVerdicts {
+@@ -315,10 +398,20 @@ impl PendingUdpVerdicts {
      fn apply_pending_commit(
          &self,
          request: &CommitRequest,
@@ -218,30 +278,37 @@ index 2042fef..010f72d 100644
          }
          let CellState::Pending {
 diff --git a/crates/honk-core/src/control/nfqueue/mod.rs b/crates/honk-core/src/control/nfqueue/mod.rs
-index 590cdd5..e427dee 100644
+index 590cdd5..cdac4ec 100644
 --- a/crates/honk-core/src/control/nfqueue/mod.rs
 +++ b/crates/honk-core/src/control/nfqueue/mod.rs
-@@ -36,6 +36,15 @@ use ingest::retained_state;
+@@ -36,6 +36,22 @@ use ingest::retained_state;
  pub(super) const TERMINAL_GRACE: Duration = Duration::from_millis(500);
  pub(super) const WATCHDOG_INTERVAL: Duration = Duration::from_millis(100);
  pub(super) const HARD_HOLD_TIMEOUT: Duration = Duration::from_secs(3);
-+/// What arming must leave of a flow's hold beyond its share of the batch's
-+/// activation work: the backend acquisition and the scheduling around it. An
-+/// armed flow that misses its hold is fatal, so a flow without that much
-+/// time left is not armed.
++/// What arming must leave of a flow's hold beyond the rest of its batch's
++/// commit and the batch's activation work: the backend acquisition and the
++/// scheduling around it.
 +pub(super) const ACTIVATION_MARGIN: Duration = Duration::from_millis(300);
-+/// The most that arming withholds, half the hold: a flow fresh from the queue
-+/// is always armed, which also keeps the measured activation work current.
-+pub(super) const ACTIVATION_RESERVE_MAX: Duration =
++/// The least that arming leaves of a flow's hold. An armed flow that misses
++/// its hold is fatal, and under load the work and waits between arming and
++/// activation outgrow what the measured work foretells (to a second on an
++/// emulated R4S under host load, where flows armed with less left missed
++/// their hold): a flow past half its hold is not armed.
++pub(super) const ACTIVATION_RESERVE_MIN: Duration =
 +    Duration::from_millis((HARD_HOLD_TIMEOUT.as_millis() / 2) as u64);
++/// The most that arming withholds, all of the hold but the margin: a flow
++/// fresh from the queue is always armed, which also keeps the measured
++/// commit and activation work current.
++pub(super) const ACTIVATION_RESERVE_MAX: Duration =
++    HARD_HOLD_TIMEOUT.saturating_sub(ACTIVATION_MARGIN);
  const MAX_SCHEDULED_CLEANUPS: usize = honk_nfqueue::QUEUE_MAXLEN as usize;
  const MAX_CORRELATOR_FLOWS: usize = honk_nfqueue::QUEUE_MAXLEN as usize;
  const MAX_HELD_VERDICTS_PER_FLOW: usize = 64;
 diff --git a/crates/honk-core/src/control/nfqueue/tests/batching.rs b/crates/honk-core/src/control/nfqueue/tests/batching.rs
-index b9d8b05..55864b5 100644
+index b9d8b05..1e6f46e 100644
 --- a/crates/honk-core/src/control/nfqueue/tests/batching.rs
 +++ b/crates/honk-core/src/control/nfqueue/tests/batching.rs
-@@ -453,3 +453,187 @@ async fn terminal_verdicts_are_settled_before_another_batched_flow_waits_to_acti
+@@ -453,3 +453,293 @@ async fn terminal_verdicts_are_settled_before_another_batched_flow_waits_to_acti
      proxy.unwrap();
      fixture.pending.shutdown_commit_pump().await.unwrap();
  }
@@ -249,10 +316,10 @@ index b9d8b05..55864b5 100644
 +/// The fixture's flow and `count` more, each with `remaining` of its hold
 +/// left and one held original; return the more flows' leases and identities.
 +fn staged(
++    mut mock: MockEbpfBackend,
 +    count: u16,
 +    remaining: Duration,
 +) -> (DecisionFixture, Vec<(UdpInitLease, PendingUdpIdentity)>) {
-+    let mut mock = MockEbpfBackend::new();
 +    let keys: Vec<_> = (1..=count)
 +        .map(|port| {
 +            FlowKey::new(
@@ -313,7 +380,7 @@ index b9d8b05..55864b5 100644
 +/// backend meanwhile (the janitor's scans hold it for reading).
 +#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 +async fn direct_flows_decided_together_are_activated_together() {
-+    let (fixture, flows) = staged(19, Duration::from_millis(1200));
++    let (fixture, flows) = staged(MockEbpfBackend::new(), 19, Duration::from_millis(2000));
 +    let scanning = Arc::new(std::sync::atomic::AtomicBool::new(true));
 +    let scanner = tokio::task::spawn_blocking({
 +        let backend = Arc::clone(&fixture.backend);
@@ -368,16 +435,83 @@ index b9d8b05..55864b5 100644
 +}
 +
 +#[test]
-+fn the_activation_reserve_follows_the_activations() {
++fn the_activation_reserve_follows_the_recorded_work() {
 +    let pump = commit::CommitPump::new();
-+    assert_eq!(pump.activation_reserve(10), ACTIVATION_MARGIN);
-+    pump.record_activations(Duration::from_millis(40), 4);
++    // However little the work, arming leaves half the hold.
++    assert_eq!(pump.activation_reserve(0, 10, None), ACTIVATION_RESERVE_MIN);
++    // 100 ms of activation work a flow.
++    pump.record_activations(Duration::from_millis(400), 1);
 +    assert_eq!(
-+        pump.activation_reserve(10),
-+        ACTIVATION_MARGIN + Duration::from_micros(2500) * 10
++        pump.activation_reserve(15, 1, None),
++        ACTIVATION_MARGIN + Duration::from_millis(100) * 16
++    );
++    // And 100 ms of commit work a request.
++    pump.record_commits(Duration::from_millis(400), 1);
++    let recorded =
++        ACTIVATION_MARGIN + Duration::from_millis(100) * 3 + Duration::from_millis(100) * 13;
++    assert_eq!(pump.activation_reserve(10, 3, None), recorded);
++    // The batch's own rate counts only where it is the slower.
++    assert_eq!(
++        pump.activation_reserve(10, 3, Some(Duration::from_millis(1))),
++        recorded
++    );
++    assert_eq!(
++        pump.activation_reserve(10, 3, Some(Duration::from_millis(200))),
++        ACTIVATION_MARGIN + Duration::from_millis(200) * 3 + Duration::from_millis(100) * 13
 +    );
 +    pump.record_activations(Duration::from_secs(60), 1);
-+    assert_eq!(pump.activation_reserve(1), ACTIVATION_RESERVE_MAX);
++    assert_eq!(pump.activation_reserve(0, 1, None), ACTIVATION_RESERVE_MAX);
++}
++
++/// A flow past half its hold is not armed, however little work its batch
++/// has lately needed: under host load the emulated R4S took up to a second
++/// from arming to activation, and flows armed with less left missed their
++/// hold.
++#[tokio::test]
++async fn a_flow_past_half_its_hold_expires_unarmed() {
++    let mock = MockEbpfBackend::new();
++    let trace = Arc::clone(&mock.commit_trace);
++    let mut fixture = pending_fixture_with(47, mock);
++    deadline(
++        &fixture,
++        ACTIVATION_RESERVE_MIN - Duration::from_millis(100),
++    );
++    let result = fixture
++        .pending
++        .activate_direct(fixture.identity, fixture.lease, 0x1200)
++        .await;
++    assert!(result.is_err(), "{result:?}");
++    assert!(trace.lock().is_empty(), "nothing was armed");
++    assert!(fixture.fatal.try_recv().is_err());
++    fixture.pending.shutdown_commit_pump().await.unwrap();
++}
++
++/// The commit still to come goes at the slower of the recorded rate and the
++/// batch's own: on the emulated R4S a firewall reload more than doubled a
++/// request's commit work, and a flow armed by the recorded rate missed its
++/// hold while the rest of its batch committed.
++#[tokio::test]
++async fn a_slow_batch_reserves_at_its_own_rate() {
++    let mut mock = MockEbpfBackend::new();
++    // The second request's commit waits 0.8 s: the batch's own rate.
++    mock.commit_item_delay = Some((1, Duration::from_millis(800)));
++    let (fixture, flows) = staged(mock, 2, Duration::from_millis(2400));
++    let mut flows = flows.into_iter();
++    let (second, second_id) = flows.next().unwrap();
++    let (third, third_id) = flows.next().unwrap();
++    let first = fixture
++        .pending
++        .activate_direct(fixture.identity, fixture.lease, 0x1200);
++    let second = fixture.pending.activate_direct(second_id, second, 0x1200);
++    let third = fixture.pending.activate_direct(third_id, third, 0x1200);
++    let (first, second, third) = tokio::join!(biased; first, second, third);
++    first.unwrap();
++    // Visited with 1.6 s left and two requests at 0.8 s each to commit.
++    assert!(second.is_err(), "{second:?}");
++    third.unwrap();
++    let mut fatal = fixture.fatal;
++    assert!(fatal.try_recv().is_err());
++    fixture.pending.shutdown_commit_pump().await.unwrap();
 +}
 +
 +/// However long activations have taken, a flow fresh from the queue is still
@@ -386,6 +520,10 @@ index b9d8b05..55864b5 100644
 +#[tokio::test]
 +async fn a_fresh_flow_is_armed_however_long_activations_took() {
 +    let mut fixture = pending_fixture(46);
++    fixture
++        .pending
++        .commits
++        .record_commits(Duration::from_secs(60), 1);
 +    fixture
 +        .pending
 +        .commits
@@ -399,17 +537,19 @@ index b9d8b05..55864b5 100644
 +    fixture.pending.shutdown_commit_pump().await.unwrap();
 +}
 +
-+/// Activation is FIFO, so a batch's first armed flow reserves its own
-+/// activation only, and a later one its own and those before it.
++/// Activation waits for the rest of the batch's commit, so a flow visited
++/// early in a batch reserves the commit work of the requests after it: armed
++/// with less, it missed its hold while they committed (an emulated R4S under
++/// load, 8 ms a request).
 +#[tokio::test]
-+async fn each_flow_reserves_the_activations_before_it() {
++async fn a_flow_reserves_the_rest_of_its_batch() {
 +    let (mut fixture, second, second_id) = pair(MockEbpfBackend::new());
-+    // One second of activation work a flow.
++    // A second of commit work a request.
 +    fixture
 +        .pending
 +        .commits
-+        .record_activations(Duration::from_secs(4), 1);
-+    let remaining = Duration::from_millis(1400);
++        .record_commits(Duration::from_secs(4), 1);
++    let remaining = Duration::from_millis(2000);
 +    deadline(&fixture, remaining);
 +    {
 +        let cell = fixture.pending.matching_cell(second_id).unwrap();
@@ -424,8 +564,41 @@ index b9d8b05..55864b5 100644
 +        .activate_direct(fixture.identity, fixture.lease, 0x1200);
 +    let second = fixture.pending.activate_direct(second_id, second, 0x1200);
 +    let (first, second) = tokio::join!(biased; first, second);
-+    first.unwrap();
-+    assert!(second.is_err(), "{second:?}");
++    assert!(first.is_err(), "{first:?}");
++    second.unwrap();
++    assert!(fixture.fatal.try_recv().is_err());
++    fixture.pending.shutdown_commit_pump().await.unwrap();
++}
++
++/// The originals of every flow a batch arms are released before any of them
++/// is activated, so a flow reserves the activation work of the flows armed
++/// before it and of those still to commit: the first of two flows, which the
++/// second may join, has too little left for both.
++#[tokio::test]
++async fn each_flow_reserves_the_activations_of_its_batch() {
++    let (mut fixture, second, second_id) = pair(MockEbpfBackend::new());
++    // One second of activation work a flow.
++    fixture
++        .pending
++        .commits
++        .record_activations(Duration::from_secs(4), 1);
++    let remaining = Duration::from_millis(2000);
++    deadline(&fixture, remaining);
++    {
++        let cell = fixture.pending.matching_cell(second_id).unwrap();
++        let mut state = cell.state.lock();
++        let CellState::Pending { started_at, .. } = &mut *state else {
++            panic!("pending")
++        };
++        *started_at = Instant::now() - HARD_HOLD_TIMEOUT + remaining;
++    }
++    let first = fixture
++        .pending
++        .activate_direct(fixture.identity, fixture.lease, 0x1200);
++    let second = fixture.pending.activate_direct(second_id, second, 0x1200);
++    let (first, second) = tokio::join!(biased; first, second);
++    assert!(first.is_err(), "{first:?}");
++    second.unwrap();
 +    assert!(fixture.fatal.try_recv().is_err());
 +    fixture.pending.shutdown_commit_pump().await.unwrap();
 +}
@@ -725,7 +898,7 @@ index df224c0..dbd6099 100644
          &'a self,
          cell: &Arc<FlowCell>,
 diff --git a/doc/en/design/nfqueue.md b/doc/en/design/nfqueue.md
-index 42c4e0b..1aae47d 100644
+index 42c4e0b..01d6155 100644
 --- a/doc/en/design/nfqueue.md
 +++ b/doc/en/design/nfqueue.md
 @@ -102,7 +102,7 @@ Proxy does not create a second routing path. It reuses the same `UdpInitLease` a
@@ -733,12 +906,12 @@ index 42c4e0b..1aae47d 100644
  Every packet has one absolute three-second receipt-to-verdict deadline measured from raw-netlink listener receipt. Actor delay, commit-queue wait and every backend-lock wait consume that same budget, including the second lock acquisition between Direct Arm and Activate. Queue, correlator, slow-path, or deadline saturation drops fail closed rather than extending ownership or memory growth.
  
 -`PendingUdpVerdicts` owns a joined pump that batches up to 1,024 terminal requests, locks backend write → correlator cell, and releases the backend lock before endpoint kernel handoff. Synchronous backend work uses `block_in_place` on multi-thread runtimes and runs inline on current-thread runtimes. The pump retains direct/block leases across caller cancellation; it rechecks original deadlines at dequeue, after backend locking, after grace and before each item, expiring late requests without conn mutation. Cancellation waits for armed Direct completion under that same deadline.
-+`PendingUdpVerdicts` owns a joined pump that batches up to 1,024 terminal requests, locks backend write → correlator cell, and releases the backend lock before endpoint kernel handoff. Synchronous backend work uses `block_in_place` on multi-thread runtimes and runs inline on current-thread runtimes. The pump retains direct/block leases across caller cancellation; it rechecks original deadlines at dequeue, after backend locking, after grace and before each item, expiring late requests without conn mutation. A Direct request is late, and expires unarmed, once its deadline leaves less than its activation needs, which comes after that of the Direct flows armed before it in the batch: a 300 ms margin plus the activation work of those flows and its own, at a moving average per flow of the work without the waits for the backend, and never more than half the hold, so that a flow fresh from the queue is always armed and the average stays current. The batch's armed flows then accept their held originals off the backend lock, oldest first, and one backend acquisition activates every flow whose originals are out; a flow whose originals arrived meanwhile goes round again. Cancellation waits for armed Direct completion under that same deadline.
++`PendingUdpVerdicts` owns a joined pump that batches up to 1,024 terminal requests, locks backend write → correlator cell, and releases the backend lock before endpoint kernel handoff. Synchronous backend work uses `block_in_place` on multi-thread runtimes and runs inline on current-thread runtimes. The pump retains direct/block leases across caller cancellation; it rechecks original deadlines at dequeue, after backend locking, after grace and before each item, expiring late requests without conn mutation. A Direct request is late, and expires unarmed, once its deadline leaves less than its activation needs, which comes after the rest of the batch's commit and the release of the originals of every flow the batch arms: a 300 ms margin; the commit work of the batch's requests still to visit, itself included, at the slower of a moving average per request (from the batch's first visit until its armed flows can be activated) and the batch's own rate so far; and the activation work of the flows armed before it and of those still to visit, at a moving average per flow (without the waits for the backend); at least half the hold, since under load the work and waits between arming and activation outgrow what the measured work foretells, and at most all of the hold but the margin, so that a flow fresh from the queue is always armed and the averages stay current. The batch's armed flows then accept their held originals off the backend lock, oldest first, and one backend acquisition activates every flow whose originals are out; a flow whose originals arrived meanwhile goes round again. Cancellation waits for armed Direct completion under that same deadline.
  
  A watchdog checks held cells independently and enforces the hard hold bound. Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
  
 diff --git a/doc/zh/design/nfqueue.md b/doc/zh/design/nfqueue.md
-index c1a2eaf..89f857c 100644
+index c1a2eaf..79e9fb6 100644
 --- a/doc/zh/design/nfqueue.md
 +++ b/doc/zh/design/nfqueue.md
 @@ -98,7 +98,7 @@ Proxy 不会创建第二条路由路径。它复用普通透明 UDP 使用的同
@@ -746,7 +919,7 @@ index c1a2eaf..89f857c 100644
  每个包只有一个从 raw-netlink listener 收包到 verdict 的绝对 3 秒截止时间。Actor 延迟、commit 队列等待和每一次后端锁等待都消耗同一预算，包括 Direct Arm 与 Activate 之间的第二次取锁。队列、correlator 或 slow path 饱和，或截止时间到期时，均按 fail-closed 丢包，不延长所有权，也不继续增加内存占用。
  
 -`PendingUdpVerdicts` 持有 joined pump，每批最多处理 1,024 个终态请求，按后端写锁 → correlator cell 取锁，并在释放后端锁后交接 endpoint 给内核。同步后端工作在多线程 runtime 上用 `block_in_place`，在 current-thread runtime 上内联执行。Pump 在调用方取消后仍持有 direct/block lease；在出队、取得后端锁后、grace 后及每项执行前复验原始 deadline，过期请求不修改 conn。取消等待已 Arm Direct 在同一期限内完成。
-+`PendingUdpVerdicts` 持有 joined pump，每批最多处理 1,024 个终态请求，按后端写锁 → correlator cell 取锁，并在释放后端锁后交接 endpoint 给内核。同步后端工作在多线程 runtime 上用 `block_in_place`，在 current-thread runtime 上内联执行。Pump 在调用方取消后仍持有 direct/block lease；在出队、取得后端锁后、grace 后及每项执行前复验原始 deadline，过期请求不修改 conn。Direct 请求的剩余时间一旦不足以完成它自己的激活（激活按先后进行，排在本批先前已 Arm 的 Direct 流之后：300 ms 余量，加上这些流与它自身的激活工作，按批次实测、不含等待后端锁的每流平均耗时计，且至多为保持期限的一半，使刚出队的流总能 Arm，平均值也随之持续更新），即视为过期，不 Arm 而直接到期。本批已 Arm 的流先在后端锁外、按先后放行各自持有的原始包，再取一次后端锁激活所有原始包已放行的流；其间又有原始包到达的流放行后进入下一轮。取消等待已 Arm Direct 在同一期限内完成。
++`PendingUdpVerdicts` 持有 joined pump，每批最多处理 1,024 个终态请求，按后端写锁 → correlator cell 取锁，并在释放后端锁后交接 endpoint 给内核。同步后端工作在多线程 runtime 上用 `block_in_place`，在 current-thread runtime 上内联执行。Pump 在调用方取消后仍持有 direct/block lease；在出队、取得后端锁后、grace 后及每项执行前复验原始 deadline，过期请求不修改 conn。Direct 请求的剩余时间一旦不足以完成它自己的激活（激活在本批其余提交之后，也在本批所有已 Arm 流的原始包放行之后：300 ms 余量；本批尚待处理的请求（含它自身）的提交工作，按实测每请求平均耗时（自本批首次处理请求起，至其已 Arm 的流可以激活为止）与本批迄今实际速率中较慢者计；以及先前已 Arm 的流与尚待处理的流的激活工作，按不含等待后端锁的每流平均耗时计；至少为保持期限的一半，因为负载下从 Arm 到激活的工作与等待会超出实测工作所能预计的范围；至多为保持期限减去余量，使刚出队的流总能 Arm，平均值也随之持续更新），即视为过期，不 Arm 而直接到期。本批已 Arm 的流先在后端锁外、按先后放行各自持有的原始包，再取一次后端锁激活所有原始包已放行的流；其间又有原始包到达的流放行后进入下一轮。取消等待已 Arm Direct 在同一期限内完成。
  
  Watchdog 独立检查持有的 cell，并强制执行硬持有上限。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
  

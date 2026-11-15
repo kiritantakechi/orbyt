@@ -67,6 +67,10 @@
 
   Verify: honk's unit tests of batched activation and of a flow without time for its activation fail on the unpatched pump and pass with the patch; the transparent-proxy test of a stream of new flows passes on both boards.
 
+- [ ] 6.4 honk withstands the stream on CI's slower runners: the shed flows' token cleanups retired together, one grace period a batch, by the commit pump between its batches in its turn for the backend, a token cleanup the full set has no room for left to the janitor and counted, and a flow armed only with the time left for the rest of its batch's commit and the release of every armed flow's originals; two patches and an amendment of 6.3's, meant for upstream, with their write-ups (D7).
+
+  Verify: honk's unit tests of the batched drain, of the pump's turn among readers, of a full cleanup set and of a flow reserving the rest of its batch fail without the fix and pass with it; on the R4S under CI-like load (four cores and stress-ng) the transparent-proxy test of a stream of new flows passes with the same honk process; the network suite passes on both boards in CI.
+
 ## 7. The LuCI pages from daeuniverse's feed (design D1, D8)
 
 - [x] 7.1 Pin daeuniverse/openwrt-packages in `upstream.lock` as `daeuniverse`; `docs/upstream-lock.md`; the build/upstream-pinning and release/upstream-bump tests for four repositories.

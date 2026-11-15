@@ -1,0 +1,296 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sun, 15 Nov 2026 12:16:28 +0800
+Subject: [PATCH] nfqueue: leave token cleanups past the bound to the janitor
+
+The scheduled cleanups are bounded by the queue's length, and reaching
+the bound is fatal ("scheduled cleanup set reached NFQUEUE maxlen"),
+but a cleanup outlives the packet it came from: the packet is shed at
+once, while its token cleanup waits for the drain. When flows are shed
+faster than their staging can be retired, the set fills, however fast
+the drain, and honk exits. On an emulated NanoPi R4S under host load,
+token cleanups retired together, a retirement still took some 4 ms and
+the drain retired about 206 a second, while a stream of 200 new UDP
+flows a second that wait for honk's decision was shed at about 200 a
+second for ninety seconds, the set holding up to 2,865: a runner a few
+per cent slower fills it.
+
+A token cleanup only hastens the retirement of staging the kernel
+keeps fenced by its token, which the janitor reclaims once it expires,
+as it reclaims the staging of a packet the kernel's queue dropped and
+userspace never saw. So a token cleanup the full set has no room for
+is left to the janitor and counted (cleanupFull among the API's NFQUEUE
+metrics), as the correlator counts the packets it has no room for
+(correlatorFull), instead of ending the process. A flow cleanup always
+has room: it settles one of the correlator's cells, so flow cleanups
+never outnumber them.
+
+Tests: a full set leaves one more token cleanup to the janitor,
+counted and without a fatal, and still takes a flow cleanup (with the
+fatal bound: the set refuses both). The API's metrics test reads the
+counter. The design and API references describe it.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ crates/honk-core/src/clash_api.rs             |  1 +
+ crates/honk-core/src/control/nfqueue/mod.rs   |  1 +
+ crates/honk-core/src/control/nfqueue/tests.rs | 40 +++++++++++++++++++
+ .../honk-core/src/control/nfqueue/watchdog.rs | 16 +++++---
+ crates/honk-core/src/stats.rs                 | 12 ++++++
+ crates/honk-core/tests/clash_api_test.rs      |  1 +
+ doc/en/design/nfqueue.md                      |  2 +-
+ doc/en/reference/api.md                       |  8 ++--
+ doc/zh/design/nfqueue.md                      |  2 +-
+ doc/zh/reference/api.md                       |  8 ++--
+ 10 files changed, 78 insertions(+), 13 deletions(-)
+
+diff --git a/crates/honk-core/src/clash_api.rs b/crates/honk-core/src/clash_api.rs
+index 2a4e164..f164e72 100644
+--- a/crates/honk-core/src/clash_api.rs
++++ b/crates/honk-core/src/clash_api.rs
+@@ -1160,6 +1160,7 @@ async fn get_outbound_stats(State(s): State<Arc<ClashState>>) -> Json<serde_json
+                 "socketReceiveBufferBytes": udp.nfqueue.socket_receive_buffer_bytes,
+                 "actorQueueFull": udp.nfqueue.actor_queue_full,
+                 "correlatorFull": udp.nfqueue.correlator_full,
++                "cleanupFull": udp.nfqueue.cleanup_full,
+                 "actorQueueDepth": udp.nfqueue.actor_queue_depth,
+                 "actorQueuedBytes": udp.nfqueue.actor_queued_bytes,
+                 "actorOldestAgeNanos": udp.nfqueue.actor_oldest_age_nanos,
+diff --git a/crates/honk-core/src/control/nfqueue/mod.rs b/crates/honk-core/src/control/nfqueue/mod.rs
+index 1bf8bb2..f6d2cc1 100644
+--- a/crates/honk-core/src/control/nfqueue/mod.rs
++++ b/crates/honk-core/src/control/nfqueue/mod.rs
+@@ -55,6 +55,7 @@ pub(super) const ACTIVATION_RESERVE_MIN: Duration =
+ /// commit and activation work current.
+ pub(super) const ACTIVATION_RESERVE_MAX: Duration =
+     HARD_HOLD_TIMEOUT.saturating_sub(ACTIVATION_MARGIN);
++/// The scheduled cleanups past which a token cleanup is left to the janitor.
+ const MAX_SCHEDULED_CLEANUPS: usize = honk_nfqueue::QUEUE_MAXLEN as usize;
+ const MAX_CORRELATOR_FLOWS: usize = honk_nfqueue::QUEUE_MAXLEN as usize;
+ const MAX_HELD_VERDICTS_PER_FLOW: usize = 64;
+diff --git a/crates/honk-core/src/control/nfqueue/tests.rs b/crates/honk-core/src/control/nfqueue/tests.rs
+index 4610dc6..1060c67 100644
+--- a/crates/honk-core/src/control/nfqueue/tests.rs
++++ b/crates/honk-core/src/control/nfqueue/tests.rs
+@@ -590,6 +590,46 @@ async fn scheduled_token_cleanups_retire_together() {
+     }
+ }
+ 
++/// Flows shed faster than they can be retired fill the scheduled set: a token
++/// cleanup it has no room for is left to the janitor and counted, and a flow
++/// cleanup, one per cell, still has room.
++#[tokio::test]
++async fn a_full_cleanup_set_leaves_token_cleanups_to_the_janitor() {
++    let key = |index: usize| {
++        FlowKey::new(
++            SocketAddr::from(([192, 0, 2, 10], 20_000 + u16::try_from(index).unwrap())),
++            "198.51.100.20:443".parse().unwrap(),
++        )
++    };
++    let backend: Arc<RwLock<Box<dyn EbpfBackend>>> = Arc::new(RwLock::new(Box::new(
++        crate::ebpf::mock::MockEbpfBackend::new(),
++    )));
++    let stats = Arc::new(StatsManager::new());
++    let (pending, mut fatal) = PendingUdpVerdicts::new(
++        backend,
++        Arc::new(UdpEndpointPool::new()),
++        Arc::clone(&stats),
++    );
++    for index in 0..=MAX_SCHEDULED_CLEANUPS {
++        pending.schedule_cleanup(CleanupRequest::Token {
++            key: key(index),
++            decision_token: 100 + u32::try_from(index).unwrap(),
++        });
++    }
++    let flow = CleanupRequest::Flow(PendingUdpIdentity::new(
++        key(0),
++        crate::ebpf::UdpFlowOwner::new(1, None).unwrap(),
++        0,
++    ));
++    pending.schedule_cleanup(flow);
++
++    let scheduled = pending.scheduled_cleanups.lock();
++    assert_eq!(scheduled.len(), MAX_SCHEDULED_CLEANUPS + 1);
++    assert!(scheduled.contains(&flow));
++    assert_eq!(stats.udp_snapshot().nfqueue.cleanup_full, 1);
++    assert!(fatal.try_recv().is_err());
++}
++
+ /// A reader that takes the backend again as soon as it lets it go, as the
+ /// ingest actor does under load, leaves a drain that only tries no turn: the
+ /// commit pump retires the token cleanups between its batches, waiting its
+diff --git a/crates/honk-core/src/control/nfqueue/watchdog.rs b/crates/honk-core/src/control/nfqueue/watchdog.rs
+index 1877ec7..96f4b09 100644
+--- a/crates/honk-core/src/control/nfqueue/watchdog.rs
++++ b/crates/honk-core/src/control/nfqueue/watchdog.rs
+@@ -361,17 +361,23 @@ impl PendingUdpVerdicts {
+         }
+     }
+ 
++    /// Schedule a cleanup. A flow cleanup always has room: it settles one of
++    /// the correlator's cells, so they never outnumber them. A token cleanup
++    /// only hastens the retirement of staging the kernel keeps fenced by its
++    /// token, which the janitor reclaims once it expires, as it reclaims the
++    /// staging of a packet the kernel's queue dropped. A token cleanup the
++    /// full set has no room for is left to it and counted, as the correlator
++    /// counts the packets it has no room for.
+     pub(super) fn schedule_cleanup(&self, request: CleanupRequest) {
+         let mut requests = self.scheduled_cleanups.lock();
+         if requests.contains(&request) {
+             return;
+         }
+-        if requests.len() >= MAX_SCHEDULED_CLEANUPS {
++        if matches!(request, CleanupRequest::Token { .. })
++            && requests.len() >= MAX_SCHEDULED_CLEANUPS
++        {
+             drop(requests);
+-            self.signal_fatal(PendingUdpFatal::new(
+-                "cleanup scheduling",
+-                "scheduled cleanup set reached NFQUEUE maxlen",
+-            ));
++            self.stats.record_udp_nfqueue_cleanup_full();
+             return;
+         }
+         requests.insert(request);
+diff --git a/crates/honk-core/src/stats.rs b/crates/honk-core/src/stats.rs
+index 48f8fec..75bdf11 100644
+--- a/crates/honk-core/src/stats.rs
++++ b/crates/honk-core/src/stats.rs
+@@ -220,6 +220,7 @@ struct UdpNfqueueStats {
+     socket_receive_buffer_bytes: AtomicU64,
+     actor_queue_full: AtomicU64,
+     correlator_full: AtomicU64,
++    cleanup_full: AtomicU64,
+     actor_queue_depth: AtomicU64,
+     actor_queued_bytes: AtomicU64,
+     actor_oldest_age_nanos: AtomicU64,
+@@ -256,6 +257,7 @@ impl UdpNfqueueStats {
+             socket_receive_buffer_bytes: self.socket_receive_buffer_bytes.load(Ordering::Relaxed),
+             actor_queue_full: self.actor_queue_full.load(Ordering::Relaxed),
+             correlator_full: self.correlator_full.load(Ordering::Relaxed),
++            cleanup_full: self.cleanup_full.load(Ordering::Relaxed),
+             actor_queue_depth: self.actor_queue_depth.load(Ordering::Relaxed),
+             actor_queued_bytes: self.actor_queued_bytes.load(Ordering::Relaxed),
+             actor_oldest_age_nanos: self.actor_oldest_age_nanos.load(Ordering::Relaxed),
+@@ -289,6 +291,7 @@ pub struct UdpNfqueueStatsSnapshot {
+     pub socket_receive_buffer_bytes: u64,
+     pub actor_queue_full: u64,
+     pub correlator_full: u64,
++    pub cleanup_full: u64,
+     pub actor_queue_depth: u64,
+     pub actor_queued_bytes: u64,
+     pub actor_oldest_age_nanos: u64,
+@@ -839,6 +842,14 @@ impl StatsManager {
+             .fetch_add(1, Ordering::Relaxed);
+     }
+ 
++    #[cfg(feature = "ebpf")]
++    pub fn record_udp_nfqueue_cleanup_full(&self) {
++        self.udp
++            .nfqueue
++            .cleanup_full
++            .fetch_add(1, Ordering::Relaxed);
++    }
++
+     /// Record one packet delivered by the NFQUEUE listener.
+     pub fn record_udp_nfqueue_received(&self) {
+         self.udp.nfqueue.received.fetch_add(1, Ordering::Relaxed);
+@@ -1213,6 +1224,7 @@ mod tests {
+         assert_eq!(nfqueue.socket_receive_buffer_bytes, 0);
+         assert_eq!(nfqueue.actor_queue_full, 0);
+         assert_eq!(nfqueue.correlator_full, 0);
++        assert_eq!(nfqueue.cleanup_full, 0);
+         assert_eq!(nfqueue.verdict_errors, 1);
+         assert_eq!(nfqueue.receipt_to_verdict_latency.count, 5);
+         assert_eq!(nfqueue.receipt_to_verdict_latency.sum_nanos, 31);
+diff --git a/crates/honk-core/tests/clash_api_test.rs b/crates/honk-core/tests/clash_api_test.rs
+index bfa83bf..1b935df 100644
+--- a/crates/honk-core/tests/clash_api_test.rs
++++ b/crates/honk-core/tests/clash_api_test.rs
+@@ -2419,6 +2419,7 @@ async fn stats_exposes_udp_metrics() {
+     assert_eq!(nfqueue["socketReceiveBufferBytes"], 0);
+     assert_eq!(nfqueue["actorQueueFull"], 0);
+     assert_eq!(nfqueue["correlatorFull"], 0);
++    assert_eq!(nfqueue["cleanupFull"], 0);
+     assert_eq!(nfqueue["actorQueueDepth"], 0);
+     assert_eq!(nfqueue["actorQueuedBytes"], 0);
+     assert_eq!(nfqueue["actorOldestAgeNanos"], 0);
+diff --git a/doc/en/design/nfqueue.md b/doc/en/design/nfqueue.md
+index 9061ab5..90995e1 100644
+--- a/doc/en/design/nfqueue.md
++++ b/doc/en/design/nfqueue.md
+@@ -104,7 +104,7 @@ Every packet has one absolute three-second receipt-to-verdict deadline measured
+ 
+ `PendingUdpVerdicts` owns a joined pump that batches up to 1,024 terminal requests, locks backend write → correlator cell, and releases the backend lock before endpoint kernel handoff. Synchronous backend work uses `block_in_place` on multi-thread runtimes and runs inline on current-thread runtimes. The pump retains direct/block leases across caller cancellation; it rechecks original deadlines at dequeue, after backend locking, after grace and before each item, expiring late requests without conn mutation. A Direct request is late, and expires unarmed, once its deadline leaves less than its activation needs, which comes after the rest of the batch's commit and the release of the originals of every flow the batch arms: a 300 ms margin; the commit work of the batch's requests still to visit, itself included, at the slower of a moving average per request (from the batch's first visit until its armed flows can be activated) and the batch's own rate so far; and the activation work of the flows armed before it and of those still to visit, at a moving average per flow (without the waits for the backend); at least half the hold, since under load the work and waits between arming and activation outgrow what the measured work foretells, and at most all of the hold but the margin, so that a flow fresh from the queue is always armed and the averages stay current. The batch's armed flows then accept their held originals off the backend lock, oldest first, and one backend acquisition activates every flow whose originals are out; a flow whose originals arrived meanwhile goes round again. Cancellation waits for armed Direct completion under that same deadline.
+ 
+-A watchdog checks held cells independently and enforces the hard hold bound, and drains the scheduled cleanups, bounded by the queue's length: a flow cleanup settles its cell, and token cleanups go to the backend together, up to a retirement batch under one fence/grace. The watchdog waits neither for the backend nor for another drainer. While the commit pump has work, the pump retires the token cleanups itself, a batch after each of its own, when none of its flows is armed, waiting its turn for the backend as for its commits: readers taking the backend in turn would leave a drain that only tries no turn, and a retirement elsewhere could hold the backend from an armed flow's activation. Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
++A watchdog checks held cells independently and enforces the hard hold bound, and drains the scheduled cleanups: a flow cleanup settles its cell, one per cell, and token cleanups, bounded by the queue's length, go to the backend together, up to a retirement batch under one fence/grace. The watchdog waits neither for the backend nor for another drainer. While the commit pump has work, the pump retires the token cleanups itself, a batch after each of its own, when none of its flows is armed, waiting its turn for the backend as for its commits: readers taking the backend in turn would leave a drain that only tries no turn, and a retirement elsewhere could hold the backend from an armed flow's activation. A token cleanup only hastens the retirement of staging the kernel keeps fenced by its token: one the full set has no room for, when flows are shed faster than they can be retired, is left to the janitor, which reclaims the staging once it expires, as it reclaims the staging of a packet the kernel's queue dropped, and counted (`cleanupFull`). Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
+ 
+ ## Fences and lifecycle
+ 
+diff --git a/doc/en/reference/api.md b/doc/en/reference/api.md
+index edba795..0f82676 100644
+--- a/doc/en/reference/api.md
++++ b/doc/en/reference/api.md
+@@ -1484,9 +1484,10 @@ Download or extraction failures are logged and do not stop the engine.
+       received, activeFlows, kernelQueueDepth, kernelStatsAvailable,
+       kernelStatsReadErrors, kernelDropped, kernelUserDropped, heldPackets,
+       heldPeak, socketReceiveBufferBytes, actorQueueFull, correlatorFull,
+-      actorQueueDepth, actorQueuedBytes, actorOldestAgeNanos, directAccepted,
+-      proxyCopied, proxyDropped, block, cancel, drop, tokenMismatch,
+-      tokenExhaustion, tokenRollovers, verdictErrors, receiptToVerdict: H
++      cleanupFull, actorQueueDepth, actorQueuedBytes, actorOldestAgeNanos,
++      directAccepted, proxyCopied, proxyDropped, block, cancel, drop,
++      tokenMismatch, tokenExhaustion, tokenRollovers, verdictErrors,
++      receiptToVerdict: H
+     }
+   }
+ }
+@@ -1756,6 +1757,7 @@ Each `H` is `{count, sumNanos, buckets}`. `count` is the number of observations
+ | `socketReceiveBufferBytes` | Effective netlink socket receive-buffer size. |
+ | `actorQueueFull` | Packets dropped fail-closed because the bounded ingest actor queue was full. |
+ | `correlatorFull` | Packets dropped at either hard correlator limit: 4,096 flow cells or 64 retained verdicts per flow. |
++| `cleanupFull` | Token cleanups of shed flows left to the janitor because 4,096 cleanups were already scheduled; their staging is reclaimed once it expires. |
+ | `actorQueueDepth` | Current ingest actor queue entries. |
+ | `actorQueuedBytes` | Current payload bytes retained in the ingest actor queue. |
+ | `actorOldestAgeNanos` | Age in nanoseconds of the oldest current ingest actor item. |
+diff --git a/doc/zh/design/nfqueue.md b/doc/zh/design/nfqueue.md
+index eba985d..459e7c0 100644
+--- a/doc/zh/design/nfqueue.md
++++ b/doc/zh/design/nfqueue.md
+@@ -100,7 +100,7 @@ Proxy 不会创建第二条路由路径。它复用普通透明 UDP 使用的同
+ 
+ `PendingUdpVerdicts` 持有 joined pump，每批最多处理 1,024 个终态请求，按后端写锁 → correlator cell 取锁，并在释放后端锁后交接 endpoint 给内核。同步后端工作在多线程 runtime 上用 `block_in_place`，在 current-thread runtime 上内联执行。Pump 在调用方取消后仍持有 direct/block lease；在出队、取得后端锁后、grace 后及每项执行前复验原始 deadline，过期请求不修改 conn。Direct 请求的剩余时间一旦不足以完成它自己的激活（激活在本批其余提交之后，也在本批所有已 Arm 流的原始包放行之后：300 ms 余量；本批尚待处理的请求（含它自身）的提交工作，按实测每请求平均耗时（自本批首次处理请求起，至其已 Arm 的流可以激活为止）与本批迄今实际速率中较慢者计；以及先前已 Arm 的流与尚待处理的流的激活工作，按不含等待后端锁的每流平均耗时计；至少为保持期限的一半，因为负载下从 Arm 到激活的工作与等待会超出实测工作所能预计的范围；至多为保持期限减去余量，使刚出队的流总能 Arm，平均值也随之持续更新），即视为过期，不 Arm 而直接到期。本批已 Arm 的流先在后端锁外、按先后放行各自持有的原始包，再取一次后端锁激活所有原始包已放行的流；其间又有原始包到达的流放行后进入下一轮。取消等待已 Arm Direct 在同一期限内完成。
+ 
+-Watchdog 独立检查持有的 cell，并强制执行硬持有上限。它还排空已调度的 cleanup（以队列长度为上限）：flow cleanup 结算其 cell，token cleanup 则合并交给后端，至多一个 retirement batch 共用一次 fence/grace。Watchdog 既不等待后端，也不等待其他排空者。Commit pump 有工作时，由它在每批之后、自己没有已 Arm 的流时退役 token cleanup，并像提交时一样排队等待后端：读者轮流持有后端时，只尝试一次的排空永远轮不到；在别处退役则可能使已 Arm 流的激活等不到后端。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
++Watchdog 独立检查持有的 cell，并强制执行硬持有上限。它还排空已调度的 cleanup：flow cleanup 结算其 cell，每个 cell 至多一个；token cleanup 以队列长度为上限，合并交给后端，至多一个 retirement batch 共用一次 fence/grace。Watchdog 既不等待后端，也不等待其他排空者。Commit pump 有工作时，由它在每批之后、自己没有已 Arm 的流时退役 token cleanup，并像提交时一样排队等待后端：读者轮流持有后端时，只尝试一次的排空永远轮不到；在别处退役则可能使已 Arm 流的激活等不到后端。Token cleanup 只是提早退役内核仍以 token 隔离的暂存：流被丢弃得比退役更快、集合已满时，放不下的 token cleanup 留给 janitor，由它在暂存过期后回收（与内核队列丢弃的报文留下的暂存相同），并计入 `cleanupFull`。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
+ 
+ ## 栅栏与生命周期
+ 
+diff --git a/doc/zh/reference/api.md b/doc/zh/reference/api.md
+index faf6e01..377683d 100644
+--- a/doc/zh/reference/api.md
++++ b/doc/zh/reference/api.md
+@@ -1353,9 +1353,10 @@ URLTest、LoadBalance、Fallback 与 Score 拒绝手动选择。
+       received, activeFlows, kernelQueueDepth, kernelStatsAvailable,
+       kernelStatsReadErrors, kernelDropped, kernelUserDropped, heldPackets,
+       heldPeak, socketReceiveBufferBytes, actorQueueFull, correlatorFull,
+-      actorQueueDepth, actorQueuedBytes, actorOldestAgeNanos, directAccepted,
+-      proxyCopied, proxyDropped, block, cancel, drop, tokenMismatch,
+-      tokenExhaustion, tokenRollovers, verdictErrors, receiptToVerdict: H
++      cleanupFull, actorQueueDepth, actorQueuedBytes, actorOldestAgeNanos,
++      directAccepted, proxyCopied, proxyDropped, block, cancel, drop,
++      tokenMismatch, tokenExhaustion, tokenRollovers, verdictErrors,
++      receiptToVerdict: H
+     }
+   }
+ }
+@@ -1621,6 +1622,7 @@ carrier 观测由控制心跳接入，与选路调用独立。
+ | `socketReceiveBufferBytes` | netlink socket 的有效接收缓冲区大小。 |
+ | `actorQueueFull` | 因有界 ingest 执行单元队列已满而失败时拒绝转发丢弃的报文数。 |
+ | `correlatorFull` | 达到任一 correlator 硬上限时丢弃的报文数：4,096 个流 cell 或每流 64 个 retained verdict。 |
++| `cleanupFull` | 已调度 4,096 个 cleanup 时，留给 janitor 的被丢弃流的 token cleanup 数；其暂存在过期后回收。 |
+ | `actorQueueDepth` | 当前 ingest 执行单元队列条目数。 |
+ | `actorQueuedBytes` | 当前 ingest 执行单元队列保留的载荷字节数。 |
+ | `actorOldestAgeNanos` | 当前最老 ingest 执行单元条目的年龄，单位为纳秒。 |
