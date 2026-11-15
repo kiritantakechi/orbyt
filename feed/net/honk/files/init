@@ -14,9 +14,9 @@ STOP=01
 # includes resolve as they do in its directory. The entry routes the DNS of
 # private addresses natively, then includes the configuration and, last, the
 # firmware's settings, which honk takes over the configuration's: the interfaces
-# to bind, the data directory and honk's DNS listener. The directory is made
-# anew beside the running one, checked by honk, and only then put in its place,
-# under /var/lock/honk.lock.
+# to bind, the data directory, honk's DNS listener and the native API's token
+# mode. The directory is made anew beside the running one, checked by honk, and
+# only then put in its place, under /var/lock/honk.lock.
 #
 # honk's data directory (its state database, subscriptions and geodata) is on
 # the data disk while that is mounted and writable, and in RAM otherwise: honk
@@ -67,9 +67,12 @@ big_cores() {
 	echo "${cores}"
 }
 
-# state_dir: honk's data directory as things are now, made on the data disk.
+# state_dir [make]: honk's data directory as things are now: on the data disk
+# while that is mounted and the directory there writable, made there with make;
+# in RAM otherwise.
 state_dir() {
-	if wrt_data_mounted && { [ -d "${STATE_DISK}" ] || mkdir -m 0700 "${STATE_DISK}"; } &&
+	if wrt_data_mounted &&
+		{ [ -d "${STATE_DISK}" ] || { [ "${1:-}" = make ] && mkdir -m 0700 "${STATE_DISK}"; }; } &&
 		[ -w "${STATE_DISK}" ]; then
 		echo "${STATE_DISK}"
 	else
@@ -77,8 +80,9 @@ state_dir() {
 	fi
 }
 
-# write_entry <configuration file> <directory>: make <directory>, a copy of the
-# file's directory with the firmware's entry and settings in it.
+# write_entry <configuration file> <directory> [make]: make <directory>, a copy
+# of the file's directory with the firmware's entry and settings in it; make
+# makes honk's data directory on the data disk, as the service does.
 write_entry() {
 	file=$1
 	run=$2
@@ -101,7 +105,7 @@ write_entry() {
 		# the last that has it.
 		printf 'include {\n\t%s\n\t%s\n}\n' "${file##*/}" "${SETTINGS_NAME}"
 	} >"${run}/${ENTRY_NAME}" || return 1
-	state=$(state_dir)
+	state=$(state_dir "${3:-}")
 	{
 		echo "# Written by /etc/init.d/honk: the firmware's settings."
 		printf 'global {\n'
@@ -111,6 +115,15 @@ write_entry() {
 		printf "\tdata_dir: '%s'\n" "${state}"
 		printf '}\n'
 		printf "dns {\n\tbind: '127.0.0.1:5353'\n}\n"
+		# The native API, if the configuration enables it, in token mode alone and
+		# never writing the configuration (honk-datapath D8): honk takes each of
+		# these from the last file that sets it, and then refuses an API without
+		# a token (secret).
+		printf 'experimental {\n\tnative_api {\n'
+		printf '\t\tpassword_auth: false\n'
+		printf '\t\tallow_anonymous_loopback: false\n'
+		printf '\t\tconfig_write: false\n'
+		printf '\t}\n}\n'
 	} >"${run}/${SETTINGS_NAME}"
 }
 
@@ -121,7 +134,7 @@ prepare() {
 	(
 		flock 9
 		rm -rf "${RUN}.new" "${RUN}.old"
-		write_entry "${config_file}" "${RUN}.new" &&
+		write_entry "${config_file}" "${RUN}.new" make &&
 			"${PROG}" --config "${RUN}.new/${ENTRY_NAME}" check || exit 1
 		if [ -e "${RUN}" ]; then
 			mv "${RUN}" "${RUN}.old" || exit 1
@@ -136,6 +149,13 @@ extra_command "check" "<file>: check a configuration as the service would run it
 # around the file, in a directory of its own (config-push validates this way).
 check() {
 	file=${1:?usage: /etc/init.d/honk check <configuration file>}
+	case ${file} in
+		/*) ;;
+		*)
+			echo "${file}: not an absolute path" >&2
+			return 1
+			;;
+	esac
 	run=$(mktemp -d /tmp/honk-check.XXXXXX) || return 1
 	write_entry "${file}" "${run}" && "${PROG}" --config "${run}/${ENTRY_NAME}" check
 	status=$?
@@ -180,7 +200,8 @@ pin() {
 	# Unpinned, honk has every CPU its parent has: the kernel keeps a cgroup
 	# with tasks from going back to an empty cpuset (ENOSPC).
 	[ -n "${cores}" ] || cores=$(cat "${CGROUP%/*}/cpuset.cpus.effective")
-	echo "${cores}" >"${CGROUP}/cpuset.cpus"
+	echo "${cores}" >"${CGROUP}/cpuset.cpus" ||
+		logger -t honk "cannot give honk the CPUs ${cores}"
 }
 
 start_service() {
@@ -195,8 +216,9 @@ start_service() {
 
 	procd_open_instance "${CONF}"
 	procd_set_param command "${PROG}" --config "${ENTRY}" --disable-timestamp
-	# honk budgets its flow admission from RLIMIT_NOFILE.
-	procd_set_param limits core="unlimited" nofile="1048576 1048576"
+	# honk budgets its flow admission from RLIMIT_NOFILE. No core dumps: they
+	# would land in /tmp, which is memory, one for every crash procd respawns.
+	procd_set_param limits nofile="1048576 1048576"
 	procd_set_param respawn
 	# honk's graceful shutdown can take over 10 s; its systemd unit allows 30.
 	procd_set_param term_timeout 30

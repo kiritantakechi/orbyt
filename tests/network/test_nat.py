@@ -18,7 +18,7 @@ from wrt_tests import spec
 from wrt_tests.model.poll import until
 from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
 from wrt_tests.sandbox.netprobe import HTTP_PORT
-from wrt_tests.services.datapath import EINAT, QOSIFY, WAN, hooks, tc_programs
+from wrt_tests.services.datapath import EINAT, NAT_RELEASE, QOSIFY, WAN, hooks, tc_programs
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -211,9 +211,9 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
 )
 def test_inbound_to_a_mapped_port_is_accepted(online: Online, einat_restored: Online) -> None:
     del einat_restored
-    # The einat our mark patch applies to.
-    # einat prints its version first: "version: 0.1.11 features: ..."
-    assert online.router.run("einat --version").split()[:2] == ["version:", "0.1.11"]
+    # The einat our mark patch applies to: it prints its version first,
+    # "version: <version> features: ...".
+    assert online.router.run("einat --version").split()[:2] == ["version:", NAT_RELEASE]
     before = _inbound_accepted(online)
     public = _map(online, 41004)
     assert Listener(online.client(), 41004).receives(_unasked(online, public))

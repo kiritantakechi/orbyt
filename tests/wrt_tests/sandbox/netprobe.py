@@ -289,14 +289,18 @@ def udp(host: str, port: int, *, source_port: int = 0, big: bool = False) -> See
 def flows(host: str, port: int, *, rate: float, seconds: float, sources: int = 0) -> Seen:
     """Start ``rate`` new UDP flows a second for ``seconds``: a datagram from a socket each.
 
-    Each flow has a fresh source port, or with ``sources`` one of that many in turn,
-    each time to the next destination port: every flow is still a new five-tuple,
-    and an endpoint-independent NAT maps no more than ``sources`` ports.
+    Every flow starts on its schedule, the flow after ``n`` of them ``n / rate``
+    seconds after the first, and one that falls behind starts as soon as it can,
+    so their number is ``rate * seconds`` however busy the host. Each flow has a
+    fresh source port, or with ``sources`` one of that many in turn, each time to
+    the next destination port: every flow is still a new five-tuple, and an
+    endpoint-independent NAT maps no more than ``sources`` ports.
     """
     family = _family(host)
     start = time.monotonic()
-    sent = 0
-    while time.monotonic() < start + seconds:
+    count = round(rate * seconds)
+    for sent in range(count):
+        time.sleep(max(0.0, start + sent / rate - time.monotonic()))
         with socket.socket(family, socket.SOCK_DGRAM) as sock:
             destination = port
             if sources:
@@ -304,9 +308,7 @@ def flows(host: str, port: int, *, rate: float, seconds: float, sources: int = 0
                 sock.bind(("", FLOW_SOURCE_BASE + sent % sources))
                 destination = port + sent // sources
             sock.sendto(b"whoami", (host, destination))
-        sent += 1
-        time.sleep(max(0.0, start + sent / rate - time.monotonic()))
-    return {"sent": sent}
+    return {"sent": count}
 
 
 def esp(host: str, spi: int) -> Seen:

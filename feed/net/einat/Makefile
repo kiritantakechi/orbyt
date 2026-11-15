@@ -4,12 +4,12 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=einat
-PKG_VERSION:=0.1.11
+PKG_VERSION:=0.2.0
 PKG_RELEASE:=1
 
 PKG_SOURCE:=einat-ebpf-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=https://codeload.github.com/EHfive/einat-ebpf/tar.gz/refs/tags/v$(PKG_VERSION)?
-PKG_HASH:=24bfa2346bc7de38626d2873aae5cacd95ba686d2fff8e37adaaef52d7b69847
+PKG_HASH:=9ce37e1415bced8d9ba8676894faa6f5535c4a884fceedb7fcdd0da54f5682a6
 PKG_BUILD_DIR:=$(BUILD_DIR)/einat-ebpf-$(PKG_VERSION)
 
 PKG_LICENSE:=GPL-2.0-or-later GPL-2.0-only
@@ -37,7 +37,7 @@ define Package/einat
   SUBMENU:=Routing and Redirection
   TITLE:=Endpoint-independent NAT44 in eBPF (full cone)
   URL:=https://github.com/EHfive/einat-ebpf
-  DEPENDS:=@(aarch64||x86_64) $(BPF_DEPENDS) +kmod-sched-core +kmod-sched-bpf \
+  DEPENDS:=@(aarch64||x86_64) $(BPF_DEPENDS) +bpftool +kmod-sched-core +kmod-sched-bpf \
     +@KERNEL_DEBUG_FS +@KERNEL_DEBUG_INFO_BTF
 endef
 

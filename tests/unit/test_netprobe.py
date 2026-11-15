@@ -7,6 +7,7 @@ router; test_isp and the network tests cover them.
 import json
 import subprocess
 import sys
+import time
 from typing import TYPE_CHECKING, NamedTuple, cast
 
 import pytest
@@ -130,11 +131,18 @@ def test_http_reports_the_peer(client: Netns, family: int) -> None:
     assert seen["address"] == CLIENT[family]
 
 
-def test_flows_start_at_their_rate(client: Netns) -> None:
-    sent = client.probe("flows", SERVER[0], "--rate", "50", "--seconds", "1")["sent"]
-    assert sent in range(45, 52), sent
-    pooled = client.probe("flows", SERVER[0], "--rate", "50", "--seconds", "1", "--sources", "4")
-    assert pooled["sent"] in range(45, 52), pooled
+# A second of new flows, 50 of them.
+FLOW_RATE = 50
+
+
+@pytest.mark.parametrize("sources", [(), ("--sources", "4")], ids=["fresh", "pooled"])
+def test_flows_start_at_their_rate(client: Netns, sources: tuple[str, ...]) -> None:
+    # Every flow, the last (rate - 1) / rate s after the first: never earlier, whatever the load.
+    start = time.monotonic()
+    rate = str(FLOW_RATE)
+    sent = client.probe("flows", SERVER[0], "--rate", rate, "--seconds", "1", *sources)["sent"]
+    assert sent == FLOW_RATE
+    assert time.monotonic() - start >= (FLOW_RATE - 1) / FLOW_RATE
 
 
 def test_big_reply_arrives_whole(client: Netns) -> None:

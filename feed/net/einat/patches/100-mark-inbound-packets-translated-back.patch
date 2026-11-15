@@ -25,7 +25,7 @@ Upstream-Status: Pending
  7 files changed, 35 insertions(+)
 
 diff --git a/config.sample.toml b/config.sample.toml
-index 5785314..5db2aa6 100644
+index 0e7575a..9487235 100644
 --- a/config.sample.toml
 +++ b/config.sample.toml
 @@ -66,6 +66,11 @@ bpf_fib_lookup_external = true
@@ -80,7 +80,7 @@ index fef9df5..37ec31d 100644
      #[serde(default)]
      pub timeout_icmp_default: Option<Timeout>,
 diff --git a/src/instance/config.rs b/src/instance/config.rs
-index 20f0183..d8d1ad8 100644
+index 29c5092..ff8d2ab 100644
 --- a/src/instance/config.rs
 +++ b/src/instance/config.rs
 @@ -105,6 +105,9 @@ impl LoadConfig {
@@ -94,7 +94,7 @@ index 20f0183..d8d1ad8 100644
              ro_data.TIMEOUT_FRAGMENT = v.0;
          }
 diff --git a/src/main.rs b/src/main.rs
-index 1fde237..8033b37 100644
+index 7a7fc00..26730c7 100644
 --- a/src/main.rs
 +++ b/src/main.rs
 @@ -41,6 +41,8 @@ OPTIONS:
@@ -128,7 +128,7 @@ index 1fde237..8033b37 100644
              Long("bpf-log") => {
                  args.log_level = Some(parser.value()?.parse()?);
              }
-@@ -592,6 +602,7 @@ fn main() -> Result<()> {
+@@ -589,6 +599,7 @@ fn main() -> Result<()> {
              nat66,
              default_externals: true,
              snat_internals: args.snat_internals,
@@ -137,7 +137,7 @@ index 1fde237..8033b37 100644
              ipv6_hairpin_route: hairpin_route,
              prefer_tcx: true,
 diff --git a/src/skel/einat/aya.rs b/src/skel/einat/aya.rs
-index 5a2f510..9e7ec77 100644
+index 64a7897..bf61456 100644
 --- a/src/skel/einat/aya.rs
 +++ b/src/skel/einat/aya.rs
 @@ -155,6 +155,7 @@ impl EinatEbpf for EinatAya {

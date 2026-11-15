@@ -30,7 +30,7 @@ Nothing goes in as plain text: the `.gitignore` keeps out `*.dec` and `*.plain`,
 
 ### honk's native API
 
-honk's native API (and doona, its web UI) is off unless the configuration turns it on, and the push takes it only with a static token: `password_auth` lets the first visitor create the administrator, `allow_anonymous_loopback` needs no credential at all, and `config_write` would let the API change a configuration whose canonical copy is this repository. A push that sets any of them fails before the router changes. honk listens where `listen` says; fw4 rejects input from `wan`, `podman` and `tailscale`, so only the LAN reaches it.
+honk's native API (and doona, its web UI) is off unless the configuration turns it on, and the push takes it only with a static token: `password_auth` lets the first visitor create the administrator, `allow_anonymous_loopback` needs no credential at all, and `config_write` would let the API change a configuration whose canonical copy is this repository. A push that sets any of them, in any spelling honk reads as true (`true`, `yes`, `1`, `on`, in any case), or that sets a blank `secret`, fails before the router changes. On the router the firmware's settings, which honk takes last, turn the three off whatever the configuration says, so an edit in LuCI's editor cannot turn them on either. honk listens where `listen` says; fw4 rejects input from `wan`, `podman` and `tailscale`, so only the LAN reaches it.
 
 ```dae
 experimental {
@@ -45,7 +45,7 @@ experimental {
 
 ### Moving from dae
 
-The router ran dae before honk; nothing on it migrates. In the private repository, move the configuration (`git mv dae honk`) and push: the push checks it with honk before the router changes. honk reads dae's syntax, but not all of it alike:
+The router ran dae before honk; nothing on it migrates. In the private repository, move the configuration (`git mv dae honk`) and push: the push checks it with honk before the router changes, and refuses a repository that still has `dae/`. honk reads dae's syntax, but not all of it alike:
 
 - `pname()` matches its name anywhere in the process name; dae matched the whole name.
 - `t` and `y` read as false; `so_mark_from_dae` reads as hex; the mark of `direct(mark: 010)` is decimal.

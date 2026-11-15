@@ -24,7 +24,7 @@ fi
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-bump.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
-names=$(awk '/^[[:space:]]*(#|$)/ { next } { print $1 }' "${LOCK_FILE}")
+names=$(lock_names)
 moved=
 
 for name in ${names}; do

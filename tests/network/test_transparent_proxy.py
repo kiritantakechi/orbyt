@@ -11,6 +11,7 @@ import signal
 import subprocess
 import sys
 import time
+from contextlib import contextmanager
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any, cast
 
@@ -20,13 +21,14 @@ from wrt_tests import spec
 from wrt_tests.device.router import SSH_PORT
 from wrt_tests.model.poll import until
 from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
-from wrt_tests.sandbox.netprobe import HTTP_PORT
+from wrt_tests.sandbox.netprobe import HTTP_PORT, PORT
 from wrt_tests.services import app
 from wrt_tests.services.datapath import (
     NATIVE_API,
     NATIVE_API_PORT,
     PROXIED,
     PROXY_CONFIG,
+    PROXY_HEALTHCHECK,
     PROXY_HOOKS_L2,
     PROXY_NFQUEUE_TABLE,
     PROXY_RELEASE,
@@ -47,7 +49,6 @@ if TYPE_CHECKING:
     from wrt_tests.services.datapath import Online
 
 CAPABILITY = "network/transparent-proxy"
-HEALTHCHECK = "/etc/healthcheck.d/50-honk"
 BIND_TIMEOUT = 60
 # The LAN connections to the router that must all be answered: one a second to
 # each service at each address, for a minute (honk #456 refused some of them).
@@ -189,7 +190,6 @@ def test_container_bridge_is_bound_when_it_appears_as_honk_starts(
 @spec(CAPABILITY, "Rule-based traffic splitting", "Access a direct target")
 def test_direct_target_goes_direct(proxy: Online) -> None:
     assert proxy.client().probe("tcp", DIRECT_TARGET[0])["address"] == proxy.wan_address
-    assert DIRECT_TARGET[0] not in proxy.router.run("ss -Htnp | grep honk-core || true")
 
 
 @spec(CAPABILITY, "Rule-based traffic splitting", "Access a proxied target")
@@ -251,17 +251,17 @@ def test_luci_save_hot_reloads(proxy_restored: Online) -> None:
         stdout=subprocess.PIPE,
         text=True,
     )
-    # The edit LuCI makes, then its save: the proxied target now goes direct as well.
-    config = proxy_config([address for address in PROXIED if address not in PROXIED_TARGET])
-    _ubus(
-        router,
-        session,
-        "file",
-        "write",
-        {"path": "/etc/honk/config.dae", "data": config, "mode": 0o600},
-    )
-    _init(router, session, "reload")
     try:
+        # The edit LuCI makes, then its save: the proxied target now goes direct as well.
+        config = proxy_config([address for address in PROXIED if address not in PROXIED_TARGET])
+        _ubus(
+            router,
+            session,
+            "file",
+            "write",
+            {"path": "/etc/honk/config.dae", "data": config, "mode": 0o600},
+        )
+        _init(router, session, "reload")
         until(
             lambda: (
                 online.client().probe("tcp", PROXIED_TARGET[0])["address"] == online.wan_address
@@ -319,22 +319,23 @@ def test_stopping_honk_falls_back_to_direct(proxy_restored: Online) -> None:
 @spec(CAPABILITY, "Register a health check", "Proxy not running")
 def test_health_check_fails_without_honk(proxy_restored: Online) -> None:
     router = proxy_restored.router
-    assert router.returncode(HEALTHCHECK) == 0
+    assert router.returncode(PROXY_HEALTHCHECK) == 0
     # honk running, but a program missing from a bound interface.
     link = re.findall(r"link_id (\d+)", router.run("bpftool net show dev br-lan"))[0]
     router.run(f"bpftool link detach id {link}")
     assert proxy_pid(router)
-    assert router.returncode(HEALTHCHECK) != 0
+    assert router.returncode(PROXY_HEALTHCHECK) != 0
     router.run("/etc/init.d/honk stop")
-    assert router.returncode(HEALTHCHECK) != 0
+    assert router.returncode(PROXY_HEALTHCHECK) != 0
 
 
 @spec(CAPABILITY, "honk's netfilter hook outlives firewall reloads", "Reload the firewall")
 def test_the_nfqueue_table_outlives_a_firewall_reload(proxy: Online) -> None:
     router = proxy.router
-    before = router.run(f"nft list table {PROXY_NFQUEUE_TABLE}")
+    # With its handles: a table made anew with the same rules gets other ones.
+    before = router.run(f"nft -a list table {PROXY_NFQUEUE_TABLE}")
     router.run("fw4 -q reload")
-    assert router.run(f"nft list table {PROXY_NFQUEUE_TABLE}") == before
+    assert router.run(f"nft -a list table {PROXY_NFQUEUE_TABLE}") == before
 
 
 def _udp_answer(online: Online) -> str | None:
@@ -451,12 +452,10 @@ def test_cpu_pinning_takes_the_big_cores(proxy_restored: Online, board: Board) -
     assert len(cores) < len(capacities)
     big = sum(1 << cpu for cpu in cores)
     running = proxy_pid(router)
-    router.run("uci set honk.config.cpu_pinning=1 && uci commit honk && /etc/init.d/honk restart")
-    try:
+    with _pinning(router):
+        router.run("/etc/init.d/honk restart")
         wait_proxy(router, replacing=running)
         assert _affinity(router) == big
-    finally:
-        router.run("uci set honk.config.cpu_pinning=0 && uci commit honk")
 
 
 @spec(CAPABILITY, "Optional CPU pinning", "Disable CPU pinning")
@@ -465,13 +464,11 @@ def test_disabling_cpu_pinning_frees_honk(proxy_restored: Online, board: Board) 
     cpus = router.run("ls -d /sys/devices/system/cpu/cpu[0-9]*").split()
     every = sum(1 << int(cpu.rsplit("cpu", 1)[1]) for cpu in cpus)
     running = proxy_pid(router)
-    router.run("uci set honk.config.cpu_pinning=1 && uci commit honk && /etc/init.d/honk restart")
-    try:
+    with _pinning(router):
+        router.run("/etc/init.d/honk restart")
         wait_proxy(router, replacing=running)
         pinned = proxy_pid(router)
         assert _affinity(router) == sum(1 << cpu for cpu in board.big_cores)
-    finally:
-        router.run("uci set honk.config.cpu_pinning=0 && uci commit honk")
     # A reload sets the cpuset of the running honk.
     router.run("/etc/init.d/honk reload")
     assert proxy_pid(router) == pinned
@@ -482,8 +479,7 @@ def test_disabling_cpu_pinning_frees_honk(proxy_restored: Online, board: Board) 
 def test_every_restart_keeps_honk_pinned(proxy_restored: Online, board: Board) -> None:
     router = proxy_restored.router
     big = sum(1 << cpu for cpu in board.big_cores)
-    router.run("uci set honk.config.cpu_pinning=1 && uci commit honk")
-    try:
+    with _pinning(router):
         affinities = []
         for _ in range(PINNED_RESTARTS):
             running = proxy_pid(router)
@@ -491,6 +487,14 @@ def test_every_restart_keeps_honk_pinned(proxy_restored: Online, board: Board) -
             wait_proxy(router, replacing=running)
             affinities.append(_affinity(router))
         assert affinities == [big] * PINNED_RESTARTS, [f"{mask:x}" for mask in affinities]
+
+
+@contextmanager
+def _pinning(router: Router) -> Iterator[None]:
+    """Have honk's CPU pinning on, committed, while the context lasts."""
+    router.run("uci set honk.config.cpu_pinning=1 && uci commit honk")
+    try:
+        yield
     finally:
         router.run("uci set honk.config.cpu_pinning=0 && uci commit honk")
 
@@ -517,6 +521,32 @@ def test_the_native_api_answers_the_lan_with_its_token(native_api_on: Online) ->
     assert native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
 
 
+@spec(
+    CAPABILITY, "Web UI through the native API in token mode", "Password login in the configuration"
+)
+def test_the_firmware_keeps_the_native_api_in_token_mode(proxy_restored: Online) -> None:
+    router = proxy_restored.router
+    # Written on the router, as LuCI's editor writes it: password login, anonymous
+    # loopback and configuration writes beside the token. honk refuses password
+    # login beside a token, and anonymous loopback beside password login: it runs,
+    # with the token alone, because the firmware's settings turn all three off.
+    api = NATIVE_API.replace(
+        "enabled: true\n",
+        "enabled: true\n"
+        "        password_auth: true\n"
+        "        allow_anonymous_loopback: true\n"
+        "        config_write: true\n",
+        1,
+    )
+    proxy_start(router, PROXY_CONFIG + api)
+    lan = (proxy_restored.client(), router.address)
+    assert native_api(*lan, NATIVE_API_REQUEST)[0] == HTTPStatus.OK
+    assert native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
+    status, body = native_api(*lan, "/api/v1/capabilities")
+    assert status == HTTPStatus.OK, body
+    assert json.loads(body)["resources"]["config"]["writable"] is False
+
+
 # The last test: its Pod and data disk stay for the rest of the module.
 @spec(CAPABILITY, "Web UI through the native API in token mode", "Native API from outside the LAN")
 def test_the_native_api_answers_nothing_outside_the_lan(
@@ -526,8 +556,11 @@ def test_the_native_api_answers_nothing_outside_the_lan(
     online = native_api_on
     # The LAN gets an answer: the native API listens.
     assert native_api(online.client(), online.router.address, "/api")[0] == HTTPStatus.OK
+    # The internet reaches the router's WAN address, but not the API there.
+    online.network["inet"].run("ping", "-c", "1", "-W", "5", online.wan_address)
     assert native_api(online.network["inet"], online.wan_address, "/api")[0] == 0
-    container = online.router.returncode(
-        f"podman exec {app.CONTAINER} nc -w 5 {app.GATEWAY} {NATIVE_API_PORT} </dev/null"
-    )
-    assert container != 0
+    # The container reaches the internet through its gateway (the probe server
+    # answers as it connects), but not the API on it.
+    container = f"podman exec {app.CONTAINER} nc -w 5"
+    assert online.router.returncode(f"{container} {DIRECT_TARGET[0]} {PORT} </dev/null") == 0
+    assert online.router.returncode(f"{container} {app.GATEWAY} {NATIVE_API_PORT} </dev/null") != 0

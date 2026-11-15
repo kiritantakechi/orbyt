@@ -12,18 +12,18 @@ refuses anything else.
 
 The switch now writes a block in token mode with a new random token (32
 bytes, hex), which the operator reads in the editor, and gives a block it
-turns on a token when the block has none. The "store db" switch goes: the
-configuration database needs configuration writes.
+turns on a token when the block has none, or an empty one. The "store db"
+switch goes: the configuration database needs configuration writes.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Inappropriate [policy: token-only native API]
 ---
- .../luci-static/resources/honk/nativeapi.js   | 71 ++++++++-----------
+ .../luci-static/resources/honk/nativeapi.js   | 78 +++++++++----------
  .../luci-static/resources/view/honk/main.js   |  6 --
- 2 files changed, 31 insertions(+), 46 deletions(-)
+ 2 files changed, 38 insertions(+), 46 deletions(-)
 
 diff --git a/luci-app-honk/htdocs/luci-static/resources/honk/nativeapi.js b/luci-app-honk/htdocs/luci-static/resources/honk/nativeapi.js
-index 202ca1f..0c7fea3 100644
+index 202ca1f..f8137e4 100644
 --- a/luci-app-honk/htdocs/luci-static/resources/honk/nativeapi.js
 +++ b/luci-app-honk/htdocs/luci-static/resources/honk/nativeapi.js
 @@ -4,7 +4,9 @@
@@ -37,7 +37,7 @@ index 202ca1f..0c7fea3 100644
   */
  
  /* Same length as the text, so offsets carry over to the original: comments
-@@ -64,19 +66,40 @@ function lineIndent(text, pos) {
+@@ -64,19 +66,47 @@ function lineIndent(text, pos) {
  	return /^[ \t]*/.exec(text.slice(start))[0];
  }
  
@@ -63,13 +63,20 @@ index 202ca1f..0c7fea3 100644
  	].map(line => indent + line).join(eol);
  }
  
-+/* The text with a new token after the `enabled` key of its native_api block,
-+   when the block has no token */
++/* The text with a token in its native_api block: a new one in place of an
++   empty one, or after the block's `enabled` key when it has none */
 +function withSecret(text, eol) {
 +	const code = mask(text);
 +	const api = findBlock(code, 'native_api');
-+	if (!api || /(?:^|[\s;,])secret\s*:\s*(?:'[^']+'|"[^"]+"|[^\s;,'"]+)/.test(mask(text, true).slice(api.open + 1, api.close)))
++	if (!api)
 +		return text;
++	const secret = /(^|[\s;,])secret\s*:\s*('[^']*'|"[^"]*"|[^\s;,'"]+)/.exec(mask(text, true).slice(api.open + 1, api.close));
++	if (secret) {
++		if (secret[2] !== "''" && secret[2] !== '""')
++			return text;
++		const start = api.open + 1 + secret.index + secret[0].length - secret[2].length;
++		return text.slice(0, start) + '\'' + token() + '\'' + text.slice(start + secret[2].length);
++	}
 +	const inner = code.slice(api.open + 1, api.close);
 +	const key = /(^|[\s;,])enabled\s*:\s*('[^']*'|"[^"]*"|[^\s;,]+)/.exec(inner);
 +	if (!key)
@@ -81,7 +88,7 @@ index 202ca1f..0c7fea3 100644
  return baseclass.extend({
  	/* The inside of the first `name` block with comments blanked, or null */
  	section(text, name) {
-@@ -89,39 +112,6 @@ return baseclass.extend({
+@@ -89,39 +119,6 @@ return baseclass.extend({
  		return this.section(text, 'native_api');
  	},
  
@@ -121,7 +128,7 @@ index 202ca1f..0c7fea3 100644
  	/* Whether the files enable the native API */
  	isEnabled(files) {
  		for (const file of files) {
-@@ -152,17 +142,18 @@ return baseclass.extend({
+@@ -152,17 +149,18 @@ return baseclass.extend({
  			if (key) {
  				const start = api.open + 1 + key.index + key[1].length + key[2].length;
  				const end = start + key[3].length;

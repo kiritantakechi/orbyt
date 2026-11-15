@@ -14,12 +14,12 @@
 #   pods       pods/*.yaml and their .options
 # Everything is validated before the router changes: honk's configuration by
 # honk's own check of the entry its service would run, on the router, and every
-# uci batch on a copy of its configuration. Then each service whose files changed since its last push
-# (a hash on the router) is written, reloaded and checked, and put back as it
-# was if it does not come back, which fails the push. SSH authenticates with a
-# key only (--identity, or the agent's); a password is never tried. The files are
-# root's alone here and on the router, and the router's copy goes however the
-# push ends (device-integrity D8).
+# uci batch on a copy of its configuration. Then each service whose files
+# changed since its last push (a hash on the router) is written, reloaded and
+# checked, and put back as it was if it does not come back, which fails the
+# push. SSH authenticates with a key only (--identity, or the agent's); a
+# password is never tried. The files are root's alone here and on the router,
+# and the router's copy goes however the push ends (device-integrity D8).
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
@@ -63,6 +63,10 @@ mkdir -p "${new}"
 sops decrypt --output-type json "${config}/secrets/secrets.enc.yaml" >"${work}/secrets.json" ||
 	die "cannot decrypt the secrets (is the age key in \$SOPS_AGE_KEY_FILE?)"
 
+# honk replaced dae, and its files moved with it (honk-datapath D5): a
+# repository still in dae's layout would push no proxy configuration at all.
+[ ! -e "${config}/dae" ] ||
+	die "the proxy's files are honk's now: run 'git mv dae honk' in ${config} and commit"
 for encrypted in "${config}"/honk/*.dae.enc; do
 	[ -e "${encrypted}" ] || continue
 	mkdir -p "${new}/honk"
@@ -75,8 +79,12 @@ if [ -d "${new}/honk" ]; then
 		die "honk's lan_interface, wan_interface and data_dir are the firmware's (honk-datapath D4): remove them"
 	fi
 	# The native API's settings, key=value, across the files: its blocks are the
-	# ones named native_api, comments go and quotes come off the values. Whichever
-	# file honk would take a setting from, a forbidden value anywhere is refused.
+	# ones named native_api, comments go and quotes come off the values, and its
+	# booleans, which honk takes as true, yes, 1 or on and false, no, 0 or off in
+	# any case, are lowercased. Whichever file honk would take a setting from, a
+	# forbidden value anywhere is refused. The router's honk turns password
+	# login, anonymous loopback and configuration writes off whatever the files
+	# say (the firmware's settings, included last); refusing them here says so.
 	awk '
 		{ sub(/(^|[[:space:]])#.*/, "") }
 		/^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*[[:space:]]*\{[[:space:]]*$/ {
@@ -87,17 +95,30 @@ if [ -d "${new}/honk" ]; then
 			key = $0; sub(/:.*/, "", key); gsub(/[[:space:]]/, "", key)
 			value = $0; sub(/^[^:]*:[[:space:]]*/, "", value); sub(/[[:space:]]+$/, "", value)
 			gsub(/^["\047]|["\047]$/, "", value)
+			if (key ~ /^(enabled|password_auth|allow_anonymous_loopback|config_write)$/)
+				value = tolower(value)
 			print key "=" value
 		}
 	' "${new}"/honk/*.dae >"${work}/native-api"
+	# The booleans some file sets in a spelling other than false's, by name.
+	on=$(grep -E '^(enabled|password_auth|allow_anonymous_loopback|config_write)=' "${work}/native-api" |
+		grep -Evx '[a-z_]+=(false|no|0|off)' | cut -d= -f1 | sort -u | tr '\n' ' ')
 	for key in password_auth allow_anonymous_loopback; do
-		! grep -qx "${key}=true" "${work}/native-api" ||
-			die "honk's native API needs a token (secret), not ${key}: password login lets its first visitor create the administrator"
+		case " ${on}" in
+			*" ${key} "*) die "honk's native API needs a token (secret), not ${key}: password login lets its first visitor create the administrator" ;;
+			*) ;;
+		esac
 	done
-	! grep -qx 'config_write=true' "${work}/native-api" ||
-		die "honk's native API: configuration writes stay off, as the configuration's canonical copy is this repository (honk-datapath D8)"
-	! grep -qx 'enabled=true' "${work}/native-api" || grep -q '^secret=.' "${work}/native-api" ||
-		die "honk's native API needs a token: set its secret"
+	case " ${on}" in
+		*" config_write "*) die "honk's native API: configuration writes stay off, as the configuration's canonical copy is this repository (honk-datapath D8)" ;;
+		*) ;;
+	esac
+	! grep -Eq '^secret=[[:space:]]*$' "${work}/native-api" ||
+		die "honk's native API: its secret is blank; set a token or remove the setting"
+	case " ${on}" in
+		*" enabled "*) grep -q '^secret=' "${work}/native-api" || die "honk's native API needs a token: set its secret" ;;
+		*) ;;
+	esac
 fi
 
 # The uci templates: comments and blank lines go, and @path@ is the secret at

@@ -20,7 +20,7 @@ from typing import TYPE_CHECKING, Any, Self, cast
 
 from wrt_tests.device.router import REACHABLE_TIMEOUT
 from wrt_tests.model.poll import until
-from wrt_tests.model.repository import REPO_DIR
+from wrt_tests.model.repository import feed_variable
 from wrt_tests.sandbox.internet import RELEASES
 from wrt_tests.sandbox.isp import DELEGATED_PREFIX, LOGIN
 from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY, PROXY_PORT
@@ -49,6 +49,8 @@ PROXY_HOOKS_L2 = {"tcx/ingress": ["lan_ingress_l2"], "tcx/egress": ["lan_egress_
 PROXY_HOOKS_L3 = {"tcx/ingress": ["lan_ingress_l3"], "tcx/egress": ["lan_egress_l3"]}
 # honk's own nftables table: the NFQUEUE hook of ambiguous LAN UDP.
 PROXY_NFQUEUE_TABLE = "inet honk_nfqueue"
+# honk's check for wrt-healthcheck.
+PROXY_HEALTHCHECK = "/etc/healthcheck.d/50-honk"
 # The fw4 rules einat's instance brings (feed/net/einat/files/init): its nat rule
 # (no masquerade) and its rule (accept what it translated back). They come with a
 # firewall reload, after its programs are attached; fw4 names them after the
@@ -94,21 +96,10 @@ RENEW_INTERVAL = 30.0
 PROXIED = (*PROXIED_TARGET, RELEASES[1])
 
 
-def _pinned_release() -> str:
-    """Return the honk release the package pins, as honk names it: its tag without the v.
-
-    The package's version spells it as apk does, which honk does not.
-    """
-    makefile = (REPO_DIR / "feed/net/honk/Makefile").read_text(encoding="utf-8")
-    for line in makefile.splitlines():
-        name, _, value = line.partition(":=")
-        if name == "HONK_TAG":
-            return value.removeprefix("v")
-    msg = "feed/net/honk/Makefile pins no HONK_TAG"
-    raise LookupError(msg)
-
-
-PROXY_RELEASE = _pinned_release()
+# The honk release the package pins, as honk names it: its tag without the v (the
+# package's version spells it as apk does, which honk does not); and einat's.
+PROXY_RELEASE = feed_variable("net/honk", "HONK_TAG").removeprefix("v")
+NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 
 
 def proxy_config(proxied: Sequence[str] = PROXIED, domains: Sequence[str] = ()) -> str:

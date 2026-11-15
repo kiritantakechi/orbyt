@@ -23,6 +23,9 @@ PKG_MAINTAINER:=kiritantakechi <kiritantakechi@gmail.com>
 
 PKG_BUILD_DEPENDS:=rust/host bpf-linker/host doona/host
 PKG_BUILD_PARALLEL:=1
+# honk-core embeds what they build, the eBPF object bpf-linker links and doona:
+# honk is built again when their packages change.
+PKG_FILE_DEPENDS:=$(CURDIR)/../../devel/bpf-linker $(CURDIR)/../doona
 
 # The Clash API is left out (D8); jemalloc and REALITY (rprx) are honk's own
 # defaults.
@@ -38,6 +41,7 @@ define Package/honk
   TITLE:=Transparent proxy in eBPF, bound to the LAN side
   URL:=https://github.com/daeuniverse/honk
   DEPENDS:=@(aarch64||x86_64) $(RUST_ARCH_DEPENDS) +libstdcpp +wrt-data \
+    +flock +bpftool \
     +kmod-veth +kmod-sched-core +kmod-sched-bpf \
     +kmod-nft-core +kmod-nft-queue +kmod-nfnetlink-queue +kmod-nf-conntrack \
     +@KERNEL_DEBUG_INFO_BTF +@KERNEL_CGROUP_BPF
@@ -74,10 +78,12 @@ define Build/Compile/Ebpf
 endef
 
 # bindgen (boring-sys) reads the target's headers through the host libclang,
-# with the include directories of the target's C++ compiler.
-HONK_BINDGEN_ARGS:=--target=$(REAL_GNU_TARGET_NAME) --sysroot=$(TOOLCHAIN_DIR) \
-	$(shell $(TARGET_CXX_NOCACHE) -E -x c++ -v /dev/null 2>&1 | \
-		sed -n '/search starts here:/,/End of search list/{/^ /s/^ */-isystem /p}')
+# with the include directories of the target's C++ compiler, which it names
+# once it is built: these expand when honk compiles, not when this file is read.
+HONK_CXX_INCLUDES=$(shell $(TARGET_CXX_NOCACHE) -E -x c++ -v /dev/null 2>&1 | \
+	sed -n '/search starts here:/,/End of search list/{/^ /s/^ */-isystem /p}')
+HONK_BINDGEN_ARGS=--target=$(REAL_GNU_TARGET_NAME) --sysroot=$(TOOLCHAIN_DIR) \
+	$(or $(strip $(HONK_CXX_INCLUDES)),$(error $(TARGET_CXX_NOCACHE) names no include directories for bindgen))
 
 CARGO_PKG_VARS+= \
 	TARGET_CXX=$(TARGET_CXX_NOCACHE) \

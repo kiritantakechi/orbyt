@@ -25,6 +25,7 @@ from wrt_tests.services.datapath import (
     WAN,
     hooks,
     tc_programs,
+    wait_proxy,
 )
 
 if TYPE_CHECKING:
@@ -51,6 +52,12 @@ def _filters(router: Router) -> str:
     """Return the legacy tc filters on pppoe-wan, of both directions."""
     shown = "tc filter show dev pppoe-wan ingress; tc filter show dev pppoe-wan egress"
     return router.run(shown).strip()
+
+
+def _running_anew(router: Router, process: str, old: str) -> bool:
+    """Return whether one ``process`` runs, and not the process ``old``."""
+    pid = router.run(f"pidof {process} || true")
+    return pid not in {"", old} and " " not in pid
 
 
 def _in_order(router: Router) -> bool:
@@ -142,15 +149,23 @@ def test_fragmented_reply_arrives_whole(proxy: Online) -> None:
 
 @spec(CAPABILITY, "Order independent of startup order", "After restarting components")
 def test_order_survives_restarts_and_a_redial(proxy: Online) -> None:
-    for step in ("qosify", "einat", "honk"):
-        proxy.router.run(f"/etc/init.d/{step} restart")
-        until(
-            lambda: _in_order(proxy.router),
-            timeout=SETTLE,
-            what=f"the order after restarting {step}",
-        )
+    router = proxy.router
+    # Each component's daemon: one that is stopping keeps its programs for a
+    # moment, so the order counts once the new one runs.
+    for step, process in (("qosify", "qosify"), ("einat", "einat"), ("honk", "honk-core")):
+        old = router.run(f"pidof {process} || true")
+        router.run(f"/etc/init.d/{step} restart")
+        if step == "honk":
+            wait_proxy(router, replacing=old)
+        else:
+            until(
+                lambda process=process, old=old: _running_anew(router, process, old),
+                timeout=SETTLE,
+                what=f"{process} running anew",
+            )
+        until(lambda: _in_order(router), timeout=SETTLE, what=f"the order after restarting {step}")
     proxy.redial()
-    until(lambda: _in_order(proxy.router), timeout=SETTLE, what="the order after a redial")
+    until(lambda: _in_order(router), timeout=SETTLE, what="the order after a redial")
 
 
 @spec(CAPABILITY, "Centralized mark bit allocation", "Overlapping mark configured")

@@ -15,6 +15,7 @@ import shlex
 import subprocess
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,6 +29,7 @@ from wrt_tests.services.datapath import (
     NATIVE_API,
     NATIVE_API_TOKEN,
     PROXY_CONFIG,
+    PROXY_HEALTHCHECK,
     wait_proxy,
 )
 from wrt_tests.services.vpn import HEADSCALE_URL, clear, key_pair, preauth_key
@@ -41,6 +43,8 @@ if TYPE_CHECKING:
 
 CAPABILITY = "ops/config-push"
 SHARE_USER = {"name": "pushed", "password": "pushed-secret-1"}
+# A share user a later push adds, so that it writes the SMB users again.
+ADDED_SHARE_USER = {"name": "added", "password": "added-secret-2"}
 # An address the LAN cannot come up with (netifd: INVALID_ADDRESS).
 BAD_LAN_ADDRESS = "10.0.0.300/24"
 # The requirement on honk's settings that the firmware sets, and config-push's refusal.
@@ -61,17 +65,22 @@ TAILSCALE_TIMEOUT = 180
 UPLOAD = "/tmp/wrt-push"  # noqa: S108 (a path on the router)
 MODES = "/tmp/push-modes"  # noqa: S108 (a path on the router)
 COMMANDS = "/tmp/push-commands"  # noqa: S108 (a path on the router)
+# A fifth of a second: the router's BusyBox sleep takes whole seconds only, and
+# fails at once on a fraction.
+PAUSE = "ucode -e 'sleep(200)'"
 WATCH = (
-    f"while :; do ls -ldn {UPLOAD} 2>/dev/null; ls -lnR {UPLOAD}/new 2>/dev/null; sleep 0.2;"
+    f"while :; do ls -ldn {UPLOAD} 2>/dev/null; ls -lnR {UPLOAD}/new 2>/dev/null; {PAUSE};"
     f" done >{MODES} & while :; do for cmdline in /proc/[0-9]*/cmdline; do"
-    f" tr '\\0' ' ' <$cmdline; echo; done 2>/dev/null; sleep 0.2; done >{COMMANDS}"
+    f" tr '\\0' ' ' <$cmdline; echo; done 2>/dev/null; {PAUSE}; done >{COMMANDS}"
 )
 # Modes of a file and of a directory that root alone can read.
 ROOT_ONLY = ("-rw-------", "drwx------")
-# The tailscale CLI: a link to tailscaled, which acts as the CLI by the name it
-# runs under. A wrapper in its place records the arguments of every run.
+# The tailscale CLI and ksmbd.adduser, links to the binaries that act by the
+# name they run under, and where the arguments of their runs are recorded.
 TAILSCALE = "/usr/sbin/tailscale"
 TAILSCALE_ARGUMENTS = "/tmp/tailscale-arguments"  # noqa: S108 (a path on the router)
+ADDUSER = "/usr/sbin/ksmbd.adduser"
+ADDUSER_ARGUMENTS = "/tmp/adduser-arguments"  # noqa: S108 (a path on the router)
 # An auth key headscale refuses.
 REFUSED_KEY = "tskey-auth-refused-0000"
 # A docroot uhttpd refuses to start with.
@@ -112,34 +121,48 @@ def _state(router: Router) -> dict[str, str]:
     }
 
 
-def _secrets(pushed: Pushed, auth_key: str) -> dict[str, object]:
-    """Return the module's secrets with another Tailscale auth key."""
+def _secrets(
+    pushed: Pushed, auth_key: str, share_users: tuple[dict[str, str], ...] = (SHARE_USER,)
+) -> dict[str, object]:
+    """Return the module's secrets with another Tailscale auth key and ``share_users``."""
     user, password = LOGIN
     return {
         "pppoe": {"username": user, "password": password},
         "wireguard": {"private_key": pushed.wireguard_key},
         "tailscale": {"auth_key": auth_key, "login_server": HEADSCALE_URL},
-        "smb": {"users": [SHARE_USER]},
+        "smb": {"users": list(share_users)},
     }
 
 
 @contextmanager
-def _recorded_tailscale(router: Router) -> Generator[None]:
-    """Have every run of the tailscale CLI record its arguments while the context lasts."""
-    real = "/tmp/wrt-test-tailscale"  # noqa: S108 (a path on the router)
+def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
+    """Have every run of ``program`` record its arguments in ``arguments`` meanwhile.
+
+    ``program`` is a link to a binary that acts by the name it runs under: a wrapper
+    in its place records the arguments, then runs the binary under that name with
+    the same standard input.
+    """
+    name = PurePosixPath(program).name
+    real = f"/tmp/wrt-test-{name}"  # noqa: S108 (a path on the router)
+    target = router.run(f"readlink {program}")
     router.run(
-        f"mkdir -p {real} && ln -sf /usr/sbin/tailscaled {real}/tailscale"
+        f"mkdir -p {real} && ln -sf $(readlink -f {program}) {real}/{name}"
         f" && cat >{real}/wrapper <<'EOF'\n"
         "#!/bin/sh\n"
-        f'printf "%s\\n" "$*" >>{TAILSCALE_ARGUMENTS}\n'
-        f'exec {real}/tailscale "$@"\n'
+        f'printf "%s\\n" "$*" >>{arguments}\n'
+        f'exec {real}/{name} "$@"\n'
         "EOF\n"
-        f"chmod 755 {real}/wrapper && ln -sf {real}/wrapper {TAILSCALE}"
+        f"chmod 755 {real}/wrapper && ln -sf {real}/wrapper {program}"
     )
     try:
         yield
     finally:
-        router.run(f"ln -sf tailscaled {TAILSCALE}")
+        router.run(f"ln -sf {target} {program}")
+
+
+def _pwddb_entry(router: Router, database: str, user: str) -> str:
+    """Return ``user``'s line of the ksmbd password database at ``database``."""
+    return router.run(f"grep '^{user}:' {database}")
 
 
 def _assert_put_back(result: subprocess.CompletedProcess[str], name: str) -> None:
@@ -237,6 +260,24 @@ def test_a_configuration_honk_refuses_changes_nothing(pushed: Pushed) -> None:
     assert "error[unknown-routing-target]" in result.stderr
 
 
+@spec(CAPABILITY, "Validate before pushing", "Proxy files in dae's layout")
+def test_a_repository_in_dae_s_layout_changes_nothing(pushed: Pushed) -> None:
+    router = pushed.router
+    before = _state(router)
+    directory = pushed.repository.directory
+    (directory / "dae").mkdir()
+    (directory / "dae" / "config.dae.enc").write_bytes(
+        (directory / "honk" / "config.dae.enc").read_bytes()
+    )
+    try:
+        result = pushed.push()
+    finally:
+        pushed.repository.discard()
+    assert result.returncode != 0, result.stderr
+    assert "git mv dae honk" in result.stderr, result.stderr
+    assert _state(router) == before
+
+
 @spec(CAPABILITY, "Repeatable push results", "Repeated push")
 def test_a_repeated_push_restarts_nothing(pushed: Pushed) -> None:
     router = pushed.router
@@ -274,14 +315,18 @@ def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
 def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     router = pushed.router
     auth_key = preauth_key(pushed.online.network)
-    pushed.repository.write_secrets(_secrets(pushed, auth_key))
+    # Another share user too: the push writes the SMB users again.
+    pushed.repository.write_secrets(_secrets(pushed, auth_key, (SHARE_USER, ADDED_SHARE_USER)))
     router.detach(WATCH)
     try:
-        with _recorded_tailscale(router):
+        with (
+            _recorded(router, TAILSCALE, TAILSCALE_ARGUMENTS),
+            _recorded(router, ADDUSER, ADDUSER_ARGUMENTS),
+        ):
             result = pushed.push()
     finally:
         router.run(f"pkill -f '{MODES}' || true; pkill -f '{COMMANDS}' || true")
-        pushed.repository.commit("another tailnet key")
+        pushed.repository.commit("another tailnet key and share user")
     assert result.returncode == 0, result.stderr
     # The entries of the listings: a file's line starts with "-", a directory's with "d".
     modes = [
@@ -297,6 +342,17 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     # The key reaches tailscale in its file, and no command line sampled holds it.
     assert "--auth-key=file:" in router.run(f"cat {TAILSCALE_ARGUMENTS}")
     assert auth_key not in router.run(f"cat {TAILSCALE_ARGUMENTS} {COMMANDS}")
+    # A share user's password reaches ksmbd.adduser on its standard input, never
+    # on a command line, and is the one it stores when given it as -p's argument.
+    added, password = ADDED_SHARE_USER["name"], ADDED_SHARE_USER["password"]
+    assert added in router.run(f"cat {ADDUSER_ARGUMENTS}").split()
+    assert password not in router.run(f"cat {ADDUSER_ARGUMENTS} {COMMANDS}")
+    reference = "/tmp/wrt-test-pwddb"  # noqa: S108 (a path on the router)
+    router.run(
+        f": >{reference} && ksmbd.adduser -P {reference} -p {shlex.quote(password)} {added} >&2"
+    )
+    entry = _pwddb_entry(router, "/etc/ksmbd/ksmbdpwd.db", added)
+    assert entry == _pwddb_entry(router, reference, added), entry
 
 
 @spec(CAPABILITY, "Roll back on service failure", "Tailscale login fails")
@@ -347,6 +403,32 @@ def test_a_service_that_stops_is_put_back(pushed: Pushed) -> None:
     )
 
 
+@spec(CAPABILITY, "Roll back on service failure", "honk off before a failed push")
+def test_a_honk_that_was_off_is_put_back_off(pushed: Pushed) -> None:
+    router = pushed.router
+    router.run("/etc/init.d/honk disable && /etc/init.d/honk stop")
+    # A honk that does not come back while it starts at boot: its check fails
+    # then, and passes once it is off again, as its own check does.
+    router.run(
+        f"cp {PROXY_HEALTHCHECK} {PROXY_HEALTHCHECK}.real && printf '%s\\n' '#!/bin/sh'"
+        f" '/etc/init.d/honk enabled || exit 0' 'exit 1' >{PROXY_HEALTHCHECK}"
+    )
+    pushed.repository.write_proxy("config", f"{PROXY_CONFIG}# Pushed again.\n")
+    try:
+        result = pushed.push()
+        _assert_put_back(result, "honk")
+        assert router.returncode("/etc/init.d/honk enabled") != 0
+        assert router.run("pidof honk-core || true") == ""
+        assert _proxy_sha256(router) == hashlib.sha256(PROXY_CONFIG.encode()).hexdigest()
+    finally:
+        pushed.repository.discard()
+        router.run(
+            f"mv {PROXY_HEALTHCHECK}.real {PROXY_HEALTHCHECK}"
+            " && /etc/init.d/honk enable && /etc/init.d/honk start"
+        )
+        wait_proxy(router)
+
+
 @spec(CAPABILITY, FIRMWARE_SETTINGS, "User config sets lan_interface")
 def test_lan_interface_is_the_firmware_s(pushed: Pushed) -> None:
     result = _refused(
@@ -363,9 +445,14 @@ def test_data_dir_is_the_firmware_s(pushed: Pushed) -> None:
     assert FIRMWARE_SETTINGS_REFUSAL in result.stderr
 
 
+# The spellings honk takes a boolean as true in, case aside.
+TRUE_SPELLINGS = ("true", "Yes", "ON", "1")
+
+
 @spec(CAPABILITY, "The proxy's native API only with a token", "Native API with password login")
-def test_the_native_api_takes_no_password_login(pushed: Pushed) -> None:
-    api = NATIVE_API.replace(f"secret: '{NATIVE_API_TOKEN}'", "password_auth: true")
+@pytest.mark.parametrize("spelling", TRUE_SPELLINGS)
+def test_the_native_api_takes_no_password_login(pushed: Pushed, spelling: str) -> None:
+    api = NATIVE_API.replace(f"secret: '{NATIVE_API_TOKEN}'", f"password_auth: {spelling}")
     result = _refused(pushed, PROXY_CONFIG + api)
     assert "native API needs a token" in result.stderr
 
@@ -373,10 +460,23 @@ def test_the_native_api_takes_no_password_login(pushed: Pushed) -> None:
 @spec(
     CAPABILITY, "The proxy's native API only with a token", "Native API with configuration writes"
 )
-def test_the_native_api_writes_no_configuration(pushed: Pushed) -> None:
-    api = NATIVE_API.replace("enabled: true\n", "enabled: true\n        config_write: true\n", 1)
+@pytest.mark.parametrize("spelling", TRUE_SPELLINGS)
+def test_the_native_api_writes_no_configuration(pushed: Pushed, spelling: str) -> None:
+    api = NATIVE_API.replace(
+        "enabled: true\n", f"enabled: true\n        config_write: {spelling}\n", 1
+    )
     result = _refused(pushed, PROXY_CONFIG + api)
     assert "configuration writes stay off" in result.stderr
+
+
+@spec(CAPABILITY, "The proxy's native API only with a token", "Native API with a blank token")
+def test_the_native_api_takes_no_blank_token(pushed: Pushed) -> None:
+    # A real token, then a blank one: honk would take the last.
+    api = NATIVE_API.replace(
+        f"secret: '{NATIVE_API_TOKEN}'", f"secret: '{NATIVE_API_TOKEN}'\n        secret: ' '"
+    )
+    result = _refused(pushed, PROXY_CONFIG + api)
+    assert "its secret is blank" in result.stderr
 
 
 @spec(CAPABILITY, "SSH key authentication only", "No SSH key configured")

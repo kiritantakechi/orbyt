@@ -8,9 +8,9 @@
 //                on a copy of /etc/config;
 //  hashes        prints the hash of each service as last pushed;
 //  apply <name>  saves what the service has now, writes the new files, reloads
-//                the service and waits for it to come back; if the reload fails
-//                or it does not come back, puts the saved files back, reloads
-//                it again and fails.
+//                the service and waits for it to come back; if a file cannot be
+//                written, the reload fails or it does not come back, puts the
+//                saved files back, reloads it again and fails.
 // What a service's push changes is saved whole, Tailscale's state and the SMB
 // users included, and a service is back once procd has run what the change
 // queued, its own check passes and every daemon that ran before runs on,
@@ -41,6 +41,12 @@ function fail(message) {
 	exit(1);
 }
 
+// failed(message): say what went wrong, and go on; false.
+function failed(message) {
+	warn(`config-push: ${message}\n`);
+	return false;
+}
+
 // quoted(word): word as one argument of a shell command line.
 function quoted(word) {
 	return `'${replace(word, "'", "'\\''")}'`;
@@ -67,6 +73,9 @@ function basename(path) {
 
 function validate() {
 	if (stat(`${NEW}/honk`)) {
+		if (!stat('/etc/init.d/honk'))
+			fail('honk: this router has no honk; upgrade its firmware first');
+
 		let entry = basename(cursor().get('honk', 'config', 'config_file') ?? '/etc/honk/config.dae');
 
 		if (!stat(`${NEW}/honk/${entry}`))
@@ -106,12 +115,31 @@ function has_entry(file, name) {
 	return length(filter(split(readfile(file) ?? '', '\n'), (line) => index(line, `${name}:`) == 0)) > 0;
 }
 
-// append(file, line): add a line to the end of the file.
+// append(file, line): add a line to the end of the file; false if it cannot.
 function append(file, line) {
-	let handle = open(file, 'a') ?? fail(`cannot write ${file}`);
+	let handle = open(file, 'a');
+
+	if (!handle)
+		return failed(`cannot write ${file}`);
 
 	handle.write(`${line}\n`);
 	handle.close();
+
+	return true;
+}
+
+// adduser(user, password): the SMB user added or updated with the password, which
+// ksmbd.adduser reads on its standard input, typed twice as at its prompt, and
+// never on a command line (packages 0014); true if it took it.
+function adduser(user, password) {
+	let process = popen(`ksmbd.adduser ${quoted(user)} >&2`, 'w');
+
+	if (!process)
+		return false;
+
+	process.write(`${password}\n${password}\n`);
+
+	return process.close() == 0;
 }
 
 // tailscale_state(): where tailscaled keeps its node's state, its login among it.
@@ -124,7 +152,7 @@ function owned(name) {
 	switch (name) {
 	case 'honk':
 		// Its start-at-boot switch is the init script's rc.d links.
-		return ['/etc/honk', '/etc/config/honk', '/etc/rc.d/S99honk', '/etc/rc.d/K01honk'];
+		return ['/etc/honk', '/etc/rc.d/S99honk', '/etc/rc.d/K01honk'];
 
 	case 'pods':
 		return [PODS];
@@ -183,23 +211,27 @@ function restore(name) {
 			warn(`config-push: ${name}: cannot put ${path} back\n`);
 }
 
+// write(name): the service's new files in place; false, having said why, when
+// one could not be written, which apply puts back as it puts back a failed reload.
 function write(name) {
 	let files = `${NEW}/${name}`;
 
 	switch (name) {
 	case 'honk':
 		// The pushed files replace the directory's, readable by root alone, and
-		// honk starts at boot from now on.
-		if (!run(`rm -rf /etc/honk.new && mkdir -m 700 /etc/honk.new && cp ${quoted(files)}/* /etc/honk.new/` +
+		// honk starts at boot from now on. A copy that fails goes.
+		if (run(`rm -rf /etc/honk.new && mkdir -m 700 /etc/honk.new && cp ${quoted(files)}/* /etc/honk.new/` +
 			' && chmod 600 /etc/honk.new/* && rm -rf /etc/honk && mv /etc/honk.new /etc/honk' +
 			' && /etc/init.d/honk enable'))
-			fail('honk: cannot write its configuration');
-		break;
+			return true;
+
+		run('rm -rf /etc/honk.new');
+
+		return failed('honk: cannot write its configuration');
 
 	case 'pods':
-		if (!run(`mkdir -p '${PODS}' && cp ${quoted(files)}/* '${PODS}/'`))
-			fail('pods: cannot write the Pods');
-		break;
+		return run(`mkdir -p '${PODS}' && cp ${quoted(files)}/* '${PODS}/'`) ||
+			failed('pods: cannot write the Pods');
 
 	case 'smb':
 		// A user per line, its password after the first blank.
@@ -211,31 +243,31 @@ function write(name) {
 
 			let user = entry[1], password = entry[2];
 
-			if (!has_entry('/etc/passwd', user))
-				append('/etc/passwd', `${user}:x:1000:1000::/var:/bin/false`);
+			if (!has_entry('/etc/passwd', user) &&
+				!append('/etc/passwd', `${user}:x:1000:1000::/var:/bin/false`))
+				return false;
 
-			if (!has_entry('/etc/group', user))
-				append('/etc/group', `${user}:x:1000:`);
+			if (!has_entry('/etc/group', user) && !append('/etc/group', `${user}:x:1000:`))
+				return false;
 
-			if (!run(`ksmbd.adduser -p ${quoted(password)} ${quoted(user)}`))
-				fail(`smb: cannot add ${user}`);
+			if (!adduser(user, password))
+				return failed(`smb: cannot add ${user}`);
 		}
-		break;
+		return true;
 
 	case 'tailscale':
 		// The key readable by root alone; the login of an older push goes.
-		if (!run(`mkdir -p ${STATE} && cp ${quoted(`${files}/auth_key`)} ${TAILSCALE_KEY}` +
+		return run(`mkdir -p ${STATE} && cp ${quoted(`${files}/auth_key`)} ${TAILSCALE_KEY}` +
 			` && chmod 600 ${TAILSCALE_KEY} && cp ${quoted(`${files}/options`)} ${TAILSCALE_OPTIONS}` +
-			` && rm -f ${STATE}/tailscale.login`))
-			fail('tailscale: cannot write its login');
-		break;
+			` && rm -f ${STATE}/tailscale.login`) ||
+			failed('tailscale: cannot write its login');
 
 	default:
 		for (let batch in sort(glob(`${files}/*.uci`) ?? []))
 			if (!run(`uci batch < ${quoted(batch)}`))
-				fail(`${basename(batch)}: uci batch failed`);
+				return failed(`${basename(batch)}: uci batch failed`);
 
-		run('uci commit');
+		return run('uci commit') || failed('uci commit failed');
 	}
 }
 
@@ -244,7 +276,11 @@ function write(name) {
 function reload(name) {
 	switch (name) {
 	case 'honk':
-		return run('/etc/init.d/honk restart');
+		// honk runs while it starts at boot: a push turns that on, and putting
+		// back a router where it was off stops honk again.
+		return run('/etc/init.d/honk enabled')
+			? run('/etc/init.d/honk restart')
+			: run('/etc/init.d/honk stop');
 
 	case 'pods':
 		return !stat(PODS) || run('/etc/init.d/wrt-containers restart');
@@ -441,9 +477,8 @@ function apply(name) {
 	let before = daemons();
 
 	save(name);
-	write(name);
 
-	if (reload(name) && settle(name, before)) {
+	if (write(name) && reload(name) && settle(name, before)) {
 		mkdir(STATE);
 		writefile(`${STATE}/${name}`, readfile(`${NEW}/${name}.sha256`) ?? '');
 
