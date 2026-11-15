@@ -50,7 +50,7 @@
 
 ## 5. honk #456: the router reachable from the LAN (design D7)
 
-- [ ] 5.1 Add the test of "Connect to the router from the LAN" and try to reproduce #456 on the emulator, pinning with honk's debug log the path the connections take; a fix only for a mechanism shown.
+- [x] 5.1 Add the test of "Connect to the router from the LAN" and try to reproduce #456 on the emulator, pinning with honk's debug log the path the connections take; a fix only for a mechanism shown.
 
   Verify: the test runs LuCI and SSH connections over IPv4 and IPv6, under a configuration routing by address alone and under one with a domain rule, whose connections take honk's TPROXY path (honk's log); it passes on both boards; the findings are recorded in design D7. Not reproduced on the R4S (beta.6, Linux 6.18, br-lan): no patch, and the test stays as the regression guard.
 
@@ -67,7 +67,7 @@
 
   Verify: honk's unit tests of batched activation and of a flow without time for its activation fail on the unpatched pump and pass with the patch; the transparent-proxy test of a stream of new flows passes on both boards.
 
-- [ ] 6.4 honk withstands the stream on CI's slower runners: the shed flows' token cleanups retired together, one grace period a batch, by the commit pump between its batches in its turn for the backend, a token cleanup the full set has no room for left to the janitor and counted, and a flow armed only with the time left for the rest of its batch's commit and the release of every armed flow's originals; two patches and an amendment of 6.3's, meant for upstream, with their write-ups (D7).
+- [x] 6.4 honk withstands the stream on CI's slower runners: the shed flows' token cleanups retired together, one grace period a batch, by the commit pump between its batches in its turn for the backend, a token cleanup the full set has no room for left to the janitor and counted, and a flow armed only with the time left for the rest of its batch's commit and the release of every armed flow's originals; two patches and an amendment of 6.3's, meant for upstream, with their write-ups (D7).
 
   Verify: honk's unit tests of the batched drain, of the pump's turn among readers, of a full cleanup set and of a flow reserving the rest of its batch fail without the fix and pass with it; on the R4S under CI-like load (four cores and stress-ng) the transparent-proxy test of a stream of new flows passes with the same honk process; the network suite passes on both boards in CI.
 
@@ -97,7 +97,7 @@
 
 ## 10. Integration
 
-- [ ] 10.1 The six suites on the R4S locally, then CI's build and check for both boards.
+- [x] 10.1 The six suites on the R4S locally, then CI's build and check for both boards.
 
   Verify: every suite passes on both boards; `just check` passes; the runs are recorded in `docs/ci.md`.
 

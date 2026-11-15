@@ -20,7 +20,7 @@ The firmware SHALL provide Tailscale and SHALL be able to advertise the LAN subn
 - **THEN** the access succeeds through this router's subnet route
 
 ### Requirement: Relation to the transparent proxy
-Traffic entering through Tailscale SHALL be split by dae according to the rules, the same as LAN traffic. Traffic entering through WireGuard SHALL go direct, bypassing the proxy.
+Traffic entering through Tailscale SHALL be split by honk according to the rules, the same as LAN traffic. Traffic entering through WireGuard SHALL go direct, bypassing the proxy.
 
 #### Scenario: Tailnet device reaches a proxied target
 - **WHEN** a tailnet device uses this router as its exit node and accesses a target that the rules send through the proxy

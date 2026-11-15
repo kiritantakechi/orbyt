@@ -32,11 +32,15 @@ The container runtime MUST NOT install its own firewall or NAT rules. The contai
 - **THEN** the container port is reachable from outside
 
 ### Requirement: Container traffic uses the transparent proxy
-Traffic on the container bridge SHALL be split by dae according to the rules, the same as LAN traffic.
+Traffic on the container bridge SHALL be split by honk according to the rules, the same as LAN traffic. honk SHALL leave the containers' network namespaces where podman registered them.
 
 #### Scenario: Container reaches a proxied target
 - **WHEN** a container accesses a target that the rules send through the proxy
 - **THEN** the traffic leaves through the proxy node
+
+#### Scenario: honk restarts beside the Pods
+- **WHEN** honk restarts while the Pods run, with a Pod's network namespace registered before honk started or while it ran
+- **THEN** the namespace stays where podman registered it
 
 ### Requirement: Declarative definition and autostart on boot
 App containers SHALL be defined by declaration files stored on the data disk. After the data disk is mounted, the system SHALL start the corresponding containers automatically from these declaration files, with consistent results on repeated runs (no rebuild when the declaration is unchanged). A declaration whose container cannot be started MUST NOT keep the others from starting; the start SHALL report each that failed. A container SHALL stop and start again, its network's DNS answering it, also after a service that ran a container of its own has ended.

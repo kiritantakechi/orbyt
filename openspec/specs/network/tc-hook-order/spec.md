@@ -27,18 +27,18 @@ When a program attached to a shared hook passes a packet, it MUST return "contin
 - **WHEN** a LAN host receives a fragmented UDP reply that enters through WAN
 - **THEN** all fragments are reverse-translated and delivered, and the application receives the complete data
 
-### Requirement: Only dae on the LAN port
-On the LAN-side bound interfaces, dae SHALL be the only tc or tcx program.
+### Requirement: Only the proxy on the LAN port
+On the LAN-side bound interfaces, honk SHALL be the only tc or tcx program.
 
 #### Scenario: Check the LAN port
 - **WHEN** all BPF programs attached to br-lan are inspected
-- **THEN** only dae programs are present
+- **THEN** only honk programs are present
 
 ### Requirement: Order independent of startup order
 The order above SHALL hold under any startup order, after any component restart, and after a PPPoE redial.
 
 #### Scenario: After restarting components
-- **WHEN** qosify, einat, and dae are restarted in turn, and then PPPoE redials once
+- **WHEN** qosify, einat, and honk are restarted in turn, and then PPPoE redials once
 - **THEN** after each step, the programs and order on the WAN and LAN ports still meet the requirements above
 
 ### Requirement: Centralized mark bit allocation
