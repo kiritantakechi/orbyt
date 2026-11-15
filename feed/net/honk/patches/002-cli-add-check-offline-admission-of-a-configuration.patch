@@ -36,25 +36,34 @@ does, reporting a missing file as a geo-asset-missing warning.
 The admission is the native API's, so the command needs the native-api
 feature and a .dae entry, and is refused with --store db.
 
+Tests: a configuration a start would take is admitted and nothing is
+created; one whose geodata is not there yet is admitted with a warning;
+an unknown routing target, a syntax error and an include outside the
+entry's directory are refused, each finding rendered with its file. The
+tests load geodata from their own data directory alone
+(GeoSourceSet::load_pinned, as load_captured pins it for the lifecycle
+tests): a machine's own geodata, such as the weekly CI's in /etc/dae,
+would otherwise be found.
+
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
- crates/honk-core/src/check.rs                 | 169 ++++++++++++++++++
- crates/honk-core/src/lib.rs                   |  30 ++++
- crates/honk-core/src/native_api/offline.rs    |  48 +++++
+ crates/honk-core/src/check.rs                 | 187 ++++++++++++++++++
+ crates/honk-core/src/lib.rs                   |  30 +++
+ crates/honk-core/src/native_api/offline.rs    |  50 +++++
  .../src/native_api/offline/admission.rs       |  17 +-
- crates/honk-core/src/routing/geo.rs           |  38 +++-
+ crates/honk-core/src/routing/geo.rs           |  54 ++++-
  doc/en/reference/cli.md                       |   1 +
  doc/zh/reference/cli.md                       |   1 +
- 7 files changed, 294 insertions(+), 10 deletions(-)
+ 7 files changed, 330 insertions(+), 10 deletions(-)
  create mode 100644 crates/honk-core/src/check.rs
 
 diff --git a/crates/honk-core/src/check.rs b/crates/honk-core/src/check.rs
 new file mode 100644
-index 0000000..fbdf4e2
+index 0000000..3e298ba
 --- /dev/null
 +++ b/crates/honk-core/src/check.rs
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,187 @@
 +//! `honk-core check`: admit a configuration offline, as a start would.
 +
 +use std::collections::HashMap;
@@ -66,6 +75,7 @@ index 0000000..fbdf4e2
 +use honk_config::parser::SourceLimits;
 +
 +use crate::native_api::offline;
++use crate::routing::{GeoRequirements, GeoSourceSet};
 +
 +/// Admits the configuration entry at `path` as a start would: parses it with
 +/// its includes, validates it, and compiles its routing and DNS against the
@@ -77,7 +87,16 @@ index 0000000..fbdf4e2
 +/// Returns whether honk would start with the configuration. Every finding,
 +/// the one that refuses it included, is left in `diagnostics`.
 +pub(crate) fn check(path: &Path, diagnostics: &mut Vec<DetailedDiagnostic>) -> bool {
-+    admit(path, diagnostics).is_ok()
++    check_with(path, diagnostics, GeoSourceSet::load_from)
++}
++
++/// [`check`] with `load_geo` loading the geo assets from the data directory.
++fn check_with(
++    path: &Path,
++    diagnostics: &mut Vec<DetailedDiagnostic>,
++    load_geo: impl FnOnce(&GeoRequirements, &Path) -> GeoSourceSet,
++) -> bool {
++    admit(path, diagnostics, load_geo).is_ok()
 +        && !diagnostics
 +            .iter()
 +            .any(|diagnostic| diagnostic.severity == Severity::Error)
@@ -86,6 +105,7 @@ index 0000000..fbdf4e2
 +fn admit(
 +    path: &Path,
 +    diagnostics: &mut Vec<DetailedDiagnostic>,
++    load_geo: impl FnOnce(&GeoRequirements, &Path) -> GeoSourceSet,
 +) -> Result<(), DetailedConfigError> {
 +    let loaded = Config::from_dae_file_with_sources(
 +        path,
@@ -98,6 +118,7 @@ index 0000000..fbdf4e2
 +        loaded,
 +        path.parent(),
 +        &data_dir,
++        load_geo,
 +        SourceLimits::default(),
 +        diagnostics,
 +    )?;
@@ -137,6 +158,12 @@ index 0000000..fbdf4e2
 +    use super::*;
 +    use std::fs;
 +
++    /// [`check`] over the geo assets of the configuration's data directory
++    /// alone, which the tests leave empty.
++    fn check_pinned(path: &Path, diagnostics: &mut Vec<DetailedDiagnostic>) -> bool {
++        check_with(path, diagnostics, GeoSourceSet::load_pinned)
++    }
++
 +    fn entry(directory: &Path, text: &str) -> PathBuf {
 +        let path = directory.join("config.dae");
 +        fs::write(
@@ -158,7 +185,7 @@ index 0000000..fbdf4e2
 +            "node {\n exit: 'socks5://192.0.2.1:1080'\n}\ngroup {\n proxy {\n  policy: select\n }\n}\nrouting {\n dip(geoip: private) -> direct\n fallback: proxy\n}\n",
 +        );
 +        let mut diagnostics = Vec::new();
-+        assert!(check(&path, &mut diagnostics), "{diagnostics:?}");
++        assert!(check_pinned(&path, &mut diagnostics), "{diagnostics:?}");
 +        assert!(!temp.path().join("state").exists());
 +    }
 +
@@ -170,7 +197,7 @@ index 0000000..fbdf4e2
 +            "routing {\n domain(geosite: cn) -> direct\n fallback: direct\n}\n",
 +        );
 +        let mut diagnostics = Vec::new();
-+        assert!(check(&path, &mut diagnostics), "{diagnostics:?}");
++        assert!(check_pinned(&path, &mut diagnostics), "{diagnostics:?}");
 +        assert!(
 +            diagnostics
 +                .iter()
@@ -185,7 +212,7 @@ index 0000000..fbdf4e2
 +        let temp = tempfile::tempdir().unwrap();
 +        let path = entry(temp.path(), "routing {\n fallback: missing\n}\n");
 +        let mut diagnostics = Vec::new();
-+        assert!(!check(&path, &mut diagnostics));
++        assert!(!check_pinned(&path, &mut diagnostics));
 +        let refusal = diagnostics.last().unwrap();
 +        assert_eq!(refusal.code, "unknown-routing-target");
 +        let line = render(refusal);
@@ -201,7 +228,7 @@ index 0000000..fbdf4e2
 +        let temp = tempfile::tempdir().unwrap();
 +        let path = entry(temp.path(), "routing {{\n fallback: direct\n}\n");
 +        let mut diagnostics = Vec::new();
-+        assert!(!check(&path, &mut diagnostics));
++        assert!(!check_pinned(&path, &mut diagnostics));
 +        assert!(
 +            diagnostics
 +                .iter()
@@ -221,7 +248,7 @@ index 0000000..fbdf4e2
 +        .unwrap();
 +        let path = entry(&entry_dir, "include {\n ../outside.dae\n}\n");
 +        let mut diagnostics = Vec::new();
-+        assert!(!check(&path, &mut diagnostics));
++        assert!(!check_pinned(&path, &mut diagnostics));
 +    }
 +}
 diff --git a/crates/honk-core/src/lib.rs b/crates/honk-core/src/lib.rs
@@ -280,28 +307,30 @@ index 146372c..67e1879 100644
              let pid = request_reload(std::path::Path::new(INSTANCE_LOCK_PATH))?;
              println!("Reload requested for honk-core process {pid}");
 diff --git a/crates/honk-core/src/native_api/offline.rs b/crates/honk-core/src/native_api/offline.rs
-index 701ea38..99d0fe7 100644
+index 701ea38..b95cdce 100644
 --- a/crates/honk-core/src/native_api/offline.rs
 +++ b/crates/honk-core/src/native_api/offline.rs
-@@ -99,6 +99,54 @@ pub(crate) fn validate_for_coordinator(
+@@ -99,6 +99,56 @@ pub(crate) fn validate_for_coordinator(
      finish_attempt(result, diagnostics)
  }
  
 +/// Admits `loaded` as a start or a reload does, with the configuration as its
 +/// own active one: as [`validate_for_coordinator`] admits a candidate, except
 +/// that a required geo asset that is missing leaves its matchers empty, with a
-+/// warning, where a candidate is refused.
++/// warning, where a candidate is refused. `load_geo` loads the geo assets the
++/// configuration requires, as [`GeoSourceSet::load_from`] does for a start.
 +pub(crate) fn validate_for_start(
 +    loaded: LoadedConfig,
 +    dependency_root: Option<&Path>,
 +    data_dir: &Path,
++    load_geo: impl FnOnce(&GeoRequirements, &Path) -> GeoSourceSet,
 +    limits: SourceLimits,
 +    diagnostics: &mut Vec<DetailedDiagnostic>,
 +) -> Result<ValidatedConfig, DetailedConfigError> {
 +    let active = loaded.config.clone();
 +    let requirements = GeoRequirements::for_traffic(&active.routing.rules)
 +        .union(&DnsRouter::geo_requirements(&active.dns));
-+    let geo = GeoSourceSet::load_from(&requirements, data_dir);
++    let geo = load_geo(&requirements, data_dir);
 +    if let Some(entry) = loaded.sources.first() {
 +        for asset in geo.missing() {
 +            diagnostics.push(DetailedDiagnostic::warning(
@@ -375,10 +404,10 @@ index 85f44e7..097bf13 100644
              .parse()
              .map_err(|cause| dependency_error(source, "dns", cause))?;
 diff --git a/crates/honk-core/src/routing/geo.rs b/crates/honk-core/src/routing/geo.rs
-index 564fc3f..21776d9 100644
+index 564fc3f..b43178c 100644
 --- a/crates/honk-core/src/routing/geo.rs
 +++ b/crates/honk-core/src/routing/geo.rs
-@@ -187,11 +187,31 @@ impl std::fmt::Debug for GeoSourceSet {
+@@ -187,11 +187,47 @@ impl std::fmt::Debug for GeoSourceSet {
  
  impl GeoSourceSet {
      pub(crate) fn load(requirements: &GeoRequirements) -> Self {
@@ -409,10 +438,26 @@ index 564fc3f..21776d9 100644
 +            .map(|(name, _)| name)
 +    }
 +
++    /// [`Self::load_from`] with `data_dir` alone searched: a test's own inputs,
++    /// not the geodata a developer's machine or a CI runner keeps elsewhere.
++    #[cfg(all(feature = "native-api", test))]
++    pub(crate) fn load_pinned(requirements: &GeoRequirements, data_dir: &std::path::Path) -> Self {
++        let source = |required: bool, name: &str| {
++            if !required {
++                return GeoSource::Unused;
++            }
++            capture_file(&data_dir.join(name)).unwrap_or(GeoSource::Missing)
++        };
++        Self::from_sources(
++            source(!requirements.geosite_codes.is_empty(), "geosite.dat"),
++            source(!requirements.geoip_codes.is_empty(), "geoip.dat"),
++        )
++    }
++
      #[cfg(all(feature = "native-api", test))]
      pub(crate) fn load_captured(
          requirements: &GeoRequirements,
-@@ -363,11 +383,11 @@ impl GeoSourceSet {
+@@ -363,11 +399,11 @@ impl GeoSourceSet {
      }
  }
  
@@ -426,7 +471,7 @@ index 564fc3f..21776d9 100644
          tracing::warn!(
              asset = name,
              "required geo asset not found; dependent geo matchers are unavailable"
-@@ -1502,9 +1522,15 @@ mod scan_tests {
+@@ -1502,9 +1538,15 @@ mod scan_tests {
          let missing = directory.path().join("missing-geosite.dat");
          let name = missing.to_str().unwrap();
          tracing::subscriber::with_default(subscriber, || {

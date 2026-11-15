@@ -7,9 +7,9 @@ Subject: [PATCH] nfqueue: retire scheduled token cleanups together, in the
 A packet honk sheds before its flow reaches the correlator (the ingest
 queue full, the backend not readable within the hold) schedules a token
 cleanup that retires its kernel staging, which otherwise lasts until
-the 120 s idle timeout, every packet of the flow queued and dropped
-meanwhile. The watchdog drained the cleanups each tick one at a time,
-each in a fenced retirement batch of one, which waits for a grace
+120 s after the flow's first packet, every packet of the flow queued and
+dropped meanwhile. The watchdog drained the cleanups each tick one at a
+time, each in a fenced retirement batch of one, which waits for a grace
 period of its own, and gave up until the next tick whenever the backend
 was held. The set is bounded by the queue's length, and reaching the
 bound is fatal ("scheduled cleanup set reached NFQUEUE maxlen"). On an
@@ -30,34 +30,35 @@ while the commit pump has work, it retires the token cleanups itself, a
 batch after each of its own batches, when none of its flows is armed,
 waiting its turn for the backend as it does for its commits. The
 watchdog retires them while the pump is idle, still without waiting,
-and now waits for no other drainer either. A flow cleanup still
-settles its cell, a refusal is still recorded per request and a
-failure is still fatal. retire_pending takes a slice of requests, and
-ebpf::retire_pending, its single-request wrapper, goes.
+and now waits for no other drainer either; it retires a batch a tick,
+so its pause before it scans the holds is one grace period at most. A
+flow cleanup still settles its cell, a refusal is still recorded per
+request and a failure is still fatal. retire_pending takes a slice of
+requests, and ebpf::retire_pending, its single-request wrapper, goes.
 
 Tests: a retirement batch and one more of scheduled token cleanups are
 retired in two backend batches (one at a time: a batch each), every
-staged entry gone and the set empty; the pump retires a cleanup after
-its batch within a second while a reader takes the backend in turn
-(without the pump's retirement: none in that time); and a late request
-of a batch is never applied, its staging left to its token cleanup.
-The design document describes the drain.
+staged entry gone and the set empty, and by the watchdog in two ticks,
+a batch each; the pump retires a cleanup after its batch within a
+second while a reader takes the backend in turn (without the pump's
+retirement: none in that time); and a late request of a batch is never
+applied, its staging left to its token cleanup. The design document
+describes the drain.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
  .../honk-core/src/control/nfqueue/commit.rs   |   6 +-
  crates/honk-core/src/control/nfqueue/mod.rs   |   5 +-
- crates/honk-core/src/control/nfqueue/tests.rs | 109 +++++++++++
+ crates/honk-core/src/control/nfqueue/tests.rs | 151 +++++++++++++++
  .../src/control/nfqueue/tests/batching.rs     |  18 +-
- .../src/control/nfqueue/transition.rs         |   3 +-
- .../honk-core/src/control/nfqueue/watchdog.rs | 174 ++++++++++++------
+ .../honk-core/src/control/nfqueue/watchdog.rs | 183 ++++++++++++------
  crates/honk-core/src/ebpf/mock.rs             |   3 +
  crates/honk-core/src/ebpf/mock/backend.rs     |   2 +
  crates/honk-core/src/ebpf/retirement.rs       |  15 --
  doc/en/design/nfqueue.md                      |   2 +-
  doc/zh/design/nfqueue.md                      |   2 +-
- 11 files changed, 255 insertions(+), 84 deletions(-)
+ 10 files changed, 304 insertions(+), 83 deletions(-)
 
 diff --git a/crates/honk-core/src/control/nfqueue/commit.rs b/crates/honk-core/src/control/nfqueue/commit.rs
 index 6e9d7b3..8c7558e 100644
@@ -98,65 +99,107 @@ index cdac4ec..1bf8bb2 100644
  
  mod cell;
 diff --git a/crates/honk-core/src/control/nfqueue/tests.rs b/crates/honk-core/src/control/nfqueue/tests.rs
-index ed9f8b4..4610dc6 100644
+index ed9f8b4..08e38bb 100644
 --- a/crates/honk-core/src/control/nfqueue/tests.rs
 +++ b/crates/honk-core/src/control/nfqueue/tests.rs
-@@ -536,6 +536,115 @@ async fn deferred_token_cleanup_does_not_stall_hold_watchdog() {
+@@ -536,6 +536,157 @@ async fn deferred_token_cleanup_does_not_stall_hold_watchdog() {
      assert_eq!(*fixture.sink.lock(), vec![TestVerdict::Drop { id: 1 }]);
  }
  
++/// `flows` flows shed before reaching the correlator: their staging seeded in
++/// the backend and their token cleanups scheduled.
++struct ShedFlows {
++    identities: Vec<PendingUdpIdentity>,
++    backend: Arc<RwLock<Box<dyn EbpfBackend>>>,
++    /// The size of each retirement batch the backend ran.
++    batches: Arc<parking_lot::Mutex<Vec<usize>>>,
++    pending: PendingUdpVerdicts,
++    _fatal: mpsc::Receiver<PendingUdpFatal>,
++}
++
++impl ShedFlows {
++    fn scheduled(flows: usize) -> Self {
++        let identities: Vec<_> = (0..flows)
++            .map(|index| {
++                let index = u16::try_from(index).unwrap();
++                PendingUdpIdentity::new(
++                    FlowKey::new(
++                        SocketAddr::from(([192, 0, 2, 10], 20_000 + index)),
++                        "198.51.100.20:443".parse().unwrap(),
++                    ),
++                    crate::ebpf::UdpFlowOwner::new(100 + u32::from(index), None).unwrap(),
++                    0,
++                )
++            })
++            .collect();
++        let mut mock = crate::ebpf::mock::MockEbpfBackend::new();
++        for identity in &identities {
++            mock.seed_staged_udp_flow(
++                &identity.tuples(),
++                retained(identity.owner.token, UdpDecisionState::Pending, 0),
++            );
++        }
++        let batches = Arc::clone(&mock.retire_batch_sizes);
++        let backend: Arc<RwLock<Box<dyn EbpfBackend>>> = Arc::new(RwLock::new(Box::new(mock)));
++        let (pending, fatal) = PendingUdpVerdicts::new(
++            Arc::clone(&backend),
++            Arc::new(UdpEndpointPool::new()),
++            Arc::new(StatsManager::new()),
++        );
++        for identity in &identities {
++            pending.schedule_cleanup(CleanupRequest::Token {
++                key: identity.key,
++                decision_token: identity.owner.token,
++            });
++        }
++        Self {
++            identities,
++            backend,
++            batches,
++            pending,
++            _fatal: fatal,
++        }
++    }
++
++    /// Every staging gone and the set empty.
++    async fn assert_retired(&self) {
++        assert!(self.pending.scheduled_cleanups.lock().is_empty());
++        let backend = self.backend.read().await;
++        for identity in &self.identities {
++            assert!(
++                backend
++                    .conn_state_lookup(&identity.tuples())
++                    .unwrap()
++                    .is_none()
++            );
++        }
++    }
++}
++
 +#[tokio::test]
 +async fn scheduled_token_cleanups_retire_together() {
 +    // A retirement waits for one grace period however many tokens it holds;
 +    // flows shed under load schedule token cleanups faster than one each can go.
-+    let flows = RETIRE_BATCH_CAPACITY + 1;
-+    let identities: Vec<_> = (0..flows)
-+        .map(|index| {
-+            let index = u16::try_from(index).unwrap();
-+            PendingUdpIdentity::new(
-+                FlowKey::new(
-+                    SocketAddr::from(([192, 0, 2, 10], 20_000 + index)),
-+                    "198.51.100.20:443".parse().unwrap(),
-+                ),
-+                crate::ebpf::UdpFlowOwner::new(100 + u32::from(index), None).unwrap(),
-+                0,
-+            )
-+        })
-+        .collect();
-+    let mut mock = crate::ebpf::mock::MockEbpfBackend::new();
-+    for identity in &identities {
-+        mock.seed_staged_udp_flow(
-+            &identity.tuples(),
-+            retained(identity.owner.token, UdpDecisionState::Pending, 0),
-+        );
-+    }
-+    let batches = Arc::clone(&mock.retire_batch_sizes);
-+    let backend: Arc<RwLock<Box<dyn EbpfBackend>>> = Arc::new(RwLock::new(Box::new(mock)));
-+    let (pending, _fatal) = PendingUdpVerdicts::new(
-+        Arc::clone(&backend),
-+        Arc::new(UdpEndpointPool::new()),
-+        Arc::new(StatsManager::new()),
-+    );
-+    for identity in &identities {
-+        pending.schedule_cleanup(CleanupRequest::Token {
-+            key: identity.key,
-+            decision_token: identity.owner.token,
-+        });
-+    }
++    let shed = ShedFlows::scheduled(RETIRE_BATCH_CAPACITY + 1);
 +
-+    pending.drain_scheduled_cleanups().await;
++    shed.pending.drain_scheduled_cleanups().await;
 +
-+    assert_eq!(*batches.lock(), vec![RETIRE_BATCH_CAPACITY, 1]);
-+    assert!(pending.scheduled_cleanups.lock().is_empty());
-+    let backend = backend.read().await;
-+    for identity in &identities {
-+        assert!(
-+            backend
-+                .conn_state_lookup(&identity.tuples())
-+                .unwrap()
-+                .is_none()
-+        );
-+    }
++    assert_eq!(*shed.batches.lock(), vec![RETIRE_BATCH_CAPACITY, 1]);
++    shed.assert_retired().await;
++}
++
++/// The hold watchdog retires a batch of token cleanups a tick, its pause for
++/// them one grace period at most: it scans the holds after them.
++#[tokio::test]
++async fn the_watchdog_retires_a_batch_of_token_cleanups_a_tick() {
++    let shed = ShedFlows::scheduled(RETIRE_BATCH_CAPACITY + 1);
++
++    shed.pending.watchdog_tick().await;
++    assert_eq!(*shed.batches.lock(), vec![RETIRE_BATCH_CAPACITY]);
++
++    shed.pending.watchdog_tick().await;
++    assert_eq!(*shed.batches.lock(), vec![RETIRE_BATCH_CAPACITY, 1]);
++    shed.assert_retired().await;
 +}
 +
 +/// A reader that takes the backend again as soon as it lets it go, as the
@@ -254,22 +297,8 @@ index 1e6f46e..cf7cbbb 100644
      );
      fixture.pending.shutdown_commit_pump().await.unwrap();
  }
-diff --git a/crates/honk-core/src/control/nfqueue/transition.rs b/crates/honk-core/src/control/nfqueue/transition.rs
-index dcb90e8..4ae5f59 100644
---- a/crates/honk-core/src/control/nfqueue/transition.rs
-+++ b/crates/honk-core/src/control/nfqueue/transition.rs
-@@ -269,7 +269,8 @@ impl PendingUdpVerdicts {
-                 drop(backend);
-                 return Err(self.expire_unarmed_pending(&cell, identity));
-             }
--            let mismatch = self.retire_pending(backend.as_mut(), CleanupRequest::Flow(identity))?;
-+            let mismatch =
-+                self.retire_pending(backend.as_mut(), &[CleanupRequest::Flow(identity)])?[0];
-             if let Some(refusal) = mismatch {
-                 self.record_commit_mismatch(refusal);
-             }
 diff --git a/crates/honk-core/src/control/nfqueue/watchdog.rs b/crates/honk-core/src/control/nfqueue/watchdog.rs
-index dbd6099..1877ec7 100644
+index dbd6099..451fb3a 100644
 --- a/crates/honk-core/src/control/nfqueue/watchdog.rs
 +++ b/crates/honk-core/src/control/nfqueue/watchdog.rs
 @@ -1,35 +1,45 @@
@@ -343,20 +372,22 @@ index dbd6099..1877ec7 100644
      }
  
      pub(in crate::control) async fn run_watchdog(self: Arc<Self>, mut stop: watch::Receiver<bool>) {
-@@ -48,7 +58,11 @@ impl PendingUdpVerdicts {
+@@ -48,7 +58,13 @@ impl PendingUdpVerdicts {
      }
  
      pub(super) async fn watchdog_tick(&self) {
 -        self.drain_scheduled_cleanups().await;
 +        // The hold watchdog waits for no other drainer: the commit pump
-+        // retires token cleanups waiting its turn for the backend.
++        // retires token cleanups waiting its turn for the backend. A batch a
++        // tick: a retirement waits for a grace period, and the holds are
++        // scanned after it.
 +        if let Ok(drainer) = self.cleanup_drainer.try_lock() {
-+            self.drain_cleanups(drainer).await;
++            self.drain_cleanups(drainer, 1).await;
 +        }
          let now = Instant::now();
          let mut overdue = Vec::new();
          let mut expired = Vec::new();
-@@ -83,40 +97,90 @@ impl PendingUdpVerdicts {
+@@ -83,40 +99,97 @@ impl PendingUdpVerdicts {
          self.notify_empty_if_needed();
      }
  
@@ -364,15 +395,19 @@ index dbd6099..1877ec7 100644
      pub(super) async fn drain_scheduled_cleanups(&self) {
 -        let _drainer = self.cleanup_drainer.lock().await;
 +        let drainer = self.cleanup_drainer.lock().await;
-+        self.drain_cleanups(drainer).await;
++        self.drain_cleanups(drainer, usize::MAX).await;
 +    }
 +
-+    /// Settle the flow cleanups, then retire the token cleanups while the
-+    /// commit pump is idle and the backend free. While the pump has work it
-+    /// retires them itself, between its batches, when none of its flows is
-+    /// armed: a retirement here could hold the backend from an armed flow's
-+    /// activation.
-+    async fn drain_cleanups(&self, _drainer: tokio::sync::MutexGuard<'_, ()>) {
++    /// Settle the flow cleanups, then retire up to `token_batches` batches of
++    /// the token cleanups while the commit pump is idle and the backend free.
++    /// While the pump has work it retires them itself, between its batches,
++    /// when none of its flows is armed: a retirement here could hold the
++    /// backend from an armed flow's activation.
++    async fn drain_cleanups(
++        &self,
++        _drainer: tokio::sync::MutexGuard<'_, ()>,
++        token_batches: usize,
++    ) {
          loop {
 -            let request = self.scheduled_cleanups.lock().iter().next().copied();
 -            let Some(request) = request else {
@@ -423,7 +458,10 @@ index dbd6099..1877ec7 100644
 +                .remove(&CleanupRequest::Flow(identity));
              self.notify_empty_if_needed();
          }
-+        while self.commits.is_idle() {
++        for _ in 0..token_batches {
++            if !self.commits.is_idle() {
++                break;
++            }
 +            let tokens = self.scheduled_tokens();
 +            if tokens.is_empty() {
 +                break;
@@ -530,7 +568,7 @@ index 4389c0d..f225860 100644
      match result {
          Ok(counts) => *counts,
 diff --git a/doc/en/design/nfqueue.md b/doc/en/design/nfqueue.md
-index 01d6155..9061ab5 100644
+index 01d6155..a6da8fc 100644
 --- a/doc/en/design/nfqueue.md
 +++ b/doc/en/design/nfqueue.md
 @@ -104,7 +104,7 @@ Every packet has one absolute three-second receipt-to-verdict deadline measured
@@ -538,12 +576,12 @@ index 01d6155..9061ab5 100644
  `PendingUdpVerdicts` owns a joined pump that batches up to 1,024 terminal requests, locks backend write → correlator cell, and releases the backend lock before endpoint kernel handoff. Synchronous backend work uses `block_in_place` on multi-thread runtimes and runs inline on current-thread runtimes. The pump retains direct/block leases across caller cancellation; it rechecks original deadlines at dequeue, after backend locking, after grace and before each item, expiring late requests without conn mutation. A Direct request is late, and expires unarmed, once its deadline leaves less than its activation needs, which comes after the rest of the batch's commit and the release of the originals of every flow the batch arms: a 300 ms margin; the commit work of the batch's requests still to visit, itself included, at the slower of a moving average per request (from the batch's first visit until its armed flows can be activated) and the batch's own rate so far; and the activation work of the flows armed before it and of those still to visit, at a moving average per flow (without the waits for the backend); at least half the hold, since under load the work and waits between arming and activation outgrow what the measured work foretells, and at most all of the hold but the margin, so that a flow fresh from the queue is always armed and the averages stay current. The batch's armed flows then accept their held originals off the backend lock, oldest first, and one backend acquisition activates every flow whose originals are out; a flow whose originals arrived meanwhile goes round again. Cancellation waits for armed Direct completion under that same deadline.
  
 -A watchdog checks held cells independently and enforces the hard hold bound. Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
-+A watchdog checks held cells independently and enforces the hard hold bound, and drains the scheduled cleanups, bounded by the queue's length: a flow cleanup settles its cell, and token cleanups go to the backend together, up to a retirement batch under one fence/grace. The watchdog waits neither for the backend nor for another drainer. While the commit pump has work, the pump retires the token cleanups itself, a batch after each of its own, when none of its flows is armed, waiting its turn for the backend as for its commits: readers taking the backend in turn would leave a drain that only tries no turn, and a retirement elsewhere could hold the backend from an armed flow's activation. Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
++A watchdog checks held cells independently and enforces the hard hold bound, and drains the scheduled cleanups, bounded by the queue's length: a flow cleanup settles its cell, and token cleanups go to the backend together, up to a retirement batch under one fence/grace. The watchdog waits neither for the backend nor for another drainer, and retires a batch a tick, so its pause before scanning the holds is one grace period at most. While the commit pump has work, the pump retires the token cleanups itself, a batch after each of its own, when none of its flows is armed, waiting its turn for the backend as for its commits: readers taking the backend in turn would leave a drain that only tries no turn, and a retirement elsewhere could hold the backend from an armed flow's activation. Stale token, endpoint-generation, or backend-state mismatches drop without mutating a newer incarnation. A verdict failure or any failure after Direct has armed is process-fatal because userspace can no longer safely infer which originals the kernel accepted.
  
  ## Fences and lifecycle
  
 diff --git a/doc/zh/design/nfqueue.md b/doc/zh/design/nfqueue.md
-index 79e9fb6..eba985d 100644
+index 79e9fb6..c755743 100644
 --- a/doc/zh/design/nfqueue.md
 +++ b/doc/zh/design/nfqueue.md
 @@ -100,7 +100,7 @@ Proxy 不会创建第二条路由路径。它复用普通透明 UDP 使用的同
@@ -551,7 +589,7 @@ index 79e9fb6..eba985d 100644
  `PendingUdpVerdicts` 持有 joined pump，每批最多处理 1,024 个终态请求，按后端写锁 → correlator cell 取锁，并在释放后端锁后交接 endpoint 给内核。同步后端工作在多线程 runtime 上用 `block_in_place`，在 current-thread runtime 上内联执行。Pump 在调用方取消后仍持有 direct/block lease；在出队、取得后端锁后、grace 后及每项执行前复验原始 deadline，过期请求不修改 conn。Direct 请求的剩余时间一旦不足以完成它自己的激活（激活在本批其余提交之后，也在本批所有已 Arm 流的原始包放行之后：300 ms 余量；本批尚待处理的请求（含它自身）的提交工作，按实测每请求平均耗时（自本批首次处理请求起，至其已 Arm 的流可以激活为止）与本批迄今实际速率中较慢者计；以及先前已 Arm 的流与尚待处理的流的激活工作，按不含等待后端锁的每流平均耗时计；至少为保持期限的一半，因为负载下从 Arm 到激活的工作与等待会超出实测工作所能预计的范围；至多为保持期限减去余量，使刚出队的流总能 Arm，平均值也随之持续更新），即视为过期，不 Arm 而直接到期。本批已 Arm 的流先在后端锁外、按先后放行各自持有的原始包，再取一次后端锁激活所有原始包已放行的流；其间又有原始包到达的流放行后进入下一轮。取消等待已 Arm Direct 在同一期限内完成。
  
 -Watchdog 独立检查持有的 cell，并强制执行硬持有上限。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
-+Watchdog 独立检查持有的 cell，并强制执行硬持有上限。它还排空已调度的 cleanup（以队列长度为上限）：flow cleanup 结算其 cell，token cleanup 则合并交给后端，至多一个 retirement batch 共用一次 fence/grace。Watchdog 既不等待后端，也不等待其他排空者。Commit pump 有工作时，由它在每批之后、自己没有已 Arm 的流时退役 token cleanup，并像提交时一样排队等待后端：读者轮流持有后端时，只尝试一次的排空永远轮不到；在别处退役则可能使已 Arm 流的激活等不到后端。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
++Watchdog 独立检查持有的 cell，并强制执行硬持有上限。它还排空已调度的 cleanup（以队列长度为上限）：flow cleanup 结算其 cell，token cleanup 则合并交给后端，至多一个 retirement batch 共用一次 fence/grace。Watchdog 既不等待后端，也不等待其他排空者，且每个 tick 只退役一批，扫描持有前的停顿至多一个 grace period。Commit pump 有工作时，由它在每批之后、自己没有已 Arm 的流时退役 token cleanup，并像提交时一样排队等待后端：读者轮流持有后端时，只尝试一次的排空永远轮不到；在别处退役则可能使已 Arm 流的激活等不到后端。Token、endpoint generation 或后端状态不匹配时会丢包，且不会修改更新的 incarnation。Verdict 失败或 Direct 已 Arm 后的任何失败都会使进程 fatal，因为用户空间已无法安全判断内核接受了哪些原始包。
  
  ## 栅栏与生命周期
  

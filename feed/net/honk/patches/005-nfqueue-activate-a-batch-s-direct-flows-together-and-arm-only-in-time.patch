@@ -72,11 +72,11 @@ Upstream-Status: Pending
  .../honk-core/src/control/nfqueue/commit.rs   | 133 ++++++--
  crates/honk-core/src/control/nfqueue/mod.rs   |  16 +
  .../src/control/nfqueue/tests/batching.rs     | 290 ++++++++++++++++++
- .../src/control/nfqueue/transition.rs         | 227 ++++++++++----
+ .../src/control/nfqueue/transition.rs         | 238 ++++++++++----
  .../honk-core/src/control/nfqueue/watchdog.rs |  29 --
  doc/en/design/nfqueue.md                      |   2 +-
  doc/zh/design/nfqueue.md                      |   2 +-
- 7 files changed, 582 insertions(+), 117 deletions(-)
+ 7 files changed, 591 insertions(+), 119 deletions(-)
 
 diff --git a/crates/honk-core/src/control/nfqueue/commit.rs b/crates/honk-core/src/control/nfqueue/commit.rs
 index 2042fef..6e9d7b3 100644
@@ -603,10 +603,10 @@ index b9d8b05..1e6f46e 100644
 +    fixture.pending.shutdown_commit_pump().await.unwrap();
 +}
 diff --git a/crates/honk-core/src/control/nfqueue/transition.rs b/crates/honk-core/src/control/nfqueue/transition.rs
-index 723fb3c..dcb90e8 100644
+index 723fb3c..f04a051 100644
 --- a/crates/honk-core/src/control/nfqueue/transition.rs
 +++ b/crates/honk-core/src/control/nfqueue/transition.rs
-@@ -22,85 +22,168 @@ impl PendingUdpVerdicts {
+@@ -22,86 +22,175 @@ impl PendingUdpVerdicts {
          .await
      }
  
@@ -636,11 +636,18 @@ index 723fb3c..dcb90e8 100644
 +        let mut work = Duration::ZERO;
 +        while !round.is_empty() {
 +            let mut ready = Vec::with_capacity(round.len());
++            // The earliest end of the released flows' holds, each read with its
++            // originals: how long the backend may take to come.
++            let mut deadline: Option<Instant> = None;
 +            let releasing = Instant::now();
 +            for index in round.drain(..) {
 +                let (cell, mark) = &flows[index];
 +                match self.release_armed_originals(cell, *mark) {
-+                    Ok(()) => ready.push(index),
++                    Ok(hold_end) => {
++                        deadline =
++                            Some(deadline.map_or(hold_end, |earliest| earliest.min(hold_end)));
++                        ready.push(index);
++                    }
 +                    Err(error) => results[index] = Some(Err(error)),
 +                }
              }
@@ -649,11 +656,8 @@ index 723fb3c..dcb90e8 100644
 -                match &mut *state {
 -                    CellState::Pending {
 +            work += releasing.elapsed();
-+            let Some(deadline) = ready
-+                .iter()
-+                .filter_map(|&index| armed_deadline(&flows[index].0))
-+                .min()
-+            else {
++            // None released: every flow of the round has its result.
++            let Some(deadline) = deadline else {
 +                break;
 +            };
 +            let mut backend = match tokio::time::timeout_at(
@@ -798,13 +802,14 @@ index 723fb3c..dcb90e8 100644
 +    }
 +
 +    /// Accept an armed flow's held originals with its final mark, off the
-+    /// backend lock; an armed flow whose hold has run out fails.
++    /// backend lock, and return when its hold ends; an armed flow whose hold
++    /// has run out fails.
 +    fn release_armed_originals(
 +        &self,
 +        cell: &Arc<FlowCell>,
 +        direct_rule_mark: u32,
-+    ) -> Result<(), PendingUdpDecisionError> {
-+        let verdicts = {
++    ) -> Result<Instant, PendingUdpDecisionError> {
++        let released = {
 +            let mut state = cell.state.lock();
 +            match &mut *state {
 +                CellState::Pending {
@@ -814,9 +819,10 @@ index 723fb3c..dcb90e8 100644
 +                } if started_at.elapsed() >= HARD_HOLD_TIMEOUT => None,
 +                CellState::Pending {
 +                    armed: true,
++                    started_at,
 +                    verdicts,
 +                    ..
-+                } => Some(std::mem::take(verdicts)),
++                } => Some((std::mem::take(verdicts), *started_at + HARD_HOLD_TIMEOUT)),
 +                _ => {
 +                    return Err(self.fatal_error(
 +                        "direct verdict",
@@ -830,7 +836,7 @@ index 723fb3c..dcb90e8 100644
 -            };
 -            break;
 +        };
-+        let Some(verdicts) = verdicts else {
++        let Some((verdicts, hold_end)) = released else {
 +            self.fail_armed(cell, cell.identity);
 +            return Err(PendingUdpDecisionError::ArmedInProgress);
 +        };
@@ -838,10 +844,22 @@ index 723fb3c..dcb90e8 100644
 +            self.accept_one_fatal(verdict, direct_rule_mark | CLASSIFIED_MARK)?;
          }
 -        cell.changed.notify_waiters();
-         Ok(())
+-        Ok(())
++        Ok(hold_end)
      }
  
-@@ -285,3 +368,15 @@ impl PendingUdpVerdicts {
+     pub(in crate::control) async fn activate_proxy(
+@@ -186,7 +275,8 @@ impl PendingUdpVerdicts {
+                 drop(backend);
+                 return Err(self.expire_unarmed_pending(&cell, identity));
+             }
+-            let mismatch = self.retire_pending(backend.as_mut(), CleanupRequest::Flow(identity))?;
++            let mismatch =
++                self.retire_pending(backend.as_mut(), &[CleanupRequest::Flow(identity)])?[0];
+             if let Some(refusal) = mismatch {
+                 self.record_commit_mismatch(refusal);
+             }
+@@ -285,3 +375,15 @@ impl PendingUdpVerdicts {
          ));
      }
  }
