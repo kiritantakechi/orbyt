@@ -31,6 +31,12 @@ by = "scripts/toolchain-key.sh; build.yml host-toolchain rebuilds on a key miss:
 [[scenario]]
 capability = "build/ci"
 requirement = "Cache keyed on actual inputs"
+scenario = "A comment of a seed changes"
+by = "scripts/toolchain-key.sh hashes the board-neutral configuration's option lines alone, CONFIG_X=... and '# CONFIG_X is not set' (honk-hardening D9). 2026-11-16 on the VM: a comment appended to config/toolchain.seed kept the key toolchain-e1181189, and an option appended moved it to toolchain-6319fef7; CI run 43734941561 had rebuilt the host stage for a comment of config/datapath.seed alone"
+
+[[scenario]]
+capability = "build/ci"
+requirement = "Cache keyed on actual inputs"
 scenario = "Kernel version of the target changes"
 by = "scripts/toolchain-key.sh hashes the makefiles of the target and subtarget the board-neutral configuration selects (release-integrity D6). 2026-10-26 on the VM, a commit of the build tree with KERNEL_PATCHVER:=6.12 in target/linux/rockchip/Makefile, and nothing else changed, moved the key from toolchain-a6aa8826 to toolchain-f9e2682d"
 

@@ -42,7 +42,7 @@ from wrt_tests.services.datapath import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator, Iterator
 
     from wrt_tests.device.router import Router
     from wrt_tests.model.boards import Board
@@ -490,7 +490,7 @@ def test_every_restart_keeps_honk_pinned(proxy_restored: Online, board: Board) -
 
 
 @contextmanager
-def _pinning(router: Router) -> Iterator[None]:
+def _pinning(router: Router) -> Generator[None]:
     """Have honk's CPU pinning on, committed, while the context lasts."""
     router.run("uci set honk.config.cpu_pinning=1 && uci commit honk")
     try:
@@ -560,7 +560,8 @@ def test_the_native_api_answers_nothing_outside_the_lan(
     online.network["inet"].run("ping", "-c", "1", "-W", "5", online.wan_address)
     assert native_api(online.network["inet"], online.wan_address, "/api")[0] == 0
     # The container reaches the internet through its gateway (the probe server
-    # answers as it connects), but not the API on it.
-    container = f"podman exec {app.CONTAINER} nc -w 5"
+    # answers as it connects), but not the API on it. The firmware's busybox,
+    # the container's, has an nc without -w: the router bounds each try.
+    container = f"timeout 20 podman exec {app.CONTAINER} nc"
     assert online.router.returncode(f"{container} {DIRECT_TARGET[0]} {PORT} </dev/null") == 0
     assert online.router.returncode(f"{container} {app.GATEWAY} {NATIVE_API_PORT} </dev/null") != 0

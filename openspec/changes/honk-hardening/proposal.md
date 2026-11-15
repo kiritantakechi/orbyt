@@ -29,6 +29,7 @@ A review of honk-datapath after its merge, each finding checked against the code
   - a fractional `sleep` that BusyBox refuses, so the push's watchers spun;
   - a flow count that depends on the host's load.
 - **einat 0.2.0 is out**, with GRE support and aya 0.16; our pin and a test still name 0.1.11.
+- **The host stage's cache key moved with a seed's comment.** It hashed the seeds' comments with their options, so a comment of `datapath.seed` cost CI a 3 h 44 min rebuild of the host stage.
 
 ## What Changes
 
@@ -58,6 +59,7 @@ A review of honk-datapath after its merge, each finding checked against the code
   - The pinned versions of honk and einat come from their Makefiles.
   - New tests cover the new refusals, the token mode on the router, the honk-off rollback, and the SMB password's path and stored hash.
 - **einat 0.2.0**, its mark patch carried over unchanged.
+- **The toolchain key** hashes the board-neutral configuration's options alone.
 
 ## Capabilities
 
@@ -70,10 +72,11 @@ A review of honk-datapath after its merge, each finding checked against the code
   - a write failure and a honk that was off put back as they were;
   - the native API's booleans in every spelling honk takes, and a blank token refused.
 - `network/transparent-proxy`: the firmware keeps password login, anonymous loopback and configuration writes off whatever the configuration says.
+- `build/ci`: the host stage's key covers the configuration's options, not its comments.
 
 ## Impact
 
 - **Router side:** `feed/net/honk` (`init`, `Makefile`, patches 002, 005, 006 and 007), `feed/net/einat`, `feed/utils/wrt-sync`, `config/datapath.seed`, `patches/daeuniverse/0001`, `patches/packages/0014`.
-- **Host side:** `scripts/config-push.sh`, `scripts/config-push.d/device.uc`, `scripts/upstream-bump.sh`.
+- **Host side:** `scripts/config-push.sh`, `scripts/config-push.d/device.uc`, `scripts/upstream-bump.sh`, `scripts/toolchain-key.sh`.
 - **Tests:** network (`transparent_proxy`, `tc_hook_order`, `nat`), ops (`config_push`), unit (`netprobe`), and `wrt_tests` (`repository`, `datapath`, `netprobe`).
-- **Docs:** `docs/patches.md` (the amended and new patches' write-ups and logs), `docs/ops.md`.
+- **Docs:** `docs/patches.md` (the amended and new patches' write-ups and logs), `docs/ops.md`, `docs/ci.md`.

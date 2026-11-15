@@ -97,3 +97,11 @@ The test compares the stored entry with the one `-p` stores in a database of its
 It carries no breaking change: GRE devices count as bare IP, aya goes to 0.16 (tc attachment by interface index, `TcAttach`), and its MSRV is 1.98, below the tree's 1.99.1.
 
 The mark patch's range-diff against 0.1.11 is empty: only its index lines and one hunk's offset differ. TCX `first` and netlink priority 1 are unchanged, so the WAN hook order is as before.
+
+### D9. The host stage's key ignores a seed's comments
+
+The key hashed the board-neutral configuration as `compose_seeds` writes it. `merge-seeds.awk` keeps the seeds' comments and blank lines there, for the configuration's reader. So a comment of `config/datapath.seed`, edited in this change, moved the key: CI run 43734941561 rebuilt the host stage for it, in 3 h 44 min.
+
+The key now hashes the option lines alone: `CONFIG_X=...` and `# CONFIG_X is not set`, as `merge-seeds.awk` tells them apart. The other inputs and the configuration toolchain-build.sh builds from stay as they were, as does the compiler cache key, which already drops `ccache.conf`'s comments.
+
+The new hash moves every key once: the next host stage of each ref is a rebuild.

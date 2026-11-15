@@ -29,11 +29,13 @@ langs=$(git -C "${tree}/feeds/packages" rev-parse HEAD:lang/golang HEAD:lang/rus
 # files and configuration as these define it (build-acceleration D2).
 stamps=$(git -C "${tree}" rev-parse HEAD:include/depends.mk HEAD:include/host-build.mk HEAD:rules.mk)
 # The board-neutral configuration of the profile, as toolchain-build.sh composes
-# it: every seed of the profile and every board's device (board-model D2).
+# it: every seed of the profile and every board's device (board-model D2). Its
+# options alone, set or not set, as merge-seeds.awk reads them: a comment of a
+# seed changes no tool.
 configuration=$(mktemp)
 trap 'rm -f "${configuration}"' EXIT INT TERM
 compose_seeds "${tree}" "${profile}" "" "${configuration}"
-seed=$(sha256sum <"${configuration}")
+seed=$(grep -E '^(CONFIG_[^= ]+=|# CONFIG_[^ ]+ is not set$)' "${configuration}" | sha256sum)
 # The target and subtarget the configuration selects, by their makefiles, which
 # name what the toolchain is built for: the architecture, the CPU type, the
 # features and the kernel version, whose headers the toolchain carries

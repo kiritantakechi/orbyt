@@ -58,8 +58,14 @@
 
   Verify: the R4S builds; the NAT tests pass; the register of reviewed warnings has no stale or unreviewed entry.
 
-## 7. Integration
+## 7. The host stage's key (design D9)
 
-- [ ] 7.1 The six suites on the R4S locally, then CI's build and check for both boards.
+- [x] 7.1 scripts/toolchain-key.sh hashes the board-neutral configuration's option lines alone.
+
+  Verify: on the VM, a comment appended to a seed keeps the key, an option appended moves it; the register of scenarios verified elsewhere names it.
+
+## 8. Integration
+
+- [ ] 8.1 The six suites on the R4S locally, then CI's build and check for both boards.
 
   Verify: every suite passes on both boards; the runs are recorded in `docs/ci.md`.
