@@ -40,9 +40,10 @@
 
 ## 5. Verification on GitHub (design D5)
 
-- [ ] 5.1 Push `bump/verify-branch-runs` from this change's branch and open its pull request; see the push run start and its `upgrade-drill` among the pull request's checks, the pull request's run skip `host-toolchain` and pass `upgrade-drill of the branch`; cancel the push run and see the required check fail; then close the pull request, delete the branch and any cache of its ref.
+- [x] 5.1 Push `bump/verify-branch-runs` from this change's branch and open its pull request; see the push run start and its `upgrade-drill` among the pull request's checks, the pull request's run skip `host-toolchain` and pass `upgrade-drill of the branch`; cancel the push run and see the required check fail; then close the pull request, delete the branch and any cache of its ref.
 
   Verify: the three observations of D5, with the runs' IDs, recorded in `docs/ci.md`; no branch, pull request or cache of the verification left.
+  Result (2026-11-16): all three seen: push run 43899871928 started with the push and its checks showed on pull request 6; the pull request's run 43900241175 skipped every build job and passed `upgrade-drill of the branch`, the pull request blocked meanwhile; the cancelled push run failed `upgrade-drill`, the pull request's only check of that name. Recorded in `docs/ci.md`; pull request 6 closed, the branch deleted, no cache of either ref.
 
 ## Workflow follow-up
 
