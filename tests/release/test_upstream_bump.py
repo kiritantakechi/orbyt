@@ -28,6 +28,8 @@ from wrt_tests.model.data import read_json, write_json
 from wrt_tests.model.outputs import MANIFEST_FILE, Manifest
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from wrt_tests.model.boards import Board
     from wrt_tests.services.datapath import Online
     from wrt_tests.services.drill import Drill
@@ -302,21 +304,19 @@ def test_a_bump_s_pull_request_run_fails_the_drill_check() -> None:
     assert f"gh workflow run build.yml --ref {BRANCH}" in result.stdout
 
 
-@spec(CAPABILITY, "Fail clearly when patches do not apply", "BBRv3 patch conflict")
-def test_a_patch_that_does_not_apply_is_named(tmp_path: Path) -> None:
-    # openwrt took a BBR patch of its own, under the name ours adds; a copy of
-    # this repository pins that commit.
+def _patch_step(
+    tmp_path: Path, change: Callable[[Path], object]
+) -> subprocess.CompletedProcess[str]:
+    """Run the patch step on a pinned openwrt commit that ``change`` made.
+
+    ``change`` changes the openwrt repository's tree, which is then committed; a
+    copy of this repository's scripts and patches pins that commit.
+    """
     _upstreams(tmp_path, commits=1)
     openwrt = tmp_path / "openwrt"
-    taken = openwrt / next(
-        line.removeprefix("+++ b/")
-        for line in (REPO / BBR_PATCH).read_text().splitlines()
-        if line.startswith("+++ b/")
-    )
-    taken.parent.mkdir(parents=True)
-    taken.write_text("upstream's own\n")
+    change(openwrt)
     _git(openwrt, "add", ".")
-    _git(openwrt, "commit", "-q", "-m", "generic: BBRv3")
+    _git(openwrt, "commit", "-q", "-m", "upstream's change")
     repository = tmp_path / "repository"
     for part in ("scripts", "patches"):
         shutil.copytree(REPO / part, repository / part)
@@ -328,15 +328,42 @@ def test_a_patch_that_does_not_apply_is_named(tmp_path: Path) -> None:
     _git(tmp_path, "clone", "-q", str(openwrt), str(tree))
     _git(tree, "checkout", "-q", "--detach", heads["openwrt"])
     (tree / "feeds.conf").touch()
-    result = subprocess.run(
+    return subprocess.run(
         [repository / "scripts" / "patch.sh"],
         capture_output=True,
         text=True,
         check=False,
         env={**os.environ, **GIT_IDENTITY, "WRT_WORKDIR": str(work)},
     )
+
+
+@spec(CAPABILITY, "Fail clearly when patches do not apply", "BBRv3 patch conflict")
+def test_a_patch_that_does_not_apply_is_named(tmp_path: Path) -> None:
+    def own_bbr(openwrt: Path) -> None:
+        # openwrt took a BBR patch of its own, under the name ours adds.
+        taken = openwrt / next(
+            line.removeprefix("+++ b/")
+            for line in (REPO / BBR_PATCH).read_text().splitlines()
+            if line.startswith("+++ b/")
+        )
+        taken.parent.mkdir(parents=True)
+        taken.write_text("upstream's own\n")
+
+    result = _patch_step(tmp_path, own_bbr)
     assert result.returncode != 0
     assert f"patch does not apply: {BBR_PATCH}" in result.stderr
+    assert "upstream has its change" not in result.stderr
+
+
+@spec(CAPABILITY, "Fail clearly when patches do not apply", "Upstream made a patch's change")
+def test_a_patch_upstream_made_is_named_as_such(tmp_path: Path) -> None:
+    # openwrt took our BBR patch as it is.
+    result = _patch_step(
+        tmp_path,
+        lambda openwrt: _git(openwrt, "apply", "--whitespace=nowarn", str(REPO / BBR_PATCH)),
+    )
+    assert result.returncode != 0
+    assert f"patch does not apply: {BBR_PATCH}: upstream has its change" in result.stderr
 
 
 def _factory(board: Board, *, suffix: str = "") -> str:

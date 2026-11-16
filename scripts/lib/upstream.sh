@@ -63,7 +63,8 @@ fetch_locked() (
 # committer, so the same series always gives the same commit. git reads neither
 # the user's nor the system's configuration, which could fix whitespace, sign
 # or otherwise change it (release-integrity D8). Dies naming the first patch
-# that does not apply.
+# that does not apply, and saying so when it applies in reverse: upstream has
+# its change, and the patch can go (upstreamed-patches D1).
 series_commit() (
 	dir=$1 repository=$2 commit=$3
 	scratch=$(mktemp -d "${TMPDIR:-/tmp}/wrt-series.XXXXXX")
@@ -77,6 +78,8 @@ series_commit() (
 		git -C "${repository}" mailinfo "${scratch}/message" "${scratch}/diff" \
 			<"${patch}" >"${scratch}/info" || die "not a patch: ${name}"
 		if ! git -C "${repository}" apply --cached "${scratch}/diff"; then
+			git -C "${repository}" apply --cached --reverse --check "${scratch}/diff" 2>/dev/null &&
+				die "patch does not apply: ${name}: upstream has its change (it applies in reverse); drop the patch"
 			die "patch does not apply: ${name}"
 		fi
 		tree=$(git -C "${repository}" write-tree)

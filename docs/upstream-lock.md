@@ -20,7 +20,7 @@
   - writes every line of the generated `feeds.conf` in the form `src-git <name> <url>^<sha>`, plus one `src-link wrtbuild` line for the project's own feed.
 - **`just patch`**:
   - makes, for every repository, the commit of its pinned commit with `patches/<name>/*.patch` applied in file-name order, in the object database and with a fixed committer identity and each patch's date, as `git am` would;
-  - then moves the work tree to that commit in one checkout. Git writes only the files whose content differs from the commit the tree was on, so every other file keeps its modification time, and make rebuilds only what changed. A patch that does not apply stops the step, named, before any file changes;
+  - then moves the work tree to that commit in one checkout. Git writes only the files whose content differs from the commit the tree was on, so every other file keeps its modification time, and make rebuilds only what changed. A patch that does not apply stops the step, named, before any file changes, and one that applies in reverse is named as upstream's change already, to be dropped;
   - writes the openwrt `commit-epoch` to `version.date` in the source tree, which `scripts/get_source_date_epoch.sh` reads first.
   - As a result, the same lock and patches yield the same source tree SHA, no matter when or on which machine they are applied.
 
