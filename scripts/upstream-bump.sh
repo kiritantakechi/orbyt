@@ -4,7 +4,8 @@
 # For each repository of the lock (upstream.lock unless --lock), finds the head
 # of its default branch and, when any moved, rewrites the lock (SHA and commit
 # time of each) and writes the pull request to <description>: the title, a blank
-# line, then the old and new SHAs and at most 50 commits of each repository.
+# line, then the old and new SHAs and the newest 50 commits of each repository,
+# with a link to all of them on GitHub.
 # When none moved, the lock stays as it is and <description> is not written.
 set -eu
 # shellcheck source=scripts/lib/core.sh
@@ -45,8 +46,17 @@ for name in ${names}; do
 	' "${LOCK_FILE}" >"${work}/lock"
 	cat "${work}/lock" >"${LOCK_FILE}"
 	count=$(git -C "${work}/${name}" rev-list --count "${old}..${head}" 2>/dev/null) || count=unknown
+	heading="${name}: ${count} commits"
+	case ${count} in
+		unknown) ;;
+		*) [ "${count}" -le "${SUMMARY}" ] || heading="${heading}, the newest ${SUMMARY}" ;;
+	esac
+	case ${url} in
+		https://github.com/*) heading="${heading} ([all](${url%.git}/compare/${old}...${head}))" ;;
+		*) ;;
+	esac
 	{
-		printf '\n### %s: %s commits\n\n```\n' "${name}" "${count}"
+		printf '\n### %s\n\n```\n' "${heading}"
 		git -C "${work}/${name}" log --oneline --no-decorate "${old}..${head}" 2>/dev/null |
 			head -n "${SUMMARY}" || true
 		printf '```\n'

@@ -1,6 +1,6 @@
-# The weekly bump of upstream.lock (r4s-release-pipeline D5): when openwrt,
-# packages or luci moved, a pull request from bump/<date> with the new lock, the
-# old and new SHAs and the commits in between. A pull request opened with the
+# The weekly bump of upstream.lock (r4s-release-pipeline D5): when a repository
+# of the lock moved, a pull request from bump/<date> with the new lock, the old
+# and new SHAs and the commits in between. A pull request opened with the
 # workflow's token starts no workflows, so this one starts check and build on the
 # bump branch itself, before it opens the pull request: build signs the
 # candidate, drills the upgrade to it and publishes it as a pre-release, and
