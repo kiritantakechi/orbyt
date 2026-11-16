@@ -8,7 +8,8 @@
 // environment that cannot be read fails the check named environment and never
 // reboots, the trial state being unknown; a pass whose confirmation cannot be
 // written fails the check named confirm, and the slot stays on trial
-// (device-integrity D1).
+// (device-integrity D1). A confirmation leaves an environment that changed since
+// the checks began, as a manual switch changes it (trial-guards D4).
 'use strict';
 
 import { access, lsdir, readfile, writefile } from 'fs';
@@ -100,6 +101,34 @@ function record(running, result, failed) {
 	writefile(RESULT, sprintf('%J\n', { time: time(), slot: running, result: result, failed: failed }));
 }
 
+// confirm(running, environment): confirm the running slot of a trial boot that
+// passed, unless the U-Boot environment changed since the checks began, as a
+// manual switch changes it before its reboot: that change stays (trial-guards D4).
+// The comparison is with that start, not with the running slot: after a fallback
+// within a power cycle the environment names the trial slot that did not load,
+// and the slot that did is the one to confirm.
+function confirm(running, environment) {
+	let now = variables();
+
+	if (!now) {
+		record(running, 'fail', ['environment']);
+		log('err', `slot ${running} passed its trial boot, but the U-Boot environment cannot be read again: it stays on trial`);
+	}
+	else if (now.boot_slot != environment.boot_slot || now.upgrade_available != '1') {
+		record(running, 'pass', []);
+		log('notice', `slot ${running} passed its checks; left the switch to slot ${now.boot_slot} in place`);
+	}
+	else if (setenv({ boot_slot: running, upgrade_available: 0, bootcount: 0 })) {
+		record(running, 'pass', []);
+		log('notice', `slot ${running} passed its trial boot and is confirmed`);
+	}
+	else {
+		// Healthy, but still on trial: U-Boot counts the next boots.
+		record(running, 'fail', ['confirm']);
+		log('err', `slot ${running} passed its trial boot, but writing the U-Boot environment failed: it stays on trial`);
+	}
+}
+
 let total = setting('total', 300);
 let interval = setting('interval', 10);
 let timeout = setting('timeout', 30);
@@ -132,12 +161,5 @@ if (length(failed)) {
 }
 else if (!trial)
 	record(running, 'pass', failed);
-else if (setenv({ boot_slot: running, upgrade_available: 0, bootcount: 0 })) {
-	record(running, 'pass', failed);
-	log('notice', `slot ${running} passed its trial boot and is confirmed`);
-}
-else {
-	// Healthy, but still on trial: U-Boot counts the next boots.
-	record(running, 'fail', ['confirm']);
-	log('err', `slot ${running} passed its trial boot, but writing the U-Boot environment failed: it stays on trial`);
-}
+else
+	confirm(running, environment);

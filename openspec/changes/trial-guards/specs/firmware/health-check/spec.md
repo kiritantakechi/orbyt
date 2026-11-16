@@ -13,7 +13,7 @@ The time limits SHALL run on a clock that setting the time of day does not move,
 
 The health check SHALL tell a U-Boot environment it cannot read from one that is not in the trial boot state: an environment it cannot read SHALL be a failed check of its own, and the device MUST NOT reboot for it. When the checks pass but the confirmation cannot be written, the result SHALL be a failure that names the confirmation, the slot SHALL stay in the trial boot state, and the device MUST NOT reboot.
 
-The health check SHALL confirm only an environment that, read again just before the confirmation, still names the running slot in the trial boot state. One that names another slot by then, as a manual switch writes it, MUST be left as it is, and the health check SHALL log that it left the switch in place.
+The health check SHALL confirm only an environment that, read again just before the confirmation, still names the slot it named when the checks began, in the trial boot state. One changed by then, as a manual switch changes it, MUST be left as it is, and the health check SHALL log that it left the switch in place.
 
 #### Scenario: Check passes during trial boot
 - **WHEN** the health check passes in the trial boot state

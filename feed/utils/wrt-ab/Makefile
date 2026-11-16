@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
 
 PKG_NAME:=wrt-ab
 PKG_VERSION:=1
-PKG_RELEASE:=3
+PKG_RELEASE:=4
 
 PKG_MAINTAINER:=kiritantakechi <kiritantakechi@gmail.com>
 PKG_LICENSE:=GPL-2.0-only
@@ -20,8 +20,9 @@ endef
 define Package/wrt-ab/description
   The Linux side of the A/B slots (r4s-ab-rollback): sysupgrade writes only the
   inactive slot and makes it the trial slot, wrt-healthcheck confirms a trial
-  slot or reboots it so that U-Boot can roll back, and wrt-slot shows the state
-  or switches slots by hand.
+  slot or reboots it so that U-Boot can roll back, wrt-trial reboots a trial
+  boot still undecided at its deadline, and wrt-slot shows the state or
+  switches slots by hand.
 endef
 
 define Package/wrt-ab/conffiles

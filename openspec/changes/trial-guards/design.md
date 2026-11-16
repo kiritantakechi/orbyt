@@ -51,7 +51,7 @@ Alternatives considered:
 
 ### D4. A confirmation reads the environment again
 
-Just before it confirms, `wrt-healthcheck` reads the environment again, and confirms only while it names the running slot on trial. Otherwise it records the pass, leaves the environment as it is and logs that it left the switch to the other slot in place. An environment that cannot be read this time is the failed check `environment`, without a reboot, as at the start. The read and the write stay two commands: what is left between them is a few milliseconds, against an administrator's own command.
+Just before it confirms, `wrt-healthcheck` reads the environment again, and confirms only while it names the same slot on trial as when the checks began. Otherwise it records the pass, leaves the environment as it is and logs that it left the switch in place. The comparison is with the start, not with the running slot: after a fallback within a power cycle the environment names the trial slot that failed to load, and the health check confirms the slot that did boot, as it does today. An environment that cannot be read this time is the failed check `environment`, without a reboot, as at the start. The read and the write stay two commands: what is left between them is a few milliseconds, against an administrator's own command.
 
 ### D5. Tests
 

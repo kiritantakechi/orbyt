@@ -1,6 +1,7 @@
 """firmware/boot-rollback: U-Boot picks the slot, counts trial boots and rolls back."""
 
 import re
+import shlex
 import time
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -37,6 +38,10 @@ WRITABLE = '"boot_slot:sw,bootcount:dw,upgrade_available:dw"'
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 BOOT_LIMIT = 3
 PANIC_REBOOT = 10.0
+# A trial deadline short enough for three hung boots in a test.
+TRIAL_DEADLINE = 60
+# A uci-defaults script, which the boot script S10boot runs, and an upgrade carries.
+HANG = "/etc/uci-defaults/95-wrt-test-hang"
 
 
 def _names(env_file: Path) -> set[str]:
@@ -175,6 +180,23 @@ def test_no_upgrade_without_the_bootloader_s_environment(
 
 @spec(
     CAPABILITY,
+    "The system writes the environment where the bootloader reads it",
+    "The environment at the first boot script",
+)
+def test_the_first_boot_script_reads_the_environment(router: Router, upgrade_image: Path) -> None:
+    other = "b" if slot(router) == "a" else "a"
+    router.put(upgrade_image, UPGRADE_IMAGE)
+    previous_boot = router.boot_id()
+    # No configuration kept: nothing carries the environment's access over.
+    router.detach(f"sleep 1; sysupgrade -n {UPGRADE_IMAGE}")
+    router.wait_rebooted(previous_boot)
+    assert slot(router) == other
+    # wrt-trial, the first boot script, names the trial only when it read it.
+    assert f"wrt-trial: slot {other} is on trial" in router.run("dmesg")
+
+
+@spec(
+    CAPABILITY,
     "Persistent environment cannot override boot logic",
     "Custom boot command in persistent environment",
 )
@@ -208,6 +230,39 @@ def test_rollback_after_three_unconfirmed_boots(router: Router, upgrade_image: P
     assert getenv(router, "bootcount") == "0"
     # The failed slot booted exactly bootlimit times after the upgrade.
     assert len(re.findall(r"wrt\.slot=b", console.text(since))) == BOOT_LIMIT
+
+
+@spec(CAPABILITY, "Hangs and panics become reboots", "A boot script hangs during a trial boot")
+def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> None:
+    running = slot(router)
+    other = "b" if running == "a" else "a"
+    # A boot script that never returns on the trial slot, before the health check
+    # starts; on the original slot it ends at once and goes, as uci-defaults do.
+    hang = "\n".join(
+        (
+            ". /lib/functions/wrt-ab.sh",
+            f'[ "$(wrt_ab_slot)" = {other} ] || exit 0',
+            "while :; do sleep 3600; done",
+        )
+    )
+    router.run(
+        f"printf '%s\\n' {shlex.quote(hang)} >{HANG} && echo {HANG} >>/etc/sysupgrade.conf"
+        f" && uci set wrt-ab.trial=trial && uci set wrt-ab.trial.deadline={TRIAL_DEADLINE}"
+        " && uci commit wrt-ab"
+    )
+    console = router.emulator.console
+    since = console.mark()
+    router.put(upgrade_image, UPGRADE_IMAGE)
+    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    console.wait_for(rf"Bootlimit \({BOOT_LIMIT}\) exceeded", since=since, timeout=1800)
+    router.wait_ssh()
+    router.wait_ready()
+    assert slot(router) == running
+    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (running, "0")
+    text = console.text(since)
+    assert len(re.findall(rf"wrt\.slot={other}", text)) == BOOT_LIMIT
+    reboots = re.findall(rf"wrt-trial: slot {other}: .*; rebooting", text)
+    assert len(reboots) == BOOT_LIMIT, reboots
 
 
 @spec(

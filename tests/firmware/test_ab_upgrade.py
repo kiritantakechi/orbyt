@@ -65,6 +65,21 @@ def test_upgrade_writes_only_slot_b(router: Router, upgrade_image: Path) -> None
     assert (slot_sha256(router, "a"), boot_area_sha256(router)) == before
 
 
+@spec(CAPABILITY, "Write only the inactive slot", "Upgrade during a trial boot")
+def test_no_upgrade_while_the_running_slot_is_on_trial(router: Router, upgrade_image: Path) -> None:
+    running = slot(router)
+    other = "b" if running == "a" else "a"
+    setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
+    router.put(upgrade_image, UPGRADE_IMAGE)
+    before = (slot_sha256(router, other), _switch(router))
+    previous_boot = router.boot_id()
+    output = router.run(f"sysupgrade {UPGRADE_IMAGE} 2>&1; echo exit=$?", timeout=120)
+    assert f"Slot {running} is on trial" in output, output
+    assert output.endswith("exit=1"), output
+    assert router.boot_id() == previous_boot
+    assert (slot_sha256(router, other), _switch(router)) == before
+
+
 @spec(CAPABILITY, "Write only the inactive slot", "Power loss mid-upgrade")
 def test_power_loss_keeps_slot_a(router: Router, upgrade_image: Path) -> None:
     emulator = router.emulator

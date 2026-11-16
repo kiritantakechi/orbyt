@@ -24,7 +24,12 @@ fi
 use_tests_venv
 cd "${REPO_DIR}"
 files=$(repo_files)
-shell_files=$(printf '%s\n' "${files}" | xargs shfmt -f)
+# shfmt finds scripts by their extension or interpreter line; preinit's hooks,
+# which preinit sources, have neither.
+shell_files=$({
+	printf '%s\n' "${files}" | xargs shfmt -f
+	printf '%s\n' "${files}" | grep '/lib/preinit/'
+} | sort -u)
 nix_files=$(printf '%s\n' "${files}" | grep -E '\.nix$')
 
 # forbidden_patterns: build steps must not run or apply downloaded content, nor

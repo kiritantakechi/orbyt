@@ -65,8 +65,9 @@ wrt_ab_erofs_size() {
 # platform_check_image <image>: accept only a single-slot upgrade image, a tar of
 # CONTROL, kernel (the boot partition) and root (EROFS), on a system running A/B
 # that can write the U-Boot environment where its bootloader reads it: one
-# whose bootloader named no environment has none configured (31-wrt-ab), and
-# refuses before anything is written (trial-boot-resilience D3).
+# whose bootloader named no environment has none configured (its preinit), and
+# refuses before anything is written (trial-boot-resilience D3); and not while
+# the running slot is on trial (trial-guards D3).
 platform_check_image() {
 	if ! wrt_ab_dir "$1" >/dev/null; then
 		wrt_listed=$(wrt_ab_members "$1" | tr '\n' ' ') || wrt_listed=
@@ -79,6 +80,17 @@ platform_check_image() {
 	fi
 	if ! fw_printenv >/dev/null 2>&1; then
 		echo "The bootloader names no U-Boot environment; flash the factory image instead"
+		return 1
+	fi
+	# While the running slot is on trial, the other slot is the one a rollback
+	# returns to (trial-guards D3). A trial slot that did not load, which U-Boot
+	# fell back from within the power cycle, is not the running slot.
+	wrt_running=$(wrt_ab_slot)
+	# A variable that is not set is no trial.
+	wrt_trial=$(fw_printenv -n upgrade_available 2>/dev/null) || wrt_trial=0
+	wrt_boot_slot=$(fw_printenv -n boot_slot 2>/dev/null) || wrt_boot_slot=
+	if [ "${wrt_trial}" = 1 ] && [ "${wrt_boot_slot}" = "${wrt_running}" ]; then
+		echo "Slot ${wrt_running} is on trial: the other slot is the one a rollback returns to until the health check confirms ${wrt_running}"
 		return 1
 	fi
 }

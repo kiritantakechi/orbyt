@@ -11,7 +11,7 @@ An upgrade started during a trial writes the other slot, the only one known to b
 - **A trial boot has a deadline the boot order cannot hold off.** The first boot script starts a supervisor that, on a trial boot, waits until a deadline counted on the monotonic clock from the kernel's start (`wrt-ab.trial.deadline`, 900 s by default), and reboots when the slot is then still on trial and the health check has recorded no result for the boot. Every such reboot counts toward rollback, as a failed check does. It reports to the kernel log, which the console shows even when no service has started.
 - **The U-Boot environment is reachable before the first boot script.** Its access is configured in preinit, right after the configuration is restored, from the copies the bootloader names on the kernel command line, in place of the uci-defaults script `31-wrt-ab`, which runs only in the middle of the boot and, after an upgrade without kept configuration, only once that boot has got that far.
 - **No upgrade while the running slot is on trial.** sysupgrade refuses, before it writes anything, an image to be written while the running slot awaits confirmation, naming the trial: until then the other slot is the one rollback returns to.
-- **A confirmation takes back nothing.** The health check reads the environment again just before it confirms, and confirms only while it still names the running slot on trial; a switch written meanwhile stays.
+- **A confirmation takes back nothing.** The health check reads the environment again just before it confirms, and confirms only while it is as the checks found it; a switch written meanwhile stays.
 
 ## Capabilities
 

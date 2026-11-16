@@ -6,6 +6,7 @@
 # block mount anything (device-robustness D7).
 
 wrt_data_mountpoint() {
+	# shellcheck source=../functions/wrt-data.sh
 	. /lib/functions/wrt-data.sh
 	mount -t tmpfs -o mode=0755,size=1m wrt-data "${WRT_DATA%/*}"
 }

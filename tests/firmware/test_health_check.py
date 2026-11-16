@@ -133,6 +133,37 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     assert router.boot_id() == previous_boot
 
 
+@spec(CAPABILITY, "Result handling by trial boot state", "A switch written during the checks")
+def test_a_switch_written_during_the_checks_stays(router: Router) -> None:
+    running = slot(router)
+    other = "b" if running == "a" else "a"
+    setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
+    router.run(f"touch {FAILING}")
+    _register(router, "demo", f"[ ! -e {FAILING} ]")
+    limits = " && ".join(
+        f"uci set wrt-ab.healthcheck.{name}={value}" for name, value in SLOW.items()
+    )
+    previous_boot = router.boot_id()
+    router.detach(f"{limits} && wrt-healthcheck")
+    until(
+        lambda: router.returncode("pgrep -f /usr/sbin/wrt-healthcheck >/dev/null") == 0,
+        timeout=30,
+        what="the health check running",
+    )
+    # The other slot made the trial slot, as wrt-slot switch writes it before its
+    # reboot; then the check passes.
+    setenv(router, boot_slot=other, upgrade_available=1, bootcount=0)
+    router.run(f"rm {FAILING}")
+    left = f"left the switch to slot {other} in place"
+    router.run(
+        f"until logread -e wrt-healthcheck | grep -q '{left}'; do sleep 1; done",
+        timeout=SLOW["total"],
+    )
+    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (other, "1")
+    assert router.returncode("logread -e wrt-healthcheck | grep -q 'is confirmed'") != 0
+    assert router.boot_id() == previous_boot
+
+
 @spec(CAPABILITY, "Result handling by trial boot state", "Check fails on a confirmed system")
 def test_confirmed_failure_only_records(router: Router) -> None:
     assert getenv(router, "upgrade_available") in {None, "0"}
