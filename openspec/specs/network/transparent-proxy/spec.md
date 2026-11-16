@@ -103,7 +103,7 @@ While honk runs, connections from a bound interface to the router's own addresse
 - **THEN** every connection is accepted and answered by the router's service
 
 ### Requirement: Web UI through the native API in token mode
-honk's web UI SHALL be served only through honk's native API, and only in static-token mode. The native API SHALL be off unless the configuration enables it, MUST answer only from the LAN zone, and MUST NOT accept configuration writes.
+honk's web UI SHALL be served only through honk's native API, and only in static-token mode. The native API SHALL be off unless the configuration enables it, MUST answer only from the LAN zone, and MUST NOT accept configuration writes. The firmware SHALL keep password login, anonymous loopback access and configuration writes off whatever the configuration on the router says, however it got there.
 
 #### Scenario: Native API enabled with a token
 - **WHEN** a configuration that enables the native API with a token is applied
@@ -111,7 +111,11 @@ honk's web UI SHALL be served only through honk's native API, and only in static
 
 #### Scenario: Native API from outside the LAN
 - **WHEN** the native API is enabled and a request to it comes from the WAN or from the container bridge
-- **THEN** it gets no response
+- **THEN** it gets no response, while the same requests reach other destinations
+
+#### Scenario: Password login in the configuration
+- **WHEN** a configuration written on the router enables the native API with a token, password login, anonymous loopback access and configuration writes
+- **THEN** honk runs with the token alone: a LAN request without it is refused, and the API reports its configuration as not writable
 
 ### Requirement: honk's netfilter hook outlives firewall reloads
 honk's own nftables table SHALL stay in place, unchanged, through every reload of the firewall while honk runs, and SHALL be gone once honk has stopped. A firewall reload drops the packets waiting in honk's queue for its decision; honk SHALL keep running and deciding through it.

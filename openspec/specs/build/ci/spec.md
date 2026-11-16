@@ -20,7 +20,7 @@ CI SHALL split the build into two stages. The host stage SHALL build, once for e
 The host stage's cache key SHALL be determined only by the inputs that affect what it builds:
 - the contents, as patched, of the tools and toolchain directories of the openwrt repository, of its generic kernel files, from which the toolchain's kernel headers come, of its build files that name the host packages' stamps, and of the Go and Rust directories of the packages feed;
 - the definition of the target and subtarget the boards select: the makefiles that name their architecture, CPU type, features and kernel version;
-- the board-neutral configuration;
+- the options of the board-neutral configuration, set or not set, and not its comments;
 - the build environment;
 - the scripts that build and pack the stage.
 
@@ -40,6 +40,10 @@ Every stage SHALL keep a compiler cache for each language it compiles: C and C++
 
 #### Scenario: A device added to the target
 - **WHEN** the boards' target gains a device, and nothing else of the key's inputs changes
+- **THEN** the host stage's cache still hits
+
+#### Scenario: A comment of a seed changes
+- **WHEN** a seed's comment changes, and nothing else of the key's inputs changes
 - **THEN** the host stage's cache still hits
 
 #### Scenario: Rebuild from warm compiler caches

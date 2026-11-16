@@ -66,6 +66,6 @@
 
 ## 8. Integration
 
-- [ ] 8.1 The six suites on the R4S locally, then CI's build and check for both boards.
+- [x] 8.1 The six suites on the R4S locally, then CI's build and check for both boards.
 
   Verify: every suite passes on both boards; the runs are recorded in `docs/ci.md`.

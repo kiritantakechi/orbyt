@@ -14,7 +14,7 @@ Secrets in the private config repository (PPPoE credentials, honk's subscription
 
 #### Scenario: Secrets on the device
 - **WHEN** a push with a honk configuration, a Tailscale login and SMB users has ended, successfully or not
-- **THEN** the push's temporary files were readable by root alone while they were there and are gone, honk's files and Tailscale's auth key are readable by root alone, and no process was started with the Tailscale auth key among its arguments
+- **THEN** the push's temporary files were readable by root alone while they were there and are gone, honk's files and Tailscale's auth key are readable by root alone, no process was started with the Tailscale auth key or an SMB user's password among its arguments, and each SMB user logs in with the password pushed
 
 ### Requirement: Validate before pushing
 The push tool SHALL validate all configuration to be pushed, including the honk configuration, with honk's own check as honk would load it, and the UCI configuration syntax, before it modifies the device. When validation fails, the device MUST NOT be changed in any way.
@@ -27,6 +27,10 @@ The push tool SHALL validate all configuration to be pushed, including the honk 
 - **WHEN** a honk configuration that parses but that honk refuses to load, such as one routing to a group that does not exist, is pushed
 - **THEN** the push aborts before modifying the device and reports honk's reason
 
+#### Scenario: Proxy files in dae's layout
+- **WHEN** the private config repository still keeps the proxy's files in `dae/`, from before honk replaced dae
+- **THEN** the push aborts before modifying the device and names the move to `honk/`
+
 ### Requirement: Repeatable push results
 Pushing the same configuration repeatedly SHALL produce the same result, and MUST NOT restart services whose configuration has not changed.
 
@@ -35,7 +39,7 @@ Pushing the same configuration repeatedly SHALL produce the same result, and MUS
 - **THEN** the second push restarts no services
 
 ### Requirement: Roll back on service failure
-After the configuration is written, if a service fails to reload, the push tool SHALL restore that service's pre-push configuration, reload it again, and then report the failure. The restored configuration SHALL include every file the push changed for that service, its login state among them, and every service the push reloads SHALL be checked for having come back, and staying back, including that no service that ran before the push stopped.
+After the configuration is written, if a service's files cannot all be written or the service fails to reload, the push tool SHALL restore that service's pre-push configuration, reload it again, and then report the failure. The restored configuration SHALL include every file the push changed for that service, its login state and its start-at-boot switch among them, and a service the switch had off SHALL be stopped again. Every service the push reloads SHALL be checked for having come back, and staying back, including that no service that ran before the push stopped.
 
 #### Scenario: Service reload fails
 - **WHEN** the new configuration passes validation but the corresponding service fails to reload
@@ -48,6 +52,10 @@ After the configuration is written, if a service fails to reload, the push tool 
 #### Scenario: A service that stops with its new configuration
 - **WHEN** a push changes a configuration other than the network's, honk's or Tailscale's, and a service that ran before the push no longer runs once the configuration is applied, however long the system takes to apply it
 - **THEN** that configuration is restored, the service runs again, and the push tool exits nonzero and states the reason
+
+#### Scenario: honk off before a failed push
+- **WHEN** honk is off, neither running nor starting at boot, and a push with a honk configuration after which honk does not come back is made
+- **THEN** honk's previous configuration is back, honk is off again, and the push tool exits nonzero and states the reason
 
 ### Requirement: Configuration persists across A/B upgrades
 Configuration and secrets pushed to the device SHALL be included in the configuration backup taken during an upgrade, and SHALL still be present after the slot switch.
@@ -75,12 +83,16 @@ Pushes SHALL connect to the device with SSH key authentication and MUST NOT use 
 - **THEN** the push aborts on the authentication failure and does not fall back to password login
 
 ### Requirement: The proxy's native API only with a token
-The push tool MUST reject a honk configuration that enables the native API in any mode other than static-token mode, or that allows configuration writes through it.
+The push tool MUST reject a honk configuration that enables the native API in any mode other than static-token mode, or that allows configuration writes through it, in every spelling honk takes a setting in, and one that sets a blank token.
 
 #### Scenario: Native API with password login
-- **WHEN** a honk configuration that enables the native API with password login is pushed
+- **WHEN** a honk configuration that enables the native API with password login is pushed, its value spelled in any way honk reads as true
 - **THEN** the push fails during validation and reports that the native API needs a token
 
 #### Scenario: Native API with configuration writes
-- **WHEN** a honk configuration that enables the native API with a token and configuration writes is pushed
+- **WHEN** a honk configuration that enables the native API with a token and configuration writes is pushed, its value spelled in any way honk reads as true
 - **THEN** the push fails during validation and reports that configuration writes stay off
+
+#### Scenario: Native API with a blank token
+- **WHEN** a honk configuration whose native API token is blank, even after another file's token, is pushed
+- **THEN** the push fails during validation and reports the blank token
