@@ -305,25 +305,13 @@ What the patch does: it compares only when the conversion has a `*`.
 
 Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
 
-### ubox: logd's entries aligned
-
-Patch: `patches/openwrt/0023-ubox-logd-align-each-log-entry-to-the-header-that-fo.patch` (adds the ubox patch `package/system/ubox/patches/100-logd-align-each-log-entry-to-the-header-that-follows-it.patch`), for git.openwrt.org/project/ubox, carried by openwrt/openwrt until then.
-
-Problem: logd's entries follow each other in its buffer, each a `struct log_head` and its message, padded to four bytes. The header holds a `struct timespec`, which needs eight-byte alignment on 64-bit targets, so after a message whose padded length is four more than a multiple of eight the next header is misaligned, and reading it is undefined behavior.
-
-Why it matters here: the `ubsan` profile's first run (`docs/undefined-behavior.md`) trapped here: logd trapped in `log_next()` within seconds of booting.
-
-What the patch does: each entry is padded to the alignment of `struct log_head`.
-
-Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
-
 ### ubox: logd's log copied into the new buffer
 
 Patch: `patches/openwrt/0024-ubox-logd-copy-the-log-into-the-new-buffer-when-it-g.patch` (adds the ubox patch `package/system/ubox/patches/101-logd-advance-in-the-new-buffer-when-it-copies-the-log.patch`), for git.openwrt.org/project/ubox, carried by openwrt/openwrt until then.
 
 Problem: when the log buffer grows, `log_buffer_init()` copies the entries into the new buffer, but moves the destination past each copy by the old entry's size from the old entry's address. From the second entry on it copies into the old buffer, frees that buffer, and leaves `newest` pointing into it.
 
-Why it matters here: found while reading `log_buffer_init()` for patch 0023. A change of the system's log size grows the buffer at run time.
+Why it matters here: found while reading `log_buffer_init()` for patch 0023, which aligned logd's entries until ubox took the same fix (9555709f00d5, in OpenWrt's ubox of 2026-11-15). A change of the system's log size grows the buffer at run time; ubox of 2026-11-15 still copies this way.
 
 What the patch does: it moves past each copy in the new buffer.
 

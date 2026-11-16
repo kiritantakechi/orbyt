@@ -20,21 +20,21 @@ Upstream-Status: Pending
  create mode 100644 package/system/ubox/patches/101-logd-advance-in-the-new-buffer-when-it-copies-the-log.patch
 
 diff --git a/package/system/ubox/Makefile b/package/system/ubox/Makefile
-index 541b814..6b1e3f4 100644
+index cfcf826..5e40a3e 100644
 --- a/package/system/ubox/Makefile
 +++ b/package/system/ubox/Makefile
 @@ -1,7 +1,7 @@
  include $(TOPDIR)/rules.mk
  
  PKG_NAME:=ubox
--PKG_RELEASE:=3
-+PKG_RELEASE:=4
+-PKG_RELEASE:=2
++PKG_RELEASE:=3
  
  PKG_SOURCE_PROTO:=git
  PKG_SOURCE_URL=$(PROJECT_GIT)/project/ubox.git
 diff --git a/package/system/ubox/patches/101-logd-advance-in-the-new-buffer-when-it-copies-the-log.patch b/package/system/ubox/patches/101-logd-advance-in-the-new-buffer-when-it-copies-the-log.patch
 new file mode 100644
-index 0000000..33cfb07
+index 0000000..6913cde
 --- /dev/null
 +++ b/package/system/ubox/patches/101-logd-advance-in-the-new-buffer-when-it-copies-the-log.patch
 @@ -0,0 +1,24 @@
@@ -53,7 +53,7 @@ index 0000000..33cfb07
 +---
 +--- a/log/syslog.c
 ++++ b/log/syslog.c
-+@@ -345,7 +345,7 @@
++@@ -377,7 +377,7 @@
 + 		l = log_list(0, NULL);
 + 		while ((start < end) && l && l->size) {
 + 			memcpy(start, l, PAD(sizeof(struct log_head) + l->size));

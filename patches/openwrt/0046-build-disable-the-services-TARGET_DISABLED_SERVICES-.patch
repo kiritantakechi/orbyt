@@ -24,7 +24,7 @@ Upstream-Status: Pending
  3 files changed, 11 insertions(+), 3 deletions(-)
 
 diff --git a/config/Config-images.in b/config/Config-images.in
-index 7cc32251..55a83068 100644
+index 7cc3225..55a8306 100644
 --- a/config/Config-images.in
 +++ b/config/Config-images.in
 @@ -372,4 +372,12 @@ menu "Target Images"
@@ -41,7 +41,7 @@ index 7cc32251..55a83068 100644
 +
  endmenu
 diff --git a/include/image.mk b/include/image.mk
-index 88db53e9..dbe059c1 100644
+index dbb355e..123db18 100644
 --- a/include/image.mk
 +++ b/include/image.mk
 @@ -400,7 +400,7 @@ else
@@ -54,7 +54,7 @@ index 88db53e9..dbe059c1 100644
  $(KDIR)/root.%: kernel_prepare
  	$(call Image/mkfs/$(word 1,$(target_params)),$(target_params))
 diff --git a/package/Makefile b/package/Makefile
-index eec58b3d..5890eab9 100644
+index eec58b3..5890eab 100644
 --- a/package/Makefile
 +++ b/package/Makefile
 @@ -149,7 +149,7 @@ define apk_install_rootfs

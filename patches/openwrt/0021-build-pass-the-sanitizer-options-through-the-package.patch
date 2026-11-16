@@ -27,10 +27,10 @@ Upstream-Status: Pending
  1 file changed, 19 insertions(+)
 
 diff --git a/include/autotools.mk b/include/autotools.mk
-index 7fc6f37..75ce68b 100644
+index 203756b..6008879 100644
 --- a/include/autotools.mk
 +++ b/include/autotools.mk
-@@ -132,6 +132,25 @@ ifneq ($(filter autoreconf,$(PKG_FIXUP)),)
+@@ -140,6 +140,25 @@ ifneq ($(filter autoreconf,$(PKG_FIXUP)),)
    endif
  endif
  

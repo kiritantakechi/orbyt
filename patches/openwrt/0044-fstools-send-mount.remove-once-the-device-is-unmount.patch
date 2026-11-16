@@ -21,7 +21,7 @@ Upstream-Status: Pending
  create mode 100644 package/system/fstools/patches/102-blockd-send-mount.remove-once-the-device-is-unmounted.patch
 
 diff --git a/package/system/fstools/Makefile b/package/system/fstools/Makefile
-index 677bc89..780a29b 100644
+index 4104078..a4845c5 100644
 --- a/package/system/fstools/Makefile
 +++ b/package/system/fstools/Makefile
 @@ -8,7 +8,7 @@
@@ -35,7 +35,7 @@ index 677bc89..780a29b 100644
  PKG_SOURCE_URL=$(PROJECT_GIT)/project/fstools.git
 diff --git a/package/system/fstools/patches/102-blockd-send-mount.remove-once-the-device-is-unmounted.patch b/package/system/fstools/patches/102-blockd-send-mount.remove-once-the-device-is-unmounted.patch
 new file mode 100644
-index 0000000..8234f1d
+index 0000000..ee8c293
 --- /dev/null
 +++ b/package/system/fstools/patches/102-blockd-send-mount.remove-once-the-device-is-unmounted.patch
 @@ -0,0 +1,95 @@
@@ -63,7 +63,7 @@ index 0000000..8234f1d
 +index 176a4d5..671f646 100644
 +--- a/block.c
 ++++ b/block.c
-+@@ -1505,6 +1505,8 @@ static int umount_device(char *path, int type, bool all)
++@@ -1532,6 +1532,8 @@ static int umount_device(char *path, int type, bool all)
 + 	} else {
 + 		ULOG_INFO("unmounted %s (%s)\n", path, mp);
 + 		rmdir(mp);

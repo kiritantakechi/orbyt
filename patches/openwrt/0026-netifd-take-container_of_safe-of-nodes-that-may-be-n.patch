@@ -21,7 +21,7 @@ Upstream-Status: Pending
  create mode 100644 package/network/config/netifd/patches/100-netifd-take-container_of_safe-of-nodes-that-may-be-null.patch
 
 diff --git a/package/network/config/netifd/Makefile b/package/network/config/netifd/Makefile
-index 894f48c..8f6ebb7 100644
+index d947910..6eaba94 100644
 --- a/package/network/config/netifd/Makefile
 +++ b/package/network/config/netifd/Makefile
 @@ -1,7 +1,7 @@

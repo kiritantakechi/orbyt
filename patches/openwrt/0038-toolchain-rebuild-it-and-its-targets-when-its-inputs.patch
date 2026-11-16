@@ -41,7 +41,7 @@ Upstream-Status: Pending
  delete mode 100755 scripts/check-toolchain-clean.sh
 
 diff --git a/.gitignore b/.gitignore
-index ad04755..5ef8901 100644
+index 97bb74a..e68c690 100644
 --- a/.gitignore
 +++ b/.gitignore
 @@ -5,7 +5,6 @@

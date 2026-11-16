@@ -21,7 +21,7 @@ Upstream-Status: Pending
  create mode 100644 package/libs/libubox/patches/100-blobmsg_json-read-64-bit-integers-without-assuming-alignment.patch
 
 diff --git a/package/libs/libubox/Makefile b/package/libs/libubox/Makefile
-index 5614651..203c844 100644
+index a7d7d1d..ec92113 100644
 --- a/package/libs/libubox/Makefile
 +++ b/package/libs/libubox/Makefile
 @@ -1,7 +1,7 @@

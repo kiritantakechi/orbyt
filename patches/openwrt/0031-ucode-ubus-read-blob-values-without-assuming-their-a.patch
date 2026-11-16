@@ -21,7 +21,7 @@ Upstream-Status: Pending
  create mode 100644 package/utils/ucode/patches/120-ubus-read-blob-values-without-assuming-their-alignment.patch
 
 diff --git a/package/utils/ucode/Makefile b/package/utils/ucode/Makefile
-index bc266b3..949dd5b 100644
+index 97357b3..6dfb79c 100644
 --- a/package/utils/ucode/Makefile
 +++ b/package/utils/ucode/Makefile
 @@ -8,7 +8,7 @@

@@ -22,7 +22,7 @@ Upstream-Status: Pending
  create mode 100644 package/system/fstools/patches/101-block-report-the-mount-point-of-a-removed-device-s-unmount.patch
 
 diff --git a/package/system/fstools/Makefile b/package/system/fstools/Makefile
-index 24e5e8e..677bc89 100644
+index c9e5245..4104078 100644
 --- a/package/system/fstools/Makefile
 +++ b/package/system/fstools/Makefile
 @@ -8,7 +8,7 @@
@@ -36,7 +36,7 @@ index 24e5e8e..677bc89 100644
  PKG_SOURCE_URL=$(PROJECT_GIT)/project/fstools.git
 diff --git a/package/system/fstools/patches/101-block-report-the-mount-point-of-a-removed-device-s-unmount.patch b/package/system/fstools/patches/101-block-report-the-mount-point-of-a-removed-device-s-unmount.patch
 new file mode 100644
-index 0000000..2be621e
+index 0000000..3599da0
 --- /dev/null
 +++ b/package/system/fstools/patches/101-block-report-the-mount-point-of-a-removed-device-s-unmount.patch
 @@ -0,0 +1,77 @@
@@ -64,7 +64,7 @@ index 0000000..2be621e
 +index b179348..176a4d5 100644
 +--- a/block.c
 ++++ b/block.c
-+@@ -1607,12 +1607,16 @@ static int mount_action(char *action, char *device, const char *options, int typ
++@@ -1634,12 +1634,16 @@ static int mount_action(char *action, char *device, const char *options, int typ
 + 		return -1;
 + 
 + 	if (!strcmp(action, "remove")) {

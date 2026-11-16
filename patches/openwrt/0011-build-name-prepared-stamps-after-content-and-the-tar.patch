@@ -53,7 +53,7 @@ index b6ed06a..bdafdad 100644
  define rdep
    .PRECIOUS: $(2)
 diff --git a/include/kernel-build.mk b/include/kernel-build.mk
-index b0f5b91..7f95de6 100644
+index a7d83c8..cc48834 100644
 --- a/include/kernel-build.mk
 +++ b/include/kernel-build.mk
 @@ -10,7 +10,7 @@ ifneq ($(DUMP),1)
@@ -79,7 +79,7 @@ index 4e70baf..823a055 100644
  STAMP_CONFIGURED=$(PKG_BUILD_DIR)/.configured$(if $(DUMP),,_$(call confvar,$(PKG_CONFIG_DEPENDS)))
  STAMP_CONFIGURED_WILDCARD=$(PKG_BUILD_DIR)/.configured_*
 diff --git a/rules.mk b/rules.mk
-index 18f2ca2..17c7e77 100644
+index 64e9291..c6f7e59 100644
 --- a/rules.mk
 +++ b/rules.mk
 @@ -258,6 +258,9 @@ TARGET_PATH:=$(subst $(space),:,$(filter-out .,$(filter-out ./,$(subst :,$(space

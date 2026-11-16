@@ -29,10 +29,10 @@ Upstream-Status: Pending
  1 file changed, 1 insertion(+), 1 deletion(-)
 
 diff --git a/include/download.mk b/include/download.mk
-index 0ea08d3..75bc386 100644
+index 42694fb..3472509 100644
 --- a/include/download.mk
 +++ b/include/download.mk
-@@ -357,7 +357,7 @@ define Download
+@@ -454,7 +454,7 @@ define Download
    )
  
    $(foreach dep,$(DOWNLOAD_RDEP),
