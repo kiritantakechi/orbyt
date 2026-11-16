@@ -289,6 +289,59 @@ def test_a_repeated_push_restarts_nothing(pushed: Pushed) -> None:
     assert _state(router) == before
 
 
+@spec(CAPABILITY, "Validate before pushing", "A configuration that validates")
+def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
+    router = pushed.router
+    result = pushed.push()
+    assert result.returncode == 0, result.stderr
+    for service in SERVICES:
+        assert f"{service}: unchanged" in result.stderr
+    assert router.run("uci changes") == ""
+    # No file of uci's change directory holds a secret of the push.
+    key = shlex.quote(pushed.wireguard_key)
+    assert router.returncode(f"grep -rqF -- {key} /tmp/.uci") != 0
+
+
+@spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to a pushed package")
+def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: Pushed) -> None:
+    router = pushed.router
+    # Uncommitted, as LuCI holds a change until it is saved.
+    router.run("uci set network.wan.mtu=1400")
+    try:
+        before = _state(router)
+        result = pushed.push()
+        assert result.returncode != 0, result.stderr
+        assert "uncommitted changes to network" in result.stderr, result.stderr
+        assert "is unchanged" in result.stderr, result.stderr
+        assert _state(router) == before
+        assert "network.wan.mtu='1400'" in router.run("uci changes network")
+    finally:
+        router.run("uci revert network")
+
+
+@spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to another package")
+def test_an_uncommitted_change_to_another_package_stays(pushed: Pushed) -> None:
+    router = pushed.router
+    committed = router.run("sha256sum /etc/config/system")
+    router.run("uci set system.@system[0].description=uncommitted")
+    # A changed batch, of uhttpd's configuration, that sets uhttpd's home to what it is.
+    home = router.run("uci get uhttpd.main.home")
+    template = pushed.repository.directory / "uci" / "uhttpd.uci.tmpl"
+    template.write_text(f"set uhttpd.main.home='{home}'\n")
+    try:
+        result = pushed.push()
+        assert result.returncode == 0, result.stderr
+        assert "uhttpd: pushed" in result.stderr, result.stderr
+        changes = router.run("uci changes").splitlines()
+        assert len(changes) == 1, changes
+        assert changes[0].startswith("system."), changes
+        assert changes[0].endswith(".description='uncommitted'"), changes
+        assert router.run("sha256sum /etc/config/system") == committed
+    finally:
+        pushed.repository.discard()
+        router.run("uci revert system")
+
+
 @spec(CAPABILITY, "Roll back on service failure", "Service reload fails")
 def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
     router = pushed.router

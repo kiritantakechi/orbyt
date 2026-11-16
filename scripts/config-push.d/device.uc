@@ -4,8 +4,10 @@
 // config-push uploads each service's new files to /tmp/wrt-push/new/<service>:
 //  validate      checks them without touching the configuration: honk's with
 //                honk's own check of the entry its service would write around
-//                honk.config.config_file (/etc/init.d/honk check), each uci batch
-//                on a copy of /etc/config;
+//                honk.config.config_file (/etc/init.d/honk check), each service's
+//                uci batches on a copy of /etc/config with changes of their own,
+//                and refuses beside uncommitted changes to the packages they
+//                change (push-isolation D1, D2);
 //  hashes        prints the hash of each service as last pushed;
 //  apply <name>  saves what the service has now, writes the new files, reloads
 //                the service and waits for it to come back; if a file cannot be
@@ -71,6 +73,37 @@ function basename(path) {
 	return match(path, /[^\/]+$/)[0];
 }
 
+// batches(name): the service's uci batches, in the order they are applied.
+function batches(name) {
+	return sort(glob(`${NEW}/${name}/*.uci`) ?? []);
+}
+
+// dry_run(name): the packages the service's batches change, run in order on a
+// copy of /etc/config whose changes uci keeps in a directory of the copy's: uci
+// keeps a package's changes in a file of the package's name, and its own change
+// directory, /tmp/.uci, gets none (push-isolation D1). Fails naming a batch uci
+// refuses.
+function dry_run(name) {
+	let copy = `${PUSH}/uci-check/${name}`;
+
+	if (!length(batches(name)))
+		return [];
+
+	if (!run(`rm -rf ${quoted(copy)} && mkdir -p ${quoted(`${copy}/changes`)}` +
+		` && cp -a /etc/config ${quoted(`${copy}/config`)}`))
+		fail('cannot copy /etc/config to check the batches on');
+
+	for (let batch in batches(name)) {
+		let result = output(`uci -c ${quoted(`${copy}/config`)} -t ${quoted(`${copy}/changes`)}` +
+			` batch < ${quoted(batch)}`);
+
+		if (!result.ok || length(result.text))
+			fail(`${basename(batch)}: ${length(result.text) ? result.text : 'failed'}`);
+	}
+
+	return sort(lsdir(`${copy}/changes`) ?? []);
+}
+
 function validate() {
 	if (stat(`${NEW}/honk`)) {
 		if (!stat('/etc/init.d/honk'))
@@ -85,16 +118,12 @@ function validate() {
 			fail('honk does not accept the configuration');
 	}
 
-	for (let batch in sort(glob(`${NEW}/*/*.uci`) ?? [])) {
-		let copy = `${PUSH}/uci-check`;
-
-		if (!run(`rm -rf ${quoted(copy)} && cp -a /etc/config ${quoted(copy)}`))
-			fail('cannot copy /etc/config to check the batches on');
-
-		let result = output(`uci -c ${quoted(copy)} batch < ${quoted(batch)}`);
-
-		if (!result.ok || length(result.text))
-			fail(`${basename(batch)}: ${length(result.text) ? result.text : 'failed'}`);
+	for (let name in services()) {
+		for (let package in dry_run(name)) {
+			if (length(output(`uci changes ${quoted(package)}`).text))
+				fail(`${name}: the router has uncommitted changes to ${package} (uci changes ${package}):` +
+					' commit or revert them, then push again');
+		}
 	}
 }
 
@@ -263,12 +292,37 @@ function write(name) {
 			failed('tailscale: cannot write its login');
 
 	default:
-		for (let batch in sort(glob(`${files}/*.uci`) ?? []))
-			if (!run(`uci batch < ${quoted(batch)}`))
-				return failed(`${basename(batch)}: uci batch failed`);
-
-		return run('uci commit') || failed('uci commit failed');
+		return commit_batches(name);
 	}
+}
+
+// commit_batches(name): the service's uci batches applied with the push's own
+// change directory, and committed package by package: the device's uncommitted
+// changes to other packages stay, and it has none to these (validate). False,
+// having said why, when uci refuses one; the directory goes either way, and so
+// with it every change of a push that failed (push-isolation D3).
+function commit_batches(name) {
+	let changes = `${PUSH}/uci-changes/${name}`;
+	let written = run(`rm -rf ${quoted(changes)} && mkdir -p ${quoted(changes)}`) ||
+		failed(`${name}: cannot make the push's change directory`);
+
+	for (let batch in written ? batches(name) : []) {
+		if (!run(`uci -t ${quoted(changes)} batch < ${quoted(batch)}`)) {
+			written = failed(`${basename(batch)}: uci batch failed`);
+			break;
+		}
+	}
+
+	for (let package in written ? sort(lsdir(changes) ?? []) : []) {
+		if (!run(`uci -t ${quoted(changes)} commit ${quoted(package)}`)) {
+			written = failed(`${name}: uci commit ${package} failed`);
+			break;
+		}
+	}
+
+	run(`rm -rf ${quoted(changes)}`);
+
+	return written;
 }
 
 // reload(name): have the service take its configuration; false when the command
