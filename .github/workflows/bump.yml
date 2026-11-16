@@ -1,12 +1,14 @@
 # The weekly bump of upstream.lock (r4s-release-pipeline D5): when a repository
 # of the lock moved, a pull request from bump/<date> with the new lock, the old
-# and new SHAs and the commits in between. A pull request opened with the
-# workflow's token starts no workflows, so this one starts check and build on the
-# bump branch itself, before it opens the pull request: build signs the
-# candidate, drills the upgrade to it and publishes it as a pre-release, and
-# main's rules merge nothing before the drill passed. A branch of the day that
-# exists stays as it is, as it may carry the maintainer's commits; a run then
-# only opens the pull request it lacks (release-integrity D5).
+# and new SHAs and the commits in between. The workflow's token starts no
+# workflow with its pushes and pull requests, and a dispatched run counts for no
+# pull request, so the bot pushes and opens the pull request with the
+# maintainer's BUMP_PUSH_TOKEN: the push starts the branch's build, which signs
+# the candidate, drills the upgrade to it and publishes it as a pre-release, and
+# the pull request starts its check; main's rules merge nothing before the
+# branch's drill passed (bump-branch-runs D2). A branch of the day that exists
+# stays as it is, as it may carry the maintainer's commits; a run then only opens
+# the pull request it lacks (release-integrity D5).
 name: bump
 
 on:
@@ -14,10 +16,9 @@ on:
     - cron: "23 3 * * 1"
   workflow_dispatch:
 
+# The workflow's own token only reads: BUMP_PUSH_TOKEN pushes and opens.
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 concurrency:
   group: bump
@@ -35,7 +36,11 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
+      # Its credentials push the branch. Without the secret the workflow's token
+      # checks out, enough to find that upstream has not moved.
       - uses: actions/checkout@v7
+        with:
+          token: ${{ secrets.BUMP_PUSH_TOKEN || github.token }}
 
       - uses: ./.github/actions/nix
 
@@ -44,12 +49,17 @@ jobs:
 
       - name: Open the pull request
         env:
-          GH_TOKEN: ${{ github.token }}
+          PUSH_TOKEN: ${{ secrets.BUMP_PUSH_TOKEN }}
+          GH_TOKEN: ${{ secrets.BUMP_PUSH_TOKEN }}
         run: |
           description="$RUNNER_TEMP/pull-request.md"
           if [ ! -s "$description" ]; then
             echo "upstream has not moved"
             exit 0
+          fi
+          if [ -z "$PUSH_TOKEN" ]; then
+            echo "::error::no secret BUMP_PUSH_TOKEN: the bump pushes and opens its pull request with a token whose pushes start workflows (docs/release-flow.md); nothing was pushed"
+            exit 1
           fi
           branch="bump/$(date -u +%Y-%m-%d)"
           title=$(head -n 1 "$description")
@@ -62,12 +72,10 @@ jobs:
             git switch -c "$branch"
             git commit -q -m "$title" upstream.lock
             git push -q origin "$branch"
-            gh workflow run check.yml --ref "$branch"
-            gh workflow run build.yml --ref "$branch"
           fi
           if [ -n "$(gh pr list --head "$branch" --state all --json number --jq '.[].number')" ]; then
             echo "$branch has its pull request"
           elif ! gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"; then
-            echo "::error::cannot open the pull request of $branch: workflows may not create pull requests here (Settings, Actions, General); its check and build run, open it by hand"
+            echo "::error::cannot open the pull request of $branch: BUMP_PUSH_TOKEN needs Pull requests read and write; its build runs, open it by hand"
             exit 1
           fi

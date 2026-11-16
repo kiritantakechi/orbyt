@@ -22,13 +22,16 @@
 #                   bump branch, stable from main
 # Signing and what follows run on main and bump/* once the release keys are in
 # place (repository variable RELEASE_SIGNING = enabled). Only sign has a secret.
+# A bump branch's own run, started by each push to it, decides its pull request:
+# the pull request's run cannot sign, so it builds nothing and reports the drill
+# check under another name (bump-branch-runs D1, D3).
 name: build
 
 # Code changes run it, and so do the documents system tests read (release-integrity
 # D7; tests/build/test_ci.py holds the list to them); other documentation does not.
 on:
   push:
-    branches: [main]
+    branches: [main, "bump/**"]
     paths:
       - "**"
       - "!openspec/**"
@@ -66,6 +69,8 @@ env:
 
 jobs:
   host-toolchain:
+    # Not in a bump pull request's run: every job after it is skipped with it.
+    if: ${{ !(github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 330
     permissions:
@@ -492,9 +497,12 @@ jobs:
   # system tests passed and every board's drill passed, or signing, and with it
   # every drill, did not run (pull requests, no release keys yet). A failed or
   # rejected signing skips the drills too, and fails here. A bump's pull request
-  # cannot sign: while signing is set up, its run fails here, and the bump
-  # branch's own run, which drills, passes it (release-integrity D4).
+  # builds nothing: there the job takes another name and passes, so that the
+  # required check is the bump branch's own run's, which drills; a skipped job
+  # would count as passed, and a failed one would contradict it (bump-branch-runs
+  # D3).
   upgrade-drill:
+    name: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') && 'upgrade-drill of the branch' || 'upgrade-drill' }}
     needs: [system-test, sign, drill]
     if: always()
     runs-on: ubuntu-24.04
@@ -505,15 +513,13 @@ jobs:
           SYSTEM_TEST: ${{ needs.system-test.result }}
           SIGN: ${{ needs.sign.result }}
           DRILL: ${{ needs.drill.result }}
-          BUMP_PULL_REQUEST: >-
-            ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') &&
-            vars.RELEASE_SIGNING == 'enabled' }}
+          BUMP_PULL_REQUEST: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') }}
           HEAD_REF: ${{ github.head_ref }}
         run: |
           echo "system-test: $SYSTEM_TEST, sign: $SIGN, drill: $DRILL"
           if [ "$BUMP_PULL_REQUEST" = true ]; then
-            echo "::error::a bump's pull request does not drill; its branch's run does: gh workflow run build.yml --ref $HEAD_REF"
-            exit 1
+            echo "::notice::a bump's pull request builds nothing: the push run of $HEAD_REF reports upgrade-drill"
+            exit 0
           fi
           [ "$SYSTEM_TEST" = success ] &&
             { [ "$DRILL" = success ] || { [ "$SIGN" = skipped ] && [ "$DRILL" = skipped ]; }; }

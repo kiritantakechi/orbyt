@@ -14,6 +14,7 @@ import pytest
 
 AUDIT = Path(__file__).resolve().parents[2] / "scripts" / "github-audit.sh"
 REPOSITORY = "owner/repository"
+PUSH_CREDENTIAL = "BUMP_PUSH_TOKEN"
 GH = """#!/bin/sh
 [ "$1" = api ] || exit 1
 file="$(dirname -- "$0")/$(printf '%s' "$2" | tr / _).json"
@@ -23,14 +24,20 @@ if [ "${3:-}" = --jq ]; then jq -r "$4" "${file}"; else cat "${file}"; fi
 
 
 def _settings(
-    *, reviewers: int = 1, branches: tuple[str, ...] = ("main", "bump/*"), creates: bool = True
+    *, reviewers: int = 1, branches: tuple[str, ...] = ("main", "bump/*"), has_push: bool = True
 ) -> Any:  # noqa: ANN401 (JSON)
-    """Return the API's answers for a repository set up as the release pipeline needs."""
+    """Return the API's answers for a repository set up as the release pipeline needs.
+
+    ``has_push`` says whether the bump's push token is among its secrets.
+    """
     base = f"repos/{REPOSITORY}"
+    names = [PUSH_CREDENTIAL] if has_push else []
+    secrets = {f"{base}/actions/secrets/{name}": {"name": name} for name in names}
     return {
-        f"{base}/actions/permissions/workflow": {
-            "default_workflow_permissions": "read",
-            "can_approve_pull_request_reviews": creates,
+        **secrets,
+        f"{base}/actions/secrets": {
+            "total_count": len(names),
+            "secrets": [{"name": name} for name in names],
         },
         f"{base}/environments/release-signing": {
             "protection_rules": [
@@ -103,15 +110,19 @@ def test_a_main_that_does_not_wait_for_the_drill_fails(tmp_path: Path) -> None:
     assert "FAIL  main does not require upgrade-drill" in result.stdout
 
 
-def test_workflows_that_may_not_create_pull_requests_fail(tmp_path: Path) -> None:
-    result = _audit(tmp_path, _settings(creates=False))
+def test_a_bump_without_its_push_token_fails(tmp_path: Path) -> None:
+    result = _audit(tmp_path, _settings(has_push=False))
     assert result.returncode != 0
-    assert "FAIL  workflows may not create pull requests" in result.stdout
+    assert f"FAIL  no secret {PUSH_CREDENTIAL}" in result.stdout
 
 
-def test_a_permission_that_cannot_be_read_is_noted(tmp_path: Path) -> None:
-    answers = _settings()
-    del answers[f"repos/{REPOSITORY}/actions/permissions/workflow"]
+def test_secrets_that_cannot_be_read_are_noted(tmp_path: Path) -> None:
+    # A workflow's token reads neither the secret nor the list of secrets.
+    answers = {
+        path: answer
+        for path, answer in _settings().items()
+        if not path.startswith(f"repos/{REPOSITORY}/actions/secrets")
+    }
     result = _audit(tmp_path, answers)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "note  whether workflows may create pull requests" in result.stdout
+    assert f"note  whether the secret {PUSH_CREDENTIAL} exists" in result.stdout

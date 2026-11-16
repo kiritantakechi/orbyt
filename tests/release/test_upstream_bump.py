@@ -17,7 +17,7 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 import yaml
@@ -48,6 +48,11 @@ WORKFLOWS = REPO / ".github" / "workflows"
 # The day a bump runs on, and so its branch.
 DAY = "2026-10-26"
 BRANCH = f"bump/{DAY}"
+# The secret the bot pushes and opens the pull request with (bump-branch-runs D2).
+PUSH_CREDENTIAL = "secrets.BUMP_PUSH_TOKEN"
+# The condition that tells a bump pull request's run in build.yml, the same in
+# every place that tests it (bump-branch-runs D3).
+BUMP_PULL_REQUEST = "github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/')"
 # Stand-ins for the bump's step: a date of DAY, and a gh that records its calls
 # in gh.calls, lists the pull requests that pulls holds, and creates none while
 # refuse exists.
@@ -208,20 +213,35 @@ def _github(tmp_path: Path, *, branch_commits: int = 0) -> tuple[Path, Path]:
     return origin, clone
 
 
-def _open_pull_request(
-    tmp_path: Path, clone: Path, *, pulls: str = "", refused: bool = False
+def _bump_steps() -> list[dict[str, Any]]:
+    return cast(
+        "list[dict[str, Any]]",
+        yaml.safe_load((WORKFLOWS / "bump.yml").read_text(encoding="utf-8"))["jobs"]["bump"][
+            "steps"
+        ],
+    )
+
+
+def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or the bot)
+    tmp_path: Path,
+    clone: Path,
+    *,
+    pulls: str = "",
+    refused: bool = False,
+    has_token: bool = True,
+    moved: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
-    """Run bump.yml's step that opens the pull request; return its result and gh's calls."""
-    (step,) = [
-        step
-        for step in yaml.safe_load((WORKFLOWS / "bump.yml").read_text(encoding="utf-8"))["jobs"][
-            "bump"
-        ]["steps"]
-        if step.get("name") == "Open the pull request"
-    ]
+    """Run bump.yml's step that opens the pull request; return its result and gh's calls.
+
+    ``has_token`` says whether the secret BUMP_PUSH_TOKEN is set; ``moved``
+    whether upstream moved, so that there is a description.
+    """
+    (step,) = [step for step in _bump_steps() if step.get("name") == "Open the pull request"]
     runner = tmp_path / "runner"
     runner.mkdir()
-    (runner / "pull-request.md").write_text("upstream: bump openwrt\n\nthe commits\n")
+    (runner / "pull-request.md").write_text(
+        "upstream: bump openwrt\n\nthe commits\n" if moved else ""
+    )
     directory = tmp_path / "bin"
     directory.mkdir()
     for name, script in (("gh", GH_PULL_REQUESTS), ("date", DATE)):
@@ -240,6 +260,7 @@ def _open_pull_request(
             **os.environ,
             "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}",
             "RUNNER_TEMP": str(runner),
+            "PUSH_TOKEN": "the secret" if has_token else "",
             "GIT_CONFIG_GLOBAL": os.devnull,
             "GIT_CONFIG_NOSYSTEM": "1",
         },
@@ -256,12 +277,34 @@ def test_a_pull_request_that_cannot_be_opened_leaves_the_checks_running(
     result, calls = _open_pull_request(tmp_path, clone, refused=True)
     assert result.returncode != 0
     assert f"cannot open the pull request of {BRANCH}" in result.stdout
-    # The branch is pushed with the new lock, and its check and build were
-    # started before the pull request was asked for.
+    # The branch is pushed with the new lock, which starts its build: nothing is
+    # dispatched, as a dispatched run counts for no pull request.
     assert _git(origin, "show", f"{BRANCH}:upstream.lock") == "openwrt new"
-    started = [f"workflow run {workflow} --ref {BRANCH}" for workflow in ("check.yml", "build.yml")]
-    assert calls[:2] == started
+    assert not [call for call in calls if call.startswith("workflow run")]
     assert calls[-1].startswith(f"pr create --base main --head {BRANCH} ")
+
+
+@spec(CAPABILITY, "Weekly automated PR", "No token that starts workflows")
+def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
+    # The bot's checkout, so its push, and its gh take the secret; checkout falls
+    # back on the workflow's token, which is enough when there is nothing to push.
+    steps = _bump_steps()
+    (checkout,) = [step for step in steps if step.get("uses", "").startswith("actions/checkout@")]
+    assert checkout["with"]["token"] == f"${{{{ {PUSH_CREDENTIAL} || github.token }}}}"
+    (step,) = [step for step in steps if step.get("name") == "Open the pull request"]
+    assert step["env"]["PUSH_TOKEN"] == step["env"]["GH_TOKEN"] == f"${{{{ {PUSH_CREDENTIAL} }}}}"
+    origin, clone = _github(tmp_path)
+    result, calls = _open_pull_request(tmp_path, clone, has_token=False)
+    assert result.returncode != 0
+    assert "BUMP_PUSH_TOKEN" in result.stdout
+    assert not _git(origin, "branch", "--list", BRANCH)
+    assert not calls
+    # Upstream did not move: nothing to push, and no token needed.
+    unmoved = tmp_path / "unmoved"
+    unmoved.mkdir()
+    result, calls = _open_pull_request(unmoved, clone, has_token=False, moved=False)
+    assert result.returncode == 0, result.stdout
+    assert not calls
 
 
 @spec(CAPABILITY, "Weekly automated PR", "Bump run again")
@@ -277,31 +320,72 @@ def test_a_bump_run_again_keeps_the_branch(tmp_path: Path, pulls: str) -> None:
     assert len(created) == (0 if pulls else 1)
 
 
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "The PR's own run of a bump")
-def test_a_bump_s_pull_request_run_fails_the_drill_check() -> None:
-    check = yaml.safe_load((WORKFLOWS / "build.yml").read_text(encoding="utf-8"))["jobs"][
-        "upgrade-drill"
-    ]
-    (step,) = check["steps"]
-    # A pull request's run of a bump branch, while signing is set up.
-    condition = step["env"]["BUMP_PULL_REQUEST"]
-    for part in (
-        "github.event_name == 'pull_request'",
-        "startsWith(github.head_ref, 'bump/')",
-        "vars.RELEASE_SIGNING == 'enabled'",
-    ):
-        assert part in condition
-    # The results such a run has: the system tests passed, and nothing signed.
-    results = {"SYSTEM_TEST": "success", "SIGN": "skipped", "DRILL": "skipped"}
-    result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", step["run"]],
-        env={**os.environ, **results, "BUMP_PULL_REQUEST": "true", "HEAD_REF": BRANCH},
-        capture_output=True,
-        text=True,
-        check=False,
+def _build_jobs() -> dict[str, Any]:
+    return cast(
+        "dict[str, Any]",
+        yaml.safe_load((WORKFLOWS / "build.yml").read_text(encoding="utf-8"))["jobs"],
     )
-    assert result.returncode != 0
-    assert f"gh workflow run build.yml --ref {BRANCH}" in result.stdout
+
+
+def _needs(job: dict[str, Any]) -> list[str]:
+    needs = job.get("needs", [])
+    return [needs] if isinstance(needs, str) else list(needs)
+
+
+@spec(CAPABILITY, "Merge only after the upgrade drill passes", "A commit pushed to a bump branch")
+def test_a_push_to_a_bump_branch_runs_its_build() -> None:
+    triggers = yaml.safe_load((WORKFLOWS / "build.yml").read_text(encoding="utf-8"))[True]
+    assert triggers["push"]["branches"] == ["main", "bump/**"]
+    # The same commits run it as on a pull request.
+    assert triggers["push"]["paths"] == triggers["pull_request"]["paths"]
+
+
+@spec(CAPABILITY, "Merge only after the upgrade drill passes", "The PR's own run of a bump")
+def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -> None:
+    jobs = _build_jobs()
+    # The host stage is skipped, and every job but the drill check needs it,
+    # directly or through sign, which no pull request's run reaches.
+    assert jobs["host-toolchain"]["if"] == f"${{{{ !({BUMP_PULL_REQUEST}) }}}}"
+    assert "github.event_name != 'pull_request'" in jobs["sign"]["if"]
+
+    def reaches(name: str, goal: str) -> bool:
+        return name == goal or any(reaches(need, goal) for need in _needs(jobs[name]))
+
+    for name, job in jobs.items():
+        if name in {"host-toolchain", "upgrade-drill"}:
+            continue
+        assert reaches(name, "host-toolchain") or reaches(name, "sign"), name
+        # always() would run it whatever its needs did, unless it then asks for
+        # the host stage's success or excludes pull requests.
+        condition = str(job.get("if", ""))
+        if "always()" in condition:
+            assert (
+                "needs.host-toolchain.result == 'success'" in condition
+                or "github.event_name != 'pull_request'" in condition
+            ), name
+    # The drill check runs in every run, under another name in this one, so
+    # main's required check waits for the bump branch's own run.
+    check = jobs["upgrade-drill"]
+    assert check["if"] == "always()"
+    assert check["name"] == (
+        f"${{{{ {BUMP_PULL_REQUEST} && 'upgrade-drill of the branch' || 'upgrade-drill' }}}}"
+    )
+    (step,) = check["steps"]
+    assert step["env"]["BUMP_PULL_REQUEST"] == f"${{{{ {BUMP_PULL_REQUEST} }}}}"
+    # The results such a run has: nothing built, tested or signed. In a bump's
+    # pull request the step names the run that reports the check; in another
+    # pull request's run the same results fail it.
+    results = {"SYSTEM_TEST": "skipped", "SIGN": "skipped", "DRILL": "skipped"}
+    for bump in ("true", "false"):
+        result = subprocess.run(
+            ["bash", "-eo", "pipefail", "-c", step["run"]],
+            env={**os.environ, **results, "BUMP_PULL_REQUEST": bump, "HEAD_REF": BRANCH},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert (result.returncode == 0) == (bump == "true"), result.stdout
+        assert (f"the push run of {BRANCH}" in result.stdout) == (bump == "true")
 
 
 def _patch_step(
