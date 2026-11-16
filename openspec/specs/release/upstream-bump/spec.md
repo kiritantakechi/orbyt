@@ -6,7 +6,7 @@ Defines the weekly cadence for tracking upstream main: a bot opens a PR to updat
 ## Requirements
 
 ### Requirement: Weekly automated PR
-The bot SHALL check the main branches of the repositories in `upstream.lock` (openwrt, packages, luci, and daeuniverse's OpenWrt feed) once a week. When there are updates, it SHALL open a PR that updates `upstream.lock`, with the old and new SHAs and a summary of the upstream commits in the PR description. When none of the repositories has updates, it MUST NOT open a PR. It SHALL start the bump branch's check and build before it opens the PR, so that a PR that cannot be opened leaves them running and fails the bot's run naming why. A bump run again on a day whose branch exists MUST NOT change the branch, and SHALL open the PR that branch still lacks.
+The bot SHALL check the main branches of the repositories in `upstream.lock` (openwrt, packages, luci, and daeuniverse's OpenWrt feed) once a week. When there are updates, it SHALL open a PR that updates `upstream.lock`, with the old and new SHAs and a summary of the upstream commits in the PR description. When none of the repositories has updates, it MUST NOT open a PR. It SHALL push the bump branch, and open the PR, with a token whose pushes and PRs start workflows, so that the branch's build and the PR's check run on their own; without such a token it MUST stop before it pushes, naming the token. A PR that cannot be opened SHALL leave the branch's build running and fail the bot's run naming why. A bump run again on a day whose branch exists MUST NOT change the branch, and SHALL open the PR that branch still lacks.
 
 #### Scenario: Upstream has updates
 - **WHEN** the weekly check runs and upstream has new commits
@@ -18,11 +18,15 @@ The bot SHALL check the main branches of the repositories in `upstream.lock` (op
 
 #### Scenario: The PR cannot be opened
 - **WHEN** the bot pushes a bump branch but may not open PRs
-- **THEN** the branch's check and build run, and the bot's run fails, saying that it may not open the PR
+- **THEN** the branch's build runs, and the bot's run fails, saying that it may not open the PR
 
 #### Scenario: Bump run again
 - **WHEN** the bot runs again on a day whose bump branch exists, with commits on it the bot did not make
 - **THEN** the branch keeps its commits, and the bot opens its PR if it has none
+
+#### Scenario: No token that starts workflows
+- **WHEN** the bot finds updates but has no token whose pushes start workflows
+- **THEN** it pushes nothing and opens no PR, and its run fails naming the token it needs
 
 ### Requirement: Fail clearly when patches do not apply
 If patches fail to apply after a bump, the PR's CI SHALL fail and name the conflicting patch file in the result. When the failing patch applies in reverse, because upstream has made its change, the result SHALL say so, so that the patch is dropped rather than refreshed.
@@ -42,7 +46,7 @@ A bump PR SHALL carry a required check, "upgrade drill". The drill runs in the e
 3. sync this signed candidate;
 4. write it to the inactive slot with the upgrade command, and reboot.
 
-The check passes only when, on every board, the new slot passes the health check and is confirmed, and the configuration is still present. When the check does not pass, the PR MUST NOT be merged. While release signing is set up, the check MUST fail in a run of a bump PR's pull request event, which cannot sign: only the bump branch's own run, which drills, passes it.
+The check passes only when, on every board, the new slot passes the health check and is confirmed, and the configuration is still present. When the check does not pass, the PR MUST NOT be merged. Every commit pushed to a bump branch SHALL start the bump branch's own run, which builds, tests, signs and drills it, and whose check is the PR's. The run of a bump PR's pull request event, which cannot sign, SHALL build nothing and MUST NOT report the check, whatever its outcome: a check that did not run counts as passed, and two checks of the name could disagree.
 
 #### Scenario: Candidate fails the health check
 - **WHEN** the candidate boots in the drill of a board and never passes the health check
@@ -61,5 +65,9 @@ The check passes only when, on every board, the new slot passes the health check
 - **THEN** that board's drill fails, rather than start from another image
 
 #### Scenario: The PR's own run of a bump
-- **WHEN** release signing is set up and a commit is pushed to a bump PR, which runs the build for the PR
-- **THEN** that run's upgrade-drill check fails, naming the bump branch's own run as the one that drills
+- **WHEN** a commit is pushed to a bump PR, which runs the build for the PR
+- **THEN** that run builds nothing and reports no upgrade-drill check, so the PR waits for the bump branch's own run
+
+#### Scenario: A commit pushed to a bump branch
+- **WHEN** the maintainer pushes a commit to a bump branch
+- **THEN** the bump branch's own build runs on that commit without being started by hand, and its upgrade-drill check is the PR's
