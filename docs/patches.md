@@ -806,6 +806,8 @@ What the patch does: `rcS()` cancels what is left of the previous run instead of
 
 Alternatives considered: a forced reboot (`reboot -f`) in wrt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
 
+Verification log: 2026-11-17, the firmware/boot-rollback test of a boot script that hangs during a trial boot. With procd 6, on the emulated R4S and in CI run 43976186041 on both boards, it timed out waiting for the rollback; a probe in the hung script (never committed) found the system at `- shutdown -` from 61 s until 659 s, the script running throughout. With procd 7, each of its three hung trial boots reboots 7 s after the trial's deadline (`- SIGTERM processes -`, `- SIGKILL processes -`, `- reboot -`), the bootlimit is exceeded and slot A confirmed; the R4S's `upgrade` and `boot` suites pass, 44 tests. CI run 44002274413 passed on both boards.
+
 ### luci-lib-daeuniverse: BusyBox's timeout
 
 Patch: `patches/daeuniverse/0003-luci-lib-daeuniverse-BusyBox-s-timeout-is-enough.patch`, for daeuniverse/openwrt-packages.
