@@ -329,7 +329,9 @@ def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: P
         assert _state(router) == before
         assert "network.wan.mtu='1400'" in router.run("uci changes network")
     finally:
-        router.run(f"uci revert network && uci set network.wg0.private_key={key} && uci commit network")
+        router.run(
+            f"uci revert network && uci set network.wg0.private_key={key} && uci commit network"
+        )
 
 
 @spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to another package")
