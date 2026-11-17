@@ -6,15 +6,23 @@
 
   Verify: `spec-coverage --change luci-theme-wrt` reports every scenario covered or verified elsewhere; before 2.1 the tests fail (no theme).
 
+- [ ] 1.2 Add to `tests/firmware/test_web_theme.py` the icons of LuCI against the theme's glyphs: every icon under `icons/` and `cbi/` on the router named in the served stylesheet, none stale, every glyph served (design D10).
+
+  Verify: the test fails without 2.2's glyphs and passes with them.
+
 ## 2. The theme (design D1 to D5, D8)
 
 - [ ] 2.1 Add `feed/luci/luci-theme-wrt`: the package, the templates, the stylesheet from the approved mockup's tokens, the menu and login scripts, and the uci-defaults script; select it in `config/system.seed`; describe it in `docs/`.
 
   Verify: the R4S builds; the tests of 1.1 pass on the emulator; `just check` passes.
 
+- [ ] 2.2 Draw LuCI's icons in glyphs of the theme's own (`htdocs/luci-static/wrt/icons/`, the mask rules in `cascade.css`), and map LuCI's graph, zone and inline state colors to the theme's tokens (design D10, D11); give the theme its own Simplified Chinese strings where luci-base has none.
+
+  Verify: the tests of 1.1 and 1.2 pass on the emulator; `just check` passes.
+
 ## 3. In a browser (design D9)
 
-- [ ] 3.1 Look at the emulator's LuCI in a browser: the overview, an interface form, the login, LuCI's apply dialog and a dropdown, light and dark, at desktop width and at 375 pixels; fix what does not hold; record the scenarios of light and dark and of phone width in `tests/verified-elsewhere.toml`.
+- [ ] 3.1 Look at the emulator's LuCI in a browser: the overview with its port status, an interface form, the login, LuCI's apply dialog and a dropdown, the firewall zones, a realtime graph, light and dark, at desktop width and at 375 pixels; fix what does not hold; record the scenarios of light and dark, of phone width, and of the icons' states and the graphs in `tests/verified-elsewhere.toml`.
 
   Verify: each view holds the mockup's design and LuCI's function, in both modes and both widths.
 
