@@ -73,6 +73,11 @@ function basename(path) {
 	return match(path, /[^\/]+$/)[0];
 }
 
+// services(): the services config-push uploaded files of.
+function services() {
+	return sort(filter(lsdir(NEW) ?? [], (name) => stat(`${NEW}/${name}`)?.type == 'directory'));
+}
+
 // batches(name): the service's uci batches, in the order they are applied.
 function batches(name) {
 	return sort(glob(`${NEW}/${name}/*.uci`) ?? []);
@@ -125,11 +130,6 @@ function validate() {
 					' commit or revert them, then push again');
 		}
 	}
-}
-
-// services(): the services config-push uploaded files of.
-function services() {
-	return sort(filter(lsdir(NEW) ?? [], (name) => stat(`${NEW}/${name}`)?.type == 'directory'));
 }
 
 function hashes() {
@@ -240,6 +240,35 @@ function restore(name) {
 			warn(`config-push: ${name}: cannot put ${path} back\n`);
 }
 
+// commit_batches(name): the service's uci batches applied with the push's own
+// change directory, and committed package by package: the device's uncommitted
+// changes to other packages stay, and it has none to these (validate). False,
+// having said why, when uci refuses one; the directory goes either way, and so
+// with it every change of a push that failed (push-isolation D3).
+function commit_batches(name) {
+	let changes = `${PUSH}/uci-changes/${name}`;
+	let written = run(`rm -rf ${quoted(changes)} && mkdir -p ${quoted(changes)}`) ||
+		failed(`${name}: cannot make the push's change directory`);
+
+	for (let batch in written ? batches(name) : []) {
+		if (!run(`uci -t ${quoted(changes)} batch < ${quoted(batch)}`)) {
+			written = failed(`${basename(batch)}: uci batch failed`);
+			break;
+		}
+	}
+
+	for (let package in written ? sort(lsdir(changes) ?? []) : []) {
+		if (!run(`uci -t ${quoted(changes)} commit ${quoted(package)}`)) {
+			written = failed(`${name}: uci commit ${package} failed`);
+			break;
+		}
+	}
+
+	run(`rm -rf ${quoted(changes)}`);
+
+	return written;
+}
+
 // write(name): the service's new files in place; false, having said why, when
 // one could not be written, which apply puts back as it puts back a failed reload.
 function write(name) {
@@ -294,35 +323,6 @@ function write(name) {
 	default:
 		return commit_batches(name);
 	}
-}
-
-// commit_batches(name): the service's uci batches applied with the push's own
-// change directory, and committed package by package: the device's uncommitted
-// changes to other packages stay, and it has none to these (validate). False,
-// having said why, when uci refuses one; the directory goes either way, and so
-// with it every change of a push that failed (push-isolation D3).
-function commit_batches(name) {
-	let changes = `${PUSH}/uci-changes/${name}`;
-	let written = run(`rm -rf ${quoted(changes)} && mkdir -p ${quoted(changes)}`) ||
-		failed(`${name}: cannot make the push's change directory`);
-
-	for (let batch in written ? batches(name) : []) {
-		if (!run(`uci -t ${quoted(changes)} batch < ${quoted(batch)}`)) {
-			written = failed(`${basename(batch)}: uci batch failed`);
-			break;
-		}
-	}
-
-	for (let package in written ? sort(lsdir(changes) ?? []) : []) {
-		if (!run(`uci -t ${quoted(changes)} commit ${quoted(package)}`)) {
-			written = failed(`${name}: uci commit ${package} failed`);
-			break;
-		}
-	}
-
-	run(`rm -rf ${quoted(changes)}`);
-
-	return written;
 }
 
 // reload(name): have the service take its configuration; false when the command

@@ -4,6 +4,7 @@
 
 - uci's command line keeps the configuration in a directory (`-c`, `/etc/config` by default) and uncommitted changes in change directories: it reads a package's changes from every directory of its list, which always holds `/tmp/.uci`, and saves new ones in its save directory, `/tmp/.uci` unless `-t` (or `-P`) names another, which `-t` adds to the list (`uci_set_savedir`). `-P` does the same and refuses `commit`; `-t` does not. A commit applies the changes of every directory of the list and clears those of the save directory alone (`uci_load_delta`). Every command that changes a package saves its changes at once (`cli.c`).
 - `validate` (`scripts/config-push.d/device.uc`) runs each batch alone, on a fresh copy of `/etc/config`, with `-c` alone; `write` runs a service's batches with plain `uci batch`, then `uci commit` without a package, which commits every package with changes.
+- uci records a change only where one is made: `set` to the value an option already holds records nothing (`uci_set`), while `add_list` always adds.
 - `apply` saves `/etc/config` whole before `write`, and `restore` puts it back after a failure; config-push removes the router's `/tmp/wrt-push` once the push ends, however it ends (`docs/ops.md`, step 5).
 
 ## Goals / Non-Goals
@@ -39,8 +40,8 @@ Alternatives considered:
 ### D4. Tests
 
 `tests/ops/test_config_push.py`, against the module's pushed router:
-- After a push that finds every service unchanged, `uci changes` prints nothing and no file under `/tmp/.uci` holds the WireGuard key.
-- With an uncommitted change to `network` (a package the network batch changes), the push fails naming `network`, the router is as before, and the change is still uncommitted.
+- With the router's WireGuard key changed and committed since the push, a push finds every service unchanged; `uci changes` then prints nothing and no file under `/tmp/.uci` holds the pushed key. Without that change the dry run would change nothing: uci records no change for a value an option already holds.
+- With the router's WireGuard key changed since the push, so that the network batch changes `network`, and an uncommitted change to `network`, the push fails naming `network`, the router is as before, and the change is still uncommitted.
 - With an uncommitted change to `system` and a changed network batch, the push applies the batch, `system`'s change is still uncommitted, `/etc/config/system` is as before, and `uci changes` shows nothing else.
 
 ## Risks / Trade-offs

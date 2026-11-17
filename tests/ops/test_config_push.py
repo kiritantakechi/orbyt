@@ -292,21 +292,34 @@ def test_a_repeated_push_restarts_nothing(pushed: Pushed) -> None:
 @spec(CAPABILITY, "Validate before pushing", "A configuration that validates")
 def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
     router = pushed.router
-    result = pushed.push()
-    assert result.returncode == 0, result.stderr
-    for service in SERVICES:
-        assert f"{service}: unchanged" in result.stderr
-    assert router.run("uci changes") == ""
-    # No file of uci's change directory holds a secret of the push.
     key = shlex.quote(pushed.wireguard_key)
-    assert router.returncode(f"grep -rqF -- {key} /tmp/.uci") != 0
+    # The WireGuard key, changed on the router since the push: the network batch
+    # changes it again, though the push's files are as they were. uci records no
+    # change for a value an option already holds.
+    router.run("uci set network.wg0.private_key=changed-on-the-router && uci commit network")
+    try:
+        result = pushed.push()
+        assert result.returncode == 0, result.stderr
+        for service in SERVICES:
+            assert f"{service}: unchanged" in result.stderr
+        assert router.run("uci changes") == ""
+        # No file of uci's change directory holds a secret of the push.
+        assert router.returncode(f"grep -rqF -- {key} /tmp/.uci") != 0
+    finally:
+        router.run(f"uci set network.wg0.private_key={key} && uci commit network")
 
 
 @spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to a pushed package")
 def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: Pushed) -> None:
     router = pushed.router
-    # Uncommitted, as LuCI holds a change until it is saved.
-    router.run("uci set network.wan.mtu=1400")
+    key = shlex.quote(pushed.wireguard_key)
+    # The WireGuard key, changed on the router since the push, for the network
+    # batch to change network; and an uncommitted change to it, as LuCI holds a
+    # change until it is saved.
+    router.run(
+        "uci set network.wg0.private_key=changed-on-the-router && uci commit network"
+        " && uci set network.wan.mtu=1400"
+    )
     try:
         before = _state(router)
         result = pushed.push()
@@ -316,7 +329,7 @@ def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: P
         assert _state(router) == before
         assert "network.wan.mtu='1400'" in router.run("uci changes network")
     finally:
-        router.run("uci revert network")
+        router.run(f"uci revert network && uci set network.wg0.private_key={key} && uci commit network")
 
 
 @spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to another package")
