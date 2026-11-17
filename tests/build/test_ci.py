@@ -95,27 +95,30 @@ def _git(repository: Path, *args: str) -> str:
     ).stdout.strip()
 
 
+# A checkout's change since its commit: the files written, whether they are
+# staged, and whether the commit a build names is then -dirty.
+CHANGES = {
+    "clean": ((), False, False),
+    "an untracked file": (("new",), False, True),
+    "an ignored file": (("ignored",), False, False),
+    "a tracked file changed": (("tracked",), False, True),
+    "a change staged": (("tracked",), True, True),
+}
+
+
 @spec(CAPABILITY, "Image and kmods from the same build", "A file not committed")
-@pytest.mark.parametrize(
-    ("written", "staged", "dirty"),
-    [
-        pytest.param((), False, False, id="clean"),
-        pytest.param(("new",), False, True, id="an untracked file"),
-        pytest.param(("ignored",), False, False, id="an ignored file"),
-        pytest.param(("tracked",), False, True, id="a tracked file changed"),
-        pytest.param(("tracked",), True, True, id="a change staged"),
-    ],
-)
-def test_the_commit_a_build_names(
-    tmp_path: Path, written: tuple[str, ...], staged: bool, dirty: bool
-) -> None:
+@pytest.mark.parametrize("change", CHANGES)
+def test_the_commit_a_build_names(tmp_path: Path, change: str) -> None:
+    written, staged, dirty = CHANGES[change]
     repository = tmp_path / "repository"
     repository.mkdir()
     _git(repository, "init", "-q")
     (repository / ".gitignore").write_text("ignored\n")
     (repository / "tracked").write_text("committed\n")
     _git(repository, "add", ".")
-    _git(repository, "-c", "user.name=test", "-c", "user.email=test@localhost", "commit", "-qm", "1")
+    _git(
+        repository, "-c", "user.name=test", "-c", "user.email=test@localhost", "commit", "-qm", "1"
+    )
     commit = _git(repository, "rev-parse", "HEAD")
     for name in written:
         (repository / name).write_text("written\n")
@@ -198,7 +201,9 @@ def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
     repository = Repository(
         branches=["main", "feature"], compare={"feature": "ahead"}, heads={branch: NEWER}
     )
-    repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}])
+    repository.compared(
+        HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}]
+    )
     _caches_of_a_rerun(repository, ref)
     # On main, a deleted branch's caches too, which the newer run deletes.
     repository.cache("refs/heads/deleted", "dl-deleted")
@@ -206,20 +211,6 @@ def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
     assert result.returncode == 0, result.stderr
     assert f"the newer run of {branch} prunes" in result.stderr
     assert len(left) == len(repository.caches)
-
-
-def test_a_run_past_documentation_prunes(tmp_path: Path) -> None:
-    repository = Repository(
-        branches=["main", "feature"], compare={"feature": "ahead"}, heads={"feature": NEWER}
-    )
-    repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}])
-    for run in ("1", "2"):
-        repository.cache("refs/heads/feature", f"toolchain-{run}")
-    result, left = run_script(
-        tmp_path, repository, "cache-prune.sh", "toolchain-2", ref="refs/heads/feature"
-    )
-    assert result.returncode == 0, result.stderr
-    assert left == [("refs/heads/feature", "toolchain-2")]
 
 
 @spec(CAPABILITY, "Main's caches kept whole", "Room for the jobs that save at once")
@@ -305,67 +296,6 @@ def test_other_documentation_does_not_run_the_build(event: str) -> None:
     # runs the build, then documentation does not, then the documents tests read
     # do again.
     assert paths[: paths.index("!**/*.md") + 1] == ["**", "!openspec/**", "!docs/**", "!**/*.md"]
-
-
-def _github_glob(pattern: str) -> re.Pattern[str]:
-    """Return the regular expression of a GitHub filter pattern: ``**`` crosses slashes, ``*`` does not."""
-    parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
-    wildcards = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*"}
-    return re.compile("".join(wildcards.get(part, re.escape(part)) for part in parts))
-
-
-def _github_reads(patterns: list[str], path: str) -> bool:
-    """Say whether a change to ``path`` runs a workflow filtered by ``patterns``, as GitHub does."""
-    runs = False
-    for pattern in patterns:
-        negated = pattern.startswith("!")
-        if _github_glob(pattern.removeprefix("!")).fullmatch(path):
-            runs = not negated
-    return runs
-
-
-@pytest.mark.parametrize("event", ["push", "pull_request"])
-def test_the_library_holds_the_workflow_s_paths(event: str) -> None:
-    result = library("runs", "build_paths")
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == _triggers()[event]["paths"]
-
-
-# Paths in and out of each pattern of the workflow's list.
-SAMPLE_PATHS = (
-    "scripts/build.sh",
-    "tests/build/test_ci.py",
-    "upstream.lock",
-    "openspec/specs/build/ci/spec.md",
-    "openspec/config.yaml",
-    "docs/ci.md",
-    "docs/patches.md",
-    "docs/services.md",
-    "docs/old/patches.md",
-    "README.md",
-    "feed/utils/wrt-ab/README.md",
-    "docsite/index.html",
-    "openspec.lock",
-)
-
-
-def test_build_reads_answers_as_github_does() -> None:
-    patterns = _triggers()["push"]["paths"]
-    script = 'for path in "$@"; do if build_reads "$path"; then echo yes; else echo no; fi; done'
-    result = library("runs", script, *SAMPLE_PATHS)
-    assert result.returncode == 0, result.stderr
-    answers = dict(zip(SAMPLE_PATHS, result.stdout.split(), strict=True))
-    assert answers == {
-        path: "yes" if _github_reads(patterns, path) else "no" for path in SAMPLE_PATHS
-    }
-    assert {path for path, answer in answers.items() if answer == "no"} == {
-        "openspec/specs/build/ci/spec.md",
-        "openspec/config.yaml",
-        "docs/ci.md",
-        "docs/old/patches.md",
-        "README.md",
-        "feed/utils/wrt-ab/README.md",
-    }
 
 
 @spec(CAPABILITY, "One pinned Nix in every job", "Installer of every job")

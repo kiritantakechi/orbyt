@@ -11,6 +11,7 @@ import os
 import re
 import subprocess
 import tarfile
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
@@ -44,12 +45,25 @@ NEWER = "d" * 40
 BRANCH = "refs/heads/main"
 # Files of commits that run no build (build.yml's paths): documentation, a
 # document renamed among them.
-DOCUMENTATION = [
+DOCUMENTATION = (
     {"filename": "docs/ci.md"},
     {"filename": "openspec/changes/a-change/tasks.md"},
     {"filename": "README.md"},
     {"filename": "docs/release-flow.md", "previous_filename": "docs/releases.md"},
-]
+)
+
+
+@dataclass(frozen=True, slots=True)
+class Branch:
+    """The branch a run publishes from: its head, and how it compares with the commit built."""
+
+    head: str = BUILT
+    status: str = "ahead"
+    files: tuple[dict[str, str], ...] = ()
+
+
+# A branch whose head is the commit built.
+CURRENT = Branch()
 
 
 def _publish(
@@ -58,24 +72,21 @@ def _publish(
     *options: str,
     gh: Path | None = None,
     every_board: bool = False,
-    head: str = BUILT,
-    status: str = "ahead",
-    files: Sequence[dict[str, str]] = (),
+    branch: Branch = CURRENT,
 ) -> subprocess.CompletedProcess[str]:
     """Run release-publish.sh on the boards ``signed`` holds, or on every board.
 
     ``every_board`` leaves ``--boards`` out, for the script's default of every
     board; with ``gh``, the stand-in's directory goes first on PATH, and it
-    answers that ``head`` is the head of the branch the run publishes from, as
-    the run's environment names it, not CI's own, ``status`` of the commit built
-    with ``files`` between them.
+    answers for ``branch`` as the branch the run publishes from, as the run's
+    environment names it, not CI's own.
     """
     environment = {
         name: value for name, value in os.environ.items() if not name.startswith("GITHUB_")
     }
     if gh is not None:
-        repository = Repository(heads={BRANCH.removeprefix("refs/heads/"): head})
-        repository.compared(BUILT, head, status, list(files))
+        repository = Repository(heads={BRANCH.removeprefix("refs/heads/"): branch.head})
+        repository.compared(BUILT, branch.head, branch.status, list(branch.files))
         install(gh, repository)
         environment["PATH"] = f"{gh}{os.pathsep}{environment['PATH']}"
         environment |= {"GITHUB_REF": BRANCH, "GITHUB_REPOSITORY": REPOSITORY}
@@ -331,9 +342,7 @@ def test_a_lock_that_is_not_the_builds_is_refused(
             id="a script renamed into the documentation",
         ),
         # GitHub lists 300 files at most: the rest may hold code.
-        pytest.param(
-            "ahead", [{"filename": f"docs/{n}.md"} for n in range(300)], id="300 files"
-        ),
+        pytest.param("ahead", [{"filename": f"docs/{n}.md"} for n in range(300)], id="300 files"),
         pytest.param("diverged", DOCUMENTATION, id="a head that does not descend from it"),
     ],
 )
@@ -342,7 +351,7 @@ def test_a_run_its_branch_moved_past_does_not_publish(
 ) -> None:
     signed = _built(signed_boards, tmp_path / "signed")
     result = _publish(
-        signed, tmp_path / "release", "--upload", gh=gh, head=NEWER, status=status, files=files
+        signed, tmp_path / "release", "--upload", gh=gh, branch=Branch(NEWER, status, tuple(files))
     )
     assert result.returncode != 0
     assert f"main has moved from {BUILT} to {NEWER}" in result.stderr
@@ -355,7 +364,7 @@ def test_a_branch_moved_by_documentation_only_publishes(
 ) -> None:
     signed = _built(signed_boards, tmp_path / "signed")
     result = _publish(
-        signed, tmp_path / "release", "--upload", gh=gh, head=NEWER, files=DOCUMENTATION
+        signed, tmp_path / "release", "--upload", gh=gh, branch=Branch(NEWER, files=DOCUMENTATION)
     )
     assert result.returncode == 0, result.stderr
     args = _gh_args(gh)

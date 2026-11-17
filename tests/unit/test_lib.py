@@ -1,12 +1,13 @@
-"""The shell library's modules (scripts/lib/): the tree, the caches, the toolchain and seeds."""
+"""The shell library's modules (scripts/lib/): tree, caches, toolchain, seeds and runs."""
 
 import hashlib
 import os
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
+import yaml
 
 from wrt_tests.model.boards import load_all
 from wrt_tests.model.shell import awk_program, library
@@ -15,6 +16,7 @@ if TYPE_CHECKING:
     import subprocess
 
 REPO = Path(__file__).resolve().parents[2]
+WORKFLOW = REPO / ".github" / "workflows" / "build.yml"
 PROFILES = [
     line.split(":")[0]
     for line in (REPO / "config" / "profiles").read_text().splitlines()
@@ -364,3 +366,70 @@ def test_the_ubsan_seed_extends_the_toolchain_seed() -> None:
         return str(found[1])
 
     assert value("ubsan") == f"{value('toolchain')} -fsanitize=undefined -fsanitize-trap=undefined"
+
+
+def _paths(event: str) -> list[str]:
+    """Return build.yml's paths for an event (its key ``on``, which YAML 1.1 reads as true)."""
+    workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+    return cast("list[str]", workflow[True][event]["paths"])
+
+
+def _github_glob(pattern: str) -> re.Pattern[str]:
+    """Return a GitHub filter pattern's regular expression: ``**`` crosses slashes, ``*`` not."""
+    parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
+    wildcards = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*"}
+    return re.compile("".join(wildcards.get(part, re.escape(part)) for part in parts))
+
+
+def _github_reads(patterns: list[str], path: str) -> bool:
+    """Say whether a change to ``path`` runs a workflow filtered by ``patterns``, as GitHub does."""
+    runs = False
+    for pattern in patterns:
+        negated = pattern.startswith("!")
+        if _github_glob(pattern.removeprefix("!")).fullmatch(path):
+            runs = not negated
+    return runs
+
+
+@pytest.mark.parametrize("event", ["push", "pull_request"])
+def test_the_library_holds_the_workflow_s_paths(event: str) -> None:
+    result = library("runs", "build_paths")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == _paths(event)
+
+
+# Paths in and out of each pattern of the workflow's list.
+SAMPLE_PATHS = (
+    "scripts/build.sh",
+    "tests/build/test_ci.py",
+    "upstream.lock",
+    "openspec/specs/build/ci/spec.md",
+    "openspec/config.yaml",
+    "docs/ci.md",
+    "docs/patches.md",
+    "docs/services.md",
+    "docs/old/patches.md",
+    "README.md",
+    "feed/utils/wrt-ab/README.md",
+    "docsite/index.html",
+    "openspec.lock",
+)
+
+
+def test_build_reads_answers_as_github_does() -> None:
+    patterns = _paths("push")
+    script = 'for path in "$@"; do if build_reads "$path"; then echo yes; else echo no; fi; done'
+    result = library("runs", script, *SAMPLE_PATHS)
+    assert result.returncode == 0, result.stderr
+    answers = dict(zip(SAMPLE_PATHS, result.stdout.split(), strict=True))
+    assert answers == {
+        path: "yes" if _github_reads(patterns, path) else "no" for path in SAMPLE_PATHS
+    }
+    assert {path for path, answer in answers.items() if answer == "no"} == {
+        "openspec/specs/build/ci/spec.md",
+        "openspec/config.yaml",
+        "docs/ci.md",
+        "docs/old/patches.md",
+        "README.md",
+        "feed/utils/wrt-ab/README.md",
+    }

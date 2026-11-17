@@ -20,13 +20,19 @@ by = "build.yml host-toolchain restores the toolchain cache; firmware builds on 
 capability = "build/ci"
 requirement = "Cache keyed on actual inputs"
 scenario = "Only the packages feed updated"
-by = "scripts/toolchain-key.sh hashes tools/, toolchain/, target/linux/generic, the build files that name the host stamps (include/depends.mk, include/host-build.mk, rules.mk), lang/golang, lang/rust, the board-neutral configuration composed from the profile's seeds, the makefiles of the selected target and subtarget, WRT_BUILD_INPUTS, and the two scripts that build and pack the archive with the library modules they load (module-boundaries D8), and nothing else of the packages feed"
+by = "scripts/toolchain-key.sh hashes tools/, toolchain/, target/linux/generic, OpenWrt's build files and scripts (rules.mk, include/, scripts/), lang/golang, lang/rust, the board-neutral configuration composed from the profile's seeds, the makefiles of the selected target and subtarget, WRT_BUILD_INPUTS, and the two scripts that build and pack the archive with the library modules they load (module-boundaries D8), and nothing else of the packages feed"
 
 [[scenario]]
 capability = "build/ci"
 requirement = "Cache keyed on actual inputs"
 scenario = "Toolchain inputs change"
 by = "scripts/toolchain-key.sh; build.yml host-toolchain rebuilds on a key miss: cold in run 37143040755, from its own compiler cache in run 37166467868, whose toolchain-build.sh had changed (docs/ci.md). 2026-10-12 on the VM, a scratch commit adding a file under target/linux/generic changed the key, and one outside lang/golang and lang/rust in the packages feed did not (build-integrity D4)"
+
+[[scenario]]
+capability = "build/ci"
+requirement = "Cache keyed on actual inputs"
+scenario = "A build file of OpenWrt changes"
+by = "scripts/toolchain-key.sh hashes the trees of include/ and scripts/ of the patched build tree (release-freshness D5). 2026-11-17 on the VM, on the series c77d3f7d: a scratch commit appending a comment to include/cmake.mk alone moved the key from toolchain-f67ea23a to toolchain-89b70535, where the key of three build files had stayed at toolchain-5030fa04; one appending a comment to the packages feed's net/socat/Makefile kept toolchain-f67ea23a"
 
 [[scenario]]
 capability = "build/ci"

@@ -5,12 +5,14 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests.model.github import MAIN, Repository, run_script
+from wrt_tests.model.github import HEAD, MAIN, Repository, run_script
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 MIB = 1024 * 1024
+# A commit its ref moved to after the run's (HEAD).
+NEWER = "b" * 40
 
 
 @pytest.mark.parametrize(
@@ -71,3 +73,17 @@ def test_a_branch_leaves_other_branches_caches(tmp_path: Path) -> None:
     )
     assert result.returncode == 0, result.stderr
     assert sorted(ref for ref, _ in left) == ["refs/heads/deleted", "refs/heads/feature"]
+
+
+def test_a_run_past_documentation_prunes(tmp_path: Path) -> None:
+    repository = Repository(
+        branches=["main", "feature"], compare={"feature": "ahead"}, heads={"feature": NEWER}
+    )
+    repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}])
+    for run in ("1", "2"):
+        repository.cache("refs/heads/feature", f"toolchain-{run}")
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-2", ref="refs/heads/feature"
+    )
+    assert result.returncode == 0, result.stderr
+    assert left == [("refs/heads/feature", "toolchain-2")]
