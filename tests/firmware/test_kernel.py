@@ -158,6 +158,13 @@ def test_kmod_of_another_kernel_is_refused(router: Router) -> None:
     # running version but another vermagic has exactly the dependency of a kmod
     # from a build with a different kernel configuration.
     version = router.run("uname -r")
+    # The control: the running kernel's own, as its installed package names it
+    # (kernel-<version>~<vermagic>-r<release>), installs.
+    (installed,) = router.run("apk list --installed kernel | cut -d' ' -f1").split()
+    own = f"kernel={installed.removeprefix('kernel-')}"
+    assert own.startswith(f"kernel={version}~"), own
+    router.run(f"apk add --virtual kmod-wrt-vermagic-probe '{own}'")
+    router.run("apk del kmod-wrt-vermagic-probe")
     dependency = f"kernel={version}~{'0' * 32}-r1"
     code = router.returncode(f"apk add --virtual kmod-wrt-vermagic-probe '{dependency}'")
     assert code != 0

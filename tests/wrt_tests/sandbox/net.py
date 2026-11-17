@@ -47,6 +47,8 @@ DAEMON_SETTLE = 0.5
 # through the proxy), the ISP's resolver, and the socks5 exit.
 INET_GATEWAY = ("203.0.113.1", "2001:db8:ffff::1")
 DIRECT_TARGET = ("203.0.113.10", "2001:db8:ffff::10")
+# The name the internet's DNS gives DIRECT_TARGET.
+DIRECT_NAME = "direct.example.net"
 PROXIED_TARGET = ("203.0.113.20", "2001:db8:ffff::20")
 PROXY_GATEWAY = ("198.51.100.1", "2001:db8:53::1")
 PROXY = ("198.51.100.53", "2001:db8:53::53")
@@ -183,7 +185,7 @@ UPSTREAM = (
                 # dnsmasq keeps RFC 6761 names local and never forwards them.
                 "--address=/#/",
                 f"--address=/any.example.net/{DIRECT_TARGET[0]}",
-                "--host-record=direct.example.net,{},{}".format(*DIRECT_TARGET),
+                f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
                 "--host-record=proxied.example.net,{},{}".format(*PROXIED_TARGET),
                 *(f"--host-record={name},{address}" for name, address in internet.SERVERS),
             ),

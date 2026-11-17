@@ -6,6 +6,7 @@ regions read with dd, so a test can tell which slot booted and what an upgrade
 wrote without stopping the emulator.
 """
 
+import shlex
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -48,8 +49,11 @@ def getenv(router: Router, name: str) -> str | None:
 
 
 def setenv(router: Router, **variables: str | int) -> None:
-    """Write U-Boot variables with the router's own helper, as wrt-slot and sysupgrade do."""
-    pairs = " ".join(f"{name} {value}" for name, value in variables.items())
+    """Write U-Boot variables with the router's own helper, as wrt-slot and sysupgrade do.
+
+    Each value is one word for the helper, whatever spaces it holds.
+    """
+    pairs = " ".join(f"{name} {shlex.quote(str(value))}" for name, value in variables.items())
     router.run(f". /lib/functions/wrt-ab.sh && wrt_ab_setenv {pairs}")
 
 

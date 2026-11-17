@@ -151,6 +151,9 @@ def test_ruleset_is_fw4_only(pod: Online, lan_host: Netns) -> None:
     assert _fetch(pod.client("client-b"), f"http://{app.ADDRESS}/") == f"{app.POD}\n"
     lan = pod.addresses("client-a")[0]
     assert pod.client("client-b").probe("tcp", lan)["address"]  # the LAN host answers
+    # The same nc of the container connects where it may, the internet's probe
+    # server, and not to the LAN host.
+    assert _from_container(pod, DIRECT_TARGET[0])["address"] == pod.wan_address
     refused = router.returncode(f"podman exec {app.CONTAINER} nc {lan} {PORT} </dev/null")
     assert refused != 0
 

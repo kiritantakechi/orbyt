@@ -4,13 +4,15 @@ A module dials in at the emulated ISP once; the transparent proxy (honk), the
 emulated internet's names and CA, and the test app's Pod build on that session.
 """
 
+import subprocess
 from collections.abc import Generator  # noqa: TC003 (pluggy reads the hook's annotations)
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import pytest
 
 from wrt_tests.device.trust import trust_ca
 from wrt_tests.model.poll import until
+from wrt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET
 from wrt_tests.services import app
 from wrt_tests.services.datapath import Online, proxy_start
 
@@ -55,9 +57,10 @@ def internet_zone(online: Online) -> Online:
 
     Its addresses are documentation ranges, which the protection counts as
     private; an operator lets a local domain through the same way. dnsmasq
-    restarts to take it, and until it listens again, a LAN query to the router's
-    port 53 gets no answer (DNS to a private address passes honk natively), so
-    the fixture waits for dnsmasq.
+    restarts to take it after the reload has returned, the old instance
+    listening meanwhile, so the fixture waits for the router to answer a LAN
+    query with an address the protection held back (DNS to a private address
+    passes honk natively).
     """
     router = online.router
     router.run(
@@ -65,11 +68,20 @@ def internet_zone(online: Online) -> Online:
         " && /etc/init.d/dnsmasq reload"
     )
     until(
-        lambda: f"{router.address}:53" in router.run("ss -Hlun 'sport = :53'"),
+        lambda: _resolved(online, DIRECT_NAME) == [DIRECT_TARGET[0]],
         timeout=60,
-        what="dnsmasq listening again",
+        what=f"{DIRECT_NAME} resolved by dnsmasq with the exception",
     )
     return online
+
+
+def _resolved(online: Online, name: str) -> list[str]:
+    """Return the router's answers to a LAN client's query for ``name``; none while it restarts."""
+    try:
+        seen = online.client().probe("resolve", name, "--server", online.router.address)
+    except subprocess.CalledProcessError:
+        return []
+    return cast("list[str]", seen["answers"])
 
 
 @pytest.fixture(scope="module")

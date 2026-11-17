@@ -36,9 +36,12 @@ INBOUND_MARK = "0x20000000"
 NEVER_CONTACTED = "203.0.113.53"  # an address of the internet host no test sends to first
 RECOVERY = 60
 HEALTHCHECK = "/etc/healthcheck.d/50-einat"
-# A table of the test's own on the router, which counts the bare IPv4 frames the
-# WAN port's ingress sees: PPPoE's frames are of other types (test-fidelity D3).
-FRAMES_TABLE = "wrt_test_frames"
+# A table of the test's own on the router, which counts the IPv4 packets that
+# enter a device: at the WAN port the bare frames, PPPoE's being of other types
+# (test-fidelity D3), and at the session's device the packets it carries.
+PACKETS_TABLE = "wrt_test_packets"
+# The router's end of the PPPoE session.
+PPP_DEVICE = "pppoe-wan"
 
 
 class Listener:
@@ -99,12 +102,12 @@ def _einat_rules(online: Online) -> bool:
 def _einat_attached(online: Online) -> None:
     try:
         until(
-            lambda: hooks(online.router, "pppoe-wan") == WAN,
+            lambda: hooks(online.router, PPP_DEVICE) == WAN,
             timeout=RECOVERY,
-            what="einat on pppoe-wan, before qosify",
+            what=f"einat on {PPP_DEVICE}, before qosify",
         )
     except TimeoutError as error:
-        error.add_note(f"pppoe-wan holds {hooks(online.router, 'pppoe-wan')}")
+        error.add_note(f"{PPP_DEVICE} holds {hooks(online.router, PPP_DEVICE)}")
         error.add_note(online.router.run("logread -e einat -e procd | tail -n 20"))
         raise
 
@@ -131,17 +134,21 @@ def test_filtering_is_endpoint_independent(online: Online) -> None:
 
 
 @contextlib.contextmanager
-def _frames_at(router: Router, device: str) -> Generator[Callable[[], int]]:
-    """Count the IPv4 frames that reach ``device`` while the context lasts; yield their count."""
+def _packets_at(router: Router, device: str) -> Generator[Callable[[], int]]:
+    """Count the IPv4 packets that enter ``device`` while the context lasts; yield their count.
+
+    By their protocol, which a PPP device's packets carry without a link-layer
+    header as an Ethernet device's carry with one.
+    """
     hook = f"{{ type filter hook ingress device {device} priority -500; }}"
     router.run(
-        f"nft add table netdev {FRAMES_TABLE}"
-        f" && nft add chain netdev {FRAMES_TABLE} ingress {shlex.quote(hook)}"
-        f" && nft add rule netdev {FRAMES_TABLE} ingress ether type ip counter"
+        f"nft add table netdev {PACKETS_TABLE}"
+        f" && nft add chain netdev {PACKETS_TABLE} ingress {shlex.quote(hook)}"
+        f" && nft add rule netdev {PACKETS_TABLE} ingress meta protocol ip counter"
     )
 
     def counted() -> int:
-        listed = json.loads(router.run(f"nft -j list table netdev {FRAMES_TABLE}"))
+        listed = json.loads(router.run(f"nft -j list table netdev {PACKETS_TABLE}"))
         return int(
             sum(
                 expression["counter"]["packets"]
@@ -154,7 +161,7 @@ def _frames_at(router: Router, device: str) -> Generator[Callable[[], int]]:
     try:
         yield counted
     finally:
-        router.run(f"nft delete table netdev {FRAMES_TABLE}")
+        router.run(f"nft delete table netdev {PACKETS_TABLE}")
 
 
 @spec(
@@ -180,13 +187,15 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     isp.run("ip", "route", "replace", "10.0.0.0/24", "dev", online.session.interface)
     try:
         listener = Listener(online.client(), 41002)
-        assert not listener.receives(lambda: isp.probe("send", ipv4, "--port", "41002"))
+        with _packets_at(online.router, PPP_DEVICE) as packets:
+            assert not listener.receives(lambda: isp.probe("send", ipv4, "--port", "41002"))
+            assert packets() > 0, f"no packet reached {PPP_DEVICE}"
     finally:
         isp.run("ip", "route", "del", "10.0.0.0/24")
     # ...and as a bare frame on the Ethernet segment under PPPoE, which the WAN
     # port takes.
     listener = Listener(online.client(), 41003)
-    with _frames_at(online.router, wan) as frames:
+    with _packets_at(online.router, wan) as frames:
         assert not listener.receives(
             lambda: isp.probe(
                 "inject",
@@ -243,7 +252,7 @@ def test_stopping_einat_falls_back_to_masquerade(online: Online, einat_restored:
     # procd only signals einat: its programs go with it as it exits, which can
     # be a moment after the init script returns. qosify's stay.
     until(
-        lambda: hooks(online.router, "pppoe-wan") == QOSIFY,
+        lambda: hooks(online.router, PPP_DEVICE) == QOSIFY,
         timeout=RECOVERY,
         what="einat's programs detached",
     )
@@ -303,9 +312,9 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     router.run("ifdown wan")
     try:
         until(
-            lambda: router.returncode("[ -e /sys/class/net/pppoe-wan ]") != 0,
+            lambda: router.returncode(f"[ -e /sys/class/net/{PPP_DEVICE} ]") != 0,
             timeout=30,
-            what="pppoe-wan gone",
+            what=f"{PPP_DEVICE} gone",
         )
         assert router.returncode("pidof einat >/dev/null") == 0
         assert router.returncode(HEALTHCHECK) == 0
@@ -319,7 +328,7 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     until(lambda: router.returncode(HEALTHCHECK) == 0, timeout=RECOVERY, what="einat attached")
     # einat's links alone: qosify's are on the same hooks.
     einat = {name for names in EINAT.values() for name in names}
-    for program in tc_programs(router, "pppoe-wan"):
+    for program in tc_programs(router, PPP_DEVICE):
         if program["name"] in einat:
             router.run(f"bpftool link detach id {program['link_id']}")
     assert router.returncode(HEALTHCHECK) != 0

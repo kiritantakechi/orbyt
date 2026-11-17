@@ -108,3 +108,14 @@ def test_a_trap_fails_the_test_and_names_the_process(
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
     with pytest.raises(pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"):
         report(ubsan_traps.new(), "during the test")
+
+
+@spec(CAPABILITY, "Undefined behavior traps under UBSan", "A trap before a reboot")
+def test_a_trap_before_a_reboot_fails_the_test(router: Router, ubsan_traps: Traps | None) -> None:
+    # The reboot starts the kernel log anew; the console's record keeps the report.
+    if ubsan_traps is None:
+        pytest.skip("only a ubsan build traps")
+    assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
+    router.reboot()
+    with pytest.raises(pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"):
+        report(ubsan_traps.new(), "during the test")

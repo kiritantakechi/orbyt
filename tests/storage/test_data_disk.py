@@ -34,7 +34,7 @@ from wrt_tests.device.storage import (
     wait_mounted,
 )
 from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
+from wrt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET, PROXIED_TARGET, PROXY
 from wrt_tests.services import app
 from wrt_tests.services.datapath import PROXY_TIMEOUT, wait_proxy
 
@@ -275,7 +275,7 @@ def test_boot_without_the_data_disk(without_disk: Online) -> None:
     client = without_disk.client()
     assert client.probe("tcp", DIRECT_TARGET[0])["address"] == without_disk.wan_address
     assert client.probe("tcp", PROXIED_TARGET[0])["address"] == PROXY[0]
-    resolved = client.probe("resolve", "direct.example.net", "--server", router.address)
+    resolved = client.probe("resolve", DIRECT_NAME, "--server", router.address)
     assert resolved["answers"] == [DIRECT_TARGET[0]]
     assert mount_options(router) is None
     # The log service restarted without the disk (as any change to the system

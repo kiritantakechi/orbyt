@@ -4,8 +4,10 @@ In the ``ubsan`` profile, every target package is built with UBSan in trap mode:
 undefined behavior executes ``brk #0x3e8``, and the kernel kills the process with
 SIGTRAP. That image turns on the kernel's report of unhandled signals
 (``debug.exception-trace``, which wrt-ubsan-probe sets from early boot), so each
-trap leaves its process, pid and address in the kernel log, until the emulator
-returns to its snapshot.
+trap leaves its process, pid and address in the kernel log, until the router
+reboots or the emulator returns to its snapshot, and on the console, whose
+record the session keeps: the image prints the kernel's reports there (console
+level 7, ``pr_info``).
 """
 
 import re
@@ -68,23 +70,30 @@ def parse(log: str) -> list[Trap]:
 
 
 class Traps:
-    """The traps of a ``ubsan`` build's router, each reported once."""
+    """The traps of a ``ubsan`` build's router, each reported once (test-controls D7).
+
+    Read from two records of the kernel's reports: the kernel log, whole for the
+    router's current boot whenever the router answers, and the serial console's,
+    which keeps the reports of every boot of the session, so that a reboot, a
+    power cut, a return to the snapshot or an SSH session that failed takes none
+    of them away. A report is one trap by its process, pid and kernel time,
+    taken from the kernel log first, where it never arrives in part.
+    """
 
     def __init__(self, router: Router) -> None:
-        """Watch the kernel log of ``router``."""
+        """Watch the kernel log and the console of ``router``."""
         self._router = router
-        self._seen: set[Trap] = set()
+        self._seen: set[tuple[str, int, str]] = set()
 
     def new(self) -> list[Trap]:
-        """Return the traps the kernel log holds that no earlier call returned.
-
-        Nothing when the router does not answer, as after a test that took it down.
-        """
-        log = self._router.poll("dmesg")
-        if log is None:
-            return []
-        found = [trap for trap in parse(log) if trap not in self._seen]
-        self._seen.update(found)
+        """Return the traps the records hold that no earlier call returned."""
+        logs = (self._router.poll("dmesg") or "", self._router.emulator.console.text())
+        found = []
+        for trap in (trap for log in logs for trap in parse(log)):
+            report = (trap.process, trap.pid, trap.time)
+            if report not in self._seen:
+                self._seen.add(report)
+                found.append(trap)
         return found
 
 

@@ -115,8 +115,8 @@ def claim(router: Router) -> None:
 def router(booted_router: Router, ubsan_traps: Traps | None) -> Iterator[Router]:
     """Provide the router in its post-boot state; the emulator returns to it afterwards.
 
-    In a ubsan build, a trap during the test fails it: the kernel log is read
-    before the snapshot erases it. A module that keeps the router may not
+    In a ubsan build, a trap during the test fails it, read from the kernel log
+    and the console's record (Traps). A module that keeps the router may not
     use this after its first test that does (claim).
     """
     claim(booted_router)
@@ -136,8 +136,7 @@ def module_router(
 
     In a ubsan build, check_module_traps fails each test after which something
     trapped; a trap outside the tests, in a module fixture, fails the module's
-    last test, read before the snapshot erases it. Meanwhile the module holds
-    the router (claim).
+    last test. Meanwhile the module holds the router (claim).
     """
     booted_router.reset()
     booted_router.holder = request.module.__name__

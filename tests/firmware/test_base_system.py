@@ -25,6 +25,9 @@ EXCLUDED_PACKAGES = (
     "nginx",
     "uwsgi",
 )
+# The interfaces an LRNG kernel adds, and the standard one beside them.
+LRNG_INTERFACES = ("/proc/lrng_type", "/proc/sys/kernel/random/lrng_type")
+RANDOM_CONTROL = "/proc/sys/kernel/random/boot_id"
 # Where the image keeps executables and libraries, and the mark of one UPX packed.
 EXECUTABLE_DIRS = ("bin", "sbin", "usr/bin", "usr/sbin", "lib", "usr/lib")
 UPX_MAGIC = b"UPX!"
@@ -173,7 +176,10 @@ def test_no_preset_root_password(router: Router) -> None:
 @spec(CAPABILITY, "Excluded components", "Check installed packages and executables")
 def test_excluded_components(router: Router, emulation_dir: Path, tmp_path: Path) -> None:
     assert _installed(router, *EXCLUDED_PACKAGES) == set()
-    assert router.returncode("ls /proc/lrng_type /proc/sys/kernel/random/lrng_type") != 0
+    # Each of LRNG's interfaces on its own; the standard one beside them is there.
+    assert router.returncode(f"[ -e {RANDOM_CONTROL} ]") == 0
+    for interface in LRNG_INTERFACES:
+        assert router.returncode(f"[ -e {interface} ]") != 0, interface
     # The image's executables and libraries, read from its root filesystem here:
     # grepping them on the emulated router outlasts any timeout under TCG.
     root = extract_root(emulation_dir / "disk.raw", tmp_path / "root")

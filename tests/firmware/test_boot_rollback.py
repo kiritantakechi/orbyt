@@ -38,6 +38,8 @@ WRITABLE = '"boot_slot:sw,bootcount:dw,upgrade_available:dw"'
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 BOOT_LIMIT = 3
 PANIC_REBOOT = 10.0
+# A stored boot command, which the bootloader must ignore.
+HIJACK = "echo wrt-hijacked"
 # A trial deadline short enough for three hung boots in a test.
 TRIAL_DEADLINE = 60
 # A uci-defaults script, which the boot script S10boot runs, and an upgrade carries.
@@ -203,7 +205,9 @@ def test_the_first_boot_script_reads_the_environment(router: Router, upgrade_ima
 def test_stored_boot_command_is_ignored(router: Router) -> None:
     console = router.emulator.console
     since = console.mark()
-    setenv(router, boot_slot="b", bootcmd="echo wrt-hijacked", wrt_boot="echo wrt-hijacked")
+    setenv(router, boot_slot="b", bootcmd=HIJACK, wrt_boot=HIJACK)
+    # The boot that follows reads an environment that holds them.
+    assert (getenv(router, "bootcmd"), getenv(router, "wrt_boot")) == (HIJACK, HIJACK)
     router.reboot()
     assert slot(router) == "b"
     assert "wrt-hijacked" not in console.text(since)
