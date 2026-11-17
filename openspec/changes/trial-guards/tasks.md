@@ -16,6 +16,10 @@
 
   Verify: the tests of 2.1 and the rest of `test_boot_rollback.py` pass on the emulator; `just check` passes.
 
+- [ ] 2.3 Add the OpenWrt patch `patches/openwrt/0048` carrying the procd patch of design D6 (a shutdown cancels the boot scripts still running; procd's release), and its entry in `docs/patches.md`.
+
+  Verify: with procd 6, the test of "A boot script hangs during a trial boot" fails on the emulator, its first trial boot staying in procd's shutdown; with procd 7 it passes, and so do the rest of `test_boot_rollback.py` and the suites of 4.1.
+
 ## 3. Upgrades and confirmations during a trial (design D3, D4)
 
 - [ ] 3.1 Add the tests of "Upgrade during a trial boot" (`tests/firmware/test_ab_upgrade.py`) and "A switch written during the checks" (`tests/firmware/test_health_check.py`).

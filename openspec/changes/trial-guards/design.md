@@ -4,6 +4,7 @@
 
 - `wrt-healthcheck` decides a trial boot: started by its init script at `START=99`, it checks until everything passes or its total time (300 s) is up, then confirms the slot or reboots. Nothing else reboots a trial boot but the watchdog, after a kernel hang, and a kernel panic.
 - procd runs the boot scripts from its own queue, one at a time (`rcS.c`: `max_running_tasks = 1`). It bounds a script's `stop` and `shutdown` runs (15 s, then 10 s to end), never its `boot` run, and keeps feeding the watchdog from its own loop while a script runs. A procd service's instance starts as soon as its init script has run: it does not wait for the queue.
+- A shutdown runs the `K` scripts in that same queue, which `rcS()` sets up anew with libubox's `runqueue_init()`: that empties the queue's lists but keeps its count of running tasks. A boot script still running when the shutdown starts keeps counting against the limit of one, and no `K` script starts until it returns. Nothing ends it before the halt, so a boot script that never returns keeps the system in procd's shutdown state, feeding the watchdog, for good (procd 2026.11.03; on the emulator, `- shutdown -` with the hung script still running ten minutes later).
 - The U-Boot environment is reached through `/etc/fw_env.config`, which the uci-defaults script `31-wrt-ab` writes from the copies the bootloader names on the kernel command line (`wrt.env=`), during the boot script `S10boot`. A kept configuration carries it (it is a conffile of uboot-envtools, restored by preinit's `80_mount_root`); after an upgrade that kept none, it exists only once `S10boot` has run that script.
 - uboot-envtools' own defaults (`30_uboot-envtools`) leave an existing `/etc/config/ubootenv` alone and name no place for these boards. preinit's `82_config_generate` already runs them on a first boot, so that board files can read the environment.
 - sysupgrade's image check (`platform_check_image` in `lib/upgrade/wrt-ab.sh`) refuses an image that is not a single-slot upgrade, a system not booted from a slot and an environment that cannot be read; it does not look at the trial state.
@@ -53,9 +54,17 @@ Alternatives considered:
 
 Just before it confirms, `wrt-healthcheck` reads the environment again, and confirms only while it names the same slot on trial as when the checks began. Otherwise it records the pass, leaves the environment as it is and logs that it left the switch in place. The comparison is with the start, not with the running slot: after a fallback within a power cycle the environment names the trial slot that failed to load, and the health check confirms the slot that did boot, as it does today. An environment that cannot be read this time is the failed check `environment`, without a reboot, as at the start. The read and the write stay two commands: what is left between them is a few milliseconds, against an administrator's own command.
 
+### D6. A shutdown cancels the boot scripts still running
+
+D1's reboot needs a shutdown that completes while a boot script hangs, and procd's does not (Context). The fix goes into procd, through an OpenWrt patch that carries a procd patch (`patches/openwrt/0048`), as patches 0039, 0043 and 0047 do: when `rcS()` starts a run, it cancels what is left of the previous one instead of setting the queue up anew. The scripts not yet started are dropped; the running one gets SIGTERM, and SIGKILL 10 s later, as a `shutdown` script past its 15 s does; the shutdown's scripts start once it has ended. Every script procd runs from that queue gets the 10 s from SIGTERM to SIGKILL, the queue is set up once (as procd's queue of single init scripts is), and a script dropped before it started closes no output. A `reboot` during any hung boot script then completes, on every OpenWrt system, not only for `wrt-trial`.
+
+Alternatives considered:
+- `reboot -f` in `wrt-trial` once a plain `reboot` has not completed in time: it leaves procd's defect for every other reboot and skips the `K` scripts and the unmount on exactly the boots that need them.
+- Letting a hung boot script finish its `boot` run under a time limit: a long boot script is not wrong (a first boot's uci-defaults can take minutes), and a limit for every boot would be a new policy; a shutdown ends what is left of the boot anyway.
+
 ### D5. Tests
 
-- A hung boot (boot-rollback): the test commits a short deadline and a uci-defaults script that sleeps forever on the trial slot alone, listed in `/etc/sysupgrade.conf` so that the upgrade carries it, and upgrades. Each trial boot hangs in `S10boot` until `wrt-trial` reboots it; after three, U-Boot rolls back. The original slot's next boot runs the script once, which ends at once there and is dropped, as uci-defaults scripts are. The test reads the console: three reboots announced by `wrt-trial`, the bootlimit exceeded, slot A confirmed.
+- A hung boot (boot-rollback): the test commits a short deadline and a uci-defaults script that sleeps forever on the trial slot alone, listed in `/etc/sysupgrade.conf` so that the upgrade carries it, and upgrades. Each trial boot hangs in `S10boot` until `wrt-trial` reboots it, through the shutdown D6 lets complete; after three, U-Boot rolls back. The original slot's next boot runs the script once, which ends at once there and is dropped, as uci-defaults scripts are. The test reads the console: three reboots announced by `wrt-trial`, the bootlimit exceeded, slot A confirmed. Without D6, the first of those reboots never completes.
 - The environment at the first boot script (boot-rollback): after an upgrade without kept configuration, the new slot's kernel log holds `wrt-trial`'s line naming its trial.
 - A switch during the checks (health-check): with a registered check failing, the test runs the health check, writes the other slot as the trial slot meanwhile, then lets the check pass.
 - An upgrade during a trial (ab-upgrade): with the running slot set on trial, sysupgrade refuses and changes neither the other slot nor the environment.
@@ -63,6 +72,7 @@ Just before it confirms, `wrt-healthcheck` reads the environment again, and conf
 ## Risks / Trade-offs
 
 - [A healthy boot slower than the deadline is rebooted, and three of them roll back] → The default is generous and configurable; a boot that slow has no health check result either way.
-- [procd shuts down with a boot script still hung] → procd starts its script queue anew for the shutdown and ends every process before it reboots (`state.c`); the hung-boot test reboots through it three times.
+- [A boot script that a shutdown cancels leaves its work half done] → The system is going down; the `K` scripts and the unmount still run, and the next boot runs the boot scripts again, an unfinished uci-defaults script among them.
+- [procd's patch waits upstream] → It stays `Upstream-Status: Pending` until upstream takes it; the hung-boot test fails without it.
 - [A failing preinit hook would stop the boot] → It runs in a subshell, and every failure in it ends there with a kernel log line.
 - [The read and the write of D4 are not atomic] → Accepted (D4).

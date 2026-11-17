@@ -794,6 +794,18 @@ What the patch does: the cgroups go with the instance only, as `instance_free` a
 
 Verification log: 2026-11-13, procd 6 in the R4S image: the transparent-proxy test of CPU pinning, which turns pinning on and restarts honk, finds honk on the big cores in two runs of the network suite; without the patch it ran on every core.
 
+### procd: a shutdown cancels the boot scripts still running
+
+Patch: `patches/openwrt/0048-procd-cancel-the-boot-scripts-still-running-when-the.patch` (adds the procd patch `package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch`), for openwrt/procd.
+
+Problem: procd runs the boot's `S` scripts and the shutdown's `K` scripts in one runqueue, one script at a time, and `rcS()` set that queue up anew for each run with libubox's `runqueue_init()`, which empties the task lists but keeps the count of running tasks. A shutdown that starts while a boot script still runs therefore starts none of its `K` scripts until that script returns, and nothing ends it before the halt: a boot script that never returns (one waiting for a device that never comes, a loop) keeps the system in procd's shutdown state for good, procd feeding the watchdog meanwhile. A reboot then never completes, whoever asked for it.
+
+Why it matters here: wrt-ab's trial supervisor turns a hung trial boot into a counted reboot (trial-guards D1), which is exactly a reboot while a boot script hangs. On the emulator, a uci-defaults script looping forever on a trial slot kept the system at `- shutdown -` for the ten minutes the probe watched, the script still running, and the rollback test of a hung boot timed out after 30 minutes on its first trial boot.
+
+What the patch does: `rcS()` cancels what is left of the previous run instead of setting the queue up anew. The scripts not yet started are dropped; the running one gets SIGTERM and, 10 s later, SIGKILL, as a `shutdown` script past its 15 s already does; the shutdown's scripts start once it has ended. Every script of that queue gets the 10 s from SIGTERM to SIGKILL (none is cancelled otherwise), the queue is set up once, as procd's queue of single init scripts (`rc()`) is, and a script dropped before it started closes no output: its pipe was never opened, where the completion closed descriptor 0 for it. `PKG_RELEASE` goes to 7.
+
+Alternatives considered: a forced reboot (`reboot -f`) in wrt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
+
 ### luci-lib-daeuniverse: BusyBox's timeout
 
 Patch: `patches/daeuniverse/0003-luci-lib-daeuniverse-BusyBox-s-timeout-is-enough.patch`, for daeuniverse/openwrt-packages.

@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Tue, 17 Nov 2026 09:55:37 +0800
+Subject: [PATCH] procd: cancel the boot scripts still running when the
+ shutdown starts
+
+procd's rcS kept one runqueue for the boot's and the shutdown's init
+scripts, one script at a time, and set it up anew for the shutdown
+without the count of running scripts: a boot script that never
+returned kept the only slot, the shutdown ran none of its K scripts,
+and a reboot never completed. On the emulator, a uci-defaults script
+looping forever during a trial boot left the system in "- shutdown -"
+for ten minutes, until the test gave up; wrt-ab's trial deadline
+reboots exactly then (trial-guards D6).
+
+Carry the procd patch that cancels the boot's scripts when the
+shutdown starts: those yet to start are dropped, the running one gets
+SIGTERM and, 10 s later, SIGKILL, as a shutdown script past its time
+does. It is meant for procd upstream.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile                 |  2 +-
+ ...ill-running-when-the-shutdown-starts.patch | 77 +++++++++++++++++++
+ 2 files changed, 78 insertions(+), 1 deletion(-)
+ create mode 100644 package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index 9a66dd5..4bc324f 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=6
++PKG_RELEASE:=7
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch b/package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch
+new file mode 100644
+index 0000000..08fb691
+--- /dev/null
++++ b/package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch
+@@ -0,0 +1,77 @@
++From: kiritantakechi <kiritantakechi@gmail.com>
++Subject: [PATCH] rcS: cancel the boot scripts still running when the shutdown starts
++
++rcS() set its one runqueue up anew for every run: runqueue_init()
++emptied the task lists but left the count of running tasks, which
++the next run's limit of one task counts against. A shutdown that
++started while a boot script still ran, one waiting for a device that
++never comes or hung in a loop, therefore never ran a K script: the
++boot script kept the only slot until it returned, which it may never
++do, and the system never reached its halt. A reboot from an init
++script or from userspace then hung with it.
++
++Cancel the previous run instead: the boot's scripts yet to start are
++dropped, and the one running gets SIGTERM and, 10 s later, SIGKILL,
++as a shutdown script that overruns its time does. The shutdown's
++scripts start once it has ended. The queue is set up once, as the
++queue of single init scripts is, and a script dropped before it
++started closes no output, since it has none.
++
++Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
++---
++ rcS.c | 20 ++++++++++++++++----
++ 1 file changed, 16 insertions(+), 4 deletions(-)
++
++diff --git a/rcS.c b/rcS.c
++index 1e36c98..34ab105 100644
++--- a/rcS.c
+++++ b/rcS.c
++@@ -114,6 +114,12 @@ static void q_initd_complete(struct runqueue *q, struct runqueue_task *p)
++ 	struct initd *s = container_of(p, struct initd, proc.task);
++ 	struct timespec ts_stop, ts_res;
++ 
+++	/* Dropped before it started: no output to close. */
+++	if (s->fd.fd.fd < 0) {
+++		free(s);
+++		return;
+++	}
+++
++ 	clock_gettime(CLOCK_MONOTONIC_RAW, &ts_stop);
++ 	ts_res.tv_sec = ts_stop.tv_sec - s->ts_start.tv_sec;
++ 	ts_res.tv_nsec = ts_stop.tv_nsec - s->ts_start.tv_nsec;
++@@ -160,10 +166,10 @@ static void add_initd(struct runqueue *q, const char *file, const char *param)
++ 	}
++ 	s->proc.task.type = &initd_type;
++ 	s->proc.task.complete = q_initd_complete;
++-	if (!strcmp(param, "stop") || !strcmp(param, "shutdown")) {
+++	s->proc.task.cancel_timeout = 10000;
+++	if (!strcmp(param, "stop") || !strcmp(param, "shutdown"))
++ 		s->proc.task.run_timeout = 15000;
++-		s->proc.task.cancel_timeout = 10000;
++-	}
+++	s->fd.fd.fd = -1;
++ 	s->param = p;
++ 	s->file = f;
++ 	strcpy(s->param, param);
++@@ -199,7 +205,12 @@ static int _rc(struct runqueue *q, const char *path, const char *file, const cha
++ 
++ int rcS(const char *pattern, const char *param, void (*q_empty)(struct runqueue *))
++ {
++-	runqueue_init(&q);
+++	/*
+++	 * A shutdown may start while a boot script still runs, one that may
+++	 * never return: drop the boot's scripts yet to start and cancel the
+++	 * running one, which the shutdown's scripts then wait for alone.
+++	 */
+++	runqueue_cancel(&q);
++ 	q.empty_cb = q_empty;
++ 	q.max_running_tasks = 1;
++ 
++@@ -217,6 +228,7 @@ static void r_empty(struct runqueue *q)
++ }
++ 
++ static void __attribute__((constructor)) rc_init() {
+++	runqueue_init(&q);
++ 	runqueue_init(&r);
++ 	r.empty_cb = r_empty;
++ 	r.max_running_tasks = 8;
