@@ -17,7 +17,7 @@ Secrets in the private config repository (PPPoE credentials, honk's subscription
 - **THEN** the push's temporary files were readable by root alone while they were there and are gone, honk's files and Tailscale's auth key are readable by root alone, no process was started with the Tailscale auth key or an SMB user's password among its arguments, and each SMB user logs in with the password pushed
 
 ### Requirement: Validate before pushing
-The push tool SHALL validate all configuration to be pushed, including the honk configuration, with honk's own check as honk would load it, and the UCI configuration syntax, before it modifies the device. When validation fails, the device MUST NOT be changed in any way.
+The push tool SHALL validate all configuration to be pushed, including the honk configuration, with honk's own check as honk would load it, and the UCI configuration syntax, before it modifies the device. Validation itself MUST NOT change the device, whether the configuration passes or not: it MUST leave no uncommitted UCI change behind. When validation fails, the device MUST NOT be changed in any way.
 
 #### Scenario: Syntax error in the proxy config
 - **WHEN** a honk configuration with a syntax error is pushed
@@ -30,6 +30,10 @@ The push tool SHALL validate all configuration to be pushed, including the honk 
 #### Scenario: Proxy files in dae's layout
 - **WHEN** the private config repository still keeps the proxy's files in `dae/`, from before honk replaced dae
 - **THEN** the push aborts before modifying the device and names the move to `honk/`
+
+#### Scenario: A configuration that validates
+- **WHEN** a configuration with UCI changes, its secrets among them, validates, and the push finds every service unchanged
+- **THEN** the device holds no uncommitted UCI change, and none of the pushed secrets is in a file of the device's UCI change directory
 
 ### Requirement: Repeatable push results
 Pushing the same configuration repeatedly SHALL produce the same result, and MUST NOT restart services whose configuration has not changed.
@@ -96,3 +100,14 @@ The push tool MUST reject a honk configuration that enables the native API in an
 #### Scenario: Native API with a blank token
 - **WHEN** a honk configuration whose native API token is blank, even after another file's token, is pushed
 - **THEN** the push fails during validation and reports the blank token
+
+### Requirement: A push commits only its own changes
+A push SHALL commit only the UCI packages its batches change, and of them only its own changes. When the device holds uncommitted changes to such a package, as LuCI holds them until they are saved, the push MUST refuse before it modifies the device, and name the package. Uncommitted changes to any other package SHALL stay as they are, uncommitted. However the push ends, it MUST leave no change of its own uncommitted.
+
+#### Scenario: Uncommitted change to a pushed package
+- **WHEN** the device holds an uncommitted change to a UCI package the push's batches change, and a push is made
+- **THEN** the push aborts before modifying the device, names the package, and the change is still uncommitted
+
+#### Scenario: Uncommitted change to another package
+- **WHEN** the device holds an uncommitted change to a UCI package no batch changes, and a push applies a changed batch
+- **THEN** that change is still uncommitted and its package's committed configuration is as before, and no change of the push is left uncommitted

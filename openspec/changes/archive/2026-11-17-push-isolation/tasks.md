@@ -16,9 +16,10 @@
 
 ## 3. Verification
 
-- [ ] 3.1 Run CI's build on this change's branch for both boards.
+- [x] 3.1 Run CI's build on this change's branch for both boards.
 
   Verify: every test passes; the run is recorded in `docs/ci.md`.
+  Result (2026-11-17): CI run 44027274464 passed on both boards in its second attempt, `ops/test_config_push.py` among the release suites'. The first attempt failed the R4S's services job alone, in a module fixture's dial-in that hung after a return to the snapshot, a suite the change does not touch (recorded in `docs/ci.md`, not pinned); its re-run passed.
 
 ## Workflow follow-up
 
