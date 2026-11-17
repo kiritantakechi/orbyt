@@ -63,6 +63,10 @@ The theme SHALL draw the icons LuCI ships for its pages (devices, ports, signal 
 ### Requirement: Nothing from outside the router
 The theme MUST NOT load anything from outside the router: no font, stylesheet, script or image from another host.
 
-#### Scenario: The theme's files and pages
-- **WHEN** the theme's files and the login page it serves are searched for references to other hosts
+#### Scenario: The theme's files
+- **WHEN** the theme's files are searched for references that load something from another host
+- **THEN** none is found
+
+#### Scenario: The login page
+- **WHEN** the login page the router serves, and the stylesheet it links, are searched the same way
 - **THEN** none is found

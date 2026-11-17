@@ -329,7 +329,8 @@ jobs:
           - name: system
             paths: >-
               build firmware/test_base_system.py firmware/test_kernel.py
-              firmware/test_rootfs.py firmware/test_toolchain.py quality testing unit
+              firmware/test_rootfs.py firmware/test_toolchain.py firmware/test_web_theme.py
+              quality testing unit
           - name: network
             paths: network
           - name: services

@@ -1,8 +1,8 @@
 {#
- luci-theme-wrt: the page's shell (luci-theme-wrt D2, D3): the sidebar, filled by
- menu-wrt.js, the top bar with the page's place, LuCI's indicators and the
- light/dark switch, and #maincontent. A blank page (the login) gets none of it.
- Licensed under the Apache License 2.0, as LuCI.
+	luci-theme-wrt: the page's shell (luci-theme-wrt D2, D3): the sidebar, filled by
+	menu-wrt.js, the top bar with the page's place, LuCI's indicators and the
+	light/dark switch, and #maincontent. A blank page (the login) gets none of it.
+	Licensed under the Apache License 2.0, as LuCI.
 -#}
 
 {%
@@ -21,7 +21,7 @@
 		<title>{{ striptags(`${boardinfo.hostname ?? '?'}${dispatched?.title ? ` | ${_(dispatched.title)}` : ''}`) }}</title>
 		<script>
 			/* Dark mode as LuCI's modules read it, before the first paint: pinned in
-			   this browser, else the browser's preference, which it then follows. */
+			 * this browser, else the browser's preference, which it then follows. */
 			(function () {
 				var root = document.documentElement;
 				var query = window.matchMedia('(prefers-color-scheme: dark)');
@@ -91,8 +91,8 @@
 					<div class="spacer"></div>
 					<div id="indicators"></div>
 					{# Bare strings are luci-base's, in all its languages. luci-base has no
-					   plain Light, Dark or Appearance, so these come from the theme's own
-					   catalog (po/), under the context wrt. #}
+						plain Light, Dark or Appearance, so these come from the theme's own
+						catalog (po/), under the context wrt. #}
 					<div class="segmented" id="theme-switch" role="group" aria-label="{{ _('Appearance', 'wrt') }}">
 						<button type="button" data-choice="auto" title="{{ _('Automatic') }}">
 							<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none"/></svg>

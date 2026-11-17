@@ -35,7 +35,7 @@
 	--info: #2563b8;
 	--info-soft: #e5eefb;
 	/* Series of LuCI's graphs (D11): blue, orange, aqua, validated as a set against
-	   each mode's surface. Red stays the color of errors. */
+	 * each mode's surface. Red stays the color of errors. */
 	--chart-1: #2a78d6;
 	--chart-2: #eb6834;
 	--chart-3: #1baf7a;
@@ -169,8 +169,8 @@ h5, h6 { font-size: 13px; }
 h6 { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* A heading after running content keeps its distance, as in views that build their
-   own markup (the overview's leases: a table, then the next heading). Headings
-   elsewhere sit in the theme's flex columns, whose gap spaces them already. */
+ * own markup (the overview's leases: a table, then the next heading). Headings
+ * elsewhere sit in the theme's flex columns, whose gap spaces them already. */
 :is(table, .table, p, ul, ol, dl, pre) + :is(h1, h2, h3, h4, h5, h6, legend) {
 	margin-top: 1.25em;
 }
@@ -776,8 +776,8 @@ fieldset legend {
 }
 
 /* A value without a title gets neither label nor field: LuCI appends its widget,
-   or a whole section (the interface dialog's DHCP server tab), to the row itself,
-   which then spans the row instead of the label's column. */
+ * or a whole section (the interface dialog's DHCP server tab), to the row itself,
+ * which then spans the row instead of the label's column. */
 .cbi-value > :not(.cbi-value-title, .cbi-value-field) {
 	grid-column: 1 / -1;
 }
@@ -803,7 +803,7 @@ fieldset legend {
 }
 
 /* The field's column puts each child on its own line already; LuCI's line breaks
-   between them (the local time's input and its buttons) would add an empty one. */
+ * between them (the local time's input and its buttons) would add an empty one. */
 .cbi-value-field > br {
 	display: none;
 }
@@ -1411,7 +1411,7 @@ label > input[type="radio"] {
 }
 
 /* The open list shows its entries whole (LuCI's device and zone choices run long),
-   at least as wide as the closed widget and at most as wide as the screen. */
+ * at least as wide as the closed widget and at most as wide as the screen. */
 .cbi-dropdown[open] > ul.dropdown {
 	position: absolute;
 	z-index: 1100;
@@ -1849,7 +1849,7 @@ table.table td {
 }
 
 /* The table's first row, bare or in its first row group, draws no line above it:
-   under a section's header strip that line would double the strip's. */
+ * under a section's header strip that line would double the strip's. */
 .table > .tr:first-child > :is(.th, .td),
 .table > :first-child > .tr:first-child > :is(.th, .td) {
 	border-top: 0;
@@ -2484,8 +2484,8 @@ body.modal-overlay-active #modal_overlay {
 }
 
 /* A firewall zone wears its color (LuCI's --zone-color-rgb, set inline) as a tint
-   of the surface with an edge in the full color, alike in light and dark (D11); a
-   zone's bar in the port status, an empty badge, keeps its color whole. */
+ * of the surface with an edge in the full color, alike in light and dark (D11); a
+ * zone's bar in the port status, an empty badge, keeps its color whole. */
 .zonebadge[style*="--zone-color-rgb"]:not(:empty),
 .ifacebox-head[style*="--zone-color-rgb"] {
 	background: color-mix(in srgb, rgb(var(--zone-color-rgb)) var(--zone-tint), var(--surface)) !important;
@@ -2559,11 +2559,11 @@ body.modal-overlay-active #modal_overlay {
 /* LuCI's icons --------------------------------------------------------------- */
 
 /* luci-base's icons (icons/*.svg: devices, ports, signal strength, loading) and the
-   file browser's (cbi/*.svg), drawn in the theme's glyphs, icons/ beside this file
-   (D10): the stock picture moves out of its box, and the box's background, in the
-   color of what the icon tells, shows through the glyph. An icon named nowhere
-   below gets the generic glyph; tests/firmware/test_web_theme.py has every icon
-   LuCI installs named. */
+ * file browser's (cbi/*.svg), drawn in the theme's glyphs, icons/ beside this file
+ * (D10): the stock picture moves out of its box, and the box's background, in the
+ * color of what the icon tells, shows through the glyph. An icon named nowhere
+ * below gets the generic glyph; tests/firmware/test_web_theme.py has every icon
+ * LuCI installs named. */
 img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi/"])[src$=".svg"] {
 	object-position: -99999px 0;
 	background-color: var(--glyph-ink, var(--accent));
@@ -2572,8 +2572,8 @@ img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi
 }
 
 /* What an icon tells: a device disabled or down, a port without link and no signal
-   faint; the file browser's files and links in the muted tone, its directories,
-   which open, in the accent. */
+ * faint; the file browser's files and links in the muted tone, its directories,
+ * which open, in the accent. */
 img:is([src$="_disabled.svg"], [src$="/port_down.svg"], [src$="/port_pse_down.svg"], [src$="/signal-none.svg"]) {
 	--glyph-ink: var(--faint);
 }
@@ -2591,7 +2591,7 @@ img[src$="/resources/icons/loading.svg"] {
 }
 
 /* Each icon's glyph, named after the icon: a device's _disabled icon shares its
-   glyph, and a port without link shows the Ethernet socket. */
+ * glyph, and a port without link shows the Ethernet socket. */
 img:is([src$="/resources/icons/alias.svg"], [src$="/resources/icons/alias_disabled.svg"]) { --glyph: url(icons/alias.svg); }
 img:is([src$="/resources/icons/bridge.svg"], [src$="/resources/icons/bridge_disabled.svg"]) { --glyph: url(icons/bridge.svg); }
 img:is([src$="/resources/icons/ethernet.svg"], [src$="/resources/icons/ethernet_disabled.svg"], [src$="/resources/icons/port_down.svg"]) { --glyph: url(icons/ethernet.svg); }
@@ -2818,8 +2818,8 @@ form.inline { display: inline; margin-bottom: 0; }
 }
 
 /* LuCI's realtime graphs (D11): their box, grid and labels in the mode's colors,
-   and each series in the theme's palette, keyed by the color LuCI writes inline on
-   a line and on its legend alike: blue, red and green, and the load's three reds. */
+ * and each series in the theme's palette, keyed by the color LuCI writes inline on
+ * a line and on its legend alike: blue, red and green, and the load's three reds. */
 #view div[style*="border:1px solid #000"][style*="background:#fff"] {
 	overflow: hidden;
 	border: 1px solid var(--line) !important;
@@ -2870,7 +2870,7 @@ form.inline { display: inline; margin-bottom: 0; }
 }
 
 /* Colours LuCI's views set inline for a state (the port status's PoE power, the
-   password's strength), in the tokens that turn dark with the mode. */
+ * password's strength), in the tokens that turn dark with the mode. */
 [style="color:#000"] { color: var(--ink) !important; }
 [style="color:#888"] { color: var(--faint) !important; }
 :is([style="color:#d9534f"], [style="color:red"]) { color: var(--crit) !important; }
@@ -2949,7 +2949,7 @@ form.inline { display: inline; margin-bottom: 0; }
 		width: min(280px, 85vw);
 		transform: translateX(-100%);
 		/* Closed, the drawer casts no shadow onto the page and its links take no
-		   focus; it hides once it has slid out. */
+		 * focus; it hides once it has slid out. */
 		visibility: hidden;
 		transition: transform .2s, visibility 0s .2s;
 	}
@@ -3048,7 +3048,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 
 	/* Lines below the rows, none below the last: the first visible row may follow
-	   hidden titles, and a line above it would double a section's header strip. */
+	 * hidden titles, and a line above it would double a section's header strip. */
 	.tr {
 		display: flex;
 		flex-direction: row;
@@ -3159,7 +3159,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 
 	/* Stacked, the actions are one more labelled field: label and buttons start
-	   at the left like every other cell's. */
+	 * at the left like every other cell's. */
 	.td.cbi-section-actions {
 		flex-basis: 100%;
 		max-width: 100%;

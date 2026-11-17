@@ -131,7 +131,7 @@ def test_every_icon_of_luci_has_a_glyph(router: Router) -> None:
     assert sorted(unserved) == []
 
 
-@spec(CAPABILITY, "Nothing from outside the router", "The theme's files and pages")
+@spec(CAPABILITY, "Nothing from outside the router", "The login page")
 def test_the_login_page_loads_nothing_from_outside(router: Router) -> None:
     _, page = router.http("/cgi-bin/luci/")
     assert f"{THEME}/" in page
@@ -139,7 +139,7 @@ def test_the_login_page_loads_nothing_from_outside(router: Router) -> None:
     assert _loads(_get(router, f"{THEME}/cascade.css")) == []
 
 
-@spec(CAPABILITY, "Nothing from outside the router", "The theme's files and pages")
+@spec(CAPABILITY, "Nothing from outside the router", "The theme's files")
 def test_the_theme_files_load_nothing_from_outside() -> None:
     files = [path for path in THEME_DIR.rglob("*") if path.suffix in SOURCES]
     assert files

@@ -1,8 +1,8 @@
 {#
- luci-theme-wrt: the login, as a card on the canvas (luci-theme-wrt D2). The form
- is LuCI's, its fields and the authentication plugins' included; the view
- (view/wrt/sysauth.js) focuses the password and shows LuCI's spinner on submit.
- Licensed under the Apache License 2.0, as LuCI.
+	luci-theme-wrt: the login, as a card on the canvas (luci-theme-wrt D2). The form
+	is LuCI's, its fields and the authentication plugins' included; the view
+	(view/wrt/sysauth.js) focuses the password and shows LuCI's spinner on submit.
+	Licensed under the Apache License 2.0, as LuCI.
 -#}
 
 {%
