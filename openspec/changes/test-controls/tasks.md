@@ -48,9 +48,10 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run CI's build on this change's branch for both boards.
+- [x] 4.1 Run CI's build on this change's branch for both boards.
 
   Verify: every job passes; the run is recorded in `docs/ci.md`.
+  Result (2026-11-17): CI run 44049652730 passed on both boards in its first attempt, every changed test among the suites; recorded in `docs/ci.md`.
 
 ## Workflow follow-up
 
