@@ -3,6 +3,16 @@
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
 
+# source_commit <repository>: the commit of the git repository a build ran in,
+# -dirty when its working tree differs from it in any way: a tracked file changed,
+# a change staged, or a file neither tracked nor ignored, as git status lists it
+# (release-integrity D1, release-freshness D4).
+source_commit() (
+	commit=$(git -C "$1" rev-parse HEAD)
+	changes=$(git -C "$1" status --porcelain)
+	echo "${commit}${changes:+-dirty}"
+)
+
 # manifest_files_check <manifest.json>: fail unless the manifest lists files, each
 # by a plain path inside its build with its sha256 (release-integrity D2). A
 # plain path has no leading slash, no empty, . or .. component, and nothing but

@@ -53,7 +53,8 @@ class Manifest(_Record):
     toolchain_cflags: Flags
     upstream_lock_sha256: Sha256
     patches_sha256: Sha256
-    # This repository's commit, -dirty when tracked files differed from it.
+    # This repository's commit, -dirty when the checkout differed from it in any
+    # file, an untracked one that is not ignored included.
     commit: Annotated[str, Field(pattern=r"^[0-9a-f]{40}(-dirty)?$")]
     openwrt_head: Annotated[str, Field(pattern=r"^[0-9a-f]{40}$")]
     kernel_version: str

@@ -18,13 +18,14 @@
 # release never mixes builds; the notes name the lock the builds were made from,
 # which the checkout's must be. --upload then creates the release on GitHub (gh
 # release create), tagged on the commit that was built, which must be clean and,
-# in CI, still the head of the branch it publishes from (GITHUB_REF): a run its
-# branch has moved past never publishes (release-integrity D1). A candidate never
-# becomes the latest release.
+# in CI, still current for the branch it publishes from (GITHUB_REF): its head,
+# or a commit the head is past by documentation alone; a run its branch has moved
+# past by a change the build reads never publishes (release-integrity D1,
+# release-freshness D2). A candidate never becomes the latest release.
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
-use boards manifest upstream
+use boards manifest runs upstream
 
 usage() {
 	die "usage: release-publish <signed> <release> [--boards <id>,...] [--prerelease] [--run <number>] [--upload]"
@@ -165,9 +166,8 @@ case "${commit}" in
 esac
 if [ -n "${GITHUB_REF:-}" ]; then
 	branch=${GITHUB_REF#refs/heads/}
-	head=$(gh api "repos/${GITHUB_REPOSITORY:?}/git/ref/heads/${branch}" --jq .object.sha) ||
-		die "cannot read the head of ${branch}"
-	[ "${head}" = "${commit}" ] ||
+	head=$(superseding_head "${GITHUB_REPOSITORY:?}" "${commit}" "${branch}") || exit 1
+	[ -z "${head}" ] ||
 		die "${branch} has moved from ${commit} to ${head}: the newer run publishes"
 fi
 set -- "${tag}" --target "${commit}" --title "${tag}" --notes-file "${notes}"

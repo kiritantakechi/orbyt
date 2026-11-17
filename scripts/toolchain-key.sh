@@ -24,10 +24,11 @@ arch=$(uname -m)
 # record covers, so that the key moves whenever that record would (build-integrity D4).
 trees=$(git -C "${tree}" rev-parse HEAD:tools HEAD:toolchain HEAD:target/linux/generic)
 langs=$(git -C "${tree}/feeds/packages" rev-parse HEAD:lang/golang HEAD:lang/rust)
-# The build files that name the stamps of the Go and Rust host builds, which the
-# archive carries (build_dir/hostpkg): a prepared stamp hashes the package's
-# files and configuration as these define it (build-acceleration D2).
-stamps=$(git -C "${tree}" rev-parse HEAD:include/depends.mk HEAD:include/host-build.mk HEAD:rules.mk)
+# OpenWrt's build files and build scripts, whole: the host tools' and the
+# toolchain's makefiles include them, some through variables only make resolves,
+# and run the scripts; and they name the stamps of the Go and Rust host builds,
+# which the archive carries (build-acceleration D2, release-freshness D5).
+build_files=$(git -C "${tree}" rev-parse HEAD:rules.mk HEAD:include HEAD:scripts)
 # The board-neutral configuration of the profile, as toolchain-build.sh composes
 # it: every seed of the profile and every board's device (board-model D2). Its
 # options alone, set or not set, as merge-seeds.awk reads them: a comment of a
@@ -56,5 +57,5 @@ modules=$(loaded_modules "$@")
 # shellcheck disable=SC2086 # modules is a newline-separated list of plain paths
 recipe=$(cat "$@" ${modules} | sha256sum)
 
-digest=$(printf '%s\n' "${arch}" "${trees}" "${langs}" "${stamps}" "${seed}" "${definition}" "${environment}" "${recipe}" | sha256sum)
+digest=$(printf '%s\n' "${arch}" "${trees}" "${langs}" "${build_files}" "${seed}" "${definition}" "${environment}" "${recipe}" | sha256sum)
 printf 'key=toolchain-%s\n' "${digest%% *}"

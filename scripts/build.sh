@@ -181,11 +181,10 @@ cp "${staging_dir}/image/wrt-qemu-u-boot.bin" "${out}/u-boot-qemu.bin"
 # directories (the build's name), from what and with which flags, and the hash
 # of every file the build hands on: what signing checks and passes on
 # (release-integrity D2). What it was built from includes this repository's
-# commit, -dirty when tracked files differ from it (release-integrity D1).
+# commit, -dirty when the checkout differs from it in any file (source_commit).
 run="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-0}"
 lock=$(lock_sha256)
-commit=$(git -C "${REPO_DIR}" rev-parse HEAD)
-git -C "${REPO_DIR}" diff --quiet HEAD -- || commit="${commit}-dirty"
+commit=$(source_commit "${REPO_DIR}")
 patches_sha256=$(cat "${REPO_DIR}"/patches/*/*.patch | sha256sum)
 openwrt_head=$(git -C "${tree}" rev-parse HEAD)
 kernel_version=$(cat "${staging_dir}/kernel.version" 2>/dev/null || true)

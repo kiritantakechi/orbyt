@@ -20,8 +20,9 @@ import yaml
 from wrt_tests import spec
 from wrt_tests.device.emu import sha256
 from wrt_tests.model.boards import load
-from wrt_tests.model.github import MAIN, Repository, run_script
+from wrt_tests.model.github import HEAD, MAIN, Repository, run_script
 from wrt_tests.model.outputs import MANIFEST_FILE
+from wrt_tests.model.shell import library
 
 if TYPE_CHECKING:
     from wrt_tests.device.router import Router
@@ -88,6 +89,43 @@ def test_the_manifest_describes_the_build(
     assert all(vermagic in kernel for kernel in kernels), kernels
 
 
+def _git(repository: Path, *args: str) -> str:
+    return subprocess.run(
+        ["git", "-C", str(repository), *args], capture_output=True, text=True, check=True
+    ).stdout.strip()
+
+
+@spec(CAPABILITY, "Image and kmods from the same build", "A file not committed")
+@pytest.mark.parametrize(
+    ("written", "staged", "dirty"),
+    [
+        pytest.param((), False, False, id="clean"),
+        pytest.param(("new",), False, True, id="an untracked file"),
+        pytest.param(("ignored",), False, False, id="an ignored file"),
+        pytest.param(("tracked",), False, True, id="a tracked file changed"),
+        pytest.param(("tracked",), True, True, id="a change staged"),
+    ],
+)
+def test_the_commit_a_build_names(
+    tmp_path: Path, written: tuple[str, ...], staged: bool, dirty: bool
+) -> None:
+    repository = tmp_path / "repository"
+    repository.mkdir()
+    _git(repository, "init", "-q")
+    (repository / ".gitignore").write_text("ignored\n")
+    (repository / "tracked").write_text("committed\n")
+    _git(repository, "add", ".")
+    _git(repository, "-c", "user.name=test", "-c", "user.email=test@localhost", "commit", "-qm", "1")
+    commit = _git(repository, "rev-parse", "HEAD")
+    for name in written:
+        (repository / name).write_text("written\n")
+    if staged:
+        _git(repository, "add", *written)
+    result = library("manifest", 'source_commit "$1"', str(repository))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == f"{commit}{'-dirty' if dirty else ''}\n"
+
+
 @spec(CAPABILITY, "Main's caches kept whole", "A merged branch")
 def test_main_deletes_merged_branches_caches(tmp_path: Path) -> None:
     compare = {
@@ -138,6 +176,50 @@ def test_a_stage_named_with_a_hyphen_keeps_its_newest_cache(tmp_path: Path) -> N
         "compiler-cache-r6s-settings-2",
         "toolchain-1",
     ]
+
+
+# A commit its ref moved to after the run's (HEAD).
+NEWER = "b" * 40
+
+
+def _caches_of_a_rerun(repository: Repository, ref: str) -> None:
+    """Add the caches of a ref's newer run, then those a re-run of the older run saved after."""
+    for run in ("2", "1"):
+        repository.cache(ref, f"toolchain-{run}")
+        repository.cache(ref, f"dl-{run}")
+        for stage in ("host", "r4s"):
+            repository.cache(ref, f"compiler-cache-{stage}-settings-{run}")
+
+
+@spec(CAPABILITY, "Cache keyed on actual inputs", "A re-run of a superseded run")
+@pytest.mark.parametrize("ref", ["refs/heads/feature", MAIN])
+def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
+    branch = ref.removeprefix("refs/heads/")
+    repository = Repository(
+        branches=["main", "feature"], compare={"feature": "ahead"}, heads={branch: NEWER}
+    )
+    repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}])
+    _caches_of_a_rerun(repository, ref)
+    # On main, a deleted branch's caches too, which the newer run deletes.
+    repository.cache("refs/heads/deleted", "dl-deleted")
+    result, left = run_script(tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=ref)
+    assert result.returncode == 0, result.stderr
+    assert f"the newer run of {branch} prunes" in result.stderr
+    assert len(left) == len(repository.caches)
+
+
+def test_a_run_past_documentation_prunes(tmp_path: Path) -> None:
+    repository = Repository(
+        branches=["main", "feature"], compare={"feature": "ahead"}, heads={"feature": NEWER}
+    )
+    repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}])
+    for run in ("1", "2"):
+        repository.cache("refs/heads/feature", f"toolchain-{run}")
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-2", ref="refs/heads/feature"
+    )
+    assert result.returncode == 0, result.stderr
+    assert left == [("refs/heads/feature", "toolchain-2")]
 
 
 @spec(CAPABILITY, "Main's caches kept whole", "Room for the jobs that save at once")
@@ -223,6 +305,67 @@ def test_other_documentation_does_not_run_the_build(event: str) -> None:
     # runs the build, then documentation does not, then the documents tests read
     # do again.
     assert paths[: paths.index("!**/*.md") + 1] == ["**", "!openspec/**", "!docs/**", "!**/*.md"]
+
+
+def _github_glob(pattern: str) -> re.Pattern[str]:
+    """Return the regular expression of a GitHub filter pattern: ``**`` crosses slashes, ``*`` does not."""
+    parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
+    wildcards = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*"}
+    return re.compile("".join(wildcards.get(part, re.escape(part)) for part in parts))
+
+
+def _github_reads(patterns: list[str], path: str) -> bool:
+    """Say whether a change to ``path`` runs a workflow filtered by ``patterns``, as GitHub does."""
+    runs = False
+    for pattern in patterns:
+        negated = pattern.startswith("!")
+        if _github_glob(pattern.removeprefix("!")).fullmatch(path):
+            runs = not negated
+    return runs
+
+
+@pytest.mark.parametrize("event", ["push", "pull_request"])
+def test_the_library_holds_the_workflow_s_paths(event: str) -> None:
+    result = library("runs", "build_paths")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.splitlines() == _triggers()[event]["paths"]
+
+
+# Paths in and out of each pattern of the workflow's list.
+SAMPLE_PATHS = (
+    "scripts/build.sh",
+    "tests/build/test_ci.py",
+    "upstream.lock",
+    "openspec/specs/build/ci/spec.md",
+    "openspec/config.yaml",
+    "docs/ci.md",
+    "docs/patches.md",
+    "docs/services.md",
+    "docs/old/patches.md",
+    "README.md",
+    "feed/utils/wrt-ab/README.md",
+    "docsite/index.html",
+    "openspec.lock",
+)
+
+
+def test_build_reads_answers_as_github_does() -> None:
+    patterns = _triggers()["push"]["paths"]
+    script = 'for path in "$@"; do if build_reads "$path"; then echo yes; else echo no; fi; done'
+    result = library("runs", script, *SAMPLE_PATHS)
+    assert result.returncode == 0, result.stderr
+    answers = dict(zip(SAMPLE_PATHS, result.stdout.split(), strict=True))
+    assert answers == {
+        path: "yes" if _github_reads(patterns, path) else "no" for path in SAMPLE_PATHS
+    }
+    assert {path for path, answer in answers.items() if answer == "no"} == {
+        "openspec/specs/build/ci/spec.md",
+        "openspec/config.yaml",
+        "docs/ci.md",
+        "docs/old/patches.md",
+        "README.md",
+        "feed/utils/wrt-ab/README.md",
+    }
 
 
 @spec(CAPABILITY, "One pinned Nix in every job", "Installer of every job")

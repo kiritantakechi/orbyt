@@ -29,6 +29,8 @@ name: build
 
 # Code changes run it, and so do the documents system tests read (release-integrity
 # D7; tests/build/test_ci.py holds the list to them); other documentation does not.
+# scripts/lib/runs.sh holds the same list for the scripts that ask which commits
+# a run of it builds (release-freshness D1).
 on:
   push:
     branches: [main, "bump/**"]

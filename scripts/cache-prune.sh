@@ -1,6 +1,9 @@
 #!/bin/sh
 # cache-prune: delete the caches a run leaves superseded, and on the default branch those of merged branches and closed pull requests.
-# Usage: scripts/cache-prune.sh <toolchain key>   (GH_REPO and GITHUB_REF set)
+# Usage: scripts/cache-prune.sh <toolchain key>   (GH_REPO, GITHUB_REF and GITHUB_SHA set)
+# Only a run that is current for its branch prunes, as publishing reads it: a
+# run its branch has moved past by a change the build reads, a re-run of an older
+# run among them, leaves every cache to the newer run (release-freshness D3).
 # Of the run's own ref's caches, the current toolchain stays, and so do the
 # newest download cache and the newest compiler cache of each stage, the host's
 # and each board's. A compiler cache's stage is its key without the settings
@@ -14,11 +17,25 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
+use runs
 
 toolchain=${1:-}
 
 [ -n "${toolchain}" ] || die "usage: cache-prune <toolchain key>"
-[ -n "${GH_REPO:-}" ] && [ -n "${GITHUB_REF:-}" ] || die "GH_REPO and GITHUB_REF must be set"
+[ -n "${GH_REPO:-}" ] && [ -n "${GITHUB_REF:-}" ] && [ -n "${GITHUB_SHA:-}" ] ||
+	die "GH_REPO, GITHUB_REF and GITHUB_SHA must be set"
+
+case "${GITHUB_REF}" in
+	refs/heads/*)
+		branch=${GITHUB_REF#refs/heads/}
+		newer=$(superseding_head "${GH_REPO}" "${GITHUB_SHA}" "${branch}") || exit 1
+		if [ -n "${newer}" ]; then
+			info "${branch} has moved from ${GITHUB_SHA} to ${newer}: the newer run of ${branch} prunes"
+			exit 0
+		fi
+		;;
+	*) ;;
+esac
 
 # The ids of the superseded caches of the run's ref, newest first.
 superseded=$(

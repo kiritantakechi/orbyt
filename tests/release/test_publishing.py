@@ -2,7 +2,8 @@
 
 scripts/release-publish.sh assembles the session's signed build (conftest), as
 the sign job hands it on (board-model D10); its upload is judged by what it hands
-to gh, a stand-in on PATH that records its arguments. The workflow checks read
+to gh, a stand-in on PATH (wrt_tests.model.github) that records its arguments
+and answers for the branch it publishes from. The workflow checks read
 .github/workflows/build.yml.
 """
 
@@ -19,6 +20,7 @@ import yaml
 from wrt_tests import spec
 from wrt_tests.model.boards import load_all
 from wrt_tests.model.data import read_json, write_json
+from wrt_tests.model.github import REPOSITORY, Repository, install
 from wrt_tests.model.outputs import MANIFEST_FILE, RELEASE_FILE, Manifest, Release
 from wrt_tests.model.trees import linked_copy, replace
 
@@ -36,11 +38,18 @@ FACTORY = "-factory.img.gz"
 UPGRADE = "-sysupgrade.tar.gz"
 KMODS = "targets/packages/packages.adb"
 # The commit the builds an upload publishes name, clean, and another one their
-# branch moved to; the branch and repository a run publishes from.
+# branch moved to; the branch a run publishes from.
 BUILT = "c" * 40
 NEWER = "d" * 40
 BRANCH = "refs/heads/main"
-REPOSITORY = "owner/repository"
+# Files of commits that run no build (build.yml's paths): documentation, a
+# document renamed among them.
+DOCUMENTATION = [
+    {"filename": "docs/ci.md"},
+    {"filename": "openspec/changes/a-change/tasks.md"},
+    {"filename": "README.md"},
+    {"filename": "docs/release-flow.md", "previous_filename": "docs/releases.md"},
+]
 
 
 def _publish(
@@ -50,20 +59,26 @@ def _publish(
     gh: Path | None = None,
     every_board: bool = False,
     head: str = BUILT,
+    status: str = "ahead",
+    files: Sequence[dict[str, str]] = (),
 ) -> subprocess.CompletedProcess[str]:
     """Run release-publish.sh on the boards ``signed`` holds, or on every board.
 
     ``every_board`` leaves ``--boards`` out, for the script's default of every
     board; with ``gh``, the stand-in's directory goes first on PATH, and it
     answers that ``head`` is the head of the branch the run publishes from, as
-    the run's environment names it, not CI's own.
+    the run's environment names it, not CI's own, ``status`` of the commit built
+    with ``files`` between them.
     """
     environment = {
         name: value for name, value in os.environ.items() if not name.startswith("GITHUB_")
     }
     if gh is not None:
+        repository = Repository(heads={BRANCH.removeprefix("refs/heads/"): head})
+        repository.compared(BUILT, head, status, list(files))
+        install(gh, repository)
         environment["PATH"] = f"{gh}{os.pathsep}{environment['PATH']}"
-        environment |= {"GITHUB_REF": BRANCH, "GITHUB_REPOSITORY": REPOSITORY, "GH_HEAD": head}
+        environment |= {"GITHUB_REF": BRANCH, "GITHUB_REPOSITORY": REPOSITORY}
     held = ",".join(sorted(path.name for path in signed.iterdir()))
     boards = () if every_board else ("--boards", held)
     return subprocess.run(
@@ -77,19 +92,8 @@ def _publish(
 
 @pytest.fixture
 def gh(tmp_path: Path) -> Path:
-    """Return a directory with a gh that records its arguments in gh.args.
-
-    Asked for a branch's head (gh api), it answers $GH_HEAD.
-    """
-    directory = tmp_path / "bin"
-    directory.mkdir()
-    script = directory / "gh"
-    script.write_text(
-        '#!/bin/sh\n[ "$1" != api ] || { echo "$GH_HEAD"; exit 0; }\n'
-        f'printf "%s\\n" "$@" >"{directory}/gh.args"\n'
-    )
-    script.chmod(0o755)
-    return directory
+    """Return the directory of the stand-in gh, which _publish puts there."""
+    return tmp_path / "bin"
 
 
 def _built(signed: Path, target: Path, **fields: str) -> Path:
@@ -317,14 +321,45 @@ def test_a_lock_that_is_not_the_builds_is_refused(
 
 
 @spec(CAPABILITY, "Candidates and stable releases", "A run its branch has moved past")
+@pytest.mark.parametrize(
+    ("status", "files"),
+    [
+        pytest.param("ahead", [*DOCUMENTATION, {"filename": "scripts/build.sh"}], id="a script"),
+        pytest.param(
+            "ahead",
+            [{"filename": "docs/build.md", "previous_filename": "scripts/build.sh"}],
+            id="a script renamed into the documentation",
+        ),
+        # GitHub lists 300 files at most: the rest may hold code.
+        pytest.param(
+            "ahead", [{"filename": f"docs/{n}.md"} for n in range(300)], id="300 files"
+        ),
+        pytest.param("diverged", DOCUMENTATION, id="a head that does not descend from it"),
+    ],
+)
 def test_a_run_its_branch_moved_past_does_not_publish(
-    signed_boards: Path, tmp_path: Path, gh: Path
+    signed_boards: Path, tmp_path: Path, gh: Path, status: str, files: list[dict[str, str]]
 ) -> None:
     signed = _built(signed_boards, tmp_path / "signed")
-    result = _publish(signed, tmp_path / "release", "--upload", gh=gh, head=NEWER)
+    result = _publish(
+        signed, tmp_path / "release", "--upload", gh=gh, head=NEWER, status=status, files=files
+    )
     assert result.returncode != 0
     assert f"main has moved from {BUILT} to {NEWER}" in result.stderr
     assert not (gh / "gh.args").exists()
+
+
+@spec(CAPABILITY, "Candidates and stable releases", "A branch moved by documentation only")
+def test_a_branch_moved_by_documentation_only_publishes(
+    signed_boards: Path, tmp_path: Path, gh: Path
+) -> None:
+    signed = _built(signed_boards, tmp_path / "signed")
+    result = _publish(
+        signed, tmp_path / "release", "--upload", gh=gh, head=NEWER, files=DOCUMENTATION
+    )
+    assert result.returncode == 0, result.stderr
+    args = _gh_args(gh)
+    assert args[args.index("--target") + 1] == BUILT
 
 
 @spec(CAPABILITY, "Candidates and stable releases", "Tag of a Release")

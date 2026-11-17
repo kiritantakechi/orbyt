@@ -32,9 +32,9 @@ Alternatives considered:
 
 ### D2. A commit current for its branch
 
-`run_current <commit> <branch>` (same module) succeeds when the branch's head is the commit, or when the compare API finds the head `ahead` of it and every file between them, each renamed file's former name too, is one `build_reads` refuses. Otherwise it fails, printing the head, so that the caller names both commits. A comparison listing 300 files, GitHub's limit, may hide more: it counts as a change the build reads. An error of the API ends the caller, as reading the head does today.
+`superseding_head <repository> <commit> <branch>` (same module) prints nothing when the branch's head is the commit, or when the compare API finds the head `ahead` of it and every file between them, each renamed file's former name too, is one `build_reads` refuses; otherwise it prints the head, so that the caller names both commits. A comparison listing 300 files, GitHub's limit, may hide more: it counts as a change the build reads. An error of the API makes it die, which its caller passes on, so that a failure is never read as a move.
 
-`release-publish.sh --upload` asks it for the built commit and `GITHUB_REF`'s branch, and keeps the commit built as the tag's target: a Release names what was built, never a newer head it did not build. Its message for a branch moved by a code change stays "<branch> has moved from <commit> to <head>: the newer run publishes".
+`release-publish.sh --upload` asks it about the built commit and `GITHUB_REF`'s branch, and keeps the commit built as the tag's target: a Release names what was built, never a newer head it did not build. Its message for a branch moved by a code change stays "<branch> has moved from <commit> to <head>: the newer run publishes".
 
 Alternatives considered:
 - Publishing the head's tree, or tagging the head: its documents were not built, and the tag would claim a build of a commit that had none.
@@ -42,7 +42,7 @@ Alternatives considered:
 
 ### D3. Only a current run prunes
 
-`cache-prune.sh` asks `run_current` about `GITHUB_SHA` and `GITHUB_REF`'s branch before it deletes anything. When the run is not current, it says that the newer run of the ref prunes, and ends with success, deleting nothing, neither the ref's superseded caches nor, on the default branch, those of merged branches and closed pull requests: the newer run does both. A ref that is not a branch prunes as before.
+`cache-prune.sh` asks `superseding_head` about `GITHUB_SHA` and `GITHUB_REF`'s branch before it deletes anything. When the run is not current, it says that the newer run of the ref prunes, and ends with success, deleting nothing, neither the ref's superseded caches nor, on the default branch, those of merged branches and closed pull requests: the newer run does both. A ref that is not a branch prunes as before.
 
 Alternatives considered:
 - Comparing with the newest run of the ref through the runs API: one more query, and a head moved by documentation has no run of its own; D2's rule is the one publishing reads, so a run that may publish may prune.
@@ -61,10 +61,10 @@ Alternatives considered:
 
 ### D6. Tests
 
-- `tests/release/test_publishing.py`: the fake `gh` also answers the compare API from the test's files. A branch moved by documentation alone publishes, its tag on the commit built; moved by a file the build reads, it fails naming both commits, as today's test does; a comparison of 300 files, documentation all, does not publish.
-- `tests/unit/test_ci_caches.py`: with the ref's head moved by a file the build reads, a run deletes nothing and says why; moved by documentation alone, it prunes as today.
+- `tests/release/test_publishing.py`: the stand-in `gh` of the cache tests (`wrt_tests.model.github`), which now also answers for a branch's head and the compare API and records a release it is asked to create, takes the place of the module's own. A branch moved by documentation alone publishes, its tag on the commit built; moved by a file the build reads, it fails naming both commits, as today's test does; a comparison of 300 files, documentation all, does not publish.
+- `tests/build/test_ci.py`, beside the prune's other scenarios: with the ref's head moved by a file the build reads, a run deletes nothing and says why, on a branch and on main; moved by documentation alone, it prunes as today.
 - `tests/build/test_ci.py`: the module's list is the workflow's; `build_reads` for a path in and out of each pattern.
-- `tests/unit/test_lib.py`: `source_commit` in a scratch repository: clean; an untracked file; an ignored file (clean); a staged change.
+- `tests/build/test_ci.py`: `source_commit` in a scratch repository: clean; an untracked file; an ignored file (clean); a staged change.
 - The key, on the VM (`tests/verified-elsewhere.toml`): a scratch commit of the build tree that changes `include/cmake.mk` alone moves the key, and one that changes a file of the packages feed outside `lang/golang` and `lang/rust` does not.
 
 ## Risks / Trade-offs
