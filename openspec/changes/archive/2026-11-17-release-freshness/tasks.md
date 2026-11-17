@@ -45,9 +45,10 @@
 
 ## 5. Verification
 
-- [ ] 5.1 Run CI's build on this change's branch for both boards.
+- [x] 5.1 Run CI's build on this change's branch for both boards.
 
   Verify: every job passes; the host stage builds anew once, for the key's new inputs; the run is recorded in `docs/ci.md`.
+  Result (2026-11-17): CI run 44035778048, of 85cb1df, passed on both boards in its first attempt; its host stage built anew under the new key, 144 min, and its `caches` job pruned through the new check. Recorded in `docs/ci.md`. The branch was then rebased onto main past push-isolation, which touches none of its files.
 
 ## Workflow follow-up
 
