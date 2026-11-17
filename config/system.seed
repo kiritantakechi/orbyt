@@ -5,9 +5,11 @@ CONFIG_PREINITOPT=y
 CONFIG_TARGET_PREINIT_IP="10.0.0.1"
 CONFIG_TARGET_PREINIT_BROADCAST="10.0.0.255"
 CONFIG_TARGET_DEFAULT_LAN_IP_FROM_PREINIT=y
-# LuCI on uhttpd + ucode, Simplified Chinese.
+# LuCI on uhttpd + ucode, Simplified Chinese, in the image's own theme
+# (luci-theme-wrt), with LuCI's stock theme beside it.
 CONFIG_PACKAGE_luci=y
 CONFIG_LUCI_LANG_zh_Hans=y
+CONFIG_PACKAGE_luci-theme-wrt=y
 # The kernel RNG makes urngd unnecessary.
 # CONFIG_PACKAGE_urngd is not set
 CONFIG_PACKAGE_zram-swap=y

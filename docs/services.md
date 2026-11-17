@@ -2,6 +2,12 @@
 
 The router's services beyond routing (r4s-services): a USB SSD as the data disk, app containers, SMB file sharing, WireGuard and Tailscale, and metrics for Prometheus. Everything that writes a lot lives on the data disk; the boot disk (the R4S's SD card, the R6S's eMMC) holds the system only. Without the data disk the router routes, filters, translates, proxies and resolves as before, and the services that keep their data there wait for it.
 
+## The web interface
+
+LuCI, at `http://10.0.0.1` from the LAN, wears the image's own theme, `luci-theme-wrt`: the menu in a sidebar, the page's place, LuCI's pending changes and a light/dark switch in the top bar, and each section as a card. The switch's Automatic follows the browser's light or dark setting; Light and Dark pin one in that browser. Below 800 pixels the menu becomes a drawer behind the menu button; below 600, tables become stacked rows. LuCI's own icons (devices, ports, signal strength) are drawn in the theme's line icons, in green when up and faint when down; its realtime graphs, firewall zone colors and status colors follow the light or dark mode. The theme loads nothing from outside the router.
+
+The theme becomes LuCI's default once: on a fresh install, and on the first boot of an upgrade that brings it. Any later choice stays across upgrades: LuCI's stock theme, bootstrap, is still installed and selectable under System › System › Language and Style › Design.
+
 ## The data disk
 
 One USB SSD, btrfs, identified by its filesystem UUID (any port, any device name). Its top level is mounted at `/mnt/data` with `compress=zstd:3,noatime,space_cache=v2`, and its subvolumes sit at fixed paths in it:

@@ -1,0 +1,32 @@
+# Classes LuCI's stock theme (bootstrap) styles and luci-theme-wrt does not, each
+# with its reason (luci-theme-wrt D6). tests/firmware/test_web_theme.py fails on a
+# class missing from both the theme and this list, and on an entry the theme now
+# styles or bootstrap no longer does.
+
+[[class]]
+class = "nav"
+reason = "bootstrap's top bar of menus, which the sidebar replaces"
+
+[[class]]
+class = "menu"
+reason = "bootstrap's top-bar menu entries (a.menu), which the sidebar's groups replace"
+
+[[class]]
+class = "dropdown-menu"
+reason = "bootstrap's top-bar submenus, which the sidebar's groups replace"
+
+[[class]]
+class = "dropdown-toggle"
+reason = "bootstrap's top-bar submenu arrows, which the sidebar's chevrons replace"
+
+[[class]]
+class = "menu-dropdown"
+reason = "bootstrap's top-bar submenus in tab bars, drawn by bootstrap's menu alone"
+
+[[class]]
+class = "breadcrumb"
+reason = "bootstrap's footer list of modes, which the sidebar's foot replaces"
+
+[[class]]
+class = "divider"
+reason = "the separators of bootstrap's footer list of modes"
