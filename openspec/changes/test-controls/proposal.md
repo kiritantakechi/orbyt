@@ -15,10 +15,10 @@ Eight tests can pass while what they check is broken, found by a review of the p
 
 ## What Changes
 
-- **Every negative check gets its control**, in the same test and with the same tools: a probe that shows the watched path exists (T1), the stored variables read back before the reboot (T2), the packets counted at the PPP device (T4), the shaper's own counter of packets it held back, with the rates' sum within the shaped rate (T5), the same `apk add` succeeding with the running kernel's vermagic (T6), and the container's `nc` reaching a server on the internet (T10).
+- **Every negative check gets its control**, in the same test and with the same tools: a probe that shows the watched path exists (T1), the stored variables read back before the reboot (T2), the packets counted at the PPP device (T4), the rates' sum at the shaped rate, which the emulator carries several times over (T5), the same `apk add` succeeding with the running kernel's vermagic (T6), and the container's `nc` reaching a server on the internet (T10).
 - **`setenv` quotes what it writes**, so that a value with a space is one value (T2).
 - **The fixture waits for what it set up**: an answer from the router's DNS for a name the rebind exception lets through (T8).
-- **Traps are read from the console's record**, which keeps the kernel's reports across reboots and failed SSH sessions (T9): the kernel log reaches the console at the image's console level.
+- **Traps are read from the console's record too**, which keeps the kernel's reports across reboots and failed SSH sessions (T9): the kernel log reaches the console at the image's console level. `dmesg` stays the first source, whole for the current boot.
 
 ## Capabilities
 

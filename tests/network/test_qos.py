@@ -29,8 +29,11 @@ CAPABILITY = "network/qos"
 DEFAULT_RATE = "100Mbit"
 FAIR_MBIT = 20
 FAIR_RATE = f"{FAIR_MBIT}mbit"
-# What iperf counts above the shaped rate: its own view of the bytes it sent.
-RATE_MARGIN = 0.05
+# The share of the shaped rate two uploads it limits reach together: below it
+# goes cake's overhead (46 bytes a packet) and TCP's back-off, above it iperf's
+# own count of the bytes it sent. Measured 2026-11-17: 92 % at 20 Mbit, while
+# shaped at 900 Mbit the emulator carried them at 92 Mbit.
+SHAPED_SHARE = (0.8, 1.05)
 FAIR_SECONDS = 60
 FAIRNESS = 0.2
 VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-wrt.conf
@@ -122,16 +125,8 @@ def test_cake_shapes_upload_only(online: Online) -> None:
     assert router.run("tc qdisc show dev pppoe-wan ingress").count("cake") == 0
 
 
-def _overlimits(router: Router) -> int:
-    """Return the packets cake on pppoe-wan has held back for its rate so far."""
-    found = re.search(r"\boverlimits (\d+)", _cake(router))
-    assert found, _cake(router)
-    return int(found[1])
-
-
 @spec(CAPABILITY, "Fair sharing across internal hosts", "Two hosts upload at full speed")
 def test_two_hosts_share_the_upload(fair_rate: Online) -> None:
-    held = _overlimits(fair_rate.router)
     uploads = [
         fair_rate.client(name).spawn(
             *("iperf3", "--client", DIRECT_TARGET[0], "--port", str(port)),
@@ -147,10 +142,10 @@ def test_two_hosts_share_the_upload(fair_rate: Online) -> None:
         for upload in uploads
     ]
     assert abs(rates[0] - rates[1]) <= FAIRNESS * max(rates), rates
-    # The shaper is what limited them: it held packets back, and together they
-    # stayed within its rate (iperf counts its own bytes).
-    assert _overlimits(fair_rate.router) > held, "cake held nothing back"
-    assert sum(rates) <= FAIR_MBIT * 1e6 * (1 + RATE_MARGIN), rates
+    # The shaper is what limited them: together they ran at its rate, which the
+    # emulator carries several times over. Slower, something else held them back.
+    low, high = SHAPED_SHARE
+    assert low * FAIR_MBIT * 1e6 <= sum(rates) <= high * FAIR_MBIT * 1e6, rates
 
 
 @spec(CAPABILITY, "DSCP classification", "Classify into the voice tin")

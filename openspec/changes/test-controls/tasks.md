@@ -20,9 +20,9 @@
 
   Verify: the NAT tests pass on the emulator.
 
-- [ ] 2.2 Require cake's `overlimits` on `pppoe-wan` to rise during the two uploads, and their rates' sum to stay within the shaped rate (`tests/network/test_qos.py`).
+- [ ] 2.2 Require the two uploads' rates together to lie between 80 % and 105 % of the shaped rate (`tests/network/test_qos.py`).
 
-  Verify: the QoS tests pass on the emulator; with the test's rate set above what the emulator carries (a scratch run, never committed), the test fails on `overlimits`.
+  Verify: the QoS tests pass on the emulator; with the test's rate set above what the emulator carries (a scratch run, never committed), the uploads fall below the band.
 
 - [ ] 2.3 Have `internet_zone` wait for the router's DNS answer for `direct.example.net` (`tests/wrt_tests/services/fixtures.py`).
 
@@ -30,7 +30,7 @@
 
 ## 3. Traps and containers (design D7, D8)
 
-- [ ] 3.1 Add to `tests/unit/test_ubsan.py` the tests of `Traps` on a console record: a trap, then a reboot's banner, is reported; a record read twice reports each trap once. Then have `Traps` read the console's record (`tests/wrt_tests/device/ubsan.py`, `fixtures.py`).
+- [ ] 3.1 Add to `tests/unit/test_ubsan.py` the tests of `Traps` on a console record: a trap, then a reboot's banner, is reported; a trap in both the console and the kernel log is reported once, whole. Then have `Traps` read the console's record besides the kernel log (`tests/wrt_tests/device/ubsan.py`, `fixtures.py`).
 
   Verify: `spec-coverage --change test-controls` reports "A trap before a reboot" covered; the new tests fail before `Traps` changes and pass after; `just check` passes.
 

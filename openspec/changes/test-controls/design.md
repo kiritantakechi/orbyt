@@ -33,10 +33,11 @@ The test checks every path of LRNG's interfaces with `[ -e <path> ]` on its own 
 
 ### D4. The shaper is what limited the uploads (T5)
 
-Around the two uploads the test reads cake's `overlimits` on `pppoe-wan`; it must rise, and the uploads' rates together must stay within the shaped rate (with 5 % for iperf's own count), besides being fair to each other. Uploads that the emulator's speed limits below the shaped rate leave `overlimits` where it was, and fail.
+Besides being fair to each other, the two uploads' rates together must lie between 80 % and 105 % of the shaped rate: below goes cake's overhead and TCP's back-off, above iperf's own count of what it sent. Uploads that something slower than the shaper holds back, the emulator's speed, fall below it and fail. Measured on the VM (2026-11-17): shaped at 20 Mbit, 9.19 + 9.19 Mbit, 92 %; shaped at 900 Mbit, the emulator carried them at 44.0 + 47.6 Mbit, so the test's 20 Mbit has more than four times its rate in hand.
 
 Alternatives considered:
-- A lower bound on the rates' sum: the emulator's speed varies with the host's load, and a bound low enough for CI's runners proves nothing about the shaper.
+- Cake's `overlimits`, the packets its shaper held back: it rose at both rates (47,543 at 20 Mbit, 12,167 at 900 Mbit), bursts of segmentation offload outrunning any rate for a moment.
+- Cake's drops (803 and 1): its AQM drops on a standing queue, but a single drop at 900 Mbit leaves no clean threshold.
 
 ### D5. The same install with the running kernel's vermagic (T6)
 
@@ -46,13 +47,14 @@ Before the refused install, the test installs the virtual package with the runni
 
 `internet_zone` waits until the router's DNS answers a LAN client's query for `direct.example.net` with its documentation-range address, which the rebind protection blocks until the restarted dnsmasq has the exception; a listening socket alone no longer ends the wait.
 
-### D7. Traps from the console's record (T9)
+### D7. Traps from the console's record too (T9)
 
-`Traps` reads the console's record from the end of its last read (`mark()`, `text(since)`) instead of `dmesg` over SSH. The record holds every report the kernel printed, whether the router rebooted, lost its SSH session or returned to its snapshot since; reading it needs no answer from the router. Each report is returned once, as now. The fixtures keep calling it after booting, after each test and around each module.
+`Traps` reads the console's record besides `dmesg`. The record holds every report the kernel printed in the session, whether the router rebooted, lost its SSH session or returned to its snapshot since, and reading it needs no answer from the router; `dmesg`, when the router answers, holds the current boot's reports whole at once, where the console may still be receiving one at a test's end. A report is one trap by its process, pid and kernel time, taken from `dmesg` first, and returned once. The fixtures keep calling it after booting, after each test and around each module.
 
 Alternatives considered:
+- The console alone: a report still on its way over the serial line when a test ends would fail the next test instead.
 - Reading `dmesg` before each reboot: the reboots happen inside tests, and a panic or a watchdog reset gives no time.
-- Keeping `dmesg` and failing a test whose read fails: a test that reboots the router would still lose the traps before its reboot.
+- Failing a test whose read of `dmesg` fails: a test that reboots the router would still lose the traps before its reboot.
 
 ### D8. The container's `nc` connects where it may (T10)
 
@@ -63,11 +65,11 @@ Before the refused connection to the LAN host, the same `podman exec <container>
 For each test, a run before its change and one after, on the emulator, or for D7 the unit tests of `Traps`:
 - T1: the old check, given `/proc/sys/kernel/random/boot_id` and an absent path, passes; the new one fails on the present path.
 - T2: with the old `setenv`, `wrt_boot` reads back unset; with the new one, it holds the value.
-- T4, T5, T8: the new assertions hold on the image as it is; T5's also fail with the shaper set above what the emulator carries.
+- T4, T5, T8: the new assertions hold on the image as it is; T5's fail with the shaper set above what the emulator carries (at 900 Mbit the uploads reached 92 Mbit together).
 - T6, T10: the controls pass on the image as it is.
 - T9 (`tests/unit/test_ubsan.py`): a console record with a trap, then a reboot's banner, reports the trap; one record read twice reports each trap once.
 
 ## Risks / Trade-offs
 
-- [T5's `overlimits` stays flat on a host too slow to fill 20 Mbit] → Then the test fails, as it should: its fairness would not be the shaper's.
+- [A host too slow to carry 16 Mbit through the emulator] → Then the test fails, as it should: its fairness would not be the shaper's.
 - [The console falls behind under load] → Its thread drains it continuously; a report not yet read when a test ends is read after the next test, as a trap in a fixture is.
