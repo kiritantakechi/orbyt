@@ -31,6 +31,6 @@ None.
 
 - `scripts/lib/`: the build's paths, as a module the scripts load; `scripts/release-publish.sh`, `scripts/cache-prune.sh` (which reads `GITHUB_SHA` now), `scripts/build.sh`, `scripts/toolchain-key.sh`.
 - `.github/workflows/build.yml`: nothing changes in its `paths`; its comment names the library as their twin.
-- Tests: `tests/release/test_publishing.py` (a branch moved by documents only publishes; one moved by a file the build reads does not, as before), `tests/build/test_ci.py` (a superseded run prunes nothing, one past documents prunes; the library's patterns are the workflow's; the commit stamp with an untracked, an ignored and a staged file), the stand-in `gh` they share (`wrt_tests.model.github`); `tests/verified-elsewhere.toml` for the key's scenarios.
+- Tests: `tests/release/test_publishing.py` (a branch moved by documents only publishes; one moved by a file the build reads does not, as before), `tests/build/test_ci.py` (a superseded run prunes nothing; the commit stamp with an untracked, an ignored and a staged file), `tests/unit/test_ci_caches.py` (a run past documents prunes), `tests/unit/test_lib.py` (the library's patterns are the workflow's, and answer as GitHub does), the stand-in `gh` they share (`wrt_tests.model.github`); `tests/verified-elsewhere.toml` for the key's scenarios.
 - `docs/ci.md` and `docs/release-flow.md` where they describe publishing's check, the prune and the key.
 - No change to the image: the next CI run on main rebuilds the host stage once, for the key's new inputs.

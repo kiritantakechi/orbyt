@@ -5,7 +5,7 @@
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
 
 # build_paths: build.yml's paths, the same for pushes and pull requests, one a
-# line in their order; tests/build/test_ci.py holds them to the workflow's.
+# line in their order; tests/unit/test_lib.py holds them to the workflow's.
 build_paths() {
 	cat <<-'PATHS'
 		**

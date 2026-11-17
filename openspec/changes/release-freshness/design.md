@@ -24,7 +24,7 @@
 
 ### D1. One definition of the files the build runs for
 
-A library module, `scripts/lib/runs.sh`, holds `build.yml`'s `paths` as a list in their order, and `build_reads <path>`, which says whether a change to the path starts the build: the last pattern that matches decides, `!` excluding, as GitHub reads the list. It supports the forms the list uses: an exact path, `<dir>/**`, `**/<glob>` and `**`. `tests/build/test_ci.py` checks that the module's list is the workflow's, for pushes and for pull requests, and that `build_reads` answers as GitHub's rules do for paths in and out of each pattern.
+A library module, `scripts/lib/runs.sh`, holds `build.yml`'s `paths` as a list in their order, and `build_reads <path>`, which says whether a change to the path starts the build: the last pattern that matches decides, `!` excluding, as GitHub reads the list. It supports the forms the list uses: an exact path, `<dir>/**`, `**/<glob>` and `**`. `tests/unit/test_lib.py` checks that the module's list is the workflow's, for pushes and for pull requests, and that `build_reads` answers as GitHub's rules do for paths in and out of each pattern.
 
 Alternatives considered:
 - Reading `build.yml` at run time: the scripts would parse YAML, and a local run of `release-publish.sh` reads a workflow file it does not run under.
@@ -62,8 +62,8 @@ Alternatives considered:
 ### D6. Tests
 
 - `tests/release/test_publishing.py`: the stand-in `gh` of the cache tests (`wrt_tests.model.github`), which now also answers for a branch's head and the compare API and records a release it is asked to create, takes the place of the module's own. A branch moved by documentation alone publishes, its tag on the commit built; moved by a file the build reads, it fails naming both commits, as today's test does; a comparison of 300 files, documentation all, does not publish.
-- `tests/build/test_ci.py`, beside the prune's other scenarios: with the ref's head moved by a file the build reads, a run deletes nothing and says why, on a branch and on main; moved by documentation alone, it prunes as today.
-- `tests/build/test_ci.py`: the module's list is the workflow's; `build_reads` for a path in and out of each pattern.
+- `tests/build/test_ci.py`, beside the prune's other scenarios: with the ref's head moved by a file the build reads, a run deletes nothing and says why, on a branch and on main; `tests/unit/test_ci_caches.py`: moved by documentation alone, it prunes as today.
+- `tests/unit/test_lib.py`: the module's list is the workflow's; `build_reads` for a path in and out of each pattern.
 - `tests/build/test_ci.py`: `source_commit` in a scratch repository: clean; an untracked file; an ignored file (clean); a staged change.
 - The key, on the VM (`tests/verified-elsewhere.toml`): a scratch commit of the build tree that changes `include/cmake.mk` alone moves the key, and one that changes a file of the packages feed outside `lang/golang` and `lang/rust` does not.
 
