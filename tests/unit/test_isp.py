@@ -1,4 +1,6 @@
-"""Unit tests of orbyt_tests.sandbox.isp: a pppd in the sandbox dials the emulated ISP.
+"""Unit tests of orbyt_tests.sandbox.isp.
+
+A pppd in the sandbox dials the emulated ISP.
 
 The dialer uses PPPoE in user mode as the ISP does (the host has no
 pppoe.ko); the router dials the same ISP with the kernel's PPPoE.
@@ -36,7 +38,10 @@ def dialer(network: Network) -> Netns:
 
 
 class Dial:
-    """One pppd session of the dialer; ``address`` is what the ISP gave it."""
+    """One pppd session of the dialer.
+
+    ``address`` is what the ISP gave it.
+    """
 
     def __init__(self, dialer: Netns) -> None:
         """Dial and wait for IPCP."""
@@ -57,7 +62,10 @@ class Dial:
         return shown[3].split("/")[0] if "inet" in shown else None
 
     def offer(self) -> dict[str, object]:
-        """Solicit a prefix once kea runs for the session (IPv6CP comes up on its own)."""
+        """Solicit a prefix once kea runs for the session.
+
+        IPv6CP comes up on its own.
+        """
 
         def attempt() -> dict[str, object] | None:
             try:

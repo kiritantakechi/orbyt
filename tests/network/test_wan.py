@@ -1,4 +1,6 @@
-"""network/wan: PPPoE without built-in credentials, MSS clamping, prefix delegation, the flowtable.
+"""network/wan: PPPoE, MSS clamping, prefix delegation, the flowtable.
+
+PPPoE runs without built-in credentials.
 
 The first two tests look at the router as it boots (its snapshot); the
 rest share one router online behind the emulated ISP.
@@ -108,7 +110,7 @@ def test_mss_fits_the_path(online: Online) -> None:
     client.run(
         "ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload), DIRECT_TARGET[0]
     )
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status"):
         client.run(
             "ping",
             "-c",
@@ -132,7 +134,9 @@ def test_lan_host_gets_ipv6(online: Online) -> None:
 
 
 def _lan_state(online: Online, address: str) -> str:
-    """Return what the LAN clients make of ``address``, for a LAN probe that was refused.
+    """Return what the LAN clients make of ``address``.
+
+    This is for a LAN probe that was refused.
 
     CI's run 38102368454, and an R4S run before it, had client-b refused
     once by the server on client-a, which was listening.
@@ -188,7 +192,7 @@ def test_inbound_ipv6_is_rejected(online: Online) -> None:
 
 
 def _offloaded(router: Router) -> list[str]:
-    """Return the conntrack entries of the download that show the flowtable's flag."""
+    """Return the download's conntrack entries with the offload flag."""
     return [
         line
         for line in router.run("cat /proc/net/nf_conntrack").splitlines()
@@ -197,7 +201,9 @@ def _offloaded(router: Router) -> list[str]:
 
 
 def _count_forwarded(router: Router) -> None:
-    """Have the router count the segments to the download's server at the forward hook.
+    """Have the router count segments to the download's server.
+
+    The router counts them at the forward hook.
 
     Those are the direction the flowtable can carry. einat translates on
     pppoe-wan, so the flowtable knows a flow's replies by the LAN
@@ -208,12 +214,13 @@ def _count_forwarded(router: Router) -> None:
         f"nft add table inet {FORWARD_COUNTER}"
         f" && nft 'add chain inet {FORWARD_COUNTER} forward"
         " { type filter hook forward priority filter; }'"
-        f" && nft add rule inet {FORWARD_COUNTER} forward tcp dport {IPERF_PORTS[0]} counter"
+        f" && nft add rule inet {FORWARD_COUNTER} forward"
+        f" tcp dport {IPERF_PORTS[0]} counter"
     )
 
 
 def _forwarded(router: Router) -> int:
-    """Return how many segments to the download's server have reached the forward hook."""
+    """Return how many segments to the download reached forward."""
     shown = router.run(f"nft list chain inet {FORWARD_COUNTER} forward")
     counted = re.search(r"counter packets (\d+)", shown)
     assert counted is not None, shown
@@ -221,7 +228,9 @@ def _forwarded(router: Router) -> int:
 
 
 def _carried(online: Online, inet: Netns) -> list[str]:
-    """Return the download's conntrack entries if the flowtable carries it for a whole reading.
+    """Return the download's conntrack entries if the flowtable carries.
+
+    The flowtable must carry it for a whole reading.
 
     The flag alone does not tell: the kernel sets it while it tries to
     add a flow and clears it when that fails, so a flow that never
@@ -242,7 +251,9 @@ def _carried(online: Online, inet: Netns) -> list[str]:
 
 
 def _received(inet: Netns) -> Counter[str]:
-    """Return the segments the download's server has received, by the address they came from.
+    """Return the segments the download's server received, by source.
+
+    The key is the address they came from.
 
     ss shows each connection on a line of its own, its peer last, and
     below it, indented, its counters.
@@ -261,7 +272,9 @@ def _received(inet: Netns) -> Counter[str]:
 
 
 def _address(text: str) -> str:
-    """Return an address as the router's would read: IPv4 for one mapped into IPv6.
+    """Return an address as the router would read it.
+
+    That is IPv4 for one mapped into IPv6.
 
     iperf3 listens on both families at once, so an IPv4 peer shows as
     ::ffff:<IPv4>.

@@ -1,4 +1,6 @@
-"""services/monitoring: the ucode node exporter on the LAN, with or without a data disk.
+"""services/monitoring: the ucode node exporter on the LAN.
+
+It runs with or without a data disk.
 
 The module's router has no data disk, so every scrape also shows that
 metrics need none.

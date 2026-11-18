@@ -1,10 +1,10 @@
-"""Read the pieces of the shipped images (design D14, r4s-ab-rollback D7).
+"""Read the pieces of the shipped images.
 
 Everything here is a pure function over bytes or text, so the unit tests
 cover it without an image: a gzip stream may be followed by fwtool
 metadata, the disk has an MBR, U-Boot and the kernel are FITs, read from
 their ``dumpimage -l`` listings, and U-Boot carries its default
-environment as a run of strings.
+environment as a run of strings. See design D14 and r4s-ab-rollback D7.
 """
 
 import re
@@ -43,7 +43,10 @@ class Disk:
     partitions: tuple[Partition, ...]
 
     def partuuid(self, number: int) -> str:
-        """Linux PARTUUID of a partition on an MBR disk: ``<signature>-<number>``."""
+        """Linux PARTUUID of an MBR disk's partition.
+
+        The form is ``<signature>-<number>``.
+        """
         return f"{self.signature:08x}-{number:02x}"
 
     def partition(self, number: int) -> Partition:
@@ -58,10 +61,11 @@ class Disk:
 def gunzip_first_member(
     source: BinaryIO, target: BinaryIO, chunk: int = 1 << 20
 ) -> bytes:
-    """Stream the first gzip member of ``source`` into ``target``; return what follows it.
+    """Stream the first gzip member of ``source`` into ``target``.
 
-    sysupgrade images carry fwtool metadata after the gzip stream, which
-    gzip(1) reports as trailing garbage.
+    Return what follows that member. sysupgrade images carry fwtool
+    metadata after the gzip stream, which gzip(1) reports as trailing
+    garbage.
     """
     decompressor = zlib.decompressobj(zlib.MAX_WBITS | 16)
     while not decompressor.eof and (block := source.read(chunk)):
@@ -74,7 +78,7 @@ def gunzip_first_member(
 
 
 def read_mbr(disk: bytes) -> Disk:
-    """Parse the MBR: disk signature and the non-empty primary partitions."""
+    """Parse the MBR: signature and non-empty primary partitions."""
     if disk[510:512] != b"\x55\xaa":
         msg = "no MBR boot signature"
         raise ValueError(msg)
@@ -125,14 +129,17 @@ _FIT_CONTINUATION = re.compile(r"^ {3,}(?P<value>\S.*?)\s*$")
 
 @dataclass(frozen=True, slots=True)
 class FitNode:
-    """One image or configuration of a FIT, with its listed properties."""
+    """One FIT image or configuration, with its listed properties."""
 
     index: int
     name: str
     properties: dict[str, list[str]]
 
     def __getitem__(self, key: str) -> str:
-        """Return the first value of a property; lists (Compatible, Loadables) have more."""
+        """Return the first value of a property.
+
+        Lists (Compatible, Loadables) have more.
+        """
         return self.properties[key][0]
 
 
@@ -146,11 +153,17 @@ class Fit:
 
     @property
     def configuration(self) -> FitNode:
-        """Return the default configuration, the one bootm and SPL boot."""
+        """Return the default configuration.
+
+        It is the one bootm and SPL boot.
+        """
         return self.configurations[self.default]
 
     def selected(self, key: str) -> FitNode:
-        """Return the image the default configuration selects as ``key`` (Kernel, FDT, ...)."""
+        """Return the image the default configuration selects.
+
+        ``key`` is Kernel, FDT, and so on.
+        """
         name = self.configuration.properties.get(key, [""])[0]
         if name not in self.images:
             msg = f"configuration {self.default} selects no {key} image"

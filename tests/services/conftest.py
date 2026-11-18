@@ -1,4 +1,6 @@
-"""Fixtures of the services tests (r4s-services D10): what an administrator sets up.
+"""Fixtures of the services tests (r4s-services D10).
+
+They are what an administrator sets up.
 
 An SMB user, the WireGuard tunnel and the tailnet: each is written the
 way the config push or an administrator would, since the image presets
@@ -41,7 +43,10 @@ def lan_host(network: Network) -> Iterator[Netns]:
 
 @pytest.fixture(scope="module")
 def smb_user(data_disk: Disk, module_router: Router) -> tuple[str, str]:
-    """Add a share user: a system account without a login, and its SMB password."""
+    """Add a share user, a system account without a login.
+
+    Return its name and its SMB password.
+    """
     del data_disk  # the share is on it
     user, password = SMB_USER
     module_router.run(
@@ -64,7 +69,10 @@ def smb_user(data_disk: Disk, module_router: Router) -> tuple[str, str]:
 
 @pytest.fixture(scope="module")
 def wireguard(online: Online) -> Iterator[WireGuard]:
-    """Connect wg-peer; it routes the LAN and the proxied target through the tunnel."""
+    """Connect wg-peer, routing the LAN and the proxied target.
+
+    Both go through the tunnel.
+    """
     tunnel = WireGuard.connect(online, [LAN_PREFIX, f"{PROXIED_TARGET[0]}/32"])
     yield tunnel
     tunnel.disconnect()

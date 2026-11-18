@@ -1,4 +1,7 @@
-"""A scratch repository and a series of patches, applied as patch.sh applies a patch queue."""
+"""A scratch repository and a series of patches.
+
+The series is applied as patch.sh applies a patch queue.
+"""
 
 import os
 import subprocess
@@ -22,13 +25,16 @@ OLD = 1_000_000_000 * 1_000_000_000
 
 
 class Series:
-    """A scratch repository and a series of two patches, applied as patch.sh does."""
+    """A scratch repository and a series of two patches.
+
+    The patches are applied as patch.sh does.
+    """
 
     def __init__(self, root: Path) -> None:
-        """Create the repository under ``root``, its base commit and the two patches.
+        """Create the repository, its base commit and the two patches.
 
-        The first patch changes a.txt; the second changes b.txt and adds
-        d.txt.
+        The repository lives under ``root``. The first patch changes
+        a.txt; the second changes b.txt and adds d.txt.
         """
         self.repo = root / "repo"
         self.patches = root / "patches"
@@ -50,7 +56,10 @@ class Series:
         self.git("checkout", "-q", "--detach", self.base)
 
     def git(self, *args: str) -> str:
-        """Run git in the repository, as the test's identity and its configuration alone."""
+        """Run git in the repository.
+
+        It sees the test's identity and its configuration alone.
+        """
         return subprocess.run(
             ["git", "-C", str(self.repo), *args],
             env={**os.environ, **GIT_IDENTITY, "GIT_CONFIG_GLOBAL": os.devnull},
@@ -72,7 +81,10 @@ class Series:
     def apply(
         self, env: Mapping[str, str] | None = None
     ) -> subprocess.CompletedProcess[str]:
-        """Build the series' commit on the base and move the work tree to it, in ``env``."""
+        """Build the series' commit and move the work tree to it.
+
+        The commit is built on the base. The commands run in ``env``.
+        """
         return library(
             "tree upstream",
             'commit=$(series_commit "$1" "$2" "$3") && move_tree "$2" "${commit}"',
@@ -83,11 +95,11 @@ class Series:
         )
 
     def files(self) -> list[Path]:
-        """Return the files of the work tree, untracked ones included."""
+        """Return the work tree's files, untracked ones included."""
         return [path for path in self.repo.iterdir() if path.is_file()]
 
     def age(self) -> dict[str, int]:
-        """Give every file of the work tree an old time; return the times."""
+        """Give each work tree file an old time; return the times."""
         for path in self.files():
             os.utime(path, ns=(OLD, OLD))
         return self.times()

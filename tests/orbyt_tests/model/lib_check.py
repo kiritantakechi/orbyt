@@ -1,4 +1,4 @@
-"""lib-check: the scripts load what they call, and the library has no dead function.
+"""lib-check: scripts load what they call; no library function is dead.
 
 The shell library is modules by domain (``scripts/lib/*.sh``,
 module-boundaries D1). A script loads core by path and the other modules
@@ -34,7 +34,7 @@ COMMENT = re.compile(r"(^|\s)#.*$", re.MULTILINE)
 
 @dataclass(frozen=True, slots=True)
 class Module:
-    """A library module: the functions it defines, and the modules it loads."""
+    """A library module: its functions and the modules it loads."""
 
     name: str
     path: Path
@@ -81,7 +81,10 @@ def _calls(text: str, functions: set[str]) -> set[str]:
 
 
 def missing_loads(repo: Path) -> list[str]:
-    """Return the calls of library functions that the caller's loaded modules do not provide."""
+    """Return library calls that the loaded modules do not provide.
+
+    The loaded modules are the caller's.
+    """
     modules = read_modules(repo / "scripts" / "lib")
     every = {function for module in modules.values() for function in module.functions}
     owner = {
@@ -106,7 +109,8 @@ def missing_loads(repo: Path) -> list[str]:
             f"{path.relative_to(repo)}: use names no module {name}" for name in unknown
         ]
         problems += [
-            f"{path.relative_to(repo)}: calls {function} without loading {owner[function]}"
+            f"{path.relative_to(repo)}: calls {function} "
+            f"without loading {owner[function]}"
             for function in sorted(
                 _calls(path.read_text(encoding="utf-8"), every) - provided
             )
@@ -115,7 +119,10 @@ def missing_loads(repo: Path) -> list[str]:
 
 
 def dead_functions(repo: Path) -> list[str]:
-    """Return the library functions that no script, other module, test or recipe calls."""
+    """Return the library functions that nothing calls.
+
+    Callers are scripts, other modules, tests and recipes.
+    """
     modules = read_modules(repo / "scripts" / "lib")
     texts = [
         _code(path.read_text(encoding="utf-8"))
@@ -153,7 +160,7 @@ def dead_functions(repo: Path) -> list[str]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Check the shell library's loads and callers; print each problem."""
+    """Check the shell library's loads and calls; print each problem."""
     parser = argparse.ArgumentParser(
         prog="lib-check", description=__doc__.splitlines()[0]
     )

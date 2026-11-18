@@ -1,4 +1,6 @@
-"""The emulated internet's servers (r4s-services D10, r4s-release-pipeline D7).
+"""The emulated internet's servers.
+
+(r4s-services D10, r4s-release-pipeline D7)
 
 inet also serves a container registry (distribution), a tailnet's
 control server (headscale, with its embedded DERP relay) and a stand-in
@@ -27,7 +29,7 @@ SERVERS = (REGISTRY, HEADSCALE, RELEASES)
 
 
 def configure(workdir: Path) -> pki.Pki:
-    """Write the CA, the hosts file and the servers' configuration into the sandbox."""
+    """Write the CA, hosts file and server configuration."""
     certificates = pki.issue(
         workdir / "pki",
         [name for name, _ in SERVERS],

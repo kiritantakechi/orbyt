@@ -1,4 +1,6 @@
-"""release/upstream-bump: the weekly bump of upstream.lock, merged only after the upgrade drill.
+"""release/upstream-bump: the weekly bump of upstream.lock.
+
+It is merged only after the upgrade drill.
 
 scripts/upstream-bump.sh runs against local repositories standing in for
 the upstreams of upstream.lock; scripts/patch.sh against one the patch
@@ -129,7 +131,7 @@ def _commit(repository: Path, message: str) -> str:
 
 
 def _write_lock(tmp_path: Path, lock: Path, pinned: dict[str, str]) -> None:
-    """Write a lock of the upstreams in ``tmp_path`` that pins their ``pinned`` commits."""
+    """Write a lock of the upstreams in ``tmp_path`` at ``pinned``."""
     lines = []
     for name in NAMES:
         repository = tmp_path / name
@@ -139,7 +141,10 @@ def _write_lock(tmp_path: Path, lock: Path, pinned: dict[str, str]) -> None:
 
 
 def _upstreams(tmp_path: Path, commits: int) -> tuple[Path, dict[str, str]]:
-    """Make the upstreams with ``commits`` commits each; return a lock of their first."""
+    """Make the upstreams with ``commits`` commits each.
+
+    Return a lock of their first commits.
+    """
     first = {}
     for name in NAMES:
         repository = tmp_path / name
@@ -195,11 +200,11 @@ def test_no_updates_make_nothing(tmp_path: Path) -> None:
 
 
 def _github(tmp_path: Path, *, branch_commits: int = 0) -> tuple[Path, Path]:
-    """Make a repository standing in for GitHub's and a clone of it with a moved lock.
+    """Make a GitHub stand-in repository and a clone of it.
 
-    Its bump branch of the day exists when ``branch_commits`` makes
-    commits on it, as the maintainer would. Return the stand-in and the
-    clone.
+    The clone has a moved lock. The stand-in's bump branch of the day
+    exists when ``branch_commits`` makes commits on it, as the
+    maintainer would. Return the stand-in and the clone.
     """
     origin = tmp_path / "origin.git"
     _git(tmp_path, "init", "-q", "--bare", "-b", "main", origin.name)
@@ -239,7 +244,9 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
     has_token: bool = True,
     moved: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
-    """Run bump.yml's step that opens the pull request; return its result and gh's calls.
+    """Run bump.yml's step that opens the pull request.
+
+    Return its result and gh's calls.
 
     ``has_token`` says whether the secret BUMP_PUSH_TOKEN is set;
     ``moved`` whether upstream moved, so that there is a description.
@@ -398,7 +405,8 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
     check = jobs["upgrade-drill"]
     assert check["if"] == "always()"
     assert check["name"] == (
-        f"${{{{ {BUMP_PULL_REQUEST} && 'upgrade-drill of the branch' || 'upgrade-drill' }}}}"
+        f"${{{{ {BUMP_PULL_REQUEST} && 'upgrade-drill of the branch'"
+        " || 'upgrade-drill' }}"
     )
     (step,) = check["steps"]
     assert step["env"]["BUMP_PULL_REQUEST"] == f"${{{{ {BUMP_PULL_REQUEST} }}}}"
@@ -426,7 +434,7 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
 def _patch_step(
     tmp_path: Path, change: Callable[[Path], object]
 ) -> subprocess.CompletedProcess[str]:
-    """Run the patch step on a pinned openwrt commit that ``change`` made.
+    """Run the patch step on an openwrt commit that ``change`` made.
 
     ``change`` changes the openwrt repository's tree, which is then
     committed; a copy of this repository's scripts and patches pins that
@@ -499,7 +507,10 @@ def _factory(board: Board, *, suffix: str = "") -> str:
 
 
 def _manifest(board: Board, run: str, files: dict[str, str]) -> Manifest:
-    """Return the manifest of a build of ``board`` by CI run ``run``, listing ``files``."""
+    """Return the manifest of a build of ``board`` by CI run ``run``.
+
+    It lists ``files``.
+    """
     return Manifest.model_validate(
         {
             "board": board.id,
@@ -524,7 +535,9 @@ def _manifest(board: Board, run: str, files: dict[str, str]) -> Manifest:
 def _drill_base(
     root: Path, board: Board, latest: str | None, error: str = NOT_FOUND
 ) -> subprocess.CompletedProcess[str]:
-    """Run drill-base.sh for ``board`` beside this build's stand-in outputs, in ``root``.
+    """Run drill-base.sh for ``board`` in ``root``.
+
+    It runs beside this build's stand-in outputs.
 
     ``latest`` is the latest release's tag, with its assets in
     ``root/gh/assets``, or None when GitHub answers the lookup with
@@ -562,7 +575,9 @@ def _drill_base(
 def _release(
     root: Path, board: Board, image: bytes, *, listed: bytes | None = None
 ) -> None:
-    """Put the board's set in the stand-in's release: its manifest and factory image.
+    """Put the board's set in the stand-in's release.
+
+    The set is its manifest and factory image.
 
     The manifest lists ``listed`` (``image`` unless given) as the
     factory image. A longer device name's image beside it must not be
@@ -582,7 +597,9 @@ def _release(
 
 
 def _base(root: Path, board: Board) -> tuple[str, bytes]:
-    """Return what the drill starts from: the run that built its image, and the image.
+    """Return what the drill starts from.
+
+    That is the run that built its image, and the image.
 
     Its manifest is that build's, its profile drill-base, its files the
     image and this build's emulator firmware, as emu-prepare checks

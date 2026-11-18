@@ -1,7 +1,9 @@
-"""testing/harness: scenarios and tests, the toolchain, data schemas, waits, failure reports.
+"""testing/harness: what checks the harness itself.
 
-And what bounds the harness's work on the router: commands and login
-sessions that end with their time limit, setups undone when they fail.
+Scenarios and tests, the toolchain, data schemas, waits, failure
+reports; and what bounds the harness's work on the router: commands
+and login sessions that end with their time limit, setups undone when
+they fail.
 """
 
 import json
@@ -81,7 +83,10 @@ def _tool(name: str) -> str:
 
 @pytest.fixture
 def demo(tmp_path: Path) -> tuple[Path, Path]:
-    """Return an OpenSpec tree with one change and a tests tree covering half of it."""
+    """Return an OpenSpec tree with one change and a tests tree.
+
+    The tests cover half of the change.
+    """
     openspec = tmp_path / "openspec"
     (openspec / "specs").mkdir(parents=True)
     spec_file = (
@@ -139,14 +144,16 @@ def test_dangling_marker_fails(demo: tuple[Path, Path]) -> None:
 
 
 def _wheel(directory: Path, name: str) -> Path:
-    """Write a minimal pure-Python wheel of ``name`` 1.0 and return its path."""
+    """Write a pure-Python wheel of ``name`` 1.0; return its path."""
     wheel = directory / f"{name}-1.0-py3-none-any.whl"
     dist_info = f"{name}-1.0.dist-info"
     files = {
         f"{name}/__init__.py": "",
         f"{dist_info}/METADATA": f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n",
-        f"{dist_info}/WHEEL": "Wheel-Version: 1.0\nGenerator: orbyt-tests\nRoot-Is-Purelib: true\n"
-        "Tag: py3-none-any\n",
+        f"{dist_info}/WHEEL": (
+            "Wheel-Version: 1.0\nGenerator: orbyt-tests\n"
+            "Root-Is-Purelib: true\nTag: py3-none-any\n"
+        ),
     }
     record = "".join(f"{path},,\n" for path in files) + f"{dist_info}/RECORD,,\n"
     with zipfile.ZipFile(wheel, "w") as archive:
@@ -161,7 +168,8 @@ def test_a_fixture_in_the_root_configuration_fails(demo: tuple[Path, Path]) -> N
     openspec, tests = demo
     shutil.copytree(TESTS_DIR / "orbyt_tests", tests / "orbyt_tests")
     (tests / "conftest.py").write_text(
-        "import pytest\n\n\n@pytest.fixture(scope='session')\ndef local() -> int:\n    return 1\n"
+        "import pytest\n\n\n@pytest.fixture(scope='session')\n"
+        "def local() -> int:\n    return 1\n"
     )
     result = _coverage(openspec, tests)
     assert result.returncode != 0
@@ -181,8 +189,9 @@ def test_stale_lock_is_rejected(tmp_path: Path) -> None:
     ]
     assert uv_calls
     assert all("--locked" in line for line in uv_calls), uv_calls
-    # ... and locked mode refuses a declaration the lock does not match. The project
-    # is self-contained (a local wheel), so this holds without any network.
+    # ... and locked mode refuses a declaration the lock does not match.
+    # The project is self-contained (a local wheel), so this holds
+    # without any network.
     project = tmp_path / "project"
     project.mkdir()
     pyproject = project / "pyproject.toml"
@@ -229,13 +238,19 @@ def _break(entry: dict[str, object], breakage: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class _JsonFile:
-    """A JSON data file the tests read, and how: one document, or a list of entries."""
+    """A JSON data file the tests read, and how.
+
+    One document, or a list of entries.
+    """
 
     path: Path
     read: Callable[[Path], BaseModel | list[BaseModel]]
 
     def break_into(self, copy: Path, breakage: str) -> str:
-        """Write a copy of the file with ``breakage``; return where its problem lies."""
+        """Write a copy of the file with ``breakage``.
+
+        Return where its problem lies.
+        """
         match self.read(self.path):
             case list() as entries:
                 dumped = [entry.model_dump(mode="json") for entry in entries]
@@ -250,7 +265,10 @@ class _JsonFile:
 
 @dataclass(frozen=True, slots=True)
 class _TomlFile:
-    """A TOML data file the tests read: the entries of one array of tables."""
+    """A TOML data file the tests read.
+
+    The entries of one array of tables.
+    """
 
     path: Path
     table: str
@@ -261,7 +279,10 @@ class _TomlFile:
         return list(read_toml(path, self.table, self.model))
 
     def break_into(self, copy: Path, breakage: str) -> str:
-        """Write a copy of the file with ``breakage`` in its first entry; return where."""
+        """Write a copy of the file, ``breakage`` in its first entry.
+
+        Return where its problem lies.
+        """
         text = self.path.read_text(encoding="utf-8")
         header = re.search(rf"^\[\[{self.table}\]\]\n", text, re.MULTILINE)
         assert header, self.path
@@ -312,7 +333,7 @@ def test_a_malformed_data_file_names_the_field(
     data = DATA_FILES[name]
     copy = tmp_path / data.path.name
     where = data.break_into(copy, breakage)
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match=re.escape(where)) as error:
         data.read(copy)
     problems = error.value.problems
     assert any(problem.startswith(f"{copy}: {where}: ") for problem in problems), (
@@ -326,7 +347,10 @@ EMPTY_ANSWERS = (None, False, 0, "", (), frozenset())
 
 
 def _answers(*answers: object) -> Callable[[], object]:
-    """Return a probe that gives ``answers`` one by one, then the last for ever."""
+    """Return a probe that gives ``answers`` one by one.
+
+    Then it gives the last one forever.
+    """
     remaining = list(answers)
     return lambda: remaining.pop(0) if len(remaining) > 1 else remaining[0]
 
@@ -356,7 +380,7 @@ def test_a_reboot_that_does_not_come_names_its_command(router: Router) -> None:
     previous_boot = router.boot_id()
     command = f"echo '{NEVER_REBOOTING}'; exit 3"
     router.detach(command)
-    with pytest.raises(TimeoutError) as raised:
+    with pytest.raises(TimeoutError, match="the router never rebooted") as raised:
         router.wait_rebooted(previous_boot, timeout=10)
     command_note, output_note, console_note = raised.value.__notes__
     assert command_note == f"the reboot was to follow: {command}"
@@ -432,7 +456,10 @@ def test_writes_are_unlimited_after_a_failure(router: Router) -> None:
 def _call_report(
     item: object, outcome: Literal["passed", "failed"]
 ) -> pytest.TestReport:
-    """Return what the services layer's report hook makes of a call's report on ``item``."""
+    """Return what the services layer's report hook makes of a report.
+
+    The report is a call's report on ``item``.
+    """
     report = pytest.TestReport("demo", ("demo", 0, "demo"), {}, outcome, None, "call")
     call = pytest.CallInfo.from_call(lambda: None, "call")
     hook = pytest_runtest_makereport(cast("pytest.Item", item), call)
@@ -479,7 +506,8 @@ def test_a_report_of_an_unreachable_router_is_quick(online: Online) -> None:
     router.run(
         f"nft add table inet {NO_NEW_SSH}"
         f" && nft add chain inet {NO_NEW_SSH} input {shlex.quote(hook)}"
-        f" && nft add rule inet {NO_NEW_SSH} input tcp dport {SSH_PORT} ct state new drop"
+        f" && nft add rule inet {NO_NEW_SSH} input tcp dport {SSH_PORT}"
+        " ct state new drop"
     )
     try:
         item = SimpleNamespace(funcargs={"online": online})
@@ -499,7 +527,7 @@ def test_a_report_of_an_unreachable_router_is_quick(online: Online) -> None:
 def test_a_setup_that_fails_halfway_leaves_no_tunnel(online: Online) -> None:
     peer = online.network["wg-peer"]
     # A route the peer refuses, after its tunnel exists.
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status"):
         WireGuard.connect(online, ["no-such-route"])
     assert peer.run("ip", "-o", "link", "show", "type", "wireguard") == ""
     WireGuard.connect(online, [LAN_PREFIX]).disconnect()

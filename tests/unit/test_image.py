@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.model.image: reading a sysupgrade image from bytes and listings."""
+"""Unit tests of orbyt_tests.model.image.
+
+They read a sysupgrade image from bytes and from listings.
+"""
 
 import gzip
 import io

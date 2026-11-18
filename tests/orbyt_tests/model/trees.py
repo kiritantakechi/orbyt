@@ -20,7 +20,10 @@ if TYPE_CHECKING:
 
 
 def _link(source: str, target: str) -> None:
-    """Link ``target`` to ``source``, or copy it where the two cannot share a file."""
+    """Link ``target`` to ``source``, falling back to a copy.
+
+    The copy is made where the two cannot share a file.
+    """
     try:
         os.link(source, target)
     except OSError as error:
@@ -30,13 +33,19 @@ def _link(source: str, target: str) -> None:
 
 
 def linked_copy(source: Path, target: Path) -> Path:
-    """Copy the tree ``source`` to ``target`` as links to its files; return ``target``."""
+    """Copy the tree ``source`` to ``target`` as links to its files.
+
+    Return ``target``.
+    """
     shutil.copytree(source, target, copy_function=_link)
     return target
 
 
 def replace(path: Path, content: bytes | str) -> None:
-    """Give ``path`` ``content`` as a file of its own, whatever it was linked to."""
+    """Give ``path`` ``content`` as a file of its own.
+
+    The file is not linked to what ``path`` was linked to.
+    """
     path.unlink()
     if isinstance(content, str):
         path.write_text(content)

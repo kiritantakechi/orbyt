@@ -1,4 +1,6 @@
-"""firmware/web-theme: the image's own LuCI theme, its default, its coverage and its sources.
+"""firmware/web-theme: the image's own LuCI theme.
+
+Its default, its coverage and its sources.
 
 The coverage, LuCI's icons and the pages are read as the router serves
 them, LuCI's stock theme beside the image's own; the theme's files are
@@ -76,7 +78,10 @@ def _classes(css: str) -> set[str]:
 
 
 def _glyphs(css: str) -> dict[str, str]:
-    """Return LuCI's icons (``icons/<name>.svg``) a stylesheet gives a glyph, with its path."""
+    """Return the icons a stylesheet gives a glyph, with its path.
+
+    The icons are LuCI's, ``icons/<name>.svg``.
+    """
     text = _uncommented(css)
     return {
         icon: glyph.group(1)
@@ -87,7 +92,7 @@ def _glyphs(css: str) -> dict[str, str]:
 
 
 def _loads(text: str) -> list[str]:
-    """Return the references in ``text`` that load something from another host."""
+    """Return the references in ``text`` that load from another host."""
     return [match.group(0) for pattern in LOADS for match in pattern.finditer(text)]
 
 
@@ -98,7 +103,10 @@ def _get(router: Router, path: str) -> str:
 
 
 def _login(router: Router) -> str:
-    """Log in to LuCI as root (the image has no password set) and return the session cookie."""
+    """Log in to LuCI as root and return the session cookie.
+
+    The image has no password set.
+    """
     connection = HTTPConnection(router.address, timeout=30)
     try:
         connection.request(

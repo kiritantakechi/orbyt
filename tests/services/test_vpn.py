@@ -1,4 +1,6 @@
-"""services/vpn: WireGuard and Tailscale into the LAN, and how each passes honk.
+"""services/vpn: WireGuard and Tailscale into the LAN.
+
+The tests also show how each passes honk.
 
 wg-peer connects over WireGuard and routes the LAN and the proxied
 target through its tunnel; ts-peer is a tailnet node that takes the LAN

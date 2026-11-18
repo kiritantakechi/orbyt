@@ -1,4 +1,4 @@
-"""network/qos: qosify shapes WAN egress with cake, fairly across hosts, by class.
+"""network/qos: qosify shapes WAN egress with cake, by host and class.
 
 The fairness test sets the upload rate to 20 Mbit/s, and the ingress
 shaping test the download rate to 10 Mbit/s, which the emulator can
@@ -76,7 +76,7 @@ def _ifbs(router: Router) -> list[str]:
 
 
 def _set_wan(router: Router, options: dict[str, str]) -> None:
-    """Set (or, given "", delete) options of qosify's wan interface, and reload qosify."""
+    """Set (or, given "", delete) qosify's wan options; reload it."""
     commands = [
         f"uci set qosify.wan.{name}={value}"
         if value
@@ -90,7 +90,7 @@ def _set_wan(router: Router, options: dict[str, str]) -> None:
 
 @contextmanager
 def _ingress_shaped(router: Router, rate: int) -> Generator[None]:
-    """Shape pppoe-wan's ingress with cake at ``rate`` bit/s for the block."""
+    """Shape pppoe-wan's ingress with cake at ``rate`` bit/s."""
     options = ("ingress", "bandwidth_down")
     previous = {
         name: router.run(f"uci -q get qosify.wan.{name} || true").strip()

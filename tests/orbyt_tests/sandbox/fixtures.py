@@ -49,7 +49,7 @@ def isp(network: Network) -> Isp:
 def app_image(
     network: Network, emulation_dir: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> str:
-    """Push the test app image to the emulated internet's registry; return its reference."""
+    """Push the app image to the emulated registry; return its ref."""
     work = tmp_path_factory.mktemp("oci")
     layout = image_layout(
         extract_root(emulation_dir / "disk.raw", work / "root"), work / "layout"
@@ -61,7 +61,10 @@ def app_image(
 
 @pytest.fixture(scope="session")
 def repository(signed_repo: Path, network: Network) -> Iterator[str]:
-    """Serve the build's signed packages on the runner's LAN address; yield the base URL."""
+    """Serve the build's signed packages on the runner's LAN address.
+
+    Yield the base URL.
+    """
     del network  # requested for the runner's LAN address
     handler = functools.partial(_QuietHandler, directory=str(signed_repo))
     with ThreadingHTTPServer((RUNNER_ADDRESS, 0), handler) as server:

@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.device.emu: the machine standing in for each board (board-model D7)."""
+"""Unit tests of orbyt_tests.device.emu (board-model D7).
+
+The module is the machine standing in for each board.
+"""
 
 import shlex
 from typing import TYPE_CHECKING, Any
@@ -14,9 +17,10 @@ if TYPE_CHECKING:
 
 
 def _options(driver: dict[str, Any], name: str) -> list[dict[str, str]]:
-    """Return the values of a QEMU option in the driver's arguments, as key=value maps.
+    """Return the values of a QEMU option in the driver's arguments.
 
-    A value's first item, a device or backend type, is under ``type``.
+    Each value is a key=value map. A value's first item, a device or
+    backend type, is under ``type``.
     """
     arguments = shlex.split(driver["extra_args"])
     return [

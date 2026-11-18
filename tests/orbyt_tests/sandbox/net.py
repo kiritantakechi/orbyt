@@ -10,11 +10,13 @@ port with static addresses or a DHCP client, plus routes and daemons.
 (board-model D7), and the ISP and internet of ``UPSTREAM``.
 
 ```
-client-a ─┐                                                   ┌─ inet   netprobe, dns, iperf3
-client-b ─┼─ br-lan ── LAN │ router │ WAN ─ br-wan ─ isp ─ br-inet ─┤
-runner   ─┘ 10.0.0.0/24    │ (QEMU) │  PPPoE        (BRAS)          └─ proxy  socks5 exit
-client-c ─── br-lan2 ─ LAN │        │   (a second LAN port)
+client-a ─┐                                                      ┌ inet
+client-b ─┼─ br-lan ─ LAN │ router │ WAN ─ br-wan ─ isp ─ br-inet┤
+runner   ─┘ 10.0.0.0/24   │ (QEMU) │  PPPoE        (BRAS)        └ proxy
+client-c ── br-lan2 ─ LAN │        │   (a second LAN port)
 ```
+
+``inet`` runs netprobe, dns and iperf3; ``proxy`` is the socks5 exit.
 
 A namespace is held by a ``sleep`` process started with ``unshare
 --net``; commands enter it with ``nsenter``. No named namespaces, so no
@@ -60,7 +62,10 @@ IPERF_PORTS = (5201, 5202)
 
 @dataclass(frozen=True, slots=True)
 class Bridge:
-    """A bridge in the sandbox; ``tap`` is the emulator's port on it, if any."""
+    """A bridge in the sandbox.
+
+    ``tap`` is the emulator's port on it, if any.
+    """
 
     name: str
     tap: str | None = None
@@ -69,7 +74,10 @@ class Bridge:
 
 @dataclass(frozen=True, slots=True)
 class Port:
-    """A namespace's veth to a bridge: static ``addresses``, a DHCP client, or neither."""
+    """A namespace's veth to a bridge.
+
+    The port has static ``addresses``, a DHCP client, or neither.
+    """
 
     bridge: str
     addresses: tuple[str, ...] = ()
@@ -273,7 +281,9 @@ UPSTREAM = (
 
 
 def segments(board: Board) -> tuple[str, ...]:
-    """Return the segment each of the board's ports joins, in the board's order (board-model D7).
+    """Return the segment each of the board's ports joins.
+
+    The segments follow the board's order (board-model D7).
 
     The WAN port's segment is ``wan``, the LAN ports' are ``lan``,
     ``lan2``, ...
@@ -283,12 +293,14 @@ def segments(board: Board) -> tuple[str, ...]:
 
 
 def taps(board: Board) -> tuple[str, ...]:
-    """Return the emulator's tap of each of the board's ports, in the board's order."""
+    """Return the emulator's tap of each of the board's ports."""
     return tuple(f"emu-{segment}" for segment in segments(board))
 
 
 def topology(board: Board) -> Topology:
-    """Return the sandbox around the emulated board: a segment per port, the LAN clients, upstream.
+    """Return the sandbox around the emulated board.
+
+    It has a segment per port, the LAN clients and the upstream.
 
     The runner, ``client-a`` and ``client-b`` share the first LAN port's
     segment; every further LAN port's segment has a client of its own,
@@ -319,7 +331,7 @@ def topology(board: Board) -> Topology:
 
 
 def ip(*args: str) -> str:
-    """Run ``ip`` in the sandbox's own namespace and return its output."""
+    """Run ``ip`` in the sandbox's own namespace; return its output."""
     return subprocess.run(
         ["ip", *args], check=True, capture_output=True, text=True
     ).stdout
@@ -347,15 +359,21 @@ class Netns(AbstractContextManager["Netns"]):
 
     @property
     def pid(self) -> int:
-        """The holder process; ``ip link set ... netns <pid>`` moves links here."""
+        """The holder process's pid.
+
+        ``ip link set ... netns <pid>`` moves links here.
+        """
         return self._holder.pid
 
     def argv(self, *command: str) -> list[str]:
-        """Prefix a command line so that it runs inside this namespace."""
+        """Prefix a command line to run it inside this namespace."""
         return ["nsenter", f"--net={self.path}", "--", *command]
 
     def run(self, *command: str, timeout: float = 30) -> str:
-        """Run a command inside the namespace and return its output; errors show stderr."""
+        """Run a command inside the namespace; return its output.
+
+        Errors show stderr.
+        """
         try:
             result = subprocess.run(
                 self.argv(*command),
@@ -372,13 +390,16 @@ class Netns(AbstractContextManager["Netns"]):
     def spawn(
         self, *command: str, stdout: int | None = None
     ) -> subprocess.Popen[bytes]:
-        """Start a long-running command inside the namespace (``stdout``: e.g. PIPE)."""
+        """Start a long-running command inside the namespace.
+
+        ``stdout`` may be, e.g., PIPE.
+        """
         return subprocess.Popen(
             self.argv(*command), stdin=subprocess.DEVNULL, stdout=stdout
         )
 
     def probe(self, *args: str, timeout: float = 30) -> netprobe.Seen:
-        """Run a netprobe client inside the namespace and return what it printed."""
+        """Run a netprobe client in the namespace; return its output."""
         output = self.run(
             sys.executable, "-m", "orbyt_tests.sandbox.netprobe", *args, timeout=timeout
         )
@@ -400,7 +421,10 @@ class Network(AbstractContextManager["Network"]):
     """The sandbox topology, built on entry and torn down on exit."""
 
     def __init__(self, topology: Topology, workdir: Path) -> None:
-        """Remember what to build; ``workdir`` holds the daemons' files."""
+        """Remember what to build.
+
+        ``workdir`` holds the daemons' files.
+        """
         self.topology = topology
         self.workdir = workdir
         self._stack = ExitStack()
@@ -413,7 +437,10 @@ class Network(AbstractContextManager["Network"]):
 
     @override
     def __enter__(self) -> Self:
-        """Create bridges, taps and namespaces, then start DHCP clients and daemons."""
+        """Create bridges, taps and namespaces, then start services.
+
+        The services are the DHCP clients and the daemons.
+        """
         self._isolate()
         ip("link", "set", "lo", "up")
         for bridge in self.topology.bridges:
@@ -429,7 +456,9 @@ class Network(AbstractContextManager["Network"]):
         return self
 
     def _isolate(self) -> None:
-        """Give the sandbox its own accounts, hosts, the ISP's /etc/ppp and the servers' setup.
+        """Give the sandbox its own accounts, hosts and service setup.
+
+        The setup covers the ISP's /etc/ppp and the servers'.
 
         The sandbox has one uid, 0, which is the invoking user outside.
         Its own passwd and group make every account that uid, with a
@@ -457,7 +486,10 @@ class Network(AbstractContextManager["Network"]):
             )
 
     def add(self, namespace: Namespace) -> Netns:
-        """Add a namespace to the running sandbox; it lives as long as the sandbox."""
+        """Add a namespace to the running sandbox.
+
+        It lives as long as the sandbox.
+        """
         netns = self._stack.enter_context(Netns(namespace.name))
         self._namespaces[namespace.name] = netns
         netns.run("ip", "link", "set", "lo", "up")
@@ -521,7 +553,10 @@ class Network(AbstractContextManager["Network"]):
             )
 
     def renew(self, name: str) -> None:
-        """Have a namespace's DHCP client renew its lease now (udhcpc: SIGUSR1)."""
+        """Have a namespace's DHCP client renew its lease now.
+
+        udhcpc renews on SIGUSR1.
+        """
         self._dhcp[name].send_signal(signal.SIGUSR1)
 
     def _daemon(self, netns: Netns, command: Sequence[str]) -> subprocess.Popen[bytes]:
@@ -542,5 +577,5 @@ class Network(AbstractContextManager["Network"]):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        """Stop daemons and namespaces; links vanish with the sandbox."""
+        """Stop daemons and namespaces; links vanish with them."""
         self._stack.close()

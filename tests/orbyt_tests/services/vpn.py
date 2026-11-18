@@ -1,4 +1,6 @@
-"""The router's VPNs and their peers on the emulated internet (r4s-services D6, D10).
+"""The router's VPNs and their peers (r4s-services D6, D10).
+
+The peers are on the emulated internet.
 
 The image presets no keys: the tests write them the way the config push
 does. ``WireGuard`` gives the router's wg0 its key and wg-peer as its
@@ -56,7 +58,9 @@ class WireGuard:
 
     @classmethod
     def connect(cls, online: Online, routes: Sequence[str]) -> Self:
-        """Key both ends and bring the tunnel up; wg-peer routes ``routes`` through it.
+        """Key both ends and bring the tunnel up.
+
+        wg-peer routes ``routes`` through it.
 
         A failure on the way takes wg-peer's tunnel down again, so that
         the session's namespace holds none for the next one
@@ -116,12 +120,15 @@ class WireGuard:
         return tunnel
 
     def handshaken(self) -> bool:
-        """Return whether wg-peer has completed a handshake with the router."""
+        """Return whether wg-peer has handshaken with the router."""
         handshakes = self.peer.run("wg", "show", "wg0", "latest-handshakes").split()
         return len(handshakes) == 2 and handshakes[1] != "0"  # noqa: PLR2004
 
     def disconnect(self) -> None:
-        """Remove wg-peer's end; the router's goes back with its snapshot."""
+        """Remove wg-peer's end.
+
+        The router's goes back with its snapshot.
+        """
         self.peer.run("ip", "link", "del", "wg0")
 
 
@@ -147,7 +154,9 @@ def _node(network: Network, name: str) -> int:
 
 
 def clear(network: Network) -> None:
-    """Remove every node from headscale (the tailnet starts empty), routes withdrawn first.
+    """Remove every node from headscale, routes withdrawn first.
+
+    The tailnet starts empty.
 
     headscale (0.27) lets go of the routes a node serves when their
     approval changes or the node goes offline, not when it is deleted: a
@@ -161,7 +170,10 @@ def clear(network: Network) -> None:
 
 
 def preauth_key(network: Network) -> str:
-    """Return a new reusable preauth key of the tailnet's user, valid for an hour."""
+    """Return a new reusable preauth key of the tailnet's user.
+
+    The key is valid for an hour.
+    """
     users = cast("list[dict[str, Any]]", _headscale(network, "users", "list") or [])
     if not any(user["name"] == TAILNET_USER for user in users):
         _headscale(network, "users", "create", TAILNET_USER)
@@ -198,7 +210,9 @@ class Tailnet:
 
     @classmethod
     def join(cls, online: Online) -> Self:
-        """Log the router (subnet router and exit node) and ts-peer into the tailnet.
+        """Log the router and ts-peer into the tailnet.
+
+        The router is a subnet router and exit node.
 
         The tailnet starts empty: a node an earlier module left behind
         goes first.
@@ -264,7 +278,10 @@ class Tailnet:
         return tailnet
 
     def reachable(self) -> bool:
-        """Return whether the router answers ts-peer's tailscale ping."""
+        """Return whether the router answers.
+
+        The probe is ts-peer's tailscale ping.
+        """
         try:
             self.peer_tailscale("ping", "--c=1", "--timeout=5s", self.router_address)
         except subprocess.CalledProcessError:
@@ -272,7 +289,10 @@ class Tailnet:
         return True
 
     def use_exit_node(self, *, on: bool) -> None:
-        """Have ts-peer send its internet traffic through the router, or stop it."""
+        """Have ts-peer send its internet traffic through the router.
+
+        With ``on`` false, it stops.
+        """
         self.peer_tailscale("set", f"--exit-node={self.router_address if on else ''}")
 
     def leave(self) -> None:

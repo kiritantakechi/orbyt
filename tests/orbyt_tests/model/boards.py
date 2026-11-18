@@ -1,10 +1,10 @@
-"""The supported boards (board-model D1): one description per board under ``boards/``.
+"""The supported boards: one description per board under ``boards/``.
 
-A description declares every fact that differs between boards: the
-OpenWrt device and board name, the SoC with its loader and its cores,
-the CPU tuning, the U-Boot variant, the boot disk, the ports with their
-roles and drivers, and how the emulator stands in for the board. The
-board's id is the file's name.
+A description (board-model D1) declares every fact that differs between
+boards: the OpenWrt device and board name, the SoC with its loader and
+its cores, the CPU tuning, the U-Boot variant, the boot disk, the ports
+with their roles and drivers, and how the emulator stands in for the
+board. The board's id is the file's name.
 
 ``Board`` is their schema, strict about unknown fields and types.
 ``board-check`` (``just check boards``) checks every description with
@@ -29,14 +29,17 @@ class _Facts(BaseModel):
 
 
 class Loader(_Facts):
-    """The signature of the SoC's loader, at its offset in the loader (sector 64 on)."""
+    """The signature of the SoC's loader, and its offset in the loader.
+
+    The loader sits on the disk from sector 64 on.
+    """
 
     signature: Annotated[str, Field(min_length=4, max_length=4)]
     offset: Annotated[int, Field(ge=0)]
 
 
 class Soc(_Facts):
-    """The SoC: its device-tree compatible, the loader its boot ROM runs, and its cores.
+    """The SoC: its compatible, the loader its boot ROM runs, its cores.
 
     ``cores`` holds each core's capacity, in CPU order, as the SoC's
     device tree gives it (``capacity-dmips-mhz``): the big cores are
@@ -49,7 +52,11 @@ class Soc(_Facts):
 
 
 class UBoot(_Facts):
-    """The board's U-Boot: its uboot-rockchip variant, and where its environment is built."""
+    """The board's U-Boot variant and environment.
+
+    The variant is its uboot-rockchip one; the environment is built in
+    ``env_dir``.
+    """
 
     variant: str
     env_dir: str
@@ -63,14 +70,17 @@ class Port(_Facts):
 
 
 class Drivers(_Facts):
-    """The kernel drivers of the board's ports, by the bus they register on."""
+    """The board's port drivers, by the bus they register on."""
 
     platform: tuple[str, ...]
     pci: tuple[str, ...]
 
 
 class Emulator(_Facts):
-    """How the emulator stands in for the board: CPU model and memory (the SoC's cores)."""
+    """How the emulator stands in for the board.
+
+    Its CPU model and memory (the SoC's cores).
+    """
 
     cpu: str
     memory: Annotated[str, Field(pattern=r"^[0-9]+[MG]$")]
@@ -104,7 +114,10 @@ class Description(_Facts):
 
 
 class Board(Description):
-    """A supported board: its description and its id, the description file's name."""
+    """A supported board: its description and its id.
+
+    The id is the description file's name.
+    """
 
     id: str
 
@@ -147,7 +160,10 @@ def load_all(directory: Path = BOARDS_DIR) -> tuple[Board, ...]:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Check every board description; print each problem with its board and field."""
+    """Check every board description; print each problem.
+
+    Each problem names its board and field.
+    """
     parser = argparse.ArgumentParser(
         prog="board-check", description=__doc__.splitlines()[0]
     )

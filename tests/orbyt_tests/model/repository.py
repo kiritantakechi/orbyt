@@ -1,4 +1,4 @@
-"""Where the repository is: its root, the directory of the tests, and its feed."""
+"""Where the repository is: its root, tests directory and feed."""
 
 from pathlib import Path
 
@@ -8,9 +8,10 @@ FEED_DIR = REPO_DIR / "feed"
 
 
 def feed_variable(package: str, name: str) -> str:
-    """Return what the Makefile of our feed's ``package`` (net/honk, ...) sets ``name`` to.
+    """Return what ``package``'s Makefile in our feed sets ``name`` to.
 
-    The value of its first ``name:=value`` line, as written.
+    ``package`` is a feed path such as net/honk. The value of its first
+    ``name:=value`` line, as written.
     """
     makefile = (FEED_DIR / package / "Makefile").read_text(encoding="utf-8")
     for line in makefile.splitlines():

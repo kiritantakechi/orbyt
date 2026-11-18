@@ -1,4 +1,7 @@
-"""The patch checks of tests/orbyt_tests/model/patches.py, on made-up patches and write-ups."""
+"""The patch checks of tests/orbyt_tests/model/patches.py.
+
+They run on made-up patches and write-ups.
+"""
 
 from orbyt_tests.model.patches import (
     unstated,
@@ -12,7 +15,8 @@ def test_the_trailer_is_read_from_either_kind_of_patch() -> None:
     format_patch = (
         "From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001\n"
         "From: a <a@b>\nSubject: [PATCH] fix\n\nWhy.\n\n"
-        "Signed-off-by: a <a@b>\nUpstream-Status: Pending\n---\n f | 1 +\n\ndiff --git a/f b/f\n"
+        "Signed-off-by: a <a@b>\nUpstream-Status: Pending\n---\n f | 1 +\n"
+        "\ndiff --git a/f b/f\n"
     )
     plain = "Why.\n\nUpstream-Status: Backport [upstream 1234abc]\n\n--- a/f\n+++ b/f\n"
     in_the_diff = "Why.\n\n--- a/f\n+++ b/f\n@@ -1 +1 @@\n+Upstream-Status: Pending\n"

@@ -1,4 +1,6 @@
-"""The emulated board (design D14, r4s-ab-rollback D7, board-model D7): its files and driving it.
+"""The emulated board: its files, and driving it.
+
+(design D14, r4s-ab-rollback D7, board-model D7)
 
 ``emu-prepare`` turns the outputs of a build into what the emulator
 boots, as the board the build is for: the factory image as the board's
@@ -105,7 +107,9 @@ class Machine:
     board: Board
 
     def dump_dtb(self, output: Path, firmware: Path) -> None:
-        """Write the device tree QEMU generates for this machine running ``firmware``.
+        """Write the device tree QEMU generates for this machine.
+
+        The machine runs ``firmware``.
 
         The firmware belongs to the machine: with one, QEMU replaces the
         PL061 GPIO with an ACPI event device, and a device tree without
@@ -125,7 +129,9 @@ class Machine:
         )
 
     def description(self, directory: Path) -> dict[str, Any]:
-        """Return the labgrid target description of the machine booting ``directory``'s files.
+        """Return the labgrid target description of the machine.
+
+        The machine boots ``directory``'s files.
 
         The boot disk is the board's kind on an SD host controller; each
         of the board's ports is a virtio NIC in the board's order, on
@@ -140,14 +146,20 @@ class Machine:
             )
             for argument in (
                 f"-netdev tap,id={segment},ifname={tap},script=no,downscript=no",
-                f"-device virtio-net-pci,netdev={segment},mac=52:54:00:0a:00:{0x10 + index:02x}",
+                (
+                    f"-device virtio-net-pci,netdev={segment},"
+                    f"mac=52:54:00:0a:00:{0x10 + index:02x}"
+                ),
             )
         ]
         arguments = (
             f"-smp {len(self.board.soc.cores)}",
             f"-drive if=none,id=disk,format=qcow2,file={directory / OVERLAY_FILE}",
             "-device sdhci-pci",
-            f"-device {BOOT_DISKS[self.board.boot_disk].device},id={BOOT_DISK_ID},drive=disk",
+            (
+                f"-device {BOOT_DISKS[self.board.boot_disk].device}"
+                f",id={BOOT_DISK_ID},drive=disk"
+            ),
             *nics,
             "-device i6300esb",
             "-device qemu-xhci,id=xhci",
@@ -197,14 +209,17 @@ def sha256(path: Path) -> str:
 
 
 def run(*command: str) -> str:
-    """Run a tool of the test environment, fail on a non-zero exit, return stdout."""
+    """Run a tool of the test environment and return its stdout.
+
+    Fail on a non-zero exit.
+    """
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
 def boot_files(
     disk: Path, partition: int, names: tuple[str, ...], output: Path
 ) -> None:
-    """Copy files of a boot partition (ext4) of a raw disk into ``output``."""
+    """Copy files of a disk's ext4 boot partition to ``output``."""
     with disk.open("rb") as raw:
         boot = read_mbr(raw.read(SECTOR)).partition(partition)
         raw.seek(boot.start)
@@ -227,7 +242,10 @@ def read_fit(path: Path) -> Fit:
 
 
 def extract_fit_image(path: Path, image: FitNode, output: Path) -> None:
-    """Write one image of a FIT file to ``output``, as stored (still compressed)."""
+    """Write one image of a FIT file to ``output``, as stored.
+
+    The image stays compressed.
+    """
     run(
         "dumpimage",
         "-T",
@@ -242,7 +260,10 @@ def extract_fit_image(path: Path, image: FitNode, output: Path) -> None:
 
 @dataclass(frozen=True, slots=True)
 class Build:
-    """The outputs of one build that the emulator boots, as its manifest lists them."""
+    """The outputs of one build that the emulator boots.
+
+    The build's manifest lists them.
+    """
 
     directory: Path
     board: Board
@@ -251,7 +272,10 @@ class Build:
 
     @classmethod
     def read(cls, directory: Path) -> Self:
-        """Find the board, the factory image and the firmware; check both against the manifest."""
+        """Find the board, the factory image and the firmware.
+
+        Check both against the manifest.
+        """
         images = sorted(directory.glob(FACTORY_IMAGE))
         if len(images) != 1:
             msg = f"expected one {FACTORY_IMAGE} in {directory}, found {len(images)}"
@@ -267,7 +291,7 @@ class Build:
 
 
 def prepare(build: Build, root: Path) -> Path:
-    """Build (or reuse) the emulator directory for a build and return it."""
+    """Build (or reuse) a build's emulator directory and return it."""
     machine = Machine(build.board)
     image_sha256, firmware_sha256 = sha256(build.image), sha256(build.firmware)
     identity = f"{image_sha256} {firmware_sha256} {build.board.model_dump_json()}"
@@ -279,7 +303,10 @@ def prepare(build: Build, root: Path) -> Path:
         with build.image.open("rb") as source, disk_file.open("wb") as target:
             gunzip_first_member(source, target)
         if disk_file.stat().st_size > disk.size:
-            msg = f"{build.image.name} is larger than a {disk.size >> 30} GiB {disk.device}"
+            msg = (
+                f"{build.image.name} is larger than a"
+                f" {disk.size >> 30} GiB {disk.device}"
+            )
             raise SystemExit(msg)
         os.truncate(disk_file, disk.size)
         shutil.copyfile(build.firmware, work / FIRMWARE_FILE)
@@ -326,7 +353,9 @@ def prepare(build: Build, root: Path) -> Path:
 
 
 def _current(record: Path) -> bool:
-    """Return whether the build an emulator directory was made from still has those files.
+    """Return whether an emulator directory's build still has its files.
+
+    The build is the one the directory was made from.
 
     A record or a manifest that no longer reads as one names a build
     that changed.
@@ -346,14 +375,14 @@ def _current(record: Path) -> bool:
 
 
 def prune(root: Path) -> None:
-    """Remove the emulator directories of builds that have changed or gone since."""
+    """Remove the emulator directories of changed or gone builds."""
     for record in root.glob(f"*/{SOURCE_FILE}"):
         if not _current(record):
             shutil.rmtree(record.parent)
 
 
 def main(argv: list[str] | None = None) -> int:
-    """emu-prepare: print the emulator directory prepared for the outputs of a build."""
+    """emu-prepare: print the emulator directory for a build."""
     parser = argparse.ArgumentParser(prog="emu-prepare", description=main.__doc__)
     parser.add_argument("build", type=Path, help="the output directory of a build")
     parser.add_argument(
@@ -382,7 +411,9 @@ class Console:
     """
 
     def __init__(self, read: Callable[[int, float], bytes], log: Path) -> None:
-        """Read the console with ``read(size, timeout)`` into memory and append it to ``log``.
+        """Read the console with ``read(size, timeout)`` into memory.
+
+        The console is also appended to ``log``.
 
         ``read`` raises pexpect's TIMEOUT when nothing came, and returns
         nothing once the console has ended.
@@ -435,7 +466,10 @@ class Console:
                     self._changed.notify_all()
 
     def mark(self) -> int:
-        """Return the current end of the record; wait_for() can search from here."""
+        """Return the current end of the record.
+
+        wait_for() can search from here.
+        """
         with self._changed:
             return len(self._data)
 
@@ -450,7 +484,7 @@ class Console:
             self._changed.notify_all()
 
     def wait_for(self, pattern: str, *, since: int, timeout: float) -> str:
-        """Wait until ``pattern`` (a regular expression) appears after ``since``.
+        """Wait until regex ``pattern`` appears after ``since``.
 
         Raise ConsoleEndedError at once when the console ended without
         it.
@@ -473,19 +507,22 @@ class Console:
 
 @dataclass(frozen=True, slots=True)
 class PluggedDisk:
-    """A disk plugged in on a port of the emulator's xHCI: its image and port."""
+    """A disk plugged in on an emulator xHCI port: image and port."""
 
     image: Path
     port: int
 
 
 class Emulator:
-    """Power, disk snapshots and serial console of the emulated board."""
+    """Power, disk snapshots and serial console of the board."""
 
     SNAPSHOT = "booted"
 
     def __init__(self, target: Target, directory: Path, console_log: Path) -> None:
-        """Bind to the QEMUDriver of ``target``; ``directory`` is the prepared one."""
+        """Bind to the QEMUDriver of ``target``.
+
+        ``directory`` is the prepared one.
+        """
         self.target = target
         self.qemu: QEMUDriver = target.get_driver("QEMUDriver", activate=False)
         self.console = Console(self._read_console, console_log)
@@ -505,7 +542,10 @@ class Emulator:
         self.plugged: dict[str, PluggedDisk] = {}
 
     def reset_disk(self) -> None:
-        """Start from the shipped disk again: a fresh copy-on-write overlay."""
+        """Start from the shipped disk again, on a fresh overlay.
+
+        The overlay is copy-on-write.
+        """
         run(
             "qemu-img",
             *("create", "-q", "-f", "qcow2"),
@@ -532,7 +572,10 @@ class Emulator:
         self.console.start()
 
     def power_cut(self) -> None:
-        """Kill the machine without any shutdown; the disk keeps what was written."""
+        """Kill the machine without any shutdown.
+
+        The disk keeps what was written.
+        """
         self.console.stop()
         self.qemu.off()
         if self.run_log.exists():
@@ -541,7 +584,10 @@ class Emulator:
             self.run_log.unlink()
 
     def logged(self) -> str:
-        """Return what QEMU logged in this session, the running machine's included."""
+        """Return what QEMU logged in this session.
+
+        That includes the running machine's log.
+        """
         return "".join(
             path.read_text(encoding="utf-8")
             for path in (self.log, self.run_log)
@@ -575,7 +621,7 @@ class Emulator:
 
     @contextmanager
     def throttled_writes(self, bps: int) -> Generator[None]:
-        """Limit writes to the boot disk to ``bps`` bytes per second while the context lasts.
+        """Limit boot disk writes to ``bps`` bytes/s in the block.
 
         The limit ends with the context, however it ends, or with the
         power cut that ends the QEMU holding it (test-fidelity D11).
@@ -589,7 +635,10 @@ class Emulator:
                 self._limit_writes(0)
 
     def write_limit(self) -> int:
-        """Return the boot disk's limit of written bytes per second, 0 for none."""
+        """Return the boot disk's write limit in bytes per second.
+
+        Return 0 for none.
+        """
         blocks = cast("list[dict[str, Any]]", self.qemu.monitor_command("query-block"))
         # A device's qdev is its id, or its QOM path, which holds the
         # id.
@@ -605,7 +654,9 @@ class Emulator:
         self.qemu.write(text.encode())
 
     def plug_disk(self, name: str, image: Path, port: int) -> None:
-        """Plug ``image`` in as a USB SSD (UAS, as the boards' data disks) on xHCI port ``port``.
+        """Plug ``image`` in as a USB SSD on xHCI port ``port``.
+
+        The disk is UAS, as the boards' data disks are.
 
         The disk's SCSI product name is ``name``, which the guest shows
         as its model. The machine's snapshot holds no such disk (a raw
@@ -662,7 +713,7 @@ class Emulator:
         self.qemu.monitor_command("blockdev-del", {"node-name": name})
 
     def _drive_in_use(self, name: str) -> bool:
-        """Return whether a device's block backend still holds the drive ``name``."""
+        """Return whether a block backend still holds drive ``name``."""
         blocks = self.qemu.monitor_command("query-block")
         return any(
             block.get("inserted", {}).get("node-name") == name for block in blocks

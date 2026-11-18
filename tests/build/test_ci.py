@@ -1,4 +1,4 @@
-"""build/ci: a build hands on its image and kmods with a manifest that describes them.
+"""build/ci: a build hands on its image and kmods with a manifest.
 
 And the workflows: main's runs delete the caches of merged branches and
 closed pull requests, branch runs save caches only within the quota's
@@ -46,7 +46,10 @@ def _workflow(path: Path = WORKFLOW) -> dict[str, Any]:
 
 
 def _triggers(path: Path = WORKFLOW) -> dict[str, Any]:
-    """Return a workflow's events, its key ``on``, which YAML 1.1 reads as true."""
+    """Return a workflow's events, its key ``on``.
+
+    YAML 1.1 reads the key as true.
+    """
     return cast(
         "dict[str, Any]", yaml.safe_load(path.read_text(encoding="utf-8"))[True]
     )
@@ -210,7 +213,10 @@ NEWER = "b" * 40
 
 
 def _caches_of_a_rerun(repository: Repository, ref: str) -> None:
-    """Add the caches of a ref's newer run, then those a re-run of the older run saved after."""
+    """Add the caches of a ref's newer run, then a re-run's.
+
+    The re-run of the older run saved its caches after the newer run.
+    """
     for run in ("2", "1"):
         repository.cache(ref, f"toolchain-{run}")
         repository.cache(ref, f"dl-{run}")
@@ -369,7 +375,10 @@ def test_every_job_installs_the_one_pinned_nix() -> None:
 
 
 def _modules(path: Path) -> list[Path]:
-    """Return the test modules a suite's path selects: a directory's, or the module itself."""
+    """Return the test modules a suite's path selects.
+
+    They are a directory's modules, or the module itself.
+    """
     assert path.exists(), (
         f"a suite names {path.relative_to(TESTS)}, which does not exist"
     )

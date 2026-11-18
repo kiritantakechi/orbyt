@@ -28,9 +28,13 @@ def trust_ca(router: Router, workdir: Path) -> None:
 
 
 def trust_keys(router: Router, keys: Keys) -> None:
-    """Make ``keys`` the router's only trust anchors, in place of the image's own."""
+    """Make ``keys`` the router's only trust anchors.
+
+    They replace the image's own.
+    """
     router.run(
-        f"rm -f /{APK_KEYS}/* /{FIRMWARE_KEYS}/* && mkdir -p /{APK_KEYS} /{FIRMWARE_KEYS}"
+        f"rm -f /{APK_KEYS}/* /{FIRMWARE_KEYS}/*"
+        f" && mkdir -p /{APK_KEYS} /{FIRMWARE_KEYS}"
     )
     for anchors in (APK_KEYS, FIRMWARE_KEYS):
         for key in (keys.keyring / anchors).iterdir():

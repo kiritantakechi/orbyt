@@ -35,7 +35,10 @@ _REGISTERS = 8
 
 @dataclass(frozen=True)
 class Trap:
-    """A process the kernel killed for a trap: its name, pid and address, and when."""
+    """A process the kernel killed for a trap.
+
+    It records the process's name, pid and address, and when.
+    """
 
     process: str
     pid: int
@@ -45,7 +48,10 @@ class Trap:
 
     @override
     def __str__(self) -> str:
-        """Render as ``process[pid] at pc <pc> in <file>[<mapping>]``."""
+        """Render the trap.
+
+        The form is ``process[pid] at pc <pc> in <file>[<mapping>]``.
+        """
         return f"{self.process}[{self.pid}] at pc {self.pc}{self.where}"
 
 
@@ -71,7 +77,9 @@ def parse(log: str) -> list[Trap]:
 
 
 class Traps:
-    """The traps of a ``ubsan`` build's router, each reported once (test-controls D7).
+    """The traps of a ``ubsan`` build's router (test-controls D7).
+
+    Each trap is reported once.
 
     Read from two records of the kernel's reports: the kernel log, whole
     for the router's current boot whenever the router answers, and the
@@ -88,7 +96,7 @@ class Traps:
         self._seen: set[tuple[str, int, str]] = set()
 
     def new(self) -> list[Trap]:
-        """Return the traps the records hold that no earlier call returned."""
+        """Return traps in the records that no earlier call returned."""
         logs = (self._router.poll("dmesg") or "", self._router.emulator.console.text())
         found = []
         for trap in (trap for log in logs for trap in parse(log)):
@@ -100,7 +108,10 @@ class Traps:
 
 
 def report(traps: list[Trap], when: str) -> None:
-    """Fail the running test (or fixture) if ``traps`` holds any, naming each."""
+    """Fail the running test (or fixture) if ``traps`` has any.
+
+    The failure names each trap.
+    """
     if traps:
         lines = "\n".join(f"  {trap}" for trap in traps)
         pytest.fail(f"undefined behavior trapped {when}:\n{lines}", pytrace=False)

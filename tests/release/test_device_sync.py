@@ -1,4 +1,6 @@
-"""release/device-sync: the router's local repository of releases, which orbyt-sync keeps.
+"""release/device-sync: the router's local repository of releases.
+
+orbyt-sync keeps the repository.
 
 The module's router is online, resolves and trusts the emulated
 internet, and runs honk with the test configuration, which routes the
@@ -76,7 +78,10 @@ OUTSIDE = "/etc/shadow"
 
 @dataclass
 class Releases:
-    """The stand-in's repository orbyt/sync, and the router that syncs from it."""
+    """The stand-in's repository orbyt/sync and the router.
+
+    The router syncs from the repository.
+    """
 
     online: Online
     assembled: Path
@@ -89,7 +94,10 @@ class Releases:
         return self.online.router
 
     def publish(self, release: Path | None = None, *, prerelease: bool = False) -> str:
-        """Publish the build (or ``release``) as a new release, the newest now; return its tag."""
+        """Publish the build (or ``release``) as a new release.
+
+        It is the newest release now. Return its tag.
+        """
         release = release or self.assembled
         tag = read_json(release / RELEASE_FILE, Release).tag
         return releases.publish(
@@ -119,11 +127,14 @@ class Releases:
         return target.removeprefix("releases/") or None
 
     def kept(self) -> list[str]:
-        """Return the tags of the releases on the data disk, the latest current first."""
+        """Return the tags of the releases on the data disk.
+
+        The latest current one comes first.
+        """
         return self.router.run(f"ls -1t {LOCAL}/releases").split()
 
     def synced(self) -> str:
-        """Return the current release, after syncing a new one if there is none."""
+        """Return the current release, syncing one if there is none."""
         if (current := self.current()) is not None:
             return current
         tag = self.publish()
@@ -140,7 +151,10 @@ def stand_in(
     signed_boards: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[Releases]:
-    """Assemble the signed build as a release; point the router's orbyt-sync at the stand-in."""
+    """Assemble the signed build as a release.
+
+    Point the router's orbyt-sync at the stand-in.
+    """
     del trusted_ca  # requested for the router's trust in the stand-in
     assembled = tmp_path_factory.mktemp("sync") / "release"
     subprocess.run(
@@ -249,7 +263,7 @@ def test_a_file_that_does_not_match_is_refused(
 
 
 def _with_member(archive: Path, name: str, kind: bytes) -> None:
-    """Add a member ``name`` of tar type ``kind`` to the package archive ``archive``."""
+    """Add a member ``name`` of tar type ``kind`` to ``archive``."""
     added = tarfile.TarInfo(name)
     added.type = kind
     content = b"not a package\n" if kind == tarfile.REGTYPE else b""
@@ -342,7 +356,8 @@ def _flip_a_bit(router: Router, path: str, at: int) -> None:
     """Change one byte of a file on the router: one bit of it."""
     router.run(
         'ucode -e \'let f = require("fs").open(ARGV[0], "r+"), at = +ARGV[1];'
-        " f.seek(at); let b = ord(f.read(1)); f.seek(at); f.write(chr(b ^ 1)); f.close();'"
+        " f.seek(at); let b = ord(f.read(1)); f.seek(at);"
+        " f.write(chr(b ^ 1)); f.close();'"
         f" -- {path} {at}"
     )
 
@@ -501,7 +516,7 @@ def test_another_board_s_build_is_refused(
 def test_a_release_survives_a_power_cut(
     stand_in: Releases, data_disk: Disk, board: Board
 ) -> None:
-    """The module's last test: the router comes back from a power cut."""
+    """The module's last test: the router recovers from a power cut."""
     del data_disk  # the local repository's place
     router = stand_in.router
     stand_in.synced()
@@ -518,8 +533,10 @@ def test_a_release_survives_a_power_cut(
     # The sums in a file first: a helper that failed must not leave
     # sha256sum nothing to check, and so nothing to fail.
     checked = router.run(
-        f"/usr/libexec/orbyt-sync/manifest checksums {LOCAL}/current/manifest.json {board.device}"
-        f" >/tmp/sums && cd {LOCAL}/current && sha256sum -c /tmp/sums 2>&1; echo exit=$?",
+        "/usr/libexec/orbyt-sync/manifest checksums"
+        f" {LOCAL}/current/manifest.json {board.device}"
+        f" >/tmp/sums && cd {LOCAL}/current"
+        " && sha256sum -c /tmp/sums 2>&1; echo exit=$?",
         timeout=120,
     )
     assert checked.endswith("exit=0"), checked

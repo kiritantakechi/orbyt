@@ -1,4 +1,4 @@
-"""Unit tests of scripts/github-audit.sh against a gh that answers from files.
+"""Unit tests of scripts/github-audit.sh against a stand-in gh.
 
 The stand-in answers ``gh api <path> [--jq <filter>]`` with the JSON
 file named after the path, as GitHub's API would for a repository set up
@@ -30,7 +30,7 @@ def _settings(
     branches: tuple[str, ...] = ("main", "bump/*"),
     has_push: bool = True,
 ) -> Any:  # noqa: ANN401 (JSON)
-    """Return the API's answers for a repository set up as the release pipeline needs.
+    """Return the API's answers for a repository the pipeline needs.
 
     ``has_push`` says whether the bump's push token is among its
     secrets.

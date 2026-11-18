@@ -1,4 +1,7 @@
-"""quality/code-standards: one command enforces every rule and catches each violation."""
+"""quality/code-standards: one command enforces every rule.
+
+The command catches each violation.
+"""
 
 import importlib
 import os
@@ -40,7 +43,10 @@ def _files() -> list[str]:
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    """Return a scratch copy of the repository (a git work tree, nothing committed)."""
+    """Return a scratch copy of the repository.
+
+    The copy is a git work tree with nothing committed.
+    """
     copy = tmp_path / "repo"
     for name in _files():
         (copy / name).parent.mkdir(parents=True, exist_ok=True)
@@ -109,7 +115,11 @@ def test_jsonfilter_in_device_code_fails(repo: Path) -> None:
 @spec(CAPABILITY, "Common script skeleton", "New script added")
 def test_new_script_without_skeleton_fails(repo: Path) -> None:
     script = repo / "scripts" / "thing-probe.sh"
-    header = "#!/bin/sh\n# thing-probe: probe the skeleton check.\n# Usage: scripts/thing-probe.sh\n"
+    header = (
+        "#!/bin/sh\n"
+        "# thing-probe: probe the skeleton check.\n"
+        "# Usage: scripts/thing-probe.sh\n"
+    )
     script.write_text(header + "echo probe\n")
     script.chmod(0o755)
     result = _run(repo, "check.sh", "skeleton")

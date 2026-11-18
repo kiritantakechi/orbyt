@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.sandbox.oci: the test app image from the firmware's own programs."""
+"""Unit tests of orbyt_tests.sandbox.oci.
+
+They cover the test app image, built from the firmware's own programs.
+"""
 
 import gzip
 import io

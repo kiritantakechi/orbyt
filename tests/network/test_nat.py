@@ -1,4 +1,4 @@
-"""network/nat: einat's full-cone NAT44 and what falls back to masquerade.
+"""network/nat: einat's full-cone NAT44 and the masquerade fallback.
 
 honk stays off in this module: every flow goes direct, so what the
 internet sees is einat's work (or masquerade's) alone.
@@ -72,11 +72,12 @@ class Listener:
         )
 
     def receives(self, send: Callable[[], object]) -> bool:
-        """Return whether what ``send`` sends arrives before the listener gives up.
+        """Return whether what ``send`` sends arrives in time.
 
-        ``send`` sends again each second: the emulated path can lose a
-        datagram now and then, and what lets one in lets every one in,
-        as what keeps one out keeps every one out.
+        The listener gives up at the timeout. ``send`` sends again each
+        second: the emulated path can lose a datagram now and then, and
+        what lets one in lets every one in, as what keeps one out keeps
+        every one out.
         """
         while self.process.poll() is None:
             send()
@@ -87,7 +88,10 @@ class Listener:
 
 
 def _map(online: Online, port: int, target: str = DIRECT_TARGET[0]) -> int:
-    """Send from a LAN socket on ``port`` to ``target``; return the public port it got."""
+    """Send from a LAN socket on ``port`` to ``target``.
+
+    Return the public port the send got.
+    """
     seen = online.client().probe("udp", target, "--source-port", str(port))
     assert seen["address"] == online.wan_address
     assert isinstance(seen["port"], int)
@@ -95,14 +99,20 @@ def _map(online: Online, port: int, target: str = DIRECT_TARGET[0]) -> int:
 
 
 def _unasked(online: Online, port: int) -> Callable[[], object]:
-    """Return what sends a datagram to the WAN address's ``port`` from a host no client asked."""
+    """Return what sends to the WAN's ``port`` from an unasked host.
+
+    The sender is a host no LAN client has contacted.
+    """
     return lambda: online.network["inet"].probe(
         "send", online.wan_address, "--port", str(port), "--bind", NEVER_CONTACTED
     )
 
 
 def _inbound_accepted(online: Online) -> int:
-    """Return the packets fw4's accept-by-mark rules have counted, or -1 without them."""
+    """Return the packets fw4's accept-by-mark rules counted, or -1.
+
+    The result is -1 when fw4 has no such rules.
+    """
     ruleset = online.router.run("nft list chain inet fw4 forward_wan")
     rule = rf"meta mark & {INBOUND_MARK} == {INBOUND_MARK} counter packets (\d+)"
     counts = [int(count) for count in re.findall(rule, ruleset)]
@@ -110,7 +120,10 @@ def _inbound_accepted(online: Online) -> int:
 
 
 def _einat_rules(online: Online) -> bool:
-    """Return whether fw4 has einat's rules (procd hands them over with einat)."""
+    """Return whether fw4 has einat's rules.
+
+    procd hands them over with einat.
+    """
     return "ubus:einat" in online.router.run("nft list ruleset")
 
 
@@ -129,7 +142,7 @@ def _einat_attached(online: Online) -> None:
 
 @pytest.fixture
 def einat_restored(online: Online) -> Iterator[Online]:
-    """Put einat back as it was after a test that stops, detaches or reconfigures it."""
+    """Restore einat after a test stops, detaches or reconfigures it."""
     yield online
     online.router.run("/etc/init.d/einat restart")
     _einat_attached(online)
@@ -150,10 +163,11 @@ def test_filtering_is_endpoint_independent(online: Online) -> None:
 
 @contextlib.contextmanager
 def _packets_at(router: Router, device: str) -> Generator[Callable[[], int]]:
-    """Count the IPv4 packets that enter ``device`` while the context lasts; yield their count.
+    """Count the IPv4 packets that enter ``device``; yield the count.
 
-    By their protocol, which a PPP device's packets carry without a
-    link-layer header as an Ethernet device's carry with one.
+    The count runs while the context lasts. By their protocol, which a
+    PPP device's packets carry without a link-layer header as an
+    Ethernet device's carry with one.
     """
     hook = f"{{ type filter hook ingress device {device} priority -500; }}"
     router.run(
@@ -214,8 +228,8 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
             assert packets() > 0, f"no packet reached {PPP_DEVICE}"
     finally:
         isp.run("ip", "route", "del", "10.0.0.0/24")
-    # ...and as a bare frame on the Ethernet segment under PPPoE, which the WAN
-    # port takes.
+    # ...and as a bare frame on the Ethernet segment under PPPoE,
+    # which the WAN port takes.
     listener = Listener(online.client(), 41003)
     with _packets_at(online.router, wan) as frames:
         assert not listener.receives(

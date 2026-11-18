@@ -27,7 +27,7 @@ _RENAME = re.compile(
 
 @dataclass(frozen=True, slots=True, order=True)
 class ScenarioId:
-    """The address of one scenario: capability, requirement and scenario name."""
+    """A scenario's address: capability, requirement and name."""
 
     capability: str
     requirement: str
@@ -53,7 +53,7 @@ def _capability(spec_file: Path, specs_dir: Path) -> str:
 
 
 def parse_spec(spec_file: Path, capability: str, change: str | None) -> list[Scenario]:
-    """Return the scenarios of one spec file, skipping removed requirements."""
+    """Return a spec file's scenarios, skipping removed requirements."""
     scenarios: list[Scenario] = []
     requirement: str | None = None
     removed = False
@@ -70,7 +70,7 @@ def parse_spec(spec_file: Path, capability: str, change: str | None) -> list[Sce
 
 
 def parse_renames(spec_file: Path) -> dict[str, str]:
-    """Return the requirements a delta renames, each old name with its new one."""
+    """Return the requirements a delta renames, old name to new."""
     renames: dict[str, str] = {}
     renamed = False
     old: str | None = None
@@ -87,7 +87,7 @@ def parse_renames(spec_file: Path) -> dict[str, str]:
 
 
 def load_scenarios(openspec_dir: Path) -> list[Scenario]:
-    """Return every scenario of the archived specs and of the changes in flight.
+    """Return every scenario of archived specs and in-flight changes.
 
     An archived requirement that a change in flight renames keeps its
     scenarios, under the new name: the system still has to meet them,
@@ -126,11 +126,15 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
 
 
 def capability_of_module(module: Path) -> str | None:
-    """Map ``<domain>/test_<name>.py`` to ``<domain>/<name>`` (underscores to hyphens)."""
+    """Map ``<domain>/test_<name>.py`` to ``<domain>/<name>``.
+
+    Underscores in the name become hyphens.
+    """
     match module.parts:
         case (domain, filename) if filename.startswith("test_") and filename.endswith(
             ".py"
         ):
-            return f"{domain}/{filename.removeprefix('test_').removesuffix('.py').replace('_', '-')}"
+            name = filename.removeprefix("test_").removesuffix(".py")
+            return f"{domain}/{name.replace('_', '-')}"
         case _:
             return None

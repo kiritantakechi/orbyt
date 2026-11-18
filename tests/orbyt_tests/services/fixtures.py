@@ -1,4 +1,6 @@
-"""The fixtures of the router online and what runs on it (module-boundaries D6).
+"""The fixtures of the online router (module-boundaries D6).
+
+They cover what runs on it too.
 
 A module dials in at the emulated ISP once; the transparent proxy
 (honk), the emulated internet's names and CA, and the test app's Pod
@@ -30,7 +32,9 @@ if TYPE_CHECKING:
 def pytest_runtest_makereport(
     item: pytest.Item, call: pytest.CallInfo[None]
 ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
-    """Add the datapath's state to the report of a test that failed with the router online.
+    """Add the datapath's state to the report of a failed test.
+
+    The test failed with the router online.
 
     ``funcargs`` holds the values of the test's whole fixture closure,
     so a test on a fixture built on ``online`` has it too
@@ -57,7 +61,7 @@ def online(module_router: Router, isp: Isp, network: Network) -> Online:
 
 @pytest.fixture(scope="module")
 def internet_zone(online: Online) -> Online:
-    """Let the emulated internet's answers through dnsmasq's rebind protection.
+    """Let the emulated internet through dnsmasq's rebind protection.
 
     Its addresses are documentation ranges, which the protection counts
     as private; an operator lets a local domain through the same way.
@@ -80,7 +84,10 @@ def internet_zone(online: Online) -> Online:
 
 
 def _resolved(online: Online, name: str) -> list[str]:
-    """Return the router's answers to a LAN client's query for ``name``; none while it restarts."""
+    """Return the router's answers to a LAN client's query for ``name``.
+
+    There are none while the router restarts.
+    """
     try:
         seen = online.client().probe("resolve", name, "--server", online.router.address)
     except subprocess.CalledProcessError:
@@ -90,7 +97,10 @@ def _resolved(online: Online, name: str) -> list[str]:
 
 @pytest.fixture(scope="module")
 def proxy(online: Online) -> Iterator[Online]:
-    """Run the transparent proxy, honk, with the test configuration for the module."""
+    """Run the transparent proxy, honk, for the module.
+
+    It runs with the test configuration.
+    """
     proxy_start(online.router)
     yield online
     online.router.run("/etc/init.d/honk stop; /etc/init.d/honk disable")
@@ -98,14 +108,20 @@ def proxy(online: Online) -> Iterator[Online]:
 
 @pytest.fixture(scope="module")
 def trusted_ca(internet_zone: Online) -> Online:
-    """Have the router resolve and trust the emulated internet's servers (test CA)."""
+    """Have the router resolve and trust the emulated internet.
+
+    That covers its servers, trusted through the test CA.
+    """
     trust_ca(internet_zone.router, internet_zone.network.workdir)
     return internet_zone
 
 
 @pytest.fixture(scope="module")
 def app_pod(trusted_ca: Online, data_disk: Disk, app_image: str) -> Online:
-    """Declare the app Pod on the data disk and wait until orbyt-containers has started it."""
+    """Declare the app Pod on the data disk and wait for it to run.
+
+    Wait until orbyt-containers has started it.
+    """
     del data_disk  # requested for the Pod's place
     app.declare(trusted_ca.router, app_image)
     app.wait_running(trusted_ca.router)

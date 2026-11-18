@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.sandbox.releases: the emulated internet's Releases API stand-in."""
+"""Unit tests of orbyt_tests.sandbox.releases.
+
+The module is the emulated internet's Releases API stand-in.
+"""
 
 import json
 import subprocess
@@ -30,7 +33,10 @@ with socket.create_connection((sys.argv[1], 443)):
 
 
 def _release(directory: Path, tag: str, *, prerelease: bool) -> Path:
-    """Write a release of one asset, as release-publish.sh lays one out."""
+    """Write a release of one asset.
+
+    The layout is release-publish.sh's.
+    """
     directory.mkdir(parents=True)
     (directory / "asset.bin").write_bytes(tag.encode() * 4096)
     info = Release(
@@ -90,7 +96,7 @@ def test_assets_download_whole_or_cut(network: Network, published: Path) -> None
     try:
         cut = _curl(network, url)
         assert cut.returncode != 0
-        assert len(cut.stdout) == 1000  # noqa: PLR2004
+        assert len(cut.stdout) == 1000
     finally:
         releases.cut(published, REPOSITORY, "r1", None)
 

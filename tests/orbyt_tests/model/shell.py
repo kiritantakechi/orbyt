@@ -1,4 +1,7 @@
-"""Run the shell library's functions and awk programs (scripts/lib/, module-boundaries D1, D3)."""
+"""Run the shell library's functions and awk programs.
+
+The library is scripts/lib/ (module-boundaries D1, D3).
+"""
 
 import os
 import subprocess
@@ -24,7 +27,10 @@ def library(
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run ``command`` in sh with core and ``modules`` loaded; ``args`` are its arguments."""
+    """Run ``command`` in sh with core and ``modules`` loaded.
+
+    ``args`` are its arguments.
+    """
     script = f'. "{CORE}" && use {modules} && {command}'
     return subprocess.run(
         ["sh", "-c", script, str(SCRIPT), *args],
@@ -42,7 +48,10 @@ def awk_program(
     cwd: Path | None = None,
     env: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run the library's awk program ``name`` on ``args``, in the C locale, as its module does."""
+    """Run the library's awk program ``name`` on ``args``.
+
+    It runs in the C locale, as its module does.
+    """
     return subprocess.run(
         ["awk", "-f", str(LIBRARY / name), *args],
         capture_output=True,

@@ -1,4 +1,7 @@
-"""firmware/toolchain: optimization comes from configuration, not from build system patches."""
+"""firmware/toolchain: optimization is configured, not patched in.
+
+Optimization comes from configuration, not from build system patches.
+"""
 
 import re
 from pathlib import Path
@@ -34,7 +37,10 @@ RELAXING = frozenset(
 
 
 def _last(flags: Sequence[str], pattern: re.Pattern[str]) -> int:
-    """Return the index of the last of ``flags`` that ``pattern`` matches; GCC takes that one."""
+    """Return the index of the last of ``flags`` matching ``pattern``.
+
+    GCC takes that one.
+    """
     return max(i for i, flag in enumerate(flags) if pattern.fullmatch(flag))
 
 

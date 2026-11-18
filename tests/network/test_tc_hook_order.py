@@ -1,4 +1,4 @@
-"""network/tc-hook-order: who attaches where on the ports, and who owns which mark bits.
+"""network/tc-hook-order: who attaches where and owns which mark bits.
 
 The emulator tests run with honk on, so all three components hold their
 hooks: einat and then qosify on tcx on pppoe-wan, honk alone on br-lan.
@@ -56,7 +56,7 @@ def _filters(router: Router) -> str:
 
 
 def _running_anew(router: Router, process: str, old: str) -> bool:
-    """Return whether one ``process`` runs, and not the process ``old``."""
+    """Return whether one ``process`` runs, and not ``old``."""
     pid = router.run(f"pidof {process} || true")
     return pid not in {"", old} and " " not in pid
 
@@ -70,14 +70,16 @@ def _in_order(router: Router) -> bool:
 
 
 def _set_tcx(router: Router, value: str) -> None:
-    """Set (or, given "", delete) qosify's defaults option tcx, and reload qosify."""
+    """Set (or, given "", delete) qosify's tcx option; reload qosify."""
     option = "qosify.@defaults[0].tcx"
     change = f"uci set {option}={value}" if value else f"uci -q delete {option}"
     router.run(f"{change} ; uci commit qosify && /etc/init.d/qosify reload")
 
 
 def _qosify_runs(router: Router, direction: str) -> int:
-    """Return how often qosify's classifier on ``direction`` of pppoe-wan has run.
+    """Return how often qosify's ``direction`` classifier has run.
+
+    The classifier is the one on ``direction`` of pppoe-wan.
 
     qosify's own counters (ubus get_stats) add up both directions, so
     this reads the run count of the program instance on the hook
@@ -95,7 +97,7 @@ def _qosify_runs(router: Router, direction: str) -> int:
 
 @pytest.fixture
 def without_tcx(proxy: Online, internet_zone: Online) -> Iterator[Online]:
-    """Have qosify attach with clsact, as on a kernel without tcx, for the test."""
+    """Have qosify attach with clsact, as on a kernel without tcx."""
     del internet_zone  # the names a dns: rule sends to a class resolve to the LAN
     router = proxy.router
     _set_tcx(router, "0")

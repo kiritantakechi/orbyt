@@ -1,4 +1,7 @@
-"""firmware/ab-layout: four partitions, a factory image with both slots, an upgrade image of one."""
+"""firmware/ab-layout: four partitions, both slots in a factory image.
+
+A factory image holds both slots; an upgrade image holds one.
+"""
 
 import gzip
 import tarfile

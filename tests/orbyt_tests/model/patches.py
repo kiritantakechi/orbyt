@@ -1,4 +1,7 @@
-"""The patch files of the repository and their upstream status (docs/patches.md)."""
+"""The patch files of the repository and their upstream status.
+
+See docs/patches.md.
+"""
 
 import re
 import subprocess
@@ -13,7 +16,7 @@ TRAILER = re.compile(r"^([A-Za-z][A-Za-z0-9-]*): (.+)$")
 
 
 def upstream_status(text: str) -> str | None:
-    """Return the Upstream-Status trailer of a patch file's text, or None.
+    """Return the Upstream-Status trailer of a patch's text, or None.
 
     A git format-patch file carries it at the end of its message, before
     the ``---`` line; a plain diff in its header, before the diff
@@ -33,7 +36,10 @@ def upstream_status(text: str) -> str | None:
 
 
 def write_ups(doc: str) -> dict[str, str]:
-    """Return the write-ups of the patch documentation: each title and the patch file it names."""
+    """Return the write-ups of the patch documentation.
+
+    Each write-up maps its title to the patch file it names.
+    """
     section = doc.split("\n## Patches meant for upstream\n", 1)[-1]
     found: dict[str, str] = {}
     for block in re.split(r"(?m)^### ", section)[1:]:

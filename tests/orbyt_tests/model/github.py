@@ -1,4 +1,4 @@
-"""Run a CI script against a stand-in gh that answers for a repository described as data.
+"""Run a CI script against a stand-in gh, with a repository as data.
 
 The stand-in answers the gh calls of scripts/cache-room.sh,
 scripts/cache-prune.sh and scripts/release-publish.sh (build-integrity
@@ -59,16 +59,21 @@ match args[:2]:
         answer(caches(option("--ref")))
     case ["cache", "delete"] if "--all" in args:
         gone = {{cache["id"] for cache in caches(option("--ref"))}}
-        github["caches"] = [cache for cache in github["caches"] if cache["id"] not in gone]
+        github["caches"] = [
+            cache for cache in github["caches"] if cache["id"] not in gone
+        ]
     case ["cache", "delete"]:
-        github["caches"] = [cache for cache in github["caches"] if str(cache["id"]) != args[2]]
+        github["caches"] = [
+            cache for cache in github["caches"] if str(cache["id"]) != args[2]
+        ]
     case ["api", *_]:
         path = [arg for arg in args[1:] if not arg.startswith("--")][0]
         base = f"repos/{{github['repository']}}"
         if path == base:
             answer({{"default_branch": "main"}})
         elif path == f"{{base}}/actions/cache/usage":
-            answer({{"active_caches_size_in_bytes": sum(c["size"] for c in github["caches"])}})
+            size = sum(c["size"] for c in github["caches"])
+            answer({{"active_caches_size_in_bytes": size}})
         elif path == f"{{base}}/branches":
             answer([{{"name": name}} for name in github["branches"]])
         elif path.startswith(f"{{base}}/git/ref/heads/"):
@@ -83,7 +88,8 @@ match args[:2]:
         else:
             sys.exit(f"no answer for {{path}}")
     case ["release", "create"]:
-        described.with_name("gh.args").write_text("".join(f"{{arg}}\\n" for arg in args))
+        text = "".join(f"{{arg}}\\n" for arg in args)
+        described.with_name("gh.args").write_text(text)
     case _:
         sys.exit(f"unexpected gh {{args}}")
 described.write_text(json.dumps(github))
@@ -92,7 +98,10 @@ described.write_text(json.dumps(github))
 
 @dataclass(frozen=True, slots=True)
 class Repository:
-    """A repository whose default branch is main: its branches, pull requests and caches."""
+    """A repository: its branches, pull requests and caches.
+
+    Its default branch is main.
+    """
 
     branches: list[str] = field(default_factory=lambda: ["main"])
     # How each branch compares with main, as the compare API's status
@@ -109,7 +118,7 @@ class Repository:
     caches: list[dict[str, object]] = field(default_factory=list)
 
     def cache(self, ref: str, key: str, size: int = 0) -> None:
-        """Add a cache of ``ref`` under ``key``, newer than every cache before it."""
+        """Add the newest cache of ``ref`` under ``key``."""
         self.caches.append(
             {"id": len(self.caches) + 1, "ref": ref, "key": key, "size": size}
         )
@@ -117,13 +126,19 @@ class Repository:
     def compared(
         self, base: str, head: str, status: str, files: list[dict[str, str]]
     ) -> None:
-        """Have the compare API find ``head`` ``status`` of ``base``, ``files`` between them."""
+        """Have the compare API find ``head`` ``status`` of ``base``.
+
+        ``files`` are the files between them.
+        """
         path = f"repos/{REPOSITORY}/compare/{base}...{head}"
         self.changes[path] = {"status": status, "files": files}
 
 
 def install(directory: Path, repository: Repository) -> Path:
-    """Put the stand-in gh into ``directory``, answering for ``repository``; return it."""
+    """Put the stand-in gh into ``directory``; return it.
+
+    It answers for ``repository``.
+    """
     directory.mkdir(exist_ok=True)
     (directory / "gh").write_text(GH, encoding="utf-8")
     (directory / "gh").chmod(0o755)

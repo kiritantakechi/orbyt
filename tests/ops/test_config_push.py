@@ -1,4 +1,4 @@
-"""ops/config-push: the private configuration, encrypted, pushed with config-push.
+"""ops/config-push: the private configuration, encrypted and pushed.
 
 The module's private repository is config-init's, filled in as an
 administrator fills it: the ISP account, WireGuard's key, the tailnet
@@ -58,11 +58,11 @@ SERVICES = ("honk", "network", "smb", "tailscale")
 # The processes the services' reloads restart: honk's, the WAN's pppd,
 # the SMB server's and tailscaled.
 RESTARTED = ("honk-core", "pppd", "ksmbd.mountd", "tailscaled")
-ROOT_PASSWORD = "not-for-config-push"  # noqa: S105 (the test router's, for a password to refuse)
+ROOT_PASSWORD = "not-for-config-push"
 # A password gitleaks' generic rule surely catches in plain text. A
 # random one now and then falls short of its entropy threshold, or holds
 # one of its stop words.
-PLAIN_SECRET = "vZ8qK3wT9mX2pL7nR4cB"  # noqa: S105  # gitleaks:allow (only scanned for)
+PLAIN_SECRET = "vZ8qK3wT9mX2pL7nR4cB"  # gitleaks:allow (only scanned for)
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 TAILSCALE_TIMEOUT = 180
 # Where the router records, while a push runs, the modes of its upload
@@ -74,7 +74,8 @@ COMMANDS = "/tmp/push-commands"  # noqa: S108 (a path on the router)
 # only, and fails at once on a fraction.
 PAUSE = "ucode -e 'sleep(200)'"
 WATCH = (
-    f"while :; do ls -ldn {UPLOAD} 2>/dev/null; ls -lnR {UPLOAD}/new 2>/dev/null; {PAUSE};"
+    f"while :; do ls -ldn {UPLOAD} 2>/dev/null;"
+    f" ls -lnR {UPLOAD}/new 2>/dev/null; {PAUSE};"
     f" done >{MODES} & while :; do for cmdline in /proc/[0-9]*/cmdline; do"
     f" tr '\\0' ' ' <$cmdline; echo; done 2>/dev/null; {PAUSE}; done >{COMMANDS}"
 )
@@ -102,7 +103,7 @@ MISSING_GROUP = "no-such-group"
 
 @dataclass(frozen=True, slots=True)
 class Pushed:
-    """The module's repository, pushed to its router, and the secrets pushed."""
+    """The module's repository and secrets, pushed to its router."""
 
     online: Online
     repository: ConfigRepository
@@ -120,7 +121,10 @@ class Pushed:
 
 
 def _state(router: Router) -> dict[str, str]:
-    """Return what a push changes on the router, and the processes a reload restarts."""
+    """Return what a push changes on the router.
+
+    That includes the processes a reload restarts.
+    """
     return {
         "pushed": router.run("cat /etc/orbyt-config/* /etc/honk/* | sha256sum"),
         "uci": router.run("uci export | sha256sum"),
@@ -133,7 +137,7 @@ def _secrets(
     auth_key: str,
     share_users: tuple[dict[str, str], ...] = (SHARE_USER,),
 ) -> dict[str, object]:
-    """Return the module's secrets with another Tailscale auth key and ``share_users``."""
+    """Return the secrets for ``auth_key`` and ``share_users``."""
     user, password = LOGIN
     return {
         "pppoe": {"username": user, "password": password},
@@ -145,7 +149,9 @@ def _secrets(
 
 @contextmanager
 def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
-    """Have every run of ``program`` record its arguments in ``arguments`` meanwhile.
+    """Have every run of ``program`` record its arguments meanwhile.
+
+    The arguments go to ``arguments``.
 
     ``program`` is a link to a binary that acts by the name it runs
     under: a wrapper in its place records the arguments, then runs the
@@ -170,12 +176,15 @@ def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
 
 
 def _pwddb_entry(router: Router, database: str, user: str) -> str:
-    """Return ``user``'s line of the ksmbd password database at ``database``."""
+    """Return ``user``'s line in the ksmbd password ``database``."""
     return router.run(f"grep '^{user}:' {database}")
 
 
 def _assert_put_back(result: subprocess.CompletedProcess[str], name: str) -> None:
-    """Assert that the push failed, and says that ``name``'s previous configuration is back."""
+    """Assert that the push failed and ``name`` was put back.
+
+    It says that ``name``'s previous configuration is back.
+    """
     assert result.returncode != 0, result.stderr
     assert f"{name} did not come back with the new configuration" in result.stderr, (
         result.stderr
@@ -184,7 +193,10 @@ def _assert_put_back(result: subprocess.CompletedProcess[str], name: str) -> Non
 
 
 def _refused(pushed: Pushed, config: str) -> subprocess.CompletedProcess[str]:
-    """Push honk's configuration as ``config``; assert that the push failed and changed nothing."""
+    """Push honk's configuration as ``config``; assert it is refused.
+
+    The push must fail and change nothing.
+    """
     router = pushed.router
     before = _state(router)
     pushed.repository.write_proxy("config", config)
@@ -205,7 +217,10 @@ def _proxy_sha256(router: Router) -> str:
 def pushed(
     trusted_ca: Online, harness_key: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Iterator[Pushed]:
-    """Fill in the repository, push it once, and wait until the tailnet has the router."""
+    """Fill in the repository and push it once.
+
+    Wait until the tailnet has the router.
+    """
     online = trusted_ca
     network = online.network
     clear(network)
@@ -237,7 +252,10 @@ def pushed(
 @spec(CAPABILITY, "Secrets stored encrypted", "Scan the private repository")
 def test_no_secret_in_the_history(pushed: Pushed, tmp_path: Path) -> None:
     def leaks(directory: Path) -> str | None:
-        """Return gitleaks' findings in the history of ``directory``, or None."""
+        """Return gitleaks' findings in ``directory``, or None.
+
+        It scans the repository's history.
+        """
         report = tmp_path / f"{directory.name}.json"
         scan = subprocess.run(
             ["gitleaks", "git", "--no-banner", "--report-path", report, directory],
@@ -357,7 +375,8 @@ def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(
         assert "network.wan.mtu='1400'" in router.run("uci changes network")
     finally:
         router.run(
-            f"uci revert network && uci set network.wg0.private_key={key} && uci commit network"
+            f"uci revert network && uci set network.wg0.private_key={key}"
+            " && uci commit network"
         )
 
 
@@ -462,7 +481,8 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     assert password not in router.run(f"cat {ADDUSER_ARGUMENTS} {COMMANDS}")
     reference = "/tmp/orbyt-test-pwddb"  # noqa: S108 (a path on the router)
     router.run(
-        f": >{reference} && ksmbd.adduser -P {reference} -p {shlex.quote(password)} {added} >&2"
+        f": >{reference} && ksmbd.adduser -P {reference}"
+        f" -p {shlex.quote(password)} {added} >&2"
     )
     entry = _pwddb_entry(router, "/etc/ksmbd/ksmbdpwd.db", added)
     assert entry == _pwddb_entry(router, reference, added), entry
@@ -499,7 +519,10 @@ def test_a_refused_tailscale_login_is_put_back(pushed: Pushed) -> None:
 
 @contextmanager
 def _command_ahead_of_reloads(router: Router, package: str) -> Generator[None]:
-    """Have procd run a slow command, ahead of the reloads, on a change to ``package``."""
+    """Have procd run a slow command ahead of the reloads.
+
+    The command runs on a change to ``package``.
+    """
     condition = [
         "if",
         ["eq", "package", package],

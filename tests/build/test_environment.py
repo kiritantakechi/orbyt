@@ -1,6 +1,6 @@
-"""build/environment: entry points refuse macOS, stop at a failed step, patch what changed.
+"""build/environment: entry points refuse macOS, stop at failures.
 
-And they pass their arguments on as given.
+They patch what changed, and pass their arguments on as given.
 """
 
 import json
@@ -29,7 +29,7 @@ SOURCE_ENTRY_POINTS = (
 
 @pytest.fixture
 def macos(tmp_path: Path) -> dict[str, str]:
-    """Return an environment whose uname reports Darwin, like a macOS host."""
+    """Return an environment whose uname reports Darwin, like macOS."""
     uname = shutil.which("uname")
     assert uname is not None
     shim = tmp_path / "bin" / "uname"

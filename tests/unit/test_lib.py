@@ -1,4 +1,7 @@
-"""The shell library's modules (scripts/lib/): tree, caches, toolchain, seeds and runs."""
+"""The shell library's modules (scripts/lib/).
+
+They are tree, caches, toolchain, seeds and runs.
+"""
 
 import hashlib
 import os
@@ -25,7 +28,10 @@ PROFILES = [
 
 
 def _missing_lines(tmp_path: Path, wanted: str, actual: str) -> list[str]:
-    """Return what missing_config_lines finds of ``wanted`` missing from ``actual``."""
+    """Return what missing_config_lines finds missing from ``actual``.
+
+    It looks for the lines of ``wanted``.
+    """
     (tmp_path / "wanted").write_text(wanted)
     (tmp_path / "actual").write_text(actual)
     result = library(
@@ -113,7 +119,10 @@ Version: 26.297.60563~4bfd110
 
 
 def _stale(tmp_path: Path, apks: list[str]) -> subprocess.CompletedProcess[str]:
-    """Return what stale_packages finds among ``apks`` in an output directory under ``tmp_path``."""
+    """Return what stale_packages finds among ``apks``.
+
+    The output directory is under ``tmp_path``.
+    """
     (tmp_path / "config").write_text(SELECTED)
     (tmp_path / "packageinfo").write_text(PACKAGEINFO)
     for apk in apks:
@@ -182,7 +191,10 @@ def test_trim_keeps_what_the_build_used(tmp_path: Path) -> None:
 
 
 def _rust_std(tree: Path) -> str:
-    """Return what toolchain_rust_std makes of the Rust libraries in ``tree``."""
+    """Return what toolchain_rust_std makes of the Rust libraries.
+
+    The libraries are those in ``tree``.
+    """
     result = library("toolchain", 'toolchain_rust_std "$1"', str(tree))
     assert result.returncode == 0, result.stderr
     return result.stdout.strip()
@@ -234,7 +246,10 @@ def test_toolchain_stages_name_what_only_toolchain_build_builds(tmp_path: Path) 
 
 
 def _tree(command: str, *args: str) -> None:
-    """Run ``command`` with the tree module loaded; its arguments are ``args``."""
+    """Run ``command`` with the tree module loaded.
+
+    Its arguments are ``args``.
+    """
     result = library("tree", command, *args)
     assert result.returncode == 0, result.stderr
 
@@ -319,8 +334,9 @@ def test_go_cache_counts_what_go_compiled(tmp_path: Path) -> None:
 
 
 def _compose(profile: str, board: str, tmp_path: Path) -> str:
-    """Return the seed compose_seeds composes for ``profile`` and ``board`` (none: "").
+    """Return compose_seeds' seed for ``profile`` and ``board``.
 
+    The result is "" when there is none.
     The tree is ``tmp_path``'s openwrt.
     """
     tree = tmp_path / "openwrt"
@@ -411,20 +427,29 @@ def test_the_ubsan_seed_extends_the_toolchain_seed() -> None:
 
 
 def _paths(event: str) -> list[str]:
-    """Return build.yml's paths for an event (its key ``on``, which YAML 1.1 reads as true)."""
+    """Return build.yml's paths for an event.
+
+    Its key ``on`` is read by YAML 1.1 as true.
+    """
     workflow = yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
     return cast("list[str]", workflow[True][event]["paths"])
 
 
 def _github_glob(pattern: str) -> re.Pattern[str]:
-    """Return a GitHub filter pattern's regular expression: ``**`` crosses slashes, ``*`` not."""
+    """Return a GitHub filter pattern's regular expression.
+
+    ``**`` crosses slashes, ``*`` does not.
+    """
     parts = re.split(r"(\*\*/|\*\*|\*)", pattern)
     wildcards = {"**/": "(?:.*/)?", "**": ".*", "*": "[^/]*"}
     return re.compile("".join(wildcards.get(part, re.escape(part)) for part in parts))
 
 
 def _github_reads(patterns: list[str], path: str) -> bool:
-    """Say whether a change to ``path`` runs a workflow filtered by ``patterns``, as GitHub does."""
+    """Say whether a change to ``path`` runs a workflow, as GitHub does.
+
+    The workflow is filtered by ``patterns``.
+    """
     runs = False
     for pattern in patterns:
         negated = pattern.startswith("!")
@@ -460,7 +485,10 @@ SAMPLE_PATHS = (
 
 def test_build_reads_answers_as_github_does() -> None:
     patterns = _paths("push")
-    script = 'for path in "$@"; do if build_reads "$path"; then echo yes; else echo no; fi; done'
+    script = (
+        'for path in "$@"; do if build_reads "$path"; then echo yes;'
+        " else echo no; fi; done"
+    )
     result = library("runs", script, *SAMPLE_PATHS)
     assert result.returncode == 0, result.stderr
     answers = dict(zip(SAMPLE_PATHS, result.stdout.split(), strict=True))

@@ -1,4 +1,7 @@
-"""quality/undefined-behavior: undefined behavior is fixed in the code, not masked."""
+"""quality/undefined-behavior: undefined behavior is fixed, not masked.
+
+The fix is in the code.
+"""
 
 from typing import TYPE_CHECKING
 

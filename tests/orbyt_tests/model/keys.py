@@ -1,4 +1,4 @@
-"""Release keys made for the test, and what the tests sign with them (r4s-release-pipeline D7).
+"""Release keys made for the test, and what the tests sign with them.
 
 A release is signed with an apk key (EC P-256, package indexes) and a
 firmware key (usign, images and the manifest). ``Keys.make`` creates
@@ -6,7 +6,7 @@ both and a keyring that mirrors the image's trust anchors (etc/apk/keys,
 etc/usign/keys), as orbyt-keyring holds the production ones;
 ``orbyt_tests.device.trust`` puts it on a router. ``sign`` runs
 scripts/release-sign.sh, the script CI signs releases with, on a build
-with these keys.
+with these keys. See r4s-release-pipeline D7.
 """
 
 import shutil
@@ -38,7 +38,10 @@ class Keys:
 
     @classmethod
     def make(cls, directory: Path, name: str = "test") -> Self:
-        """Create an apk key, a firmware key and their keyring in ``directory``."""
+        """Create an apk key, a firmware key and their keyring.
+
+        The files are made in ``directory``.
+        """
         (directory / "keyring" / APK_KEYS).mkdir(parents=True)
         (directory / "keyring" / FIRMWARE_KEYS).mkdir(parents=True)
         apk = directory / f"{name}.apk.key"
@@ -65,11 +68,16 @@ class Keys:
 
     @property
     def fingerprint(self) -> str:
-        """The firmware key's usign fingerprint, the name devices know it by."""
+        """The firmware key's usign fingerprint.
+
+        Devices know the key by this name.
+        """
         return _run("usign", "-F", "-s", self.firmware)
 
     def sign_file(self, path: Path) -> Path:
-        """Sign ``path`` with the firmware key, as a release's manifest is; return the signature.
+        """Sign ``path`` with the firmware key; return the signature.
+
+        A release's manifest is signed the same way.
 
         The signature is a file of its own, never written through a
         link.
@@ -80,14 +88,20 @@ class Keys:
         return signature
 
     def trust_also(self, other: Keys) -> None:
-        """Add ``other``'s public keys to this keyring, as during a key rotation."""
+        """Add ``other``'s public keys to this keyring.
+
+        That is what happens during a key rotation.
+        """
         for anchors in (APK_KEYS, FIRMWARE_KEYS):
             for key in (other.keyring / anchors).iterdir():
                 shutil.copy(key, self.keyring / anchors / key.name)
 
 
 def sign(build: Path, signed: Path, keys: Keys) -> Path:
-    """Sign the outputs of ``build`` into ``signed`` with release-sign.sh; return ``signed``."""
+    """Sign ``build``'s outputs into ``signed``; return ``signed``.
+
+    release-sign.sh does the signing.
+    """
     _run(
         *(RELEASE_SIGN, build, signed),
         *("--apk-key", keys.apk, "--fw-key", keys.firmware, "--keyring", keys.keyring),

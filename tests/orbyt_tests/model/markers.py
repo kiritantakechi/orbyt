@@ -1,9 +1,9 @@
-"""The markers of the system tests (design D13), and the pytest plugin that registers them.
+"""The system tests' markers and the pytest plugin that registers them.
 
 ``@spec`` names the scenario a test verifies; ``drill`` marks the
 upgrade drill, which CI's upgrade-drill job runs (r4s-release-pipeline
 D5). ``tests/pytest.toml`` loads this module as a plugin, so that
-``--strict-markers`` accepts both.
+``--strict-markers`` accepts both. See design D13.
 """
 
 # A runtime import: pluggy evaluates the annotations of hook

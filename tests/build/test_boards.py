@@ -1,4 +1,4 @@
-"""build/boards: every board is described once, and built on its own from one tree."""
+"""build/boards: each board is described once, built from one tree."""
 
 import hashlib
 import json
@@ -87,12 +87,18 @@ def _manifest(build: Path) -> Manifest:
 
 
 def _build_dirs(tree: Path, build: Path) -> list[Path]:
-    """Return the build directories of ``build`` in ``tree``: one, or none once deleted."""
+    """Return ``build``'s build directories in ``tree``: one, or none.
+
+    None remain once the build's directories are deleted.
+    """
     return list((tree / "build_dir").glob(f"target-*_{_manifest(build).build}"))
 
 
 def _builds_beside(build_output: Path) -> list[tuple[Board, Path]]:
-    """Return every board's build of the same profile in the work directory of ``build_output``."""
+    """Return every board's build of ``build_output``'s profile.
+
+    The builds are those in the work directory of ``build_output``.
+    """
     out, profile = build_output.parents[1], build_output.name
     return [
         (board, out / board.id / profile)
@@ -254,7 +260,8 @@ def test_boards_build_apart(build_output: Path) -> None:
             line.startswith("CONFIG_BINARY_FOLDER=") and line.endswith(f'/bin/{name}"')
             for line in config
         )
-        # ...which hold its build objects alone: its own U-Boot, no other board's...
+        # ...which hold its build objects alone: its own U-Boot, no
+        # other board's...
         (build_dir,) = _build_dirs(tree, build)
         built = {
             variant
@@ -262,8 +269,8 @@ def test_boards_build_apart(build_output: Path) -> None:
             if (build_dir / f"u-boot-{variant}").is_dir()
         }
         assert built == {board.uboot.variant}
-        # ...and its own images alone, still the ones of its manifest while the
-        # tree's last build of the board was of this profile.
+        # ...and its own images alone, still the ones of its manifest
+        # while the tree's last build of the board was of this profile.
         (targets,) = (tree / "bin" / name / "targets").glob("*/*")
         images = {path.name for pattern in IMAGES for path in targets.glob(pattern)}
         assert len(images) == len(IMAGES)
@@ -289,7 +296,7 @@ def test_the_toolchain_carries_no_board_flags(build_output: Path) -> None:
 def _tree_with_toolchain(
     workdir: Path, board: Board, record: ToolchainRecord | None
 ) -> Path:
-    """Write a stand-in tree configured for ``board`` whose toolchain has ``record``.
+    """Write a stand-in tree for ``board`` with toolchain ``record``.
 
     Its Makefile answers build.sh's val.* queries and marks any build it
     is asked for.
@@ -312,20 +319,24 @@ def _tree_with_toolchain(
         "world:\n\t@touch $(CURDIR)/built\n"
         # COMPILED (from the environment) logs a host build the build
         # compiled.
-        "\t@[ -z '$(COMPILED)' ] || printf '1\\tbegin\\thost-compile\\t%s\\n' '$(COMPILED)'"
+        "\t@[ -z '$(COMPILED)' ] ||"
+        " printf '1\\tbegin\\thost-compile\\t%s\\n' '$(COMPILED)'"
         " >>'$(BUILD_TIME_LOG)'\n"
     )
     return tree
 
 
 def _rust_std_hash() -> str:
-    """Return what toolchain_rust_std (scripts/lib/toolchain.sh) makes of the stand-in Rust std."""
+    """Return the hash toolchain_rust_std makes of the stand-in std.
+
+    toolchain_rust_std is in scripts/lib/toolchain.sh.
+    """
     listing = f"{hashlib.sha256(RUST_STD_CONTENT).hexdigest()}  ./{RUST_STD}\n"
     return hashlib.sha256(listing.encode()).hexdigest()
 
 
 def _neutral_record() -> ToolchainRecord:
-    """Return the record of a board-neutral toolchain, with the stand-in libraries."""
+    """Return a board-neutral toolchain's record, with stand-in libs."""
     return ToolchainRecord.model_validate(
         {
             "cflags": NEUTRAL_CFLAGS,
@@ -364,7 +375,7 @@ def _board_toolchains() -> list[tuple[str, ToolchainRecord | None, str | None]]:
 
 
 def _toolchain_check() -> str:
-    """Return the toolchain check as the patch series leaves toolchain/Makefile.
+    """Return the toolchain check the patch series leaves in a Makefile.
 
     The last patch that changes the rule carries it as the series leaves
     it.
@@ -385,13 +396,16 @@ def _toolchain_check() -> str:
                 check = rule.group()
     if check is None:
         pytest.fail(
-            "no patch in patches/openwrt carries the toolchain check of toolchain/Makefile"
+            "no patch in patches/openwrt carries the toolchain check"
+            " of toolchain/Makefile"
         )
     return check
 
 
 def _tree_to_check_toolchain(workdir: Path) -> Path:
-    """Write a stand-in tree whose Makefile holds the toolchain check of the series.
+    """Write a stand-in tree whose Makefile holds the series' check.
+
+    The check is the toolchain check of the patch series.
 
     The make variable BOARD names the board whose build directories the
     check is for (none: the board-neutral configuration's), and
@@ -418,8 +432,9 @@ def _tree_to_check_toolchain(workdir: Path) -> Path:
 def _check_make(
     tree: Path, board: str = "", toolchain: str = "toolchain", **variables: str
 ) -> list[str | Path]:
-    """Return the make that checks the toolchain for ``board``'s build, with ``variables``.
+    """Return the make that checks the toolchain for ``board``'s build.
 
+    The make gets ``variables``.
     Every variable the stand-in reads goes on the command line, where no
     variable of the environment, such as CI's BOARD, can stand in for
     it.
@@ -440,11 +455,11 @@ def _check_make(
 def _check_toolchain(
     tree: Path, board: str = "", toolchain: str = "toolchain", **variables: str
 ) -> Path:
-    """Check the toolchain as a make from the top level does, for ``board``'s build.
+    """Check the toolchain as a top-level make does, for ``board``.
 
-    The make gets ``variables`` too. Return the toolchain's record.
-    Every make from the top level touches tmp/.build, and a record that
-    stays is older than that.
+    The check is for ``board``'s build. The make gets ``variables`` too.
+    Return the toolchain's record. Every make from the top level
+    touches tmp/.build, and a record that stays is older than that.
     """
     record = tree / "staging_dir" / toolchain / "stamp" / ".ver_check"
     if record.exists():
@@ -456,7 +471,7 @@ def _check_toolchain(
 
 
 def _build_target(tree: Path, board: str) -> None:
-    """Mark ``board``'s build and staging directories as holding what its build made."""
+    """Mark ``board``'s build and staging directories as built."""
     for top in ("build_dir", "staging_dir"):
         built = tree / top / f"target_{board}" / "built"
         built.parent.mkdir(parents=True, exist_ok=True)
@@ -464,7 +479,7 @@ def _build_target(tree: Path, board: str) -> None:
 
 
 def _target_built(tree: Path, board: str) -> bool:
-    """Return whether ``board``'s build and staging directories hold what its build made."""
+    """Return whether ``board``'s build and staging dirs are built."""
     return all(
         (tree / top / f"target_{board}" / "built").exists()
         for top in ("build_dir", "staging_dir")
@@ -479,7 +494,9 @@ def _tree_to_build_toolchain(
     cflags: str = NEUTRAL_CFLAGS,
     rust_std: bytes = RUST_STD_CONTENT,
 ) -> Path:
-    """Write a stand-in tree whose toolchain holds ``libc``, recorded as ``record``'s.
+    """Write a stand-in tree whose toolchain holds ``libc``.
+
+    The toolchain is recorded as ``record``'s.
 
     The record names ``cflags`` and the stand-in Rust library, which the
     tree holds as ``rust_std``. The tree's Makefile answers
@@ -524,8 +541,10 @@ def _tree_to_build_toolchain(
         "package/feeds/packages/rust/host/clean:\n\t@rm -rf $(RUSTLIB)\n"
         "package/feeds/packages/rust/host/compile:\n"
         "\t@[ -z '$(RUST_FAILS)' ]\n"
-        f"\t@[ -f $(RUSTLIB)/{RUST_STD} ] || {{ mkdir -p $(RUSTLIB)/{RUST_STD.parent}"
-        f" && cp {neutral_std} $(RUSTLIB)/{RUST_STD} && touch $(CURDIR)/rust-built; }}\n"
+        f"\t@[ -f $(RUSTLIB)/{RUST_STD} ] ||"
+        f" {{ mkdir -p $(RUSTLIB)/{RUST_STD.parent}"
+        f" && cp {neutral_std} $(RUSTLIB)/{RUST_STD}"
+        " && touch $(CURDIR)/rust-built; }\n"
         "$(TOOLCHAIN_DIR)/stamp/.toolchain_compile:\n\t@mkdir -p $(@D) && touch $@\n"
     )
     return tree
@@ -543,7 +562,10 @@ def _toolchain_build(tree: Path, **env: str) -> subprocess.CompletedProcess[str]
 
 @dataclass(frozen=True)
 class Found:
-    """A toolchain toolchain-build finds, recorded with LIBC, and what it should build."""
+    """A toolchain toolchain-build finds, and what it should build.
+
+    The toolchain is recorded with LIBC.
+    """
 
     libc: bytes | None = LIBC
     cflags: str = NEUTRAL_CFLAGS
@@ -674,7 +696,9 @@ def test_each_board_keeps_its_build_with_its_toolchain(tmp_path: Path) -> None:
 
 
 def _recorded_toolchain(tree: Path, inputs: str) -> tuple[Path, Path]:
-    """Put a toolchain built from ``inputs`` into ``tree``; return its compiler and record.
+    """Put a toolchain built from ``inputs`` into ``tree``.
+
+    Return its compiler and record.
 
     The record is older than tmp/.build, as a record that names the
     tree's inputs stays after every make from the top level, which
@@ -779,7 +803,9 @@ def test_a_board_build_that_compiles_the_toolchain_fails(tmp_path: Path) -> None
 
 
 def _configure(source: Path, *targets: str) -> dict[str, str]:
-    """Run U-Boot's ``make targets`` on ``source`` without input; return the values of its .config.
+    """Run U-Boot's ``make targets`` on ``source``; return its .config.
+
+    Return the values of the resulting .config.
 
     It runs in the build environment, which has U-Boot's host tools. A
     step that asks writes its question for ever, so its output goes

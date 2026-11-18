@@ -1,4 +1,7 @@
-"""firmware/health-check: LAN, SSH, the web UI and every registered check make a healthy boot."""
+"""firmware/health-check: what makes a boot healthy.
+
+LAN, SSH, the web UI and every registered check make a healthy boot.
+"""
 
 import json
 import re
@@ -33,7 +36,7 @@ BROKEN = "/tmp/broken-tools"  # noqa: S108 (a path on the router)
 
 
 def _check(router: Router, broken: str | None = None) -> dict[str, object]:
-    """Run the health check with short limits and return its recorded result.
+    """Run the health check with short limits; return what it recorded.
 
     With ``broken``, that U-Boot tool fails for the health check at
     once, before it reads anything it is given.
@@ -52,7 +55,8 @@ def _check(router: Router, broken: str | None = None) -> dict[str, object]:
 def _register(router: Router, name: str, body: str) -> None:
     """Install a registered check."""
     router.run(
-        f"printf '#!/bin/sh\\n%s\\n' '{body}' > {CHECKS}/{name} && chmod +x {CHECKS}/{name}"
+        f"printf '#!/bin/sh\\n%s\\n' '{body}' > {CHECKS}/{name}"
+        f" && chmod +x {CHECKS}/{name}"
     )
 
 

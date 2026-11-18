@@ -1,4 +1,4 @@
-"""UB-indicative warnings and their reviews (spec quality/undefined-behavior).
+"""UB-indicative warnings and their reviews.
 
 A build's report (``warnings.json``, written by ``scripts/build.sh``)
 holds every warning of a UB-indicative option in the build of a package
@@ -7,7 +7,8 @@ the warnings reviewed as not undefined behavior, each with its reason. A
 review matches a warning on package, option, file and function, never on
 the line, so that it survives upstream moving code around. A review that
 names boards matches only their builds' warnings: what GCC finds can
-depend on the optimization, and so on the board's ``-mcpu``.
+depend on the optimization, and so on the board's ``-mcpu``. See spec
+quality/undefined-behavior.
 """
 
 from datetime import date
@@ -29,7 +30,10 @@ type Key = tuple[str, str, str, str]
 
 
 class _Located(BaseModel):
-    """What locates a warning: its package, option, file and function (empty outside any)."""
+    """What locates a warning: package, option, file and function.
+
+    The function is empty outside any.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -55,7 +59,8 @@ class Diagnostic(_Located):
     @override
     def __str__(self) -> str:
         """Render as ``package: option at file:line, function f``."""
-        return f"{self.package}: {self.option} at {self.file}:{self.line}{self._function()}"
+        where = f"{self.file}:{self.line}{self._function()}"
+        return f"{self.package}: {self.option} at {where}"
 
 
 class Review(_Located):
@@ -66,7 +71,7 @@ class Review(_Located):
     boards: Annotated[tuple[str, ...], Field(strict=False)] = ()
 
     def covers(self, board: str) -> bool:
-        """Return whether the review applies to the builds of ``board``."""
+        """Return whether the review applies to ``board``'s builds."""
         return not self.boards or board in self.boards
 
     @override
@@ -76,12 +81,15 @@ class Review(_Located):
 
 
 def load_report(build_output: Path) -> list[Diagnostic]:
-    """Return the UB-indicative warnings of the build in ``build_output``."""
+    """Return the UB-indicative warnings in ``build_output``."""
     return read_json(build_output / REPORT_FILE, list[Diagnostic])
 
 
 def load_register(path: Path = REGISTER) -> list[Review]:
-    """Return the reviews of ``path``, which name known boards and no warning twice."""
+    """Return the reviews of ``path``.
+
+    They name known boards and no warning twice.
+    """
     reviews = read_toml(path, "warning", Review)
     known = {board.id for board in boards.load_all()}
     seen: set[Key] = set()
@@ -99,13 +107,13 @@ def load_register(path: Path = REGISTER) -> list[Review]:
 def unreviewed(
     report: list[Diagnostic], register: list[Review], board: str
 ) -> list[Diagnostic]:
-    """Return the warnings of ``board``'s build that no review covers."""
+    """Return ``board``'s build warnings that no review covers."""
     reviewed = {review.key for review in register if review.covers(board)}
     return [warning for warning in report if warning.key not in reviewed]
 
 
 def stale(register: list[Review], report: list[Diagnostic], board: str) -> list[Review]:
-    """Return the reviews for ``board`` that match no warning of its build."""
+    """Return the reviews for ``board`` matching no build warning."""
     found = {warning.key for warning in report}
     return [
         review

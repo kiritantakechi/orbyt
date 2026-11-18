@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.model.specs: reading scenarios from OpenSpec deltas."""
+"""Unit tests of orbyt_tests.model.specs.
+
+They read scenarios from OpenSpec deltas.
+"""
 
 from pathlib import Path
 

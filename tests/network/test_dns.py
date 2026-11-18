@@ -1,4 +1,6 @@
-"""network/dns: dnsmasq serves the LAN and asks honk first, the WAN's resolvers without it.
+"""network/dns: dnsmasq serves the LAN via honk or the WAN's resolvers.
+
+dnsmasq asks honk first, and the WAN's resolvers when honk is off.
 
 Names under any.example.net all resolve on the emulated internet, so
 every test asks a name no cache has seen. The emulated internet lives in
@@ -66,7 +68,7 @@ pytestmark = pytest.mark.usefixtures("internet_zone")
 
 @pytest.fixture(scope="module", autouse=True)
 def proxy_with_api(proxy: Online) -> None:
-    """Run honk with its native API for the module, to read its DNS cache."""
+    """Run honk with its native API, to read its DNS cache."""
     proxy_start(proxy.router, DNS_CONFIG)
 
 
@@ -123,7 +125,7 @@ def test_resolving_goes_on_without_honk(proxy_restored: Online) -> None:
 
 @spec(CAPABILITY, "Proxy DNS port not exposed", "Query the proxy's DNS port from LAN")
 def test_honk_dns_port_is_closed_to_the_lan(proxy: Online) -> None:
-    with pytest.raises(subprocess.CalledProcessError):
+    with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status"):
         _resolve(proxy, _fresh(), port=str(PROXY_DNS_PORT))
     assert "127.0.0.1:5353" in proxy.router.run(f"ss -Hlun 'sport = :{PROXY_DNS_PORT}'")
 

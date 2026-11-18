@@ -1,4 +1,7 @@
-"""firmware/boot-rollback: U-Boot picks the slot, counts trial boots and rolls back."""
+"""firmware/boot-rollback: the boot slot's choice and its rollback.
+
+U-Boot picks the slot, counts trial boots and rolls back.
+"""
 
 import re
 import shlex
@@ -54,7 +57,10 @@ def _names(env_file: Path) -> set[str]:
 
 
 def _trial(router: Router) -> None:
-    """Put the running slot in the trial state, with the health check out of the way."""
+    """Put the running slot in the trial state.
+
+    The health check is disabled, so it stays out of the way.
+    """
     router.run("/etc/init.d/orbyt-healthcheck disable")
     setenv(router, boot_slot=slot(router), upgrade_available=1, bootcount=0)
 
@@ -68,9 +74,13 @@ def _env_sha256(router: Router) -> str:
 
 
 def _corrupt(router: Router, offset: int) -> None:
-    """Overwrite the CRC and the first variables of the environment's copy at ``offset``."""
+    """Corrupt the environment's copy at ``offset``.
+
+    Overwrite its CRC and its first variables.
+    """
     router.run(
-        f"dd if=/dev/urandom of={BOOT_DISK} bs=64 seek={offset // 64} count=1 conv=fsync"
+        f"dd if=/dev/urandom of={BOOT_DISK} bs=64"
+        f" seek={offset // 64} count=1 conv=fsync"
     )
 
 
@@ -84,7 +94,10 @@ def _config(path: Path) -> dict[str, str]:
 
 
 def _board_uboot(emulation_dir: Path, tmp_path: Path) -> tuple[Path, Path]:
-    """Extract the shipped U-Boot of the factory image: its binary and control device tree."""
+    """Extract the U-Boot the factory image ships.
+
+    Return its binary and its control device tree.
+    """
     disk = emulation_dir / "disk.raw"
     with disk.open("rb") as raw:
         first = read_mbr(raw.read(SECTOR)).partitions[0].start
@@ -247,7 +260,8 @@ def test_rollback_after_three_unconfirmed_boots(
     # off the LAN, so its health check fails every time, quickly.
     router.run(
         "uci set uhttpd.main.listen_http=127.0.0.1:80"
-        " && uci set orbyt-ab.healthcheck.total=10 && uci set orbyt-ab.healthcheck.interval=5"
+        " && uci set orbyt-ab.healthcheck.total=10"
+        " && uci set orbyt-ab.healthcheck.interval=5"
         " && uci commit"
     )
     console = router.emulator.console
@@ -286,8 +300,10 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
         )
     )
     router.run(
-        f"printf '%s\\n' {shlex.quote(hang)} >{HANG} && echo {HANG} >>/etc/sysupgrade.conf"
-        f" && uci set orbyt-ab.trial=trial && uci set orbyt-ab.trial.deadline={TRIAL_DEADLINE}"
+        f"printf '%s\\n' {shlex.quote(hang)} >{HANG}"
+        f" && echo {HANG} >>/etc/sysupgrade.conf"
+        " && uci set orbyt-ab.trial=trial"
+        f" && uci set orbyt-ab.trial.deadline={TRIAL_DEADLINE}"
         " && uci commit orbyt-ab"
     )
     console = router.emulator.console
@@ -434,8 +450,8 @@ def test_same_logic_in_both_bootloaders(
         # else.
         assert config.get("CONFIG_ENV_WRITEABLE_LIST") == "y", name
         assert config.get("CONFIG_ENV_FLAGS_LIST_STATIC") == WRITABLE, name
-    # ...which the board's device tree makes its boot disk's controller: an eMMC
-    # is soldered on, an SD card is not.
+    # ...which the board's device tree makes its boot disk's controller:
+    # an eMMC is soldered on, an SD card is not.
     assert run("fdtget", str(dtb), "/", "compatible").split()[0] == board.board_name
     controller = run(
         "fdtget", str(dtb), "/aliases", f"mmc{shipped['orbyt_mmc']}"

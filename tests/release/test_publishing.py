@@ -1,4 +1,6 @@
-"""release/publishing: the boards' signed builds, assembled into a release that names its sources.
+"""release/publishing: the boards' signed builds become a release.
+
+The release names its sources.
 
 scripts/release-publish.sh assembles the session's signed build
 (conftest), as the sign job hands it on (board-model D10); its upload is
@@ -56,7 +58,10 @@ DOCUMENTATION = (
 
 @dataclass(frozen=True, slots=True)
 class Branch:
-    """The branch a run publishes from: its head, and how it compares with the commit built."""
+    """The branch a run publishes from.
+
+    Its head, and how it compares with the commit built.
+    """
 
     head: str = BUILT
     status: str = "ahead"
@@ -75,7 +80,7 @@ def _publish(
     every_board: bool = False,
     branch: Branch = CURRENT,
 ) -> subprocess.CompletedProcess[str]:
-    """Run release-publish.sh on the boards ``signed`` holds, or on every board.
+    """Run release-publish.sh on ``signed``'s boards or on every board.
 
     ``every_board`` leaves ``--boards`` out, for the script's default of
     every board; with ``gh``, the stand-in's directory goes first on
@@ -106,15 +111,15 @@ def _publish(
 
 @pytest.fixture
 def gh(tmp_path: Path) -> Path:
-    """Return the directory of the stand-in gh, which _publish puts there."""
+    """Return the stand-in gh's directory, where _publish puts it."""
     return tmp_path / "bin"
 
 
 def _built(signed: Path, target: Path, **fields: str) -> Path:
-    """Copy the boards' signed builds in ``signed`` to ``target``, their manifests changed.
+    """Copy the boards' signed builds in ``signed`` to ``target``.
 
-    Each manifest names the commit BUILT, clean, and ``fields`` as
-    given.
+    Their manifests are changed: each names the commit BUILT, clean, and
+    ``fields`` as given.
     """
     linked_copy(signed, target)
     for manifest in target.glob(f"*/{MANIFEST_FILE}"):

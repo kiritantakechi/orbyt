@@ -1,4 +1,4 @@
-"""The fixtures of the emulated board and its router (module-boundaries D6).
+"""The emulated board's and router's fixtures (module-boundaries D6).
 
 The session boots the shipped image once and snapshots it; every test
 that uses ``router`` starts from that snapshot.
@@ -42,7 +42,9 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="session")
 def target(emulation_dir: Path) -> Iterator[Target]:
-    """Return the emulated board's labgrid target, as emu-prepare described it.
+    """Return the emulated board's labgrid target.
+
+    emu-prepare described the target.
 
     labgrid's pytest plugin is off (python-style D1): this is the one
     thing the tests took from it. Its SSH connections close with the
@@ -68,7 +70,10 @@ def emulator(
     emulation_dir: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[Emulator]:
-    """Boot the emulated board from a fresh overlay of the shipped disk inside ``network``."""
+    """Boot the emulated board inside ``network``.
+
+    It boots from a fresh overlay of the shipped disk.
+    """
     del network  # requested for its taps, which the emulator joins
     console_log = tmp_path_factory.mktemp("emulator") / "console.log"
     machine = Emulator(target, emulation_dir, console_log)
@@ -80,10 +85,24 @@ def emulator(
 
 @pytest.fixture(scope="session")
 def harness_key(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """Return the key the harness logs in to the router with (its public half next to it)."""
+    """Return the key the harness logs in to the router with.
+
+    Its public half is next to it.
+    """
     key = tmp_path_factory.mktemp("ssh") / "harness"
     subprocess.run(
-        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "Orbyt tests", "-f", key],
+        [
+            "ssh-keygen",
+            "-q",
+            "-t",
+            "ed25519",
+            "-N",
+            "",
+            "-C",
+            "Orbyt tests",
+            "-f",
+            key,
+        ],
         check=True,
     )
     return key
@@ -93,7 +112,9 @@ def harness_key(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def booted_router(
     target: Target, emulator: Emulator, release_keys: Keys | None, harness_key: Path
 ) -> Router:
-    """Wait for the router to finish booting, then snapshot it, trusting the session's keys.
+    """Wait for the router to finish booting, then snapshot it.
+
+    The router trusts the session's keys.
 
     The harness's key is authorized as well, for when root has a
     password.
@@ -110,7 +131,9 @@ def booted_router(
 
 @pytest.fixture(scope="session")
 def ubsan_traps(booted_router: Router, profile: str) -> Traps | None:
-    """Return the watch on the traps of undefined behavior in a ubsan build, else None.
+    """Return the watch on undefined-behavior traps in a ubsan build.
+
+    Return None in any other build.
 
     A trap while the router booted fails every test that uses the
     router.
@@ -123,7 +146,9 @@ def ubsan_traps(booted_router: Router, profile: str) -> Traps | None:
 
 
 def claim(router: Router) -> None:
-    """Fail a test that would return the router to its snapshot while a module keeps it.
+    """Fail a test that would reset a router a module keeps.
+
+    The reset would return the router to its snapshot.
 
     Its reset would take what the module's fixtures set up (a dial-in, a
     Pod) from the module's later tests, which would then fail for that
@@ -139,7 +164,9 @@ def claim(router: Router) -> None:
 
 @pytest.fixture
 def router(booted_router: Router, ubsan_traps: Traps | None) -> Iterator[Router]:
-    """Provide the router in its post-boot state; the emulator returns to it afterwards.
+    """Provide the router in its post-boot state; reset it afterwards.
+
+    The emulator returns to that state.
 
     In a ubsan build, a trap during the test fails it, read from the
     kernel log and the console's record (Traps). A module that keeps the
@@ -158,7 +185,9 @@ def router(booted_router: Router, ubsan_traps: Traps | None) -> Iterator[Router]
 def module_router(
     request: pytest.FixtureRequest, booted_router: Router, ubsan_traps: Traps | None
 ) -> Iterator[Router]:
-    """Provide the router from its post-boot state for a whole module; return to it after.
+    """Provide the router from its post-boot state for a whole module.
+
+    The emulator returns to that state afterwards.
 
     In a ubsan build, check_module_traps fails each test after which
     something trapped; a trap outside the tests, in a module fixture,
@@ -178,7 +207,10 @@ def module_router(
 
 @pytest.fixture(autouse=True)
 def check_module_traps(request: pytest.FixtureRequest) -> Iterator[None]:
-    """In a ubsan build, fail a test of a module that keeps the router if anything trapped."""
+    """In a ubsan build, fail a module-router test if anything trapped.
+
+    It applies to a test of a module that keeps the router.
+    """
     yield
     if "module_router" in request.fixturenames:
         traps = cast("Traps | None", request.getfixturevalue("ubsan_traps"))
@@ -190,7 +222,10 @@ def check_module_traps(request: pytest.FixtureRequest) -> Iterator[None]:
 def data_disk(
     module_router: Router, emulator: Emulator, tmp_path_factory: pytest.TempPathFactory
 ) -> Iterator[Disk]:
-    """Plug in a blank disk on port 1 and make it the data disk (``orbyt-data init``)."""
+    """Plug in a blank disk on port 1 as the data disk.
+
+    The disk becomes the data disk with ``orbyt-data init``.
+    """
     disk = Disk.blank(emulator, tmp_path_factory.mktemp("disks"), "data")
     disk.plug(1)
     try:

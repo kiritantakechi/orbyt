@@ -1,1 +1,1 @@
-"""The network around the board: the namespaces, the ISP and the emulated internet."""
+"""The network around the board: namespaces, ISP, emulated internet."""

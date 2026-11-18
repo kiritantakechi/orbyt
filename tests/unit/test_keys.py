@@ -1,4 +1,7 @@
-"""Unit tests of orbyt_tests.model.keys: release keys made for the test, and their keyring."""
+"""Unit tests of orbyt_tests.model.keys.
+
+They cover release keys made for the test, and their keyring.
+"""
 
 import shutil
 import subprocess
@@ -28,7 +31,10 @@ def index(build_output: Path) -> Path:
 
 
 def _signed(index: Path, path: Path, keys: Keys) -> Path:
-    """Copy ``index`` to ``path``, signed with ``keys``' apk key alone."""
+    """Copy ``index`` to ``path``, signed with ``keys``' apk key.
+
+    No other key signs it.
+    """
     shutil.copy(index, path)
     subprocess.run(
         [

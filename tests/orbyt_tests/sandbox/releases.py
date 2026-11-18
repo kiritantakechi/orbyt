@@ -1,4 +1,4 @@
-"""A stand-in for GitHub's Releases API on the emulated internet (r4s-release-pipeline D7).
+"""A stand-in for GitHub's Releases API on the emulated internet.
 
 ``serve`` answers what orbyt-sync asks, over HTTPS with the test CA's
 certificate: a repository's newest stable release
@@ -44,8 +44,9 @@ def publish(
     tag: str | None = None,
     prerelease: bool | None = None,
 ) -> str:
-    """Publish an assembled release in ``repository`` (owner/repo), the newest now; return its tag.
+    """Publish an assembled release in ``repository``; return its tag.
 
+    ``repository`` is owner/repo, and the release becomes its newest.
     ``tag`` and ``prerelease`` publish it as another release: one
     assembled build stands for several. Its files are linked, not copied
     (none changes).
@@ -65,8 +66,9 @@ def publish(
 
 
 def rename(root: Path, repository: str, tag: str, name: str) -> None:
-    """Have the API name release ``tag`` ``name``; its directory, and its assets' URLs, stay.
+    """Have the API name release ``tag`` ``name``.
 
+    Its directory, and its assets' URLs, stay.
     ``name`` may be no file name at all, as a misbehaving service would
     answer.
     """
@@ -76,7 +78,10 @@ def rename(root: Path, repository: str, tag: str, name: str) -> None:
 
 
 def cut(root: Path, repository: str, tag: str, size: int | None) -> None:
-    """Have downloads of ``tag`` stop after ``size`` bytes, or run whole again (None)."""
+    """Cut downloads of ``tag`` after ``size`` bytes.
+
+    With None, they run whole again.
+    """
     marker = root / repository / tag / ".cut"
     if size is None:
         marker.unlink(missing_ok=True)
@@ -85,13 +90,16 @@ def cut(root: Path, repository: str, tag: str, size: int | None) -> None:
 
 
 def downloads(root: Path, repository: str, tag: str) -> list[str]:
-    """Return the assets of ``tag`` downloaded so far, in order, each as often as it was."""
+    """Return the assets of ``tag`` downloaded so far, in order.
+
+    Each appears as often as it was downloaded.
+    """
     record = root / repository / tag / DOWNLOADS
     return record.read_text().splitlines() if record.is_file() else []
 
 
 def _releases(directory: Path, base: str) -> list[dict[str, Any]]:
-    """Return a repository's releases in the API's form, newest first."""
+    """Return a repository's releases in API form, newest first."""
     found = []
     for release in directory.iterdir() if directory.is_dir() else ():
         if not (release / PUBLISHED).is_file():
@@ -109,7 +117,9 @@ def _releases(directory: Path, base: str) -> list[dict[str, Any]]:
                     {
                         "name": asset,
                         "size": (release / asset).stat().st_size,
-                        "browser_download_url": f"{base}/download/{release.name}/{asset}",
+                        "browser_download_url": (
+                            f"{base}/download/{release.name}/{asset}"
+                        ),
                     }
                     for asset in info.assets
                     if asset != RELEASE_FILE

@@ -1,4 +1,4 @@
-"""qosify on the router: rules of a test's own, what it learns by name, and cake's tins.
+"""qosify on the router: a test's rules, what it learns, cake's tins.
 
 A test adds its rules in a file beside the image's (``RULES``), and
 takes them away again with the addresses qosify learnt from them by
@@ -33,7 +33,7 @@ NAMED_PORT = 4000
 
 
 def voice_packets(router: Router, device: str = "pppoe-wan") -> int:
-    """Return the packets cake has sent from its Voice tin on ``device``.
+    """Return the packets cake sent from its Voice tin on ``device``.
 
     diffserv4's tins are Bulk, Best Effort, Video and Voice, in this
     order, so Voice is the last column of the statistics.
@@ -47,7 +47,10 @@ def voice_packets(router: Router, device: str = "pppoe-wan") -> int:
 
 
 def learnt(router: Router) -> dict[str, list[str]]:
-    """Return the addresses qosify learnt from DNS replies, by kind ("ipv4", "ipv6")."""
+    """Return the addresses qosify learnt from DNS replies, by kind.
+
+    The kinds are "ipv4" and "ipv6".
+    """
     found: dict[str, list[str]] = {}
     for entry in json.loads(router.run("ubus call qosify dump"))["entries"]:
         if entry["user"] and entry["type"] in LEARNT:
@@ -63,7 +66,10 @@ def forget_learnt(router: Router) -> None:
 
 @contextmanager
 def rules(router: Router, *lines: str) -> Generator[None]:
-    """Have qosify classify by ``lines`` too, in its rule files' syntax, for the block."""
+    """Have qosify classify by ``lines`` too, for the block.
+
+    The lines are in its rule files' syntax.
+    """
     forget_learnt(router)
     router.run(
         f"printf '%s\\n' {shlex.join(lines)} >{RULES} && /etc/init.d/qosify reload"
@@ -76,10 +82,10 @@ def rules(router: Router, *lines: str) -> Generator[None]:
 
 
 def send_by_name(online: Online, packets: int) -> str:
-    """Send ``packets`` datagrams from a LAN client to NAMED_PORT of a VOICE_NAMES name.
+    """Send ``packets`` datagrams from a LAN client to a voice name.
 
-    The client resolves a fresh name through the router; return the
-    address it got.
+    The datagrams go to NAMED_PORT of a VOICE_NAMES name. The client
+    resolves a fresh name through the router; return the address it got.
     """
     client = online.client()
     name = VOICE_NAMES.replace("*", uuid.uuid4().hex[:12])

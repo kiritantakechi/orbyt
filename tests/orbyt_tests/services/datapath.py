@@ -1,4 +1,4 @@
-"""The router online behind the emulated ISP, and what its datapath looks like.
+"""The router online behind the emulated ISP, and its datapath's state.
 
 ``Online`` is the router with its dial-up credentials pushed: its PPP
 session at the ISP, its WAN address, the LAN clients with their
@@ -85,7 +85,8 @@ ISP_LOG_LINES = 40
 # the log. tailscaled logs every route change, and the emulated ISP
 # advertises its prefixes every few seconds.
 WAN_STATE = (
-    "{ ubus call qosify status; ip -o link show dev pppoe-wan; tc qdisc show dev pppoe-wan;"
+    "{ ubus call qosify status; ip -o link show dev pppoe-wan;"
+    " tc qdisc show dev pppoe-wan;"
     " tc filter show dev pppoe-wan ingress; tc filter show dev pppoe-wan egress;"
     " logread | grep -v tailscaled | tail -n 40; } 2>&1"
 )
@@ -114,8 +115,9 @@ NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 
 
 def proxy_config(proxied: Sequence[str] = PROXIED, domains: Sequence[str] = ()) -> str:
-    """Return honk's test configuration, with ``proxied`` (addresses) through the proxy.
+    """Return honk's test configuration, proxying ``proxied``.
 
+    ``proxied`` (addresses) go through the proxy.
     ``domains`` (and their subdomains) go through the proxy too. A
     domain rule leaves the route of a new direct UDP flow open until
     honk has seen its first packet, which waits in honk's queue
@@ -183,8 +185,9 @@ experimental {{
 def native_api(
     source: Netns, address: str, path: str, *, token: str | None = NATIVE_API_TOKEN
 ) -> tuple[int, str]:
-    """Ask honk's native API at the router's ``address`` from ``source``.
+    """Ask honk's native API at ``address`` from ``source``.
 
+    ``address`` is the router's.
     Return the HTTP status and the body; the status is 0 when no answer
     came at all.
     """
@@ -207,7 +210,9 @@ def native_api(
 
 
 def tc_programs(router: Router, device: str) -> list[dict[str, Any]]:
-    """Return bpftool's records of the BPF programs on ``device``'s tc hooks, in run order.
+    """Return bpftool's records of ``device``'s tc hook programs.
+
+    The records are in run order.
 
     Each names its hook ("kind": "tcx/ingress", "clsact/egress", ...)
     and its program ("name", a cls_bpf filter's own), with the program's
@@ -218,7 +223,10 @@ def tc_programs(router: Router, device: str) -> list[dict[str, Any]]:
 
 
 def hooks(router: Router, device: str) -> dict[str, list[str]]:
-    """Return the BPF programs on ``device`` by hook ("tcx/ingress", ...), in run order."""
+    """Return the BPF programs on ``device`` by hook, in run order.
+
+    A hook is named like "tcx/ingress".
+    """
     found: dict[str, list[str]] = defaultdict(list)
     for program in tc_programs(router, device):
         found[program["kind"]].append(program["name"])
@@ -231,7 +239,9 @@ def interface(router: Router, name: str) -> dict[str, Any]:
 
 
 def _usable_addresses(shown: str) -> tuple[str, str] | None:
-    """Return the IPv4 address and global IPv6 address ``ip -o addr`` shows, once both are usable.
+    """Return the IPv4 and global IPv6 address ``ip -o addr`` shows.
+
+    The result is None until both are usable.
 
     An IPv6 address is usable once duplicate address detection is done
     with it (no longer tentative); before, no connection can take it as
@@ -251,12 +261,18 @@ def _usable_addresses(shown: str) -> tuple[str, str] | None:
 
 
 def lan_addresses(client: Netns) -> tuple[str, str] | None:
-    """Return a LAN client's IPv4 address and global IPv6 address, once it can use both."""
+    """Return a LAN client's IPv4 and global IPv6 address.
+
+    The result is None until it can use both.
+    """
     return _usable_addresses(client.run("ip", "-o", "addr", "show", "dev", "eth0"))
 
 
 def dhcp_leases(router: Router) -> dict[str, int]:
-    """Return the router's DHCP leases: each client's hostname and when its lease ends."""
+    """Return the router's DHCP leases.
+
+    Each client's hostname maps to when its lease ends.
+    """
     leases = {}
     for line in router.run("cat /tmp/dhcp.leases").splitlines():
         match line.split():
@@ -294,7 +310,7 @@ def _wait_session(router: Router, isp: Isp, other_than: Session | None) -> Sessi
 
 @dataclass
 class Online:
-    """The router dialed in at the ISP, with the LAN clients configured."""
+    """The router dialed in at the ISP, its LAN clients configured."""
 
     router: Router
     isp: Isp
@@ -318,7 +334,8 @@ class Online:
         """
         user, password = map(shlex.quote, LOGIN)
         router.run(
-            f"uci set network.wan.username={user} && uci set network.wan.password={password}"
+            f"uci set network.wan.username={user}"
+            f" && uci set network.wan.password={password}"
             " && uci commit network && ifup wan"
         )
         stale = dhcp_leases(router)
@@ -352,13 +369,15 @@ class Online:
         return found
 
     def router_addresses(self) -> tuple[str, str]:
-        """Return the router's IPv4 and global IPv6 addresses on the LAN."""
+        """Return the router's LAN IPv4 and global IPv6 addresses."""
         found = _usable_addresses(self.router.run("ip -o addr show dev br-lan"))
         assert found is not None, "the router has no usable LAN addresses"  # noqa: S101
         return found
 
     def reboot(self, *, while_off: Callable[[], object] | None = None) -> None:
-        """Reboot the router and wait until it is online again, with the LAN clients.
+        """Reboot the router and wait until it is online again.
+
+        The wait includes the LAN clients.
 
         ``while_off`` changes hardware while the router is off
         (Router.reboot).
@@ -367,12 +386,17 @@ class Online:
         self.reconnected()
 
     def redial(self) -> Session:
-        """End the session from the ISP side, wait until online again; return the old one."""
+        """End the session from the ISP side; wait until online again.
+
+        Return the old session.
+        """
         self.isp.hang_up(self.session)
         return self.reconnected()
 
     def reconnected(self) -> Session:
-        """Wait for a new session (after the old one ended) and the datapath; return the old.
+        """Wait for a new session and the datapath; return the old one.
+
+        The old session has ended.
 
         ``recovery`` is then how long einat and qosify took to attach to
         the new pppoe-wan, counted from the session coming up.
@@ -383,7 +407,11 @@ class Online:
         return previous
 
     def wait_datapath(self) -> None:
-        """Wait for einat and qosify on pppoe-wan, the delegated prefix and the LAN clients."""
+        """Wait until the datapath and the LAN clients are up.
+
+        That is einat and qosify on pppoe-wan, the delegated prefix and
+        the LAN clients.
+        """
         start = time.monotonic()
         try:
             until(
@@ -418,7 +446,9 @@ class Online:
             )
 
     def _lan_ready(self, name: str) -> bool:
-        """Return whether a LAN client is set up and the router knows it.
+        """Return whether a LAN client is ready.
+
+        A client is ready once it is set up and the router knows it.
 
         That is: its addresses, an IPv6 default route, and a lease at
         the router, with its hostname, newer than the one it had to
@@ -442,7 +472,9 @@ class Online:
         return False
 
     def state(self) -> str:
-        """Return the datapath's state as text, for a failure's report (failure-diagnostics D3).
+        """Return the datapath's state as text (failure-diagnostics D3).
+
+        It goes into a failure's report.
 
         Each part is read on its own, and one that cannot be read says
         why. The router is asked first whether it answers at all, so
@@ -473,7 +505,10 @@ class Online:
 
 
 def _part(title: str, read: Callable[[], str | None]) -> str:
-    """Return ``title`` and what ``read`` returns, or why it returned nothing."""
+    """Return ``title`` and what ``read`` returns.
+
+    If it returned nothing, say why.
+    """
     try:
         shown = read()
     # A report of a failure must not fail itself: any error is shown
@@ -494,13 +529,16 @@ def proxy_pid(router: Router) -> str:
 # its descriptors.
 QUEUE_OWNED = (
     "port=$(awk '$1 == 320 { print $2 }' /proc/net/netfilter/nfnetlink_queue)"
-    " && inode=$(awk -v port=\"$port\" '$2 == 12 && $3 == port { print $10 }' /proc/net/netlink)"
+    ' && inode=$(awk -v port="$port"'
+    " '$2 == 12 && $3 == port { print $10 }' /proc/net/netlink)"
     ' && [ -n "$inode" ] && ls -l /proc/$pid/fd | grep -q "socket:\\[$inode\\]"'
 )
 
 
 def wait_proxy(router: Router, *, replacing: str = "") -> None:
-    """Wait until one honk, not the process ``replacing``, has set up its datapath.
+    """Wait until one honk has set up its datapath.
+
+    The process ``replacing`` does not count.
 
     That is its programs on br-lan, its NFQUEUE table and its own
     binding of the queue: a honk that is stopping keeps its programs on
@@ -524,7 +562,10 @@ def wait_proxy(router: Router, *, replacing: str = "") -> None:
 
 
 def proxy_start(router: Router, config: str = PROXY_CONFIG) -> None:
-    """Install ``config`` as honk's configuration, enable honk and restart it; wait for it."""
+    """Install ``config`` for honk, then enable and restart honk.
+
+    Wait for the restarted honk.
+    """
     running = proxy_pid(router)
     router.run(
         f"umask 077 && printf %s {shlex.quote(config)} >/etc/honk/config.dae"

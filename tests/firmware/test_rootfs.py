@@ -1,4 +1,7 @@
-"""firmware/rootfs: the board's boot chain, then an EROFS root with a zstd f2fs overlay."""
+"""firmware/rootfs: the board's boot chain and root filesystem.
+
+The boot chain comes first, then an EROFS root with a zstd f2fs overlay.
+"""
 
 import re
 from typing import TYPE_CHECKING
@@ -43,7 +46,10 @@ SLOT_LOGIC = (
 
 
 def _sectors(disk: Path, start: int, end: int, output: Path) -> Path:
-    """Copy sectors ``start`` up to ``end`` of a raw disk into ``output``."""
+    """Copy sectors of ``disk`` into ``output``.
+
+    The range runs from ``start`` up to ``end``.
+    """
     with disk.open("rb") as raw:
         raw.seek(start * SECTOR)
         output.write_bytes(raw.read((end - start) * SECTOR))

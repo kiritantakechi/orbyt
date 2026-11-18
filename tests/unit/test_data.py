@@ -1,6 +1,10 @@
-"""The data files' readers (module-boundaries D7): every problem names its file, entry and field."""
+"""The data files' readers (module-boundaries D7).
+
+Every problem names its file, entry and field.
+"""
 
 import json
+import re
 from typing import TYPE_CHECKING, Annotated
 
 import pytest
@@ -76,7 +80,7 @@ def test_a_json_document_names_the_field(
     tmp_path: Path, document: object, problem: str
 ) -> None:
     path = _json(tmp_path, document)
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match=re.escape(problem)) as error:
         read_json(path, _Assembly)
     (found,) = _problems(error)
     assert found.startswith(f"{path}: {problem}")
@@ -95,7 +99,7 @@ def test_a_json_list_names_the_entry_and_the_field(
     tmp_path: Path, entry: dict[str, object], problem: str
 ) -> None:
     path = _json(tmp_path, [PART, entry])
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match=re.escape(problem)) as error:
         read_json(path, list[_Part])
     (found,) = _problems(error)
     assert found.startswith(f"{path}: {problem}")
@@ -126,7 +130,7 @@ def test_a_toml_table_names_the_entry_and_the_field(
     tmp_path: Path, entry: str, problem: str
 ) -> None:
     path = _toml(tmp_path, f'[[part]]\nname = "disk"\nsize = 8\n\n[[part]]\n{entry}')
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match=re.escape(problem)) as error:
         read_toml(path, "part", _Part)
     (found,) = _problems(error)
     assert found.startswith(f"{path}: {problem}")
@@ -136,14 +140,14 @@ def test_a_toml_file_with_another_table_names_it(tmp_path: Path) -> None:
     path = _toml(
         tmp_path, '[[part]]\nname = "disk"\nsize = 8\n\n[[parts]]\nname = "fan"\n'
     )
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match="not an entry of") as error:
         read_toml(path, "part", _Part)
     assert _problems(error) == (f"{path}: parts: not an entry of [[part]]",)
 
 
 def test_a_toml_table_that_is_not_an_array_names_it(tmp_path: Path) -> None:
     path = _toml(tmp_path, '[part]\nname = "disk"\nsize = 8\n')
-    with pytest.raises(DataError) as error:
+    with pytest.raises(DataError, match="not an array of tables") as error:
         read_toml(path, "part", _Part)
     assert _problems(error) == (f"{path}: part: not an array of tables ([[part]])",)
 

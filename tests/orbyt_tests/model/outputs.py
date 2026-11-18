@@ -25,7 +25,10 @@ type Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 
 
 def _split(flags: object) -> object:
-    """Split the compiler flags the scripts write as one string, as the compiler reads them."""
+    """Split the compiler flags the scripts write as one string.
+
+    The split is the one the compiler applies.
+    """
     if not isinstance(flags, str):
         kind, msg = "string_type", "compiler flags are one string"
         raise PydanticCustomError(kind, msg)
@@ -42,7 +45,11 @@ class _Record(BaseModel):
 
 
 class Manifest(_Record):
-    """A build's manifest: which board was built, from what, with which flags, and its files."""
+    """A build's manifest.
+
+    It records which board was built, from what, with which flags, and
+    its files.
+    """
 
     board: str
     device: str
@@ -64,7 +71,10 @@ class Manifest(_Record):
 
 
 class EmulationSource(_Record):
-    """What an emulator directory was made from: a build's factory image and firmware."""
+    """What an emulator directory was made from.
+
+    That is a build's factory image and firmware.
+    """
 
     build: Path
     board: str
@@ -75,7 +85,9 @@ class EmulationSource(_Record):
 
 
 class ToolchainRecord(_Record):
-    """What a toolchain was built with: the flags, its C library, and Rust's standard library.
+    """What a toolchain was built with.
+
+    That is the flags, its C library, and Rust's standard library.
 
     ``rust_std`` is absent until the toolchain has built Rust's.
     """
@@ -86,7 +98,7 @@ class ToolchainRecord(_Record):
 
 
 class Release(_Record):
-    """A release: its tag, whether it is a candidate, its notes, boards and assets."""
+    """A release: tag, prerelease flag, notes, boards and assets."""
 
     tag: Annotated[str, Field(min_length=1)]
     prerelease: bool

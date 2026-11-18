@@ -1,4 +1,6 @@
-"""services/containers: podman on the data disk, behind fw4, einat and honk like the LAN.
+"""services/containers: podman on the data disk.
+
+It sits behind fw4, einat and honk like the LAN.
 
 The app Pod (orbyt_tests.services.app) runs from the test image in the
 emulated internet's registry: uhttpd serving a page of the data disk, at
@@ -65,7 +67,8 @@ TOGGLE = (
     "import * as fs from 'fs';"
     f" while (fs.access('{SCRATCH}/busy'))"
     " for (let target in ['a', 'b']) {"
-    f" fs.symlink(target, '{SCRATCH}/next'); fs.rename('{SCRATCH}/next', '{SCRATCH}/link'); }}"
+    f" fs.symlink(target, '{SCRATCH}/next');"
+    f" fs.rename('{SCRATCH}/next', '{SCRATCH}/link'); }}"
 )
 # The storage probes some kernel features with mounts under its home
 # when it is first asked about them, unless the run root records the
@@ -83,26 +86,32 @@ FORGET = (
 
 @pytest.fixture(scope="module")
 def pod(app_pod: Online, proxy: Online) -> Online:
-    """Return the router with the app Pod running and honk on (it splits the Pod's traffic)."""
+    """Return the router with the app Pod running and honk on.
+
+    Honk splits the Pod's traffic.
+    """
     del proxy  # running for the module
     return app_pod
 
 
 @pytest.fixture(scope="module")
 def registry(trusted_ca: Online, data_disk: Disk, app_image: str) -> tuple[Online, str]:
-    """Return the router trusting the registry, with the data disk and no Pod declared yet."""
+    """Return the router trusting the registry, with the data disk.
+
+    No Pod is declared yet.
+    """
     del data_disk  # podman's storage
     return trusted_ca, app_image
 
 
 def _from_container(pod: Online, host: str, port: int = PORT) -> Seen:
-    """Ask a probe server what it sees of a connection from the app container."""
+    """Ask a probe server about a connection from the app container."""
     output = pod.router.run(f"podman exec {app.CONTAINER} nc {host} {port} </dev/null")
     return cast("Seen", json.loads(output))
 
 
 def _netns(router: Router) -> str:
-    """Return where podman registered the app container's network namespace."""
+    """Return where podman registered the app container's netns."""
     return router.run(
         f"podman inspect --format '{{{{.NetworkSettings.SandboxKey}}}}' {app.CONTAINER}"
     )
@@ -205,7 +214,8 @@ def test_exposed_port(pod: Online) -> None:
         assert page == f"{app.POD}\n"
     finally:
         router.run(
-            "uci delete firewall.web && uci commit firewall && /etc/init.d/firewall reload"
+            "uci delete firewall.web && uci commit firewall"
+            " && /etc/init.d/firewall reload"
         )
 
 
@@ -274,7 +284,9 @@ def test_a_declaration_that_cannot_start_keeps_no_other_down(pod: Online) -> Non
     missing = "a-missing"
     declared = f"{app.PODS}/{missing}.yaml"
     router.run(
-        f"printf %s {shlex.quote(app.declaration('localhost:1/none:1', missing))} >{declared}"
+        "printf %s"
+        f" {shlex.quote(app.declaration('localhost:1/none:1', missing))}"
+        f" >{declared}"
     )
     try:
         router.run(f"podman pod stop {app.POD} >/dev/null", timeout=120)

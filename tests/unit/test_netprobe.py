@@ -1,4 +1,6 @@
-"""Unit tests of orbyt_tests.sandbox.netprobe: every mode between two plain network namespaces.
+"""Unit tests of orbyt_tests.sandbox.netprobe.
+
+They run every mode between two plain network namespaces.
 
 ``solicit-prefix`` needs a DHCPv6 server on a PPP link, and
 ``solicit-router`` a router; test_isp and the network tests cover them.
@@ -30,7 +32,10 @@ SECOND = ("192.0.2.201", "2001:db8:1::201")
 
 
 class Pair(NamedTuple):
-    """Two namespaces joined by a veth; the server runs netprobe and dnsmasq."""
+    """Two namespaces joined by a veth.
+
+    The server runs netprobe and dnsmasq.
+    """
 
     client: Netns
     server: Netns

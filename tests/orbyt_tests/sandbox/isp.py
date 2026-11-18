@@ -1,4 +1,6 @@
-"""The emulated ISP between the router's WAN and the emulated internet (r4s-ebpf-datapath D11).
+"""The emulated ISP between the router's WAN and the emulated internet.
+
+(r4s-ebpf-datapath D11)
 
 The ``isp`` namespace is the BRAS. rp-pppoe's pppoe-server runs in user
 mode (a pty per session, so the host needs only ppp_generic and
@@ -68,10 +70,13 @@ class Session:
 
 
 class Isp:
-    """The tests' handle on the ISP: its sessions, and hanging them up."""
+    """The tests' handle on the ISP: its sessions, and hanging up."""
 
     def __init__(self, netns: Netns, workdir: Path) -> None:
-        """Wrap the ``isp`` namespace; ``workdir`` is the one ``configure`` was given."""
+        """Wrap the ``isp`` namespace.
+
+        ``workdir`` is the one ``configure`` was given.
+        """
         self.netns = netns
         self.registry = workdir / "sessions"
         self.log_file = workdir / PPPD_LOG
@@ -95,7 +100,7 @@ class Isp:
         return found
 
     def session(self, peer: str) -> Session:
-        """Wait for the session that gave ``peer`` its address and return it."""
+        """Return the session that gave ``peer`` its address."""
         deadline = time.monotonic() + SESSION_TIMEOUT
         while not (found := [s for s in self.sessions() if s.peer == peer]):
             if time.monotonic() > deadline:
@@ -106,7 +111,10 @@ class Isp:
 
     @contextmanager
     def blocking(self, destination: str) -> Generator[None]:
-        """Refuse what the customers send to ``destination``, as an ISP that filters it."""
+        """Refuse what the customers send to ``destination``.
+
+        This is how an ISP that filters ``destination`` behaves.
+        """
         first = ipaddress.IPv4Address(POOL_START)
         (pool,) = ipaddress.summarize_address_range(first, first + POOL_SIZE - 1)
         rule = ("from", str(pool), "to", destination, "prohibit")
@@ -117,7 +125,10 @@ class Isp:
             self.netns.run("ip", "rule", "del", *rule)
 
     def hang_up(self, session: Session) -> None:
-        """End a session from the ISP side (pppd sends LCP terminate and PADT)."""
+        """End a session from the ISP side.
+
+        pppd sends LCP terminate and PADT.
+        """
         os.kill(session.pid, signal.SIGTERM)
         deadline = time.monotonic() + SESSION_TIMEOUT
         while (self.registry / str(session.pid)).exists():
@@ -136,7 +147,10 @@ def _tool(name: str) -> str:
 
 
 def _scripts(workdir: Path) -> dict[str, str]:
-    """Return the session scripts; pppd gives them a bare PATH, so tools are absolute."""
+    """Return the session scripts.
+
+    pppd gives them a bare PATH, so tools are absolute.
+    """
     ip, setsid, pkill, radvd, kea = map(
         _tool, ("ip", "setsid", "pkill", "radvd", "kea-dhcp6")
     )
@@ -192,7 +206,8 @@ def _scripts(workdir: Path) -> dict[str, str]:
     return {
         "ip-up": (
             "# Record the session: its interface and the address the peer got.\n"
-            f'printf "%s %s\\n" "${{IFNAME}}" "${{IPREMOTE}}" >"{registry}/${{PPPD_PID}}.new"\n'
+            f'printf "%s %s\\n" "${{IFNAME}}" "${{IPREMOTE}}" '
+            f'>"{registry}/${{PPPD_PID}}.new"\n'
             f'mv "{registry}/${{PPPD_PID}}.new" "{registry}/${{PPPD_PID}}"\n'
         ),
         "ip-down": f'rm -f "{registry}/${{PPPD_PID}}"\n',
@@ -222,18 +237,22 @@ def _scripts(workdir: Path) -> dict[str, str]:
             f"\tRDNSS {DNS[1]} {{}};\n"
             "};\n"
             "EOF\n"
-            f'cat >"{session}/kea.json" <<EOF\n{json.dumps(kea_config, indent=1)}\nEOF\n'
-            f'{setsid} -f {radvd} -n -m stderr -C "{session}/radvd.conf" -p "{session}/radvd.pid" '
+            f'cat >"{session}/kea.json" <<EOF\n'
+            f"{json.dumps(kea_config, indent=1)}\n"
+            "EOF\n"
+            f'{setsid} -f {radvd} -n -m stderr -C "{session}/radvd.conf" '
+            f'-p "{session}/radvd.pid" '
             f'>"{session}/radvd.log" 2>&1 </dev/null\n'
             f'KEA_PIDFILE_DIR="{session}" KEA_LOCKFILE_DIR="{session}" '
-            f'{setsid} -f {kea} -c "{session}/kea.json" >"{session}/kea.log" 2>&1 </dev/null\n'
+            f'{setsid} -f {kea} -c "{session}/kea.json" '
+            f'>"{session}/kea.log" 2>&1 </dev/null\n'
         ),
         "ipv6-down": f'{pkill} -f -- "{session}/" || true\n',
     }
 
 
 def configure(etc: Path, workdir: Path) -> None:
-    """Write the ISP's /etc/ppp to ``etc``, and its session scripts to ``workdir``."""
+    """Write the ISP's /etc/ppp to ``etc``, scripts to ``workdir``."""
     etc.mkdir(parents=True)
     (workdir / "sessions").mkdir(parents=True)
     scripts = _scripts(workdir)

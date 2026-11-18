@@ -1,4 +1,7 @@
-"""firmware/ab-upgrade: an upgrade writes the other slot, hands the configuration on, tries it."""
+"""firmware/ab-upgrade: an upgrade writes the other slot and tries it.
+
+The upgrade hands the configuration on to the other slot.
+"""
 
 import time
 from typing import TYPE_CHECKING
@@ -41,7 +44,7 @@ WRITE_LIMIT = 600
 
 
 def _upgrade(router: Router, image: Path, *options: str) -> None:
-    """Run sysupgrade with ``image`` and wait until the router is back."""
+    """Run sysupgrade with ``image``; wait until the router is back."""
     router.put(image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
     router.detach(f"sleep 1; sysupgrade {' '.join(options)} {UPGRADE_IMAGE}")
@@ -49,12 +52,12 @@ def _upgrade(router: Router, image: Path, *options: str) -> None:
 
 
 def _switch(router: Router) -> tuple[str | None, ...]:
-    """Return what the A/B switch writes, as the U-Boot environment holds it now."""
+    """Return the A/B switch's variables from the U-Boot environment."""
     return tuple(getenv(router, name) for name in SWITCH)
 
 
 def _confirmed(router: Router, which: str) -> None:
-    """Wait until the health check has confirmed the trial slot ``which``."""
+    """Wait until the health check confirms trial slot ``which``."""
     message = f"slot {which} passed its trial boot and is confirmed"
     router.run(
         f"until logread -e orbyt-healthcheck | grep -q '{message}'; do sleep 2; done",
@@ -265,7 +268,8 @@ def test_a_slow_validation_keeps_the_system_going(router: Router) -> None:
     router.run(
         f"until grep -q '^exit=' {VALIDATION}; do for fd in /proc/[0-9]*/fd/*; do"
         f' [ "$(readlink "$fd")" = {SLOW_IMAGE} ] || continue; pid=${{fd#/proc/}};'
-        " pid=${pid%%/*}; case $(sed -n 's/^flags:[[:space:]]*//p' /proc/$pid/fdinfo/${fd##*/})"
+        " pid=${pid%%/*}; case $(sed -n 's/^flags:[[:space:]]*//p'"
+        " /proc/$pid/fdinfo/${fd##*/})"
         ' in *2) kill "$pid";; esac; done 2>/dev/null; sleep 1; done',
         timeout=VALIDATION_LIMIT,
     )

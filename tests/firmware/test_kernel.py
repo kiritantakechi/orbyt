@@ -1,4 +1,7 @@
-"""firmware/kernel: version, BTF, BPF and cgroup v2, built-in filesystems, BBRv3, vermagic."""
+"""firmware/kernel: what the kernel is built with.
+
+Version, BTF, BPF and cgroup v2, built-in filesystems, BBRv3, vermagic.
+"""
 
 import re
 import subprocess
@@ -162,7 +165,8 @@ def test_local_connection_uses_bbr(router: Router) -> None:
     # Hold a connection from the router to its own web server open, then
     # look at it.
     info = router.run(
-        "(sleep 5 | nc 127.0.0.1 80 >/dev/null) & sleep 2; ss -Htin state established 'dport = :80'"
+        "(sleep 5 | nc 127.0.0.1 80 >/dev/null) & sleep 2;"
+        " ss -Htin state established 'dport = :80'"
     )
     assert re.search(r"\bbbr\b", info), info
 

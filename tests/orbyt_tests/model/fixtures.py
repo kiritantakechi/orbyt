@@ -31,7 +31,10 @@ SIGNED_ENV = "ORBYT_SIGNED"
 
 @pytest.fixture(scope="session")
 def emulation_dir() -> Path:
-    """Return the directory emu-prepare made from the image under test (scripts/test.sh)."""
+    """Return the directory emu-prepare made from the image under test.
+
+    scripts/test.sh passes it in.
+    """
     return Path(os.environ["LG_EMU_DIR"])
 
 
@@ -55,19 +58,22 @@ def manifest(build_output: Path) -> Manifest:
 
 @pytest.fixture(scope="session")
 def board(manifest: Manifest) -> boards.Board:
-    """Return the board the build under test was built for, as its manifest names it."""
+    """Return the build's board, as its manifest names it."""
     return boards.load(manifest.board)
 
 
 @pytest.fixture(scope="session")
 def profile(manifest: Manifest) -> str:
-    """Return the profile the build under test was built in, as its manifest names it."""
+    """Return the build's profile, as its manifest names it."""
     return manifest.profile
 
 
 @pytest.fixture(scope="session")
 def release_keys(tmp_path_factory: pytest.TempPathFactory) -> Keys | None:
-    """Return the session's release keys, or None when $ORBYT_SIGNED names a signed build."""
+    """Return the session's release keys, or None for a signed build.
+
+    $ORBYT_SIGNED names the signed build.
+    """
     if os.environ.get(SIGNED_ENV, ""):
         return None
     return Keys.make(tmp_path_factory.mktemp("keys"))
@@ -79,7 +85,10 @@ def signed_repo(
     release_keys: Keys | None,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
-    """Return the build under test signed with the session's keys (or $ORBYT_SIGNED)."""
+    """Return the build under test, signed with the session's keys.
+
+    With no session keys, $ORBYT_SIGNED names the signed build.
+    """
     if release_keys is None:
         return Path(os.environ[SIGNED_ENV])
     return sign(build_output, tmp_path_factory.mktemp("signed") / "build", release_keys)
@@ -89,7 +98,10 @@ def signed_repo(
 def signed_boards(
     board: boards.Board, signed_repo: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> Path:
-    """Return the signed builds as the sign job hands them on: this board's, named after it."""
+    """Return the signed builds as the sign job hands them on.
+
+    The directory holds this board's build, named after it.
+    """
     directory = tmp_path_factory.mktemp("boards")
     (directory / board.id).symlink_to(signed_repo)
     return directory
@@ -97,6 +109,6 @@ def signed_boards(
 
 @pytest.fixture(scope="session")
 def upgrade_image(signed_repo: Path) -> Path:
-    """Return the signed single-slot upgrade image of the build under test."""
+    """Return the signed single-slot upgrade image of the build."""
     (image,) = signed_repo.glob(UPGRADE_IMAGE)
     return image

@@ -1,4 +1,7 @@
-"""testing/emulation: the emulator boots the shipped image as its board (D14, board-model D7)."""
+"""testing/emulation: the emulator boots the shipped image as its board.
+
+See design D14 and board-model D7.
+"""
 
 import ipaddress
 import lzma
@@ -119,7 +122,10 @@ def test_the_cores_are_the_board_s(router: Router, board: Board) -> None:
 
 
 def _lease(client: Netns) -> str:
-    """Wait for the client's DHCP lease; return its address, which must be in the LAN."""
+    """Wait for the client's DHCP lease; return its address.
+
+    The address must be in the LAN.
+    """
     shown = until(
         lambda: client.run("ip", "-4", "-o", "addr", "show", "dev", "eth0"),
         timeout=DHCP_TIMEOUT,
@@ -143,7 +149,7 @@ def test_lan_ports_share_one_lan(
     router: Router, board: Board, network: Network
 ) -> None:
     del router  # requested for the booted router, whose LAN bridges the ports
-    if len(board.lan) < 2:  # noqa: PLR2004
+    if len(board.lan) < 2:
         pytest.skip(f"the {board.model} has one LAN port")
     # client-a is on the first LAN port's segment, client-c on the
     # second's.
@@ -252,7 +258,7 @@ def test_a_wait_on_an_ended_console_fails_at_once(tmp_path: Path) -> None:
     ours, qemus = socket.socketpair()
     driver = cast("QEMUDriver", SimpleNamespace(_clientsocket=ours))
     console = Console(
-        lambda size, timeout: QEMUDriver._read(driver, size=size, timeout=timeout),  # noqa: SLF001
+        lambda size, timeout: QEMUDriver._read(driver, size=size, timeout=timeout),
         tmp_path / "console.log",
     )
     console.start()

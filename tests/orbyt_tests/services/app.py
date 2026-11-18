@@ -1,4 +1,6 @@
-"""The app Pod of the services tests (r4s-services D4, D10), which stands in for qBittorrent.
+"""The app Pod of the services tests (r4s-services D4, D10).
+
+The Pod stands in for qBittorrent.
 
 Its declaration lies on the data disk, as an administrator would write
 one: a Kubernetes Pod of the test app image whose uhttpd serves a
@@ -28,7 +30,10 @@ START_TIMEOUT = 180
 
 
 def declaration(image: str, name: str = POD) -> str:
-    """Return the Pod's declaration, as podman kube play reads it (another Pod's: ``name``)."""
+    """Return the Pod's declaration, as podman kube play reads it.
+
+    ``name`` names another Pod than the default.
+    """
     return f"""\
 apiVersion: v1
 kind: Pod
@@ -51,7 +56,10 @@ spec:
 
 
 def declare(router: Router, image: str) -> None:
-    """Write the Pod's declaration and its page to the data disk, and start the Pod."""
+    """Write the Pod's declaration and its page to the data disk.
+
+    The Pod is started afterwards.
+    """
     router.run(
         f"mkdir -p {PODS} {WWW} && echo {POD} >{WWW}/index.html"
         f" && printf %s {shlex.quote(declaration(image))} >{PODS}/{POD}.yaml"
@@ -63,14 +71,18 @@ def declare(router: Router, image: str) -> None:
 def running(router: Router) -> str | None:
     """Return the app container's ID while it runs."""
     state = router.run(
-        f"podman container inspect --format '{{{{.State.Running}}}} {{{{.Id}}}}' {CONTAINER}"
+        f"podman container inspect --format '{{{{.State.Running}}}} {{{{.Id}}}}'"
+        f" {CONTAINER}"
         " 2>/dev/null || true"
     ).split()
     return state[1] if state[:1] == ["true"] else None
 
 
 def started(router: Router) -> str:
-    """Return when the app container last started, as podman records it; "" while it is gone."""
+    """Return when the app container last started, as podman records it.
+
+    The result is "" while the container is gone.
+    """
     return router.run(
         f"podman container inspect --format '{{{{.State.StartedAt}}}}' {CONTAINER}"
         " 2>/dev/null || true"
@@ -78,7 +90,10 @@ def started(router: Router) -> str:
 
 
 def wait_running(router: Router) -> str:
-    """Wait until the app container runs; return its ID (or fail with orbyt-containers' log)."""
+    """Wait until the app container runs; return its ID.
+
+    Fail with orbyt-containers' log if it does not.
+    """
     try:
         return until(
             lambda: running(router), timeout=START_TIMEOUT, what=f"{CONTAINER} running"

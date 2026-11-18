@@ -51,7 +51,9 @@ def getenv(router: Router, name: str) -> str | None:
 
 
 def setenv(router: Router, **variables: str | int) -> None:
-    """Write U-Boot variables with the router's own helper, as orbyt-slot and sysupgrade do.
+    """Write U-Boot variables with the router's own helper.
+
+    The helper is the one orbyt-slot and sysupgrade use.
 
     Each value is one word for the helper, whatever spaces it holds.
     """
@@ -62,7 +64,7 @@ def setenv(router: Router, **variables: str | int) -> None:
 
 
 def newest_env_copy(router: Router) -> int:
-    """Return the offset of the copy of the environment the latest write went to.
+    """Return the offset of the environment copy the latest write used.
 
     Each write goes to the other copy with a serial flag one higher, so
     the newest copy holds the higher flag, counting on from 255 to 0.
@@ -81,7 +83,9 @@ def newest_env_copy(router: Router) -> int:
 
 
 def region_sha256(router: Router, device: str, start: int, end: int) -> str:
-    """Return the SHA-256 of bytes ``start`` up to ``end`` of a block device.
+    """Return the SHA-256 of bytes ``start`` to ``end`` of a device.
+
+    The device is a block device.
 
     dd reads in the largest block (up to 1 MiB) both ends are a multiple
     of: a sector at a time, the emulated boot disk takes minutes for a
@@ -91,7 +95,8 @@ def region_sha256(router: Router, device: str, start: int, end: int) -> str:
     while start % block or end % block:
         block //= 2
     return router.run(
-        f"dd if={device} bs={block} skip={start // block} count={(end - start) // block}"
+        f"dd if={device} bs={block} skip={start // block}"
+        f" count={(end - start) // block}"
         " 2>/dev/null | sha256sum | cut -d' ' -f1",
         timeout=300,
     )
@@ -103,22 +108,30 @@ def partition(number: int) -> str:
 
 
 def erofs_size(router: Router, device: str) -> int:
-    """Return the size of the EROFS image a partition starts with (superblock at 1 KiB)."""
+    """Return the size of the EROFS image a partition starts with.
+
+    The superblock is at 1 KiB.
+    """
     bits = int(
         router.run(
-            f"dd if={device} bs=1 skip=1036 count=1 2>/dev/null | hexdump -e '1/1 \"%u\"'"
+            f"dd if={device} bs=1 skip=1036 count=1 2>/dev/null"
+            " | hexdump -e '1/1 \"%u\"'"
         )
     )
     blocks = int(
         router.run(
-            f"dd if={device} bs=4 skip=265 count=1 2>/dev/null | hexdump -e '1/4 \"%u\"'"
+            f"dd if={device} bs=4 skip=265 count=1 2>/dev/null"
+            " | hexdump -e '1/4 \"%u\"'"
         )
     )
     return blocks << bits
 
 
 def slot_sha256(router: Router, which: str) -> dict[str, str]:
-    """Checksums of what an upgrade must not touch in a slot: its boot partition and system."""
+    """Checksums of what an upgrade must not touch in a slot.
+
+    These are the slot's boot partition and its system.
+    """
     boot, root = (partition(number) for number in PARTITIONS[which])
     size = (
         int(router.run(f"cat /sys/class/block/{boot.removeprefix('/dev/')}/size")) * 512
@@ -130,7 +143,10 @@ def slot_sha256(router: Router, which: str) -> dict[str, str]:
 
 
 def boot_area_sha256(router: Router) -> str:
-    """Checksum of the partition table, loader and U-Boot, without the environment."""
+    """Checksum of the partition table, loader and U-Boot.
+
+    The environment is not part of it.
+    """
     return ",".join(
         region_sha256(router, BOOT_DISK, start, end) for start, end in BOOT_AREA
     )

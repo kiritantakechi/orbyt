@@ -1,4 +1,7 @@
-"""Unit tests of scripts/cache-room.sh and scripts/cache-prune.sh against a stand-in gh."""
+"""Unit tests of scripts/cache-room.sh and scripts/cache-prune.sh.
+
+They run against a stand-in gh.
+"""
 
 import os
 from typing import TYPE_CHECKING

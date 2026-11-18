@@ -1,4 +1,6 @@
-"""services/file-sharing: ksmbd on the LAN only, SMB 3 with a password, shares on the data disk.
+"""services/file-sharing: ksmbd on the LAN only, SMB 3 with a password.
+
+The shares are on the data disk.
 
 smbclient connects from a LAN client, from the internet side, from
 wg-peer over WireGuard and from ts-peer over the tailnet; only the LAN
@@ -58,13 +60,16 @@ KSMBD_CONF = "/var/etc/ksmbd/ksmbd.conf"
 
 @pytest.fixture(scope="module")
 def sharing(online: Online, smb_user: tuple[str, str]) -> Online:
-    """Return the router online, sharing the data disk with the test user."""
+    """Return the router online, sharing the data disk with the user."""
     del smb_user  # added for the module
     return online
 
 
 def _smbclient(client: Netns, *args: str) -> tuple[int, str]:
-    """Run smbclient (with its defaults, no smb.conf) in ``client``; return status and output."""
+    """Run smbclient in ``client``; return its status and output.
+
+    It runs with its defaults and no smb.conf.
+    """
     result = subprocess.run(
         client.argv("smbclient", "--configfile=/dev/null", *args),
         capture_output=True,
@@ -76,7 +81,10 @@ def _smbclient(client: Netns, *args: str) -> tuple[int, str]:
 
 
 def _sharing_state(router: Router) -> str:
-    """Return what the router shows of the SMB service and its disk, for a wait that timed out."""
+    """Return what the router shows of the SMB service and its disk.
+
+    It is for a wait that timed out.
+    """
     commands = (
         "grep ' /mnt/data ' /proc/mounts",
         "grep -w ksmbd /proc/modules",
@@ -95,7 +103,7 @@ def _sharing_state(router: Router) -> str:
 def _wait(
     router: Router, probe: Callable[[], object], *, timeout: float, what: str
 ) -> None:
-    """Wait for ``probe``; if it never answers, show the state of the SMB service."""
+    """Wait for ``probe``; if it times out, show the SMB state."""
     try:
         until(probe, timeout=timeout, what=what)
     except TimeoutError as error:
@@ -116,7 +124,10 @@ def _wait_stopped(router: Router) -> None:
 
 
 def _wait_queue_empty(router: Router) -> None:
-    """Wait until procd has run what earlier tests set off, for it to act on what comes next."""
+    """Wait until procd has run what earlier tests set off.
+
+    It can then act on what comes next.
+    """
     until(
         lambda: not router.trigger_commands(),
         timeout=QUEUE_TIMEOUT,
@@ -263,7 +274,8 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
         "}\n"
     )
     router.run(
-        f"mkdir -p {SLOW_SCRIPT.rsplit('/', 1)[0]} && cat >{SLOW_SCRIPT} <<'EOF'\n{script}EOF"
+        f"mkdir -p {SLOW_SCRIPT.rsplit('/', 1)[0]}"
+        f" && cat >{SLOW_SCRIPT} <<'EOF'\n{script}EOF"
     )
     try:
         announce(router, data_disk, "remove")
@@ -289,7 +301,7 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
 
 
 def _offered(router: Router, share: str) -> bool:
-    """Return whether ksmbd's configuration, once reloaded, offers ``share``."""
+    """Return whether a reloaded ksmbd offers ``share``."""
     router.run("/etc/init.d/ksmbd reload")
     return f"[{share}]" in router.run(f"cat {KSMBD_CONF}").splitlines()
 
@@ -301,13 +313,15 @@ def test_a_share_within_nested_mount_points_waits_for_both(sharing: Online) -> N
     for target in (OUTER, INNER):
         section = router.run("uci add fstab mount")
         router.run(
-            f"uci set fstab.{section}.target={target} && uci set fstab.{section}.enabled=0"
+            f"uci set fstab.{section}.target={target}"
+            f" && uci set fstab.{section}.enabled=0"
         )
         sections.append(f"fstab.{section}")
     share = router.run("uci add ksmbd share")
     sections.append(f"ksmbd.{share}")
     router.run(
-        f"uci set ksmbd.{share}.name={NESTED_SHARE} && uci set ksmbd.{share}.path={INNER}/share"
+        f"uci set ksmbd.{share}.name={NESTED_SHARE}"
+        f" && uci set ksmbd.{share}.path={INNER}/share"
         f" && uci commit fstab && uci commit ksmbd && mkdir -p {OUTER}"
         f" && mount -t tmpfs outer {OUTER} && mkdir -p {INNER}"
     )

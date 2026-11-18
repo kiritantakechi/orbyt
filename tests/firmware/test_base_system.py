@@ -1,4 +1,7 @@
-"""firmware/base-system: LAN address, LuCI, shells, zram and what the image leaves out."""
+"""firmware/base-system: what the image's base system provides.
+
+LAN address, LuCI, shells, zram and what the image leaves out.
+"""
 
 import re
 from http import HTTPStatus
@@ -71,14 +74,17 @@ UCODE_KINDS = {
 
 
 def _report(output: str) -> str:
-    """Return the value of the ``@@ <value>`` line a login script echoed."""
+    """Return the value of the ``@@ <value>`` line a script echoed."""
     match = re.search(r"^@@ (.*?)\s*$", output, re.MULTILINE)
     assert match is not None, output
     return str(match.group(1))
 
 
 def _installed(router: Router, *names: str) -> set[str]:
-    """Return which of ``names`` are installed, also as ``<name>-*`` or ``kmod-<name>``."""
+    """Return which of ``names`` are installed.
+
+    A name also counts as installed as ``<name>-*`` or ``kmod-<name>``.
+    """
     installed = router.run("apk info").split()
     return {
         package

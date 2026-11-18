@@ -1,6 +1,10 @@
-"""Unit tests of orbyt_tests.model.boards: the board descriptions and their schema."""
+"""Unit tests of orbyt_tests.model.boards.
+
+They cover the board descriptions and their schema.
+"""
 
 import json
+import re
 import shutil
 from typing import TYPE_CHECKING, Any
 
@@ -69,7 +73,7 @@ def test_a_broken_description_is_refused(
     description = read_json(boards / "r6s.json", Description).model_dump(mode="json")
     breakage(description)
     (boards / "r6s.json").write_text(json.dumps(description), encoding="utf-8")
-    with pytest.raises(DataError) as refused:
+    with pytest.raises(DataError, match=re.escape(field)) as refused:
         load("r6s", boards)
     located = {problem.split(": ")[1] for problem in refused.value.problems}
     assert field in located

@@ -1,4 +1,6 @@
-"""release/signing: a job of its own signs with keys only it sees; devices trust only them.
+"""release/signing: a job of its own signs; devices trust its keys.
+
+The job signs with keys only it sees; devices trust only those keys.
 
 The workflow checks read .github/workflows, and run the sign job's
 script with a stand-in nix that records what it would sign. Signing runs
@@ -95,14 +97,18 @@ def test_a_changed_artifact_is_not_signed(
 ) -> None:
     changed = linked_copy(build_output, tmp_path / "build")
     replace(changed / INDEX, (changed / INDEX).read_bytes() + b"\0")
-    with pytest.raises(subprocess.CalledProcessError) as failure:
+    with pytest.raises(
+        subprocess.CalledProcessError, match="non-zero exit status"
+    ) as failure:
         sign(changed, tmp_path / "signed", release_keys)
     assert "do not match manifest.json" in failure.value.stderr
     assert not (tmp_path / "signed").exists()
 
 
 def _sign_job(tmp_path: Path, artifact: str, board: str) -> tuple[bool, list[str]]:
-    """Run the sign job's script on an artifact whose manifest names ``board``.
+    """Run the sign job's script on a ``board`` artifact.
+
+    The artifact's manifest names ``board``.
 
     Return whether it succeeded and what it had nix run.
     """
@@ -153,7 +159,8 @@ def test_each_build_is_signed_as_its_artifact_s_board(
         build = tmp_path / "unsigned" / f"firmware-unsigned-{BOARD}"
         (call,) = made
         assert call.startswith(
-            f"run .#sign-tools -- scripts/release-sign.sh {build} {tmp_path}/signed/{BOARD} "
+            f"run .#sign-tools -- scripts/release-sign.sh {build}"
+            f" {tmp_path}/signed/{BOARD} "
         )
     else:
         assert not signed
@@ -177,7 +184,9 @@ def test_a_file_out_of_the_build_is_not_signed(
     manifest = read_json(build / MANIFEST_FILE, Manifest)
     files = manifest.files | {name: sha256(outside)}
     write_json(build / MANIFEST_FILE, manifest.model_copy(update={"files": files}))
-    with pytest.raises(subprocess.CalledProcessError) as failure:
+    with pytest.raises(
+        subprocess.CalledProcessError, match="non-zero exit status"
+    ) as failure:
         sign(build, tmp_path / "signed", release_keys)
     assert "lists a file that is no plain path inside its build" in failure.value.stderr
     assert not (tmp_path / "signed").exists()
@@ -201,7 +210,10 @@ def test_only_the_files_the_manifest_lists_are_signed(
 
 
 def _resigned(index: Path, path: Path, keys: Keys) -> Path:
-    """Copy a package index to ``path``, signed with ``keys``' apk key alone."""
+    """Copy a package index to ``path``, signed anew.
+
+    The apk key of ``keys`` signs it alone.
+    """
     shutil.copy(index, path)
     subprocess.run(
         [
@@ -220,7 +232,7 @@ def _resigned(index: Path, path: Path, keys: Keys) -> Path:
 
 
 def _verified(router: Router, index: Path) -> bool:
-    """Return whether the router's apk takes ``index`` as signed by a key it trusts."""
+    """Return whether the router's apk trusts ``index``'s signature."""
     router.put(index, ON_ROUTER)
     return router.returncode(f"apk verify {ON_ROUTER}") == 0
 
@@ -259,7 +271,8 @@ def test_an_index_of_another_key_is_refused(
         router, _resigned(signed_repo / INDEX, tmp_path / "other.adb", other)
     )
     refused = router.run(
-        f"apk --repositories-file /dev/null --repository {ON_ROUTER} search kmod- 2>&1 || true"
+        f"apk --repositories-file /dev/null --repository {ON_ROUTER}"
+        " search kmod- 2>&1 || true"
     )
     assert "UNTRUSTED" in refused
 

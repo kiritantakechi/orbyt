@@ -1,4 +1,4 @@
-"""Fixtures of the release tests: the upgrade drill (r4s-release-pipeline D5).
+"""Fixtures of the release upgrade drill (r4s-release-pipeline D5).
 
 The drill's router is online, resolves and trusts the emulated internet,
 and has a data disk for its local repository. Before the drill it gets
@@ -33,7 +33,10 @@ SHARE_USER = {"name": "drill", "password": "drill-secret-1"}
 def drill_configuration(
     trusted_ca: Online, harness_key: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> dict[str, str]:
-    """Push the drill's configuration; return what it set, as the drill records it."""
+    """Push the drill's configuration; return what it set.
+
+    The values are as the drill records them.
+    """
     repository = ConfigRepository.create(tmp_path_factory.mktemp("drill"))
     user, password = LOGIN
     private, _ = key_pair()

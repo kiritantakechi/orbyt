@@ -1,8 +1,8 @@
-"""build/upstream-pinning: every patch states its upstream status, with write-ups in step.
+"""build/upstream-pinning: every patch states its upstream status.
 
-And a patch series gives the same commit whatever the git configuration
-of the user who applies it (orbyt_tests.model.series, as patch.sh
-applies it).
+The write-ups stay in step with the patches. And a patch series gives
+the same commit whatever the git configuration of the user who applies
+it (orbyt_tests.model.series, as patch.sh applies it).
 """
 
 import os

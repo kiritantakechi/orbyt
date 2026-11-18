@@ -1,4 +1,6 @@
-"""The private configuration and config-push, as the tests drive them (r4s-release-pipeline D6).
+"""The private configuration and config-push (r4s-release-pipeline D6).
+
+Here they are as the tests drive them.
 
 ``ConfigRepository.create`` runs scripts/config-init.sh with an age key
 of the test's own. Its secrets, honk's configuration and uci templates
@@ -25,7 +27,7 @@ GIT_IDENTITY = ("-c", "user.name=orbyt", "-c", "user.email=orbyt@localhost")
 
 @dataclass(frozen=True, slots=True)
 class ConfigRepository:
-    """A private configuration repository and the age key its secrets are encrypted to."""
+    """A private configuration repository and its secrets' age key."""
 
     directory: Path
     age_key: Path
@@ -51,7 +53,10 @@ class ConfigRepository:
         }
 
     def _encrypt(self, name: str, plain: bytes) -> None:
-        """Write the file ``name`` (relative to the repository) encrypted, as sops does."""
+        """Write the file ``name`` encrypted, as sops does.
+
+        ``name`` is relative to the repository.
+        """
         encrypted = subprocess.run(
             ["sops", "encrypt", "--filename-override", name, "/dev/stdin"],
             input=plain,
@@ -63,7 +68,10 @@ class ConfigRepository:
         (self.directory / name).write_bytes(encrypted)
 
     def write_secrets(self, secrets: dict[str, Any]) -> None:
-        """Replace the secrets (YAML is JSON's superset: JSON goes in as it is)."""
+        """Replace the secrets.
+
+        YAML is JSON's superset: JSON goes in as it is.
+        """
         self._encrypt("secrets/secrets.enc.yaml", json.dumps(secrets).encode())
 
     def write_proxy(self, name: str, text: str) -> None:
@@ -71,7 +79,7 @@ class ConfigRepository:
         self._encrypt(f"honk/{name}.dae.enc", text.encode())
 
     def commit(self, message: str) -> None:
-        """Commit everything, as the administrator does after an edit."""
+        """Commit everything, as an administrator does after editing."""
         git = ("git", "-C", str(self.directory), *GIT_IDENTITY)
         subprocess.run([*git, "add", "-A"], check=True)
         subprocess.run([*git, "commit", "-q", "-m", message], check=True)
@@ -83,7 +91,7 @@ class ConfigRepository:
         subprocess.run([*git, "clean", "-q", "-d", "--force"], check=True)
 
     def push(self, host: str, identity: Path) -> subprocess.CompletedProcess[str]:
-        """Run config-push against ``host``, logging in with ``identity``."""
+        """Run config-push against ``host`` with ``identity``."""
         return subprocess.run(
             [SCRIPTS / "config-push.sh", host, "--identity", identity],
             capture_output=True,

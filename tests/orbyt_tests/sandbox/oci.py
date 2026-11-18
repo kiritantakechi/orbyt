@@ -1,4 +1,4 @@
-"""A container image made of the shipped firmware's own programs (r4s-services D10).
+"""A container image of the shipped firmware's own programs.
 
 The tests' app container serves HTTP with uhttpd and makes requests with
 busybox's nc and uclient-fetch, as the firmware's busybox has neither
@@ -6,7 +6,7 @@ httpd nor wget. Its image comes from slot A's root filesystem of the
 factory disk, so it is arm64 like the router and needs no download: one
 layer with busybox and its applet links, uhttpd, uclient-fetch and the
 shared libraries they need, in an OCI image layout that skopeo copies to
-the emulated internet's registry.
+the emulated internet's registry (r4s-services D10).
 """
 
 import gzip
@@ -50,7 +50,7 @@ DT_NULL, DT_NEEDED, DT_STRTAB = 0, 1, 5
 
 
 def extract_root(disk: Path, output: Path) -> Path:
-    """Extract slot A's root filesystem of a factory disk image into ``output``.
+    """Extract a factory image's slot A root filesystem to ``output``.
 
     Only the EROFS image is copied out: its superblock gives its size,
     and the rest of the partition is the overlay area.
@@ -77,7 +77,7 @@ def extract_root(disk: Path, output: Path) -> Path:
 
 
 def needed(elf: bytes) -> list[str]:
-    """Return the shared libraries an arm64 ELF file needs (its DT_NEEDED entries)."""
+    """Return the libraries an arm64 ELF file needs (DT_NEEDED)."""
     magic, elf_class, program_headers, count = ELF_HEADER.unpack_from(elf)
     if (magic, elf_class) != (b"\x7fELF", 2):
         msg = "not a 64-bit ELF file"
@@ -113,7 +113,7 @@ def needed(elf: bytes) -> list[str]:
 
 
 def _files(root: Path) -> dict[str, bytes]:
-    """Return the programs and, transitively, the libraries they need, by path in the image."""
+    """Return the programs and all the libraries they need, by path."""
     files: dict[str, bytes] = {}
     pending = list(PROGRAMS)
     while pending:
@@ -177,7 +177,7 @@ def _json(value: object) -> bytes:
 
 
 def image_layout(root: Path, layout: Path, tag: str = TAG) -> Path:
-    """Write an OCI image layout of the programs in ``root`` into ``layout``."""
+    """Write an OCI layout of ``root``'s programs into ``layout``."""
     (layout / "blobs" / "sha256").mkdir(parents=True)
     tar = _layer(root)
     layer = _blob(layout, gzip.compress(tar, mtime=0), f"{MEDIA}.layer.v1.tar+gzip")
@@ -217,9 +217,10 @@ def image_layout(root: Path, layout: Path, tag: str = TAG) -> Path:
 
 
 def push(netns: Netns, layout: Path, tag: str, reference: str, workdir: Path) -> None:
-    """Copy the image ``tag`` of ``layout`` to the registry as ``reference``, from ``netns``.
+    """Copy ``layout``'s image ``tag`` to the registry as ``reference``.
 
-    ``workdir`` is the sandbox's: its test CA and the signature policy.
+    The copy runs in ``netns``. ``workdir`` is the sandbox's: its test
+    CA and the signature policy.
     """
     netns.run(
         *("skopeo", f"--policy={workdir / 'inet' / 'policy.json'}", "copy", "--quiet"),

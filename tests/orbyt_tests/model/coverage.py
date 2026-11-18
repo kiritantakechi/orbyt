@@ -55,7 +55,7 @@ CONFIGURED = re.compile(rf"\b({HARNESS}(?:\.\w+)+)\b")
 
 @dataclass(frozen=True, slots=True)
 class TestRef:
-    """One test function (all its parametrized cases) and its markers."""
+    """One test function, with its parametrized cases and markers."""
 
     module: Path
     function: str
@@ -68,7 +68,10 @@ class TestRef:
 
 
 class VerifiedElsewhere(BaseModel):
-    """A scenario that the build or CI verifies rather than a test, and what verifies it."""
+    """A scenario verified by the build or CI instead of a test.
+
+    It also records what verifies the scenario.
+    """
 
     model_config = ConfigDict(extra="forbid", frozen=True, strict=True)
 
@@ -94,7 +97,7 @@ class _Collector:
 
 
 def collect_tests(tests_dir: Path = TESTS_DIR) -> list[TestRef]:
-    """Collect the suite without running it and return one TestRef per test function."""
+    """Collect the suite unrun; return one TestRef per test function."""
     collector = _Collector()
     with contextlib.redirect_stdout(io.StringIO()):  # pytest's own collection listing
         status = pytest.main(
@@ -124,7 +127,7 @@ def collect_tests(tests_dir: Path = TESTS_DIR) -> list[TestRef]:
 
 
 def load_elsewhere(tests_dir: Path = TESTS_DIR) -> dict[ScenarioId, str]:
-    """Scenarios verified by the build or CI itself, with who verifies them."""
+    """Scenarios the build or CI verifies, with their verifier."""
     path = tests_dir / ELSEWHERE_FILE
     if not path.exists():
         return {}
@@ -148,13 +151,17 @@ def structure_errors(tests: list[TestRef]) -> list[str]:
             errors.append(f"{test}: needs exactly one @spec, has {len(test.specs)}")
         elif test.specs[0].capability != capability:
             errors.append(
-                f"{test}: @spec names {test.specs[0].capability}, module is {capability}"
+                f"{test}: @spec names {test.specs[0].capability}, "
+                f"module is {capability}"
             )
     return errors
 
 
 def _sources(tests_dir: Path, suffix: str) -> list[Path]:
-    """Return the files of ``tests_dir`` with ``suffix``, outside its environments and caches."""
+    """Return the files of ``tests_dir`` with ``suffix``.
+
+    Environments and caches are left out.
+    """
     return [
         path
         for path in sorted(tests_dir.rglob(f"*{suffix}"))
@@ -165,7 +172,10 @@ def _sources(tests_dir: Path, suffix: str) -> list[Path]:
 
 
 def _named(source: Path) -> set[str]:
-    """Return the modules ``source`` imports, or names as a whole string (``-m``)."""
+    """Return the modules ``source`` imports or names.
+
+    A name is a whole string, as after ``-m``.
+    """
     named: set[str] = set()
     for node in ast.walk(ast.parse(source.read_text(encoding="utf-8"))):
         match node:
@@ -181,7 +191,10 @@ def _named(source: Path) -> set[str]:
 
 
 def unused_modules(tests_dir: Path = TESTS_DIR) -> list[str]:
-    """Harness modules that nothing imports, names or configures (module-boundaries D5)."""
+    """Harness modules that nothing imports, names or configures.
+
+    See module-boundaries D5.
+    """
     harness = tests_dir / HARNESS
     modules = {
         ".".join(path.relative_to(tests_dir).with_suffix("").parts): path
@@ -197,14 +210,15 @@ def unused_modules(tests_dir: Path = TESTS_DIR) -> list[str]:
         own = ".".join(source.relative_to(tests_dir).with_suffix("").parts)
         used |= _named(source) - {own}
     return [
-        f"{path.relative_to(tests_dir).as_posix()}: no harness module or test imports it"
+        f"{path.relative_to(tests_dir).as_posix()}: "
+        "no harness module or test imports it"
         for name, path in sorted(modules.items())
         if name not in used
     ]
 
 
 def _is_fixture(decorator: ast.expr) -> bool:
-    """Return whether ``decorator`` is pytest's fixture decorator, called or not."""
+    """Return whether ``decorator`` is pytest.fixture, called or not."""
     match decorator:
         case ast.Call(func=func):
             return _is_fixture(func)
@@ -215,13 +229,17 @@ def _is_fixture(decorator: ast.expr) -> bool:
 
 
 def root_fixtures(tests_dir: Path = TESTS_DIR) -> list[str]:
-    """Fixtures the root conftest.py defines, which belong to a layer's plugin (D6)."""
+    """Fixtures defined in the root conftest.py.
+
+    They belong to a layer's plugin (D6).
+    """
     conftest = tests_dir / "conftest.py"
     if not conftest.is_file():
         return []
     tree = ast.parse(conftest.read_text(encoding="utf-8"))
     return [
-        f"conftest.py: defines the fixture {node.name}, which belongs to a layer's plugin"
+        f"conftest.py: defines the fixture {node.name}, "
+        "which belongs to a layer's plugin"
         for node in tree.body
         if isinstance(node, ast.FunctionDef)
         and any(_is_fixture(decorator) for decorator in node.decorator_list)
@@ -231,7 +249,7 @@ def root_fixtures(tests_dir: Path = TESTS_DIR) -> list[str]:
 def coverage_errors(
     scenarios: list[Scenario], tests: list[TestRef], elsewhere: dict[ScenarioId, str]
 ) -> tuple[list[str], dict[ScenarioId, list[TestRef]]]:
-    """Dangling markers and duplicates; also returns the tests of every scenario."""
+    """Dangling markers and duplicates, with each scenario's tests."""
     known = {scenario.id for scenario in scenarios}
     by_scenario: dict[ScenarioId, list[TestRef]] = defaultdict(list)
     errors: list[str] = []
@@ -255,7 +273,10 @@ def coverage_errors(
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Print the coverage report; exit 1 on structural errors or uncovered required scenarios."""
+    """Print the coverage report and set the exit status.
+
+    Exit 1 on structural errors or on uncovered required scenarios.
+    """
     parser = argparse.ArgumentParser(
         prog="spec-coverage", description=__doc__.splitlines()[0]
     )

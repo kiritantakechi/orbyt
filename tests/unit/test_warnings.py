@@ -30,19 +30,22 @@ TOOLCHAIN = "/work/openwrt/staging_dir/toolchain-aarch64_generic_gcc-15.3.0_musl
 
 
 def _lib(function: str, *args: str, cwd: Path) -> subprocess.CompletedProcess[str]:
-    """Run a function of the warnings module with ``args`` in ``cwd``."""
+    """Run a warnings-module function with ``args`` in ``cwd``."""
     return library("warnings", f'{function} "$@"', *args, cwd=cwd)
 
 
 def _ub_warnings() -> str:
-    """Return the UB-indicative options, as the warnings module lists them."""
+    """Return the UB-indicative options the warnings module lists."""
     result = library("warnings", 'printf "%s" "${UB_WARNINGS}"')
     assert result.returncode == 0, result.stderr
     return result.stdout
 
 
 def _warnings(tmp_path: Path, log: str) -> list[tuple[str, ...]]:
-    """Return what ub-warnings.awk finds in ``log``: option, file, function and line."""
+    """Return what ub-warnings.awk finds in ``log``.
+
+    Each finding is option, file, function and line.
+    """
     (tmp_path / "compile.txt").write_text(log)
     result = awk_program(
         "ub-warnings.awk",
@@ -59,7 +62,8 @@ def test_a_warning_falls_in_the_function_named_before_it(tmp_path: Path) -> None
     # typographic quotes in a UTF-8 locale; notes and source excerpts do
     # not end it.
     log = """\
-make[5]: Entering directory '/work/openwrt/build_dir/target-aarch64_generic_musl_r4s/pptp-1.10.0'
+make[5]: Entering directory \
+'/work/openwrt/build_dir/target-aarch64_generic_musl_r4s/pptp-1.10.0'
 pptp.c: In function 'pptp_start_client':
 pptp.c:185:60: warning: taking address of packed member of 'struct sockaddr_pppox' \
 may result in an unaligned pointer value [-Waddress-of-packed-member]
@@ -67,7 +71,8 @@ may result in an unaligned pointer value [-Waddress-of-packed-member]
       |                                                            ^
 pptp.c:201:9: warning: 'len' may be used uninitialized [-Wmaybe-uninitialized]
 pptp.c:180:13: note: 'len' was declared here
-lexer.c: In function \N{LEFT SINGLE QUOTATION MARK}next_token\N{RIGHT SINGLE QUOTATION MARK}:
+lexer.c: In function \
+\N{LEFT SINGLE QUOTATION MARK}next_token\N{RIGHT SINGLE QUOTATION MARK}:
 lexer.c:9:3: warning: left shift count >= width of type [-Wshift-count-overflow]
 """
     assert _warnings(tmp_path, log) == [
@@ -104,8 +109,10 @@ In file included from {TOOLCHAIN}/include/string.h:12,
 In function 'btf_add_type',
     inlined from 'btf__add_btf' at ../libbpf/src/btf.c:1802:8,
     inlined from 'bpf_object_load.constprop' at ../libbpf/src/libbpf.c:8960:9:
-../libbpf/src/btf.c:1170:27: warning: 'sz' may be used uninitialized [-Wmaybe-uninitialized]
-../libbpf/src/libbpf.c:8970:5: warning: 'fd' may be used uninitialized [-Wmaybe-uninitialized]
+../libbpf/src/btf.c:1170:27: warning: 'sz' may be used uninitialized \
+[-Wmaybe-uninitialized]
+../libbpf/src/libbpf.c:8970:5: warning: 'fd' may be used uninitialized \
+[-Wmaybe-uninitialized]
 """
     assert _warnings(tmp_path, log) == [
         ("-Wmaybe-uninitialized", "libbpf/src/libbpf.c", "bpf_object_load", "8960"),
@@ -120,7 +127,8 @@ def test_a_note_takes_the_context_before_it(tmp_path: Path) -> None:
 In function 'xmalloc',
     inlined from 'yyparse' at parse.y:1099:9:
 xmalloc.c:42:3: note: by argument 1 of type 'size_t'
-execute_cmd.c:1197:7: warning: 'ofifo_list' may be used uninitialized [-Wmaybe-uninitialized]
+execute_cmd.c:1197:7: warning: 'ofifo_list' may be used uninitialized \
+[-Wmaybe-uninitialized]
 """
     assert _warnings(tmp_path, log) == [
         ("-Wmaybe-uninitialized", "execute_cmd.c", "", "1197"),
@@ -137,7 +145,8 @@ In function 'make_command',
     inlined from 'yyparse' at parse.y:1198:24:
 execute_cmd.c: In function 'execute_command_internal':
 redir.c: In function 'do_redirection_internal.constprop':
-redir.c:872:23: warning: 'new_redirect' may be used uninitialized [-Wmaybe-uninitialized]
+redir.c:872:23: warning: 'new_redirect' may be used uninitialized \
+[-Wmaybe-uninitialized]
 """
     assert _warnings(tmp_path, log) == [
         ("-Wmaybe-uninitialized", "redir.c", "do_redirection_internal", "872"),
@@ -148,7 +157,8 @@ def test_an_option_with_a_value_is_named_without_it(tmp_path: Path) -> None:
     # GCC names an option that takes a level with a trailing "=".
     log = """\
 table.c: In function 'lookup':
-table.c:30:12: warning: array subscript 4 is above array bounds of 'int[4]' [-Warray-bounds=]
+table.c:30:12: warning: array subscript 4 is above array bounds of 'int[4]' \
+[-Warray-bounds=]
 """
     assert _warnings(tmp_path, log) == [("-Warray-bounds", "table.c", "lookup", "30")]
 
@@ -194,9 +204,12 @@ def test_paths_lose_the_build_directories(tmp_path: Path) -> None:
     log = f"""\
 {cache}: In function 'cache_insert':
 {cache}:88:7: warning: writing 8 bytes into a region of size 4 [-Wstringop-overflow=]
-{BUILD}/ubus-2026.06.28/libubus.c:12:3: warning: 'r' is used uninitialized [-Wuninitialized]
-{TOOLCHAIN}/include/fortify/string.h:40:10: warning: reading 9 bytes [-Wstringop-overread]
-ncurses/./base/lib_getch.c:477:5: warning: 'buf' may be used uninitialized [-Wmaybe-uninitialized]
+{BUILD}/ubus-2026.06.28/libubus.c:12:3: warning: 'r' is used uninitialized \
+[-Wuninitialized]
+{TOOLCHAIN}/include/fortify/string.h:40:10: warning: reading 9 bytes \
+[-Wstringop-overread]
+ncurses/./base/lib_getch.c:477:5: warning: 'buf' may be used uninitialized \
+[-Wmaybe-uninitialized]
 """
     assert _warnings(tmp_path, log) == [
         ("-Wmaybe-uninitialized", "ncurses/base/lib_getch.c", "", "477"),
@@ -266,7 +279,10 @@ def test_a_package_without_metadata_fails(tmp_path: Path) -> None:
 
 
 def _time_log(path: Path, *compiled: str) -> None:
-    """Write a build's time log in which each package of ``compiled`` was compiled."""
+    """Write a build's time log of the packages in ``compiled``.
+
+    Each package of ``compiled`` was compiled in it.
+    """
     lines = [
         f"1700000{i:03d}.0\t{event}\t{stage}\t{package}"
         for i, package in enumerate(compiled)

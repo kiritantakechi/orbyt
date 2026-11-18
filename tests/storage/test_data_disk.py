@@ -1,4 +1,6 @@
-"""storage/data-disk: the USB data disk, what waits for it, and what goes on without it.
+"""storage/data-disk: the USB data disk and its dependents.
+
+The tests cover what waits for the disk and what goes on without it.
 
 The module's data disk is a blank image made the data disk with
 ``orbyt-data init`` (the ``data_disk`` fixture); the app Pod is declared
@@ -72,7 +74,10 @@ PROXY_STATE = {
 
 @pytest.fixture(scope="module")
 def pod(app_pod: Online) -> Online:
-    """Return the module's router online, with the app Pod on its data disk."""
+    """Return the module's router online.
+
+    The app Pod is on its data disk.
+    """
     return app_pod
 
 
@@ -86,7 +91,7 @@ def spare(emulator: Emulator, tmp_path: Path) -> Iterator[Disk]:
 
 @pytest.fixture(scope="module")
 def rebooted(pod: Online) -> str:
-    """Leave a line in the persistent log, then reboot; return the line."""
+    """Log a line persistently, then reboot; return the line."""
     router = pod.router
     line = f"before the reboot {time.time_ns()}"
     router.run(f"logger -t data-disk-test {line!r}")
@@ -113,7 +118,10 @@ def _services(router: Router) -> dict[str, bool]:
 
 
 def _proxy_state(router: Router) -> str | None:
-    """Return where the running honk keeps its state, by the database it holds open."""
+    """Return where the running honk keeps its state.
+
+    The place is told by the database honk holds open.
+    """
     files = router.run('pid=$(pidof honk-core) && ls -l "/proc/${pid}/fd" || true')
     return next(
         (place for place, path in PROXY_STATE.items() if f"-> {path}" in files), None
@@ -121,7 +129,10 @@ def _proxy_state(router: Router) -> str | None:
 
 
 def _proxy_on(router: Router, place: str) -> None:
-    """Wait until a honk with its state in ``place`` has set up its datapath."""
+    """Wait until honk has set up its datapath.
+
+    Its state must be in ``place``.
+    """
     until(
         lambda: _proxy_state(router) == place,
         timeout=PROXY_TIMEOUT,
@@ -131,9 +142,10 @@ def _proxy_on(router: Router, place: str) -> None:
 
 
 def _kept(router: Router) -> dict[str, list[str]]:
-    """Return the days of each snapshotted subvolume's snapshots, once cron's job is done.
+    """Return the days of each snapshotted subvolume's snapshots.
 
-    The job runs as a child of crond, both of its commands.
+    The days are read once cron's job is done. The job runs as a child
+    of crond, both of its commands.
     """
     if router.returncode('pgrep -P "$(pidof crond)" >/dev/null') == 0:
         return {}
@@ -209,7 +221,7 @@ def test_restore_a_file(pod: Online) -> None:
 
 
 def _documented_restore() -> str:
-    """Return the commands docs/services.md gives for restoring a file."""
+    """Return docs/services.md's commands for restoring a file."""
     text = SERVICES_DOC.read_text()
     section = text.split("### Restore a file from a snapshot", 1)[1]
     block = re.search(r"```sh\n(.*?)```", section, re.DOTALL)
@@ -274,7 +286,8 @@ def test_nothing_written_without_the_disk_reaches_the_boot_disk(
         # As a podman command that outlived the disk recreates its graph
         # root.
         router.run(
-            f"mkdir -p {MOUNT}/containers/storage && touch {MOUNT}/containers/storage/file"
+            f"mkdir -p {MOUNT}/containers/storage "
+            f"&& touch {MOUNT}/containers/storage/file"
         )
         assert boot_disk_entries(router) == []
     finally:
@@ -289,7 +302,10 @@ def test_nothing_written_without_the_disk_reaches_the_boot_disk(
 
 @pytest.fixture(scope="module")
 def without_disk(pod: Online, data_disk: Disk, proxy: Online) -> Iterator[Online]:
-    """Boot without the data disk, honk on; plug the disk back in at the end, if no test did."""
+    """Boot without the data disk, with honk on.
+
+    At the end it plugs the disk back in, if no test did.
+    """
     del proxy  # enabled, it starts with the boot
     pod.reboot(while_off=data_disk.unplug)
     wait_proxy(pod.router)
@@ -408,7 +424,8 @@ def test_snapshots_outlast_a_long_time_off(pod: Online) -> None:
     # The module's earlier tests left snapshots, of days still to come
     # among them: the scenario starts without any.
     router.run(
-        f'for s in {SNAPSHOTS}/*/*; do [ ! -d "$s" ] || btrfs -q subvolume delete "$s"; done'
+        f"for s in {SNAPSHOTS}/*/*; "
+        'do [ ! -d "$s" ] || btrfs -q subvolume delete "$s"; done'
     )
     today = datetime.fromtimestamp(int(router.run("date +%s")), UTC).date()
     dates = [today + timedelta(days=day) for day in range(1, KEEP_DAYS + 1)]

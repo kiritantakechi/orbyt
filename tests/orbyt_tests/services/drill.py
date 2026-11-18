@@ -1,4 +1,6 @@
-"""The upgrade drill (r4s-release-pipeline D5): what a bump passes before it may merge.
+"""The upgrade drill (r4s-release-pipeline D5).
+
+It is what a bump passes before it may merge.
 
 The router as it booted (in CI's upgrade-drill job the latest stable
 release, here this build) gets a configuration pushed with config-push;
@@ -60,7 +62,10 @@ CONSOLE_REPORT = (
 
 @dataclass(frozen=True, slots=True)
 class Outcome:
-    """How a drill ended: the slot it started from, the slot it ended on, confirmed or not."""
+    """How a drill ended.
+
+    The slot it started from, the slot it ended on, confirmed or not.
+    """
 
     base_slot: str
     slot: str
@@ -68,7 +73,10 @@ class Outcome:
 
 
 def _console_report(router: Router) -> str:
-    """Return CONSOLE_REPORT as the router's serial console answers it, or why it does not."""
+    """Return CONSOLE_REPORT as the router's serial console answers it.
+
+    If it does not answer, return why.
+    """
     try:
         return router.console(CONSOLE_REPORT)
     except Exception as error:  # noqa: BLE001 # a report must not hide the drill's own failure
@@ -76,7 +84,10 @@ def _console_report(router: Router) -> str:
 
 
 def _status(router: Router) -> dict[str, str]:
-    """Return orbyt-slot's status, or nothing while the router cannot be reached."""
+    """Return orbyt-slot's status.
+
+    The result is empty while the router cannot be reached.
+    """
     listed = router.poll("orbyt-slot status") or ""
     return dict(line.split(": ", 1) for line in listed.splitlines() if ": " in line)
 
@@ -97,7 +108,10 @@ class Drill:
     failing: bool = False
 
     def publish(self, workdir: Path) -> str:
-        """Assemble the candidate and put it at the Releases stand-in; return its tag."""
+        """Assemble the candidate and put it at the Releases stand-in.
+
+        Return its tag.
+        """
         if self.published is None:
             release = workdir / "candidate"
             boards = ",".join(path.name for path in self.candidate.iterdir())
@@ -115,7 +129,9 @@ class Drill:
         return self.published
 
     def remember(self, pushed: Mapping[str, str]) -> None:
-        """Record what the configuration push set, to find it after the upgrade.
+        """Record what the configuration push set.
+
+        The drill finds it again after the upgrade.
 
         Each entry is a command on the router and what it prints for the
         pushed state.
@@ -123,7 +139,10 @@ class Drill:
         self.pushed.update(pushed)
 
     def configuration_kept(self) -> bool:
-        """Return whether every recorded command prints what it printed for the push."""
+        """Return whether every recorded command prints as it did.
+
+        That is what it printed for the push.
+        """
         router = self.online.router
         return all(
             router.run(f"{{ {command}; }} 2>&1 || true") == printed
@@ -131,15 +150,22 @@ class Drill:
         )
 
     def register_failing_check(self) -> None:
-        """Have the candidate's health check fail on every boot (kept through the upgrade)."""
+        """Have the candidate's health check fail on every boot.
+
+        The registration is kept through the upgrade.
+        """
         self.online.router.run(
-            f"printf '#!/bin/sh\\nexit 1\\n' >{FAILING_CHECK} && chmod +x {FAILING_CHECK}"
+            f"printf '#!/bin/sh\\nexit 1\\n' >{FAILING_CHECK}"
+            f" && chmod +x {FAILING_CHECK}"
             f" && echo {FAILING_CHECK} >>/etc/sysupgrade.conf"
         )
         self.failing = True
 
     def run(self, workdir: Path | None = None) -> Outcome:
-        """Sync the candidate, upgrade to it and wait for the confirmation or the rollback."""
+        """Sync the candidate and upgrade to it.
+
+        Wait for the confirmation or the rollback.
+        """
         router = self.online.router
         tag = self.publish(workdir or self.candidate.parent)
         base = slot(router)

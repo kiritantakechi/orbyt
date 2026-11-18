@@ -1,4 +1,7 @@
-"""A ubsan build's traps, read from the kernel log and the console (orbyt_tests.device.ubsan)."""
+"""A ubsan build's traps (orbyt_tests.device.ubsan).
+
+They are read from the kernel log and the console.
+"""
 
 from typing import TYPE_CHECKING, cast
 
@@ -22,7 +25,8 @@ orbyt-ubsan-probe[aaaab4560000+1000]
 [   41.112260] lr : 0000ffff9a8b1234
 """
 SEGFAULT = """\
-[   52.000001] netifd[812]: unhandled exception: DABT (lower EL), ESR 0x0000000092000006, \
+[   52.000001] netifd[812]: unhandled exception: DABT (lower EL), \
+ESR 0x0000000092000006, \
 level 2 translation fault in netifd[aaaac0000000+30000]
 [   52.000010] pc : 0000aaaac0011111
 """
@@ -43,7 +47,10 @@ def test_a_trap_names_its_process_and_address() -> None:
 def test_a_log_without_times_still_names_the_trap() -> None:
     plain = "\n".join(line.split("] ", 1)[1] for line in TRAP.splitlines())
     assert [str(trap) for trap in parse(plain)] == [
-        "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654 in orbyt-ubsan-probe[aaaab4560000+1000]"
+        (
+            "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654"
+            " in orbyt-ubsan-probe[aaaab4560000+1000]"
+        )
     ]
 
 
@@ -101,7 +108,10 @@ def test_a_trap_before_a_reboot_is_reported() -> None:
     assert traps.new() == []
     router.emulator.console.record = TRAP + REBOOT
     assert [str(trap) for trap in traps.new()] == [
-        "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654 in orbyt-ubsan-probe[aaaab4560000+1000]"
+        (
+            "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654"
+            " in orbyt-ubsan-probe[aaaab4560000+1000]"
+        )
     ]
 
 

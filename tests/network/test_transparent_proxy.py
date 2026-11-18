@@ -1,9 +1,9 @@
-"""network/transparent-proxy: honk on the LAN side, splitting by rule into direct and proxied.
+"""network/transparent-proxy: honk on the LAN side, splitting by rule.
 
-honk runs with the test configuration
-(orbyt_tests.services.datapath.PROXY_CONFIG): the socks5 exit on the
-emulated internet is its only node, PROXIED_TARGET goes through it,
-everything else goes direct.
+honk splits traffic by rule into direct and proxied. It runs with the
+test configuration (orbyt_tests.services.datapath.PROXY_CONFIG): the
+socks5 exit on the emulated internet is its only node, PROXIED_TARGET
+goes through it, everything else goes direct.
 """
 
 import json
@@ -103,7 +103,7 @@ CGROUP_PROGRAMS = {
 
 @pytest.fixture
 def proxy_restored(proxy: Online) -> Iterator[Online]:
-    """Put honk back with the test configuration after a test that changes or stops it."""
+    """Restore honk's test configuration after a test alters it."""
     yield proxy
     proxy_start(proxy.router)
 
@@ -137,7 +137,7 @@ def _ubus(
 
 
 def _init(router: Router, session: str, action: str) -> None:
-    """Run an action of honk's init script as daeuniverse's LuCI page does."""
+    """Run an action of honk's init script as daeuniverse's LuCI."""
     _ubus(router, session, "rc", "init", {"name": "honk", "action": action})
 
 
@@ -194,7 +194,9 @@ def test_container_bridge_is_bound_when_it_appears_as_honk_starts(
 ) -> None:
     router = proxy_restored.router
     router.run(
-        "/etc/init.d/honk restart && ip link add podman0 type bridge && ip link set podman0 up"
+        "/etc/init.d/honk restart"
+        " && ip link add podman0 type bridge"
+        " && ip link set podman0 up"
     )
     try:
         until(
@@ -382,7 +384,10 @@ def test_the_nfqueue_table_outlives_a_firewall_reload(proxy: Online) -> None:
 
 
 def _udp_answer(online: Online) -> str | None:
-    """Return the address a new UDP flow to the direct target left from, None without an answer."""
+    """Return the address a new UDP flow to the direct target left from.
+
+    Return None without an answer.
+    """
     try:
         return str(online.client().probe("udp", DIRECT_TARGET[0])["address"])
     except subprocess.CalledProcessError:
@@ -390,7 +395,10 @@ def _udp_answer(online: Online) -> str | None:
 
 
 def _goes_direct_again(online: Online) -> None:
-    """Retry a new UDP flow, as a client does, until one is answered; it must go direct."""
+    """Retry a new UDP flow, as a client does, until one is answered.
+
+    The answered flow must go direct.
+    """
     address = until(
         lambda: _udp_answer(online),
         timeout=DRAIN_TIMEOUT,
@@ -400,7 +408,7 @@ def _goes_direct_again(online: Online) -> None:
 
 
 def _queued(router: Router) -> int:
-    """Return how many packets honk's queue has taken (its id sequence)."""
+    """Return how many packets honk's queue took (its id sequence)."""
     taken = router.run(
         "awk '$1 == 320 { print $8 }' /proc/net/netfilter/nfnetlink_queue"
     )
@@ -557,7 +565,7 @@ def test_every_restart_keeps_honk_pinned(proxy_restored: Online, board: Board) -
 
 @contextmanager
 def _pinning(router: Router) -> Generator[None]:
-    """Have honk's CPU pinning on, committed, while the context lasts."""
+    """Have honk's CPU pinning on and committed within the context."""
     router.run("uci set honk.config.cpu_pinning=1 && uci commit honk")
     try:
         yield
@@ -572,7 +580,7 @@ def _affinity(router: Router) -> int:
 
 @pytest.fixture
 def native_api_on(proxy_restored: Online) -> Online:
-    """Run honk with its native API in token mode, as config-push lets it be."""
+    """Run honk with its native API in token mode, as config-push."""
     proxy_start(proxy_restored.router, PROXY_CONFIG + NATIVE_API)
     return proxy_restored
 

@@ -1,4 +1,6 @@
-"""The sandbox's test CA and the certificate of the emulated internet's servers.
+"""The sandbox's test CA and the emulated servers' certificate.
+
+The certificate is the emulated internet's servers'.
 
 One CA per sandbox, made with openssl: the emulated internet's servers
 present its certificate, and the router (``orbyt_tests.device.trust``)
@@ -35,10 +37,10 @@ class Pki:
 
     @property
     def trust(self) -> Path:
-        """A directory with the CA certificate alone, for tools that read one.
+        """A directory holding only the CA certificate, for tools.
 
-        skopeo and podman's certs.d would take a key there for a client
-        key.
+        It serves tools that read a directory of certificates. skopeo
+        and podman's certs.d would take a key there for a client key.
         """
         return self.directory / "trust"
 
@@ -58,7 +60,10 @@ def _openssl(*args: str | Path) -> None:
 
 
 def issue(directory: Path, names: Sequence[str], addresses: Sequence[str]) -> Pki:
-    """Create a CA in ``directory`` and a certificate for ``names`` and ``addresses``."""
+    """Create a CA in ``directory`` and a certificate for the hosts.
+
+    The certificate covers ``names`` and ``addresses``.
+    """
     directory.mkdir(parents=True)
     pki = Pki(directory)
     key = ("-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:P-256", "-nodes")
