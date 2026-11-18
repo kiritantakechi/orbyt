@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, cast
 import pytest
 import yaml
 
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.shell import awk_program, library
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.shell import awk_program, library
 
 if TYPE_CHECKING:
     import subprocess
@@ -42,12 +42,12 @@ CONFIG_TARGET_rockchip=y
 # CONFIG_PACKAGE_openwrt-keyring is not set
 CONFIG_PACKAGE_kmod-nf-conntrack6=m
 CONFIG_PACKAGE_libstdcpp6.x+=y
-CONFIG_PACKAGE_wrt-keyring=y
+CONFIG_PACKAGE_orbyt-keyring=y
 """
     actual = """\
 CONFIG_TARGET_rockchip=y
 CONFIG_PACKAGE_openwrt-keyring=y
-CONFIG_PACKAGE_wrt-keyring=y
+CONFIG_PACKAGE_orbyt-keyring=y
 """
     assert _missing_lines(tmp_path, wanted, actual) == [
         "# CONFIG_PACKAGE_openwrt-keyring is not set",
@@ -196,9 +196,9 @@ def test_toolchain_stages_name_what_only_toolchain_build_builds(tmp_path: Path) 
                 (4, "begin", "host-compile", "package/feeds/packages/golang1.27"),
                 (5, "begin", "host-compile", "package/feeds/packages/rust"),
                 (6, "begin", "host-compile", "package/feeds/packages/rust"),
-                (7, "begin", "compile", "package/feeds/wrt/honk"),
+                (7, "begin", "compile", "package/feeds/orbyt/honk"),
                 (8, "begin", "compile", "package/feeds/packages/golang-protobuf"),
-                (9, "begin", "compile", "package/feeds/wrt/einat"),
+                (9, "begin", "compile", "package/feeds/orbyt/einat"),
                 (10, "begin", "compile", "target/linux"),
             )
         )
@@ -260,7 +260,7 @@ def test_an_unchanged_configuration_keeps_its_time(tmp_path: Path) -> None:
     board = 'CONFIG_BUILD_SUFFIX="r4s"\nCONFIG_X=y\n'
     configure(board)
     # The build directories were configured with it long ago.
-    for path in (config, tree / "tmp" / "wrt-config-r4s"):
+    for path in (config, tree / "tmp" / "orbyt-config-r4s"):
         os.utime(path, (OLD, OLD))
     assert configure("CONFIG_X=y\n") > OLD
     assert configure(board) == OLD
@@ -410,7 +410,7 @@ SAMPLE_PATHS = (
     "docs/services.md",
     "docs/old/patches.md",
     "README.md",
-    "feed/utils/wrt-ab/README.md",
+    "feed/utils/orbyt-ab/README.md",
     "docsite/index.html",
     "openspec.lock",
 )
@@ -431,5 +431,5 @@ def test_build_reads_answers_as_github_does() -> None:
         "docs/ci.md",
         "docs/old/patches.md",
         "README.md",
-        "feed/utils/wrt-ab/README.md",
+        "feed/utils/orbyt-ab/README.md",
     }

@@ -11,14 +11,14 @@ CONFIG_BUILD_LOG=y
 
 # The release build (r4s-release-pipeline D1), which CI tests, signs and publishes:
 # buildbot mode keeps the key made for the build out of the image, whose only
-# trust anchors are the release keys of wrt-keyring; the firmware and the package
+# trust anchors are the release keys of orbyt-keyring; the firmware and the package
 # indexes are signed afterwards by the sign job, never here. So the build signs
 # no package lists: with SIGNED_PACKAGES, base-files would also pull in
 # openwrt-keyring, and with it OpenWrt's snapshot key.
 CONFIG_BUILDBOT=y
 # CONFIG_SIGNED_PACKAGES is not set
 # CONFIG_PACKAGE_openwrt-keyring is not set
-CONFIG_PACKAGE_wrt-keyring=y
+CONFIG_PACKAGE_orbyt-keyring=y
 # CONFIG_SIGN_FIRMWARE is not set
 # Buildbot mode's other defaults, not wanted here: no SDK, image builder or
 # toolchain archives, no target-wide package set, no kernel debug archive.

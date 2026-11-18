@@ -5,7 +5,7 @@
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
 
 # toolchain_libc <toolchain dir>: the hash of the toolchain's C library, or
-# nothing when it has none (board-model D2: the record in wrt-toolchain.json
+# nothing when it has none (board-model D2: the record in orbyt-toolchain.json
 # names it).
 toolchain_libc() (
 	[ -f "$1/lib/libc.so" ] || return 0

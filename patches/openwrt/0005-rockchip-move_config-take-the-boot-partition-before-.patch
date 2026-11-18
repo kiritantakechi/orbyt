@@ -13,7 +13,7 @@ number, whatever the partition table. Single-slot images keep using
 partition 1.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
-Upstream-Status: Inappropriate [wrt-build's A/B slot layout]
+Upstream-Status: Inappropriate [Orbyt's A/B slot layout]
 ---
  .../base-files/lib/preinit/79_move_config     | 21 +++++++++++++++++--
  1 file changed, 19 insertions(+), 2 deletions(-)

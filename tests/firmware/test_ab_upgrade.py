@@ -3,15 +3,16 @@
 import time
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.device.ab import boot_area_sha256, getenv, setenv, slot, slot_sha256
-from wrt_tests.model.boards import load_all
+from orbyt_tests import spec
+from orbyt_tests.device.ab import boot_area_sha256, getenv, setenv, slot, slot_sha256
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.image import DEFAULT_HOSTNAME
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/ab-upgrade"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
@@ -53,7 +54,7 @@ def _confirmed(router: Router, which: str) -> None:
     """Wait until the health check has confirmed the trial slot ``which``."""
     message = f"slot {which} passed its trial boot and is confirmed"
     router.run(
-        f"until logread -e wrt-healthcheck | grep -q '{message}'; do sleep 2; done", timeout=400
+        f"until logread -e orbyt-healthcheck | grep -q '{message}'; do sleep 2; done", timeout=400
     )
 
 
@@ -120,7 +121,7 @@ def test_upgrade_without_the_configuration(router: Router, upgrade_image: Path) 
     router.run(f"uci set system.@system[0].hostname={HOSTNAME} && uci commit system")
     _upgrade(router, upgrade_image, "-n")
     assert slot(router) == "b"
-    assert router.run("uci get system.@system[0].hostname") == "OpenWrt"
+    assert router.run("uci get system.@system[0].hostname") == DEFAULT_HOSTNAME
 
 
 @spec(CAPABILITY, "Trial boot after writing", "Reboot after upgrade")
@@ -166,9 +167,9 @@ def test_the_configuration_is_in_place_before_the_switch(
     router.put(upgrade_image, UPGRADE_IMAGE)
     router.run(f"sysupgrade -b {BACKUP}", timeout=120)
     # The switch, recorded instead of written: whether the new slot's boot
-    # partition (the hook's wrt_boot_dev) holds the backup when it comes.
+    # partition (the hook's orbyt_boot_dev) holds the backup when it comes.
     record = (
-        'wrt_ab_setenv() { mount -o ro "/dev/${wrt_boot_dev}" /mnt'
+        'orbyt_ab_setenv() { mount -o ro "/dev/${orbyt_boot_dev}" /mnt'
         " && if [ -f /mnt/sysupgrade.tgz ]; then echo switch=backup-present;"
         " else echo switch=backup-absent; fi; umount /mnt; }"
     )
@@ -207,7 +208,7 @@ def test_manual_switch_back_to_slot_a(router: Router, upgrade_image: Path) -> No
     _upgrade(router, upgrade_image)
     _confirmed(router, "b")
     previous_boot = router.boot_id()
-    router.detach("sleep 1; wrt-slot switch")
+    router.detach("sleep 1; orbyt-slot switch")
     router.wait_rebooted(previous_boot)
     assert slot(router) == "a"
     _confirmed(router, "a")

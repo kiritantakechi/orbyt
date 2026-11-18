@@ -1,0 +1,10 @@
+#!/bin/sh
+# The image's theme is LuCI's default once, when it first arrives: on a fresh
+# install, after bootstrap's own script has set its default, and on the first boot
+# of an upgrade that brings it. Once luci.themes.Orbyt exists, the administrator's
+# choice of theme stays (luci-theme-orbyt D8).
+
+uci -q get luci.themes.Orbyt >/dev/null && exit 0
+uci set luci.themes.Orbyt=/luci-static/orbyt
+uci set luci.main.mediaurlbase=/luci-static/orbyt
+uci commit luci

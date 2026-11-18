@@ -5,7 +5,7 @@
 # build and output directories of its own. Fails on an unknown board before the
 # tree is touched, and if make defconfig dropped or changed any seed line
 # (renamed or removed options, unmet dependencies). Writes the composed seeds and
-# the diffconfig to $WRT_WORKDIR/out/<board>.
+# the diffconfig to $ORBYT_WORKDIR/out/<board>.
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
@@ -24,7 +24,7 @@ board_field "${board}" .device >/dev/null
 
 link_tree "${tree}"
 write_board_table "${tree}"
-out="${WRT_WORKDIR}/out/${board}"
+out="${ORBYT_WORKDIR}/out/${board}"
 mkdir -p "${out}"
 wanted="${out}/seed-${profile}.config"
 compose_seeds "${tree}" "${profile}" "${board}" "${wanted}"

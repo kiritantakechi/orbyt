@@ -4,7 +4,7 @@
 # The datapath part is r4s-ebpf-datapath task 1.4: its packages, and an einat
 # without libbpf or libelf. The services part: their packages, and no app that
 # belongs in a container (qBittorrent, Qt, libtorrent). No image but the ubsan
-# profile's holds wrt-ubsan-probe (toolchain-o3 D5), and that one is not for release.
+# profile's holds orbyt-ubsan-probe (toolchain-o3 D5), and that one is not for release.
 # Reads the image offline: partition 2 (slot A's root) is extracted with the tree's
 # fsck.erofs and the package database is queried with the tree's apk.
 set -eu
@@ -23,7 +23,7 @@ for tool in fsck.erofs apk; do
 	[ -x "${host_bin}/${tool}" ] || die "${host_bin}/${tool} missing; build the tree first"
 done
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-audit.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-audit.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
 
 case "${image}" in
@@ -59,7 +59,7 @@ installed=$("${host_bin}/apk" --root "${root}" --no-network --no-cache list --in
 [ -n "${installed}" ] || die "could not read the installed package list from the image"
 
 for pkg in urngd opkg nginx nginx-ssl nginx-full uwsgi libpcre shortcut-fe natflow lrng upx dae luci-app-dae \
-	qbittorrent qbittorrent-nox libtorrent libtorrent-rasterbar qt6-core qt5-core wrt-ubsan-probe; do
+	qbittorrent qbittorrent-nox libtorrent libtorrent-rasterbar qt6-core qt5-core orbyt-ubsan-probe; do
 	if printf '%s\n' "${installed}" | grep -qx -- "${pkg}"; then
 		fail "package ${pkg} is installed"
 	else
@@ -69,7 +69,7 @@ done
 for pkg in uhttpd ucode luci-base luci-i18n-base-zh-cn zram-swap bash zsh zsh-plugins kmod-tcp-bbr \
 	honk luci-app-honk einat qosify kmod-sched-cake bpftool-minimal \
 	kmod-usb-storage-uas kmod-fs-btrfs btrfs-progs podman crun netavark ksmbd-server \
-	kmod-wireguard tailscale prometheus-node-exporter-ucode wrt-data wrt-containers wrt-metrics; do
+	kmod-wireguard tailscale prometheus-node-exporter-ucode orbyt-data orbyt-containers orbyt-metrics; do
 	if printf '%s\n' "${installed}" | grep -qx -- "${pkg}"; then
 		pass "package ${pkg} installed"
 	else

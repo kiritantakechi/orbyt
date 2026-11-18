@@ -1,6 +1,6 @@
 """services/containers: podman on the data disk, behind fw4, einat and honk like the LAN.
 
-The app Pod (wrt_tests.services.app) runs from the test image in the emulated internet's
+The app Pod (orbyt_tests.services.app) runs from the test image in the emulated internet's
 registry: uhttpd serving a page of the data disk, at a fixed address. Probes
 from inside it use busybox's nc against the probe servers, and its nslookup.
 """
@@ -13,13 +13,13 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.storage import MOUNT
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
-from wrt_tests.sandbox.netprobe import HTTP_PORT, PORT
-from wrt_tests.services import app
-from wrt_tests.services.datapath import (
+from orbyt_tests import spec
+from orbyt_tests.device.storage import MOUNT
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
+from orbyt_tests.sandbox.netprobe import HTTP_PORT, PORT
+from orbyt_tests.services import app
+from orbyt_tests.services.datapath import (
     PROXY_HOOKS_L2,
     PROXY_NFQUEUE_TABLE,
     hooks,
@@ -28,15 +28,15 @@ from wrt_tests.services.datapath import (
 )
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.device.storage import Disk
-    from wrt_tests.sandbox.net import Netns
-    from wrt_tests.sandbox.netprobe import Seen
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.device.storage import Disk
+    from orbyt_tests.sandbox.net import Netns
+    from orbyt_tests.sandbox.netprobe import Seen
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "services/containers"
 STORAGE = f"{MOUNT}/containers/storage"
-# How long wrt-sync may take to give up on a release service it cannot reach.
+# How long orbyt-sync may take to give up on a release service it cannot reach.
 SYNC_TIMEOUT = 300
 EINAT_PORTS = range(20000, 30000)
 EXPOSED_PORT = 8080
@@ -227,7 +227,7 @@ def test_unchanged_declaration_is_not_rebuilt(pod: Online) -> None:
     # startup flow, which procd runs after the script returned. A new start
     # shows the flow ran; the same container, that it rebuilt nothing
     # (test-fidelity D7).
-    router.run("/etc/init.d/wrt-containers restart")
+    router.run("/etc/init.d/orbyt-containers restart")
     until(
         lambda: app.started(router) != since and app.running(router),
         timeout=app.START_TIMEOUT,
@@ -249,12 +249,12 @@ def test_a_declaration_that_cannot_start_keeps_no_other_down(pod: Online) -> Non
     )
     try:
         router.run(f"podman pod stop {app.POD} >/dev/null", timeout=120)
-        said = router.run("wrt-containers apply 2>&1; echo exit=$?", timeout=300)
+        said = router.run("orbyt-containers apply 2>&1; echo exit=$?", timeout=300)
     finally:
         router.run(f"rm -f {declared}")
     assert said.endswith("exit=1"), said
-    assert f"wrt-containers: {missing} did not come up" in said, said
-    assert f"wrt-containers: {app.POD} is up" in said, said
+    assert f"orbyt-containers: {missing} did not come up" in said, said
+    assert f"orbyt-containers: {app.POD} is up" in said, said
     assert app.running(router) is not None
 
 
@@ -269,13 +269,13 @@ def _service_running(router: Router, name: str) -> bool:
 def test_the_network_s_dns_outlives_a_service_s_container(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
-    # wrt-sync runs a container on podman's network, and ends with it; procd then
+    # orbyt-sync runs a container on podman's network, and ends with it; procd then
     # kills what is left in the service's cgroup. Nothing can be fetched here.
-    router.run("/etc/init.d/wrt-sync restart")
+    router.run("/etc/init.d/orbyt-sync restart")
     until(
-        lambda: not _service_running(router, "wrt-sync"),
+        lambda: not _service_running(router, "orbyt-sync"),
         timeout=SYNC_TIMEOUT,
-        what="wrt-sync ended",
+        what="orbyt-sync ended",
     )
     router.run(f"podman pod stop {app.POD} >/dev/null", timeout=120)
     router.run(f"podman pod start {app.POD} >/dev/null", timeout=120)

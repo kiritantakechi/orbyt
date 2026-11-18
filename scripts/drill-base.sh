@@ -21,12 +21,12 @@ board=${1:-}
 workdir_tree >/dev/null
 [ -n "${board}" ] || die "usage: drill-base <board>"
 device=$(board_field "${board}" .device)
-ci="${WRT_WORKDIR}/out/${board}/ci"
-base="${WRT_WORKDIR}/out/${board}/drill-base"
-repository=${GITHUB_REPOSITORY:-kiritantakechi/wrt-build}
+ci="${ORBYT_WORKDIR}/out/${board}/ci"
+base="${ORBYT_WORKDIR}/out/${board}/drill-base"
+repository=${GITHUB_REPOSITORY:-kiritantakechi/orbyt}
 [ -f "${ci}/manifest.json" ] || die "no build outputs in ${ci}"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-drill-base.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-drill-base.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
 rm -rf "${base}"
 mkdir -p "${base}/targets"

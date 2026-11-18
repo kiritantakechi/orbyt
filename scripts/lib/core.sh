@@ -66,15 +66,15 @@ require_linux() (
 )
 
 # workdir_tree: the build tree, in the work directory, which lives outside the
-# repository (WRT_WORKDIR).
+# repository (ORBYT_WORKDIR).
 workdir_tree() (
-	[ -n "${WRT_WORKDIR:-}" ] || die "WRT_WORKDIR is not set (see docs/dev-setup.md)"
-	[ -d "${WRT_WORKDIR}" ] || die "WRT_WORKDIR does not exist: ${WRT_WORKDIR}"
-	case "${WRT_WORKDIR}" in
-		"${REPO_DIR}" | "${REPO_DIR}"/*) die "WRT_WORKDIR must be outside the repository" ;;
+	[ -n "${ORBYT_WORKDIR:-}" ] || die "ORBYT_WORKDIR is not set (see docs/dev-setup.md)"
+	[ -d "${ORBYT_WORKDIR}" ] || die "ORBYT_WORKDIR does not exist: ${ORBYT_WORKDIR}"
+	case "${ORBYT_WORKDIR}" in
+		"${REPO_DIR}" | "${REPO_DIR}"/*) die "ORBYT_WORKDIR must be outside the repository" ;;
 		*) ;;
 	esac
-	printf '%s\n' "${WRT_WORKDIR}/openwrt"
+	printf '%s\n' "${ORBYT_WORKDIR}/openwrt"
 )
 
 # ensure_fhs <build|test> [args]: re-execute the calling script inside the Nix FHS
@@ -83,13 +83,13 @@ workdir_tree() (
 ensure_fhs() {
 	kind=$1
 	shift
-	case "${WRT_FHS:-}:${kind}" in
+	case "${ORBYT_FHS:-}:${kind}" in
 		build:build | test:build | test:test) return 0 ;;
-		build:test) die "inside wrt-build-fhs; run this from the 'nix develop' shell instead" ;;
+		build:test) die "inside orbyt-build-fhs; run this from the 'nix develop' shell instead" ;;
 		:build | :test) ;;
 		*) die "ensure_fhs: unknown environment '${kind}'" ;;
 	esac
-	fhs="wrt-${kind}-fhs"
+	fhs="orbyt-${kind}-fhs"
 	command -v "${fhs}" >/dev/null 2>&1 ||
 		die "${fhs} not found; run through 'nix develop' (see docs/dev-setup.md)"
 	# shellcheck disable=SC2016 # expanded by the inner shell, not here

@@ -16,11 +16,11 @@ from typing import Any, cast
 import pytest
 import yaml
 
-from wrt_tests import spec
-from wrt_tests.device.emu import sha256
-from wrt_tests.model.boards import BOARDS_DIR, Board, Description, load_all
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.outputs import MANIFEST_FILE, TOOLCHAIN_FILE, Manifest, ToolchainRecord
+from orbyt_tests import spec
+from orbyt_tests.device.emu import sha256
+from orbyt_tests.model.boards import BOARDS_DIR, Board, Description, load_all
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.outputs import MANIFEST_FILE, TOOLCHAIN_FILE, Manifest, ToolchainRecord
 
 CAPABILITY = "build/boards"
 REPO = Path(__file__).resolve().parents[2]
@@ -45,8 +45,8 @@ RUST_STD = Path("aarch64-unknown-linux-musl/lib/libstd.rlib")
 # Fragments on the emulator's defconfig, which keeps the environment in flash:
 # the first brings up the second environment copy, whose flash address is a
 # number without a default, and the second sets it (uboot-config-merge D3).
-QUESTION_FRAGMENT = "wrt-question.config"
-ANSWER_FRAGMENT = "wrt-answer.config"
+QUESTION_FRAGMENT = "orbyt-question.config"
+ANSWER_FRAGMENT = "orbyt-answer.config"
 ANSWER = "0x40000"
 CONFIGURE_SECONDS = 60
 RUST_STD_CONTENT = b"Rust's standard library"
@@ -181,7 +181,7 @@ def test_every_board_goes_through_the_pipeline() -> None:
 def test_an_unknown_board_is_refused(recipe: str, tmp_path: Path) -> None:
     result = subprocess.run(
         ["just", "--justfile", REPO / "justfile", recipe, "nope"],
-        env={**os.environ, "WRT_WORKDIR": str(tmp_path)},
+        env={**os.environ, "ORBYT_WORKDIR": str(tmp_path)},
         capture_output=True,
         text=True,
         check=False,
@@ -194,7 +194,7 @@ def test_an_unknown_board_is_refused(recipe: str, tmp_path: Path) -> None:
 
 @spec(CAPABILITY, "One build per board from one tree", "Two boards in one tree")
 def test_boards_build_apart(build_output: Path) -> None:
-    tree = Path(os.environ["WRT_WORKDIR"]) / "openwrt"
+    tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
     # A build whose directories were deleted since, as a ubsan build's may be,
     # is no longer in the tree.
     builds = [
@@ -472,7 +472,7 @@ def _tree_to_build_toolchain(
 def _toolchain_build(tree: Path, **env: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [REPO / "scripts" / "toolchain-build.sh"],
-        env={**os.environ, "WRT_WORKDIR": str(tree.parent), **env},
+        env={**os.environ, "ORBYT_WORKDIR": str(tree.parent), **env},
         capture_output=True,
         text=True,
         check=False,
@@ -655,7 +655,7 @@ def test_a_board_toolchain_is_refused(
     tree = _tree_with_toolchain(tmp_path, board, record)
     result = subprocess.run(
         [REPO / "scripts" / "build.sh", board.id],
-        env={**os.environ, "WRT_WORKDIR": str(tmp_path)},
+        env={**os.environ, "ORBYT_WORKDIR": str(tmp_path)},
         capture_output=True,
         text=True,
         check=False,
@@ -677,7 +677,7 @@ def test_a_board_build_that_compiles_the_toolchain_fails(tmp_path: Path) -> None
         [REPO / "scripts" / "build.sh", board.id],
         env={
             **os.environ,
-            "WRT_WORKDIR": str(tmp_path),
+            "ORBYT_WORKDIR": str(tmp_path),
             "COMPILED": "package/feeds/packages/rust",
         },
         capture_output=True,
@@ -698,7 +698,7 @@ def _configure(source: Path, *targets: str) -> dict[str, str]:
     """
     command = f"make -C {source} {' '.join(targets)}"
     step = subprocess.Popen(
-        ["wrt-test-fhs", "-c", command],
+        ["orbyt-test-fhs", "-c", command],
         stdin=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
@@ -717,11 +717,11 @@ def _configure(source: Path, *targets: str) -> dict[str, str]:
 
 @spec(CAPABILITY, "U-Boot configured without asking", "A fragment leaves a question for the next")
 def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) -> None:
-    tree = Path(os.environ["WRT_WORKDIR"]) / "openwrt"
+    tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
     sources = [
         source
         for build_dir in _build_dirs(tree, build_output)
-        for source in build_dir.glob("u-boot-wrt-qemu/u-boot-*")
+        for source in build_dir.glob("u-boot-orbyt-qemu/u-boot-*")
     ]
     if not sources:
         pytest.skip("no build tree with the emulator's U-Boot")

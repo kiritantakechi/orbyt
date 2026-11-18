@@ -820,7 +820,7 @@ wheels = [
 ]
 
 [[package]]
-name = "wrt-tests"
+name = "orbyt-tests"
 version = "0"
 source = { editable = "." }
 dependencies = [

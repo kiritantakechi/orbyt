@@ -7,10 +7,10 @@ emulator directory emu-prepare made from it, and a release assembled from it.
 
 from pathlib import Path
 
-from wrt_tests.model.boards import load
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
-from wrt_tests.model.undefined_behavior import Diagnostic
+from orbyt_tests.model.boards import load
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
+from orbyt_tests.model.undefined_behavior import Diagnostic
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
 
@@ -39,7 +39,7 @@ def test_an_emulation_source_reads_as_one() -> None:
 
 
 def test_a_toolchain_record_reads_as_one() -> None:
-    record = read_json(FIXTURES / "wrt-toolchain.json", ToolchainRecord)
+    record = read_json(FIXTURES / "orbyt-toolchain.json", ToolchainRecord)
     assert "-mcpu=generic" in record.cflags
     assert record.rust_std is not None
 

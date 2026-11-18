@@ -1,6 +1,6 @@
 """storage/data-disk: the USB data disk, what waits for it, and what goes on without it.
 
-The module's data disk is a blank image made the data disk with ``wrt-data init``
+The module's data disk is a blank image made the data disk with ``orbyt-data init``
 (the ``data_disk`` fixture); the app Pod is declared on it, so that the container
 service has something to start. A spare disk comes and goes for the tests that
 need a second one. The tests that boot without the data disk come last: they
@@ -18,8 +18,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.storage import (
+from orbyt_tests import spec
+from orbyt_tests.device.storage import (
     MOUNT,
     PLUG_TIMEOUT,
     SUBVOLUMES,
@@ -33,17 +33,17 @@ from wrt_tests.device.storage import (
     subvolumes,
     wait_mounted,
 )
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET, PROXIED_TARGET, PROXY
-from wrt_tests.services import app
-from wrt_tests.services.datapath import PROXY_TIMEOUT, wait_proxy
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET, PROXIED_TARGET, PROXY
+from orbyt_tests.services import app
+from orbyt_tests.services.datapath import PROXY_TIMEOUT, wait_proxy
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from wrt_tests.device.emu import Emulator
-    from wrt_tests.device.router import Router
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.emu import Emulator
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "storage/data-disk"
 SERVICES_DOC = Path(__file__).resolve().parents[2] / "docs" / "services.md"
@@ -57,10 +57,10 @@ DAYS_OFF = 10
 CRONTAB = "/etc/crontabs/root"
 CRON_TIMEOUT = 90
 HEALTHCHECK = (
-    "uci set wrt-ab.healthcheck.total=30 && uci set wrt-ab.healthcheck.interval=3"
-    " && uci commit wrt-ab && wrt-healthcheck"
+    "uci set orbyt-ab.healthcheck.total=30 && uci set orbyt-ab.healthcheck.interval=3"
+    " && uci commit orbyt-ab && orbyt-healthcheck"
 )
-HEALTH = "/var/run/wrt-healthcheck.json"
+HEALTH = "/var/run/orbyt-healthcheck.json"
 # honk's state database, in its data directory on the data disk or in RAM
 # (/var/lib/honk, which the kernel names by /var's target, /tmp).
 PROXY_STATE = {
@@ -137,7 +137,7 @@ def _kept(router: Router) -> dict[str, list[str]]:
     return {
         subvolume: [
             path.rsplit("/", 1)[1][:8]
-            for path in router.run(f"wrt-snap list {subvolume}").splitlines()
+            for path in router.run(f"orbyt-snap list {subvolume}").splitlines()
         ]
         for subvolume in SNAPSHOTTED
     }
@@ -154,7 +154,7 @@ def test_mounts(rebooted: str, pod: Online, spare: Disk) -> None:
     for subvolume in SUBVOLUMES:
         assert router.returncode(f"btrfs subvolume show {MOUNT}/{subvolume} >/dev/null") == 0
 
-    # wrt-data init erases nothing that was not confirmed.
+    # orbyt-data init erases nothing that was not confirmed.
     spare.plug(3)
     assert initialize(router, spare, answer="no") != 0
     assert initialize(router, spare, answer=device(router, spare).removeprefix("/dev/")) != 0
@@ -172,14 +172,14 @@ def test_logs_survive_reboot(rebooted: str, pod: Online) -> None:
 def test_manual_snapshot(pod: Online) -> None:
     router = pod.router
     before = int(router.run("date +%s"))
-    taken = router.run("wrt-snap now").splitlines()
+    taken = router.run("orbyt-snap now").splitlines()
     after = int(router.run("date +%s"))
     assert [path.split("/")[-2] for path in taken] == list(SNAPSHOTTED)
     for path in taken:
         at = datetime.strptime(path.rsplit("/", 1)[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
         assert before <= at.timestamp() <= after
         assert router.run(f"btrfs property get -ts {path} ro") == "ro=true"
-    assert set(router.run("wrt-snap list").splitlines()) >= set(taken)
+    assert set(router.run("orbyt-snap list").splitlines()) >= set(taken)
 
 
 @spec(CAPABILITY, "Periodic read-only snapshots", "Restore a file from a snapshot")
@@ -189,7 +189,7 @@ def test_restore_a_file(pod: Online) -> None:
     (file,) = re.findall(r"^file=(\S+)$", commands, re.MULTILINE)
     content = f"{time.time_ns()}"
     path = f"{MOUNT}/shares/{file}"
-    router.run(f"mkdir -p {path.rsplit('/', 1)[0]} && echo {content} >{path} && wrt-snap now")
+    router.run(f"mkdir -p {path.rsplit('/', 1)[0]} && echo {content} >{path} && orbyt-snap now")
     router.run(f"rm {path}")
     router.run(commands)
     assert router.run(f"cat {path}") == content
@@ -356,7 +356,7 @@ def test_snapshots_outlast_a_long_time_off(pod: Online) -> None:
     (job,) = [
         line.split(maxsplit=5)[5]
         for line in router.run(f"cat {CRONTAB}").splitlines()
-        if "wrt-snap" in line
+        if "orbyt-snap" in line
     ]
     # The module's earlier tests left snapshots, of days still to come among them:
     # the scenario starts without any.

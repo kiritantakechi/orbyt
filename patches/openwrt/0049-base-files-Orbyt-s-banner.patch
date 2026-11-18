@@ -1,0 +1,34 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Wed, 18 Nov 2026 12:00:00 +0800
+Subject: [PATCH] base-files: Orbyt's banner
+
+The login banner shows Orbyt's name in place of OpenWrt's art; the
+release line below it, which the build fills in from the version
+options, stays (orbyt-brand D3).
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Inappropriate [Orbyt's identity]
+---
+ package/base-files/files/etc/banner | 11 ++++++-----
+ 1 file changed, 6 insertions(+), 5 deletions(-)
+
+diff --git a/package/base-files/files/etc/banner b/package/base-files/files/etc/banner
+index f3af3c0..e046e1a 100644
+--- a/package/base-files/files/etc/banner
++++ b/package/base-files/files/etc/banner
+@@ -1,8 +1,9 @@
+-  _______                     ________        __
+- |       |.-----.-----.-----.|  |  |  |.----.|  |_
+- |   -   ||  _  |  -__|     ||  |  |  ||   _||   _|
+- |_______||   __|_____|__|__||________||__|  |____|
+-          |__| W I R E L E S S   F R E E D O M
++    ____       __          __
++   / __ \_____/ /_  __  __/ /_
++  / / / / ___/ __ \/ / / / __/
++ / /_/ / /  / /_/ / /_/ / /_
++ \____/_/  /_.___/\__, /\__/
++                 /____/
+  -----------------------------------------------------
+  %D %V, %C
+  -----------------------------------------------------

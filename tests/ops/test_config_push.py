@@ -20,26 +20,26 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.trust import trust_ca
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.isp import LOGIN
-from wrt_tests.services.config import ConfigRepository
-from wrt_tests.services.datapath import (
+from orbyt_tests import spec
+from orbyt_tests.device.trust import trust_ca
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.isp import LOGIN
+from orbyt_tests.services.config import ConfigRepository
+from orbyt_tests.services.datapath import (
     NATIVE_API,
     NATIVE_API_TOKEN,
     PROXY_CONFIG,
     PROXY_HEALTHCHECK,
     wait_proxy,
 )
-from wrt_tests.services.vpn import HEADSCALE_URL, clear, key_pair, preauth_key
+from orbyt_tests.services.vpn import HEADSCALE_URL, clear, key_pair, preauth_key
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "ops/config-push"
 SHARE_USER = {"name": "pushed", "password": "pushed-secret-1"}
@@ -62,7 +62,7 @@ UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 TAILSCALE_TIMEOUT = 180
 # Where the router records, while a push runs, the modes of its upload and the
 # command lines of its processes.
-UPLOAD = "/tmp/wrt-push"  # noqa: S108 (a path on the router)
+UPLOAD = "/tmp/orbyt-push"  # noqa: S108 (a path on the router)
 MODES = "/tmp/push-modes"  # noqa: S108 (a path on the router)
 COMMANDS = "/tmp/push-commands"  # noqa: S108 (a path on the router)
 # A fifth of a second: the router's BusyBox sleep takes whole seconds only, and
@@ -87,7 +87,7 @@ REFUSED_KEY = "tskey-auth-refused-0000"
 NO_DOCROOT = "/nonexistent"
 # A command procd runs ahead of uhttpd's reload, for longer than a daemon may
 # take to restart: procd runs its trigger commands one at a time.
-AHEAD = "wrt-test-ahead"
+AHEAD = "orbyt-test-ahead"
 AHEAD_SECONDS = 30
 # A group honk's configuration routes to and no group block declares.
 MISSING_GROUP = "no-such-group"
@@ -115,7 +115,7 @@ class Pushed:
 def _state(router: Router) -> dict[str, str]:
     """Return what a push changes on the router, and the processes a reload restarts."""
     return {
-        "pushed": router.run("cat /etc/wrt-config/* /etc/honk/* | sha256sum"),
+        "pushed": router.run("cat /etc/orbyt-config/* /etc/honk/* | sha256sum"),
         "uci": router.run("uci export | sha256sum"),
         **{name: router.run(f"pidof {name} || true") for name in RESTARTED},
     }
@@ -143,7 +143,7 @@ def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
     the same standard input.
     """
     name = PurePosixPath(program).name
-    real = f"/tmp/wrt-test-{name}"  # noqa: S108 (a path on the router)
+    real = f"/tmp/orbyt-test-{name}"  # noqa: S108 (a path on the router)
     target = router.run(f"readlink {program}")
     router.run(
         f"mkdir -p {real} && ln -sf $(readlink -f {program}) {real}/{name}"
@@ -360,7 +360,7 @@ def test_an_uncommitted_change_to_another_package_stays(pushed: Pushed) -> None:
 @spec(CAPABILITY, "Roll back on service failure", "Service reload fails")
 def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
     router = pushed.router
-    before = (router.run("uci get network.lan.ipaddr"), router.run("cat /etc/wrt-config/network"))
+    before = (router.run("uci get network.lan.ipaddr"), router.run("cat /etc/orbyt-config/network"))
     # A batch uci takes but the LAN cannot come up with: without the rollback,
     # the router would be out of reach from the LAN.
     template = pushed.repository.directory / "uci" / "network.uci.tmpl"
@@ -374,7 +374,7 @@ def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
     _assert_put_back(result, "network")
     assert (
         router.run("uci get network.lan.ipaddr"),
-        router.run("cat /etc/wrt-config/network"),
+        router.run("cat /etc/orbyt-config/network"),
     ) == before
     assert json.loads(router.run("ubus call network.interface.lan status"))["up"] is True
 
@@ -405,7 +405,7 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     assert modes
     assert set(modes) <= set(ROOT_ONLY), modes
     assert router.returncode(f"[ -e {UPLOAD} ]") != 0
-    files = router.run("ls /etc/honk/* /etc/wrt-config/tailscale.key").split()
+    files = router.run("ls /etc/honk/* /etc/orbyt-config/tailscale.key").split()
     assert {router.run(f"ls -ln {file}").split()[0] for file in files} == {ROOT_ONLY[0]}
     # The key reaches tailscale in its file, and no command line sampled holds it.
     assert "--auth-key=file:" in router.run(f"cat {TAILSCALE_ARGUMENTS}")
@@ -415,7 +415,7 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     added, password = ADDED_SHARE_USER["name"], ADDED_SHARE_USER["password"]
     assert added in router.run(f"cat {ADDUSER_ARGUMENTS}").split()
     assert password not in router.run(f"cat {ADDUSER_ARGUMENTS} {COMMANDS}")
-    reference = "/tmp/wrt-test-pwddb"  # noqa: S108 (a path on the router)
+    reference = "/tmp/orbyt-test-pwddb"  # noqa: S108 (a path on the router)
     router.run(
         f": >{reference} && ksmbd.adduser -P {reference} -p {shlex.quote(password)} {added} >&2"
     )
@@ -427,7 +427,7 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
 def test_a_refused_tailscale_login_is_put_back(pushed: Pushed) -> None:
     router = pushed.router
     until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale up")
-    before = (router.run("tailscale ip -4"), router.run("cat /etc/wrt-config/tailscale"))
+    before = (router.run("tailscale ip -4"), router.run("cat /etc/orbyt-config/tailscale"))
     pushed.repository.write_secrets(_secrets(pushed, REFUSED_KEY))
     try:
         result = pushed.push()
@@ -435,7 +435,7 @@ def test_a_refused_tailscale_login_is_put_back(pushed: Pushed) -> None:
         pushed.repository.discard()
     _assert_put_back(result, "tailscale")
     until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale back")
-    assert (router.run("tailscale ip -4"), router.run("cat /etc/wrt-config/tailscale")) == before
+    assert (router.run("tailscale ip -4"), router.run("cat /etc/orbyt-config/tailscale")) == before
 
 
 @contextmanager

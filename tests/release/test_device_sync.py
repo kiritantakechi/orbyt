@@ -1,11 +1,11 @@
-"""release/device-sync: the router's local repository of releases, which wrt-sync keeps.
+"""release/device-sync: the router's local repository of releases, which orbyt-sync keeps.
 
 The module's router is online, resolves and trusts the emulated internet, and
 runs honk with the test configuration, which routes the Releases stand-in
 through the proxy as an administrator routes GitHub. The releases are the
 session's signed build, assembled once (release-publish.sh) and published under
-a new tag for each release in the stand-in's repository wrt-build/sync, where
-wrt-sync is pointed. The test without a data disk comes first: the data disk
+a new tag for each release in the stand-in's repository orbyt/sync, where
+orbyt-sync is pointed. The test without a data disk comes first: the data disk
 comes with the first test that asks for it and stays for the module.
 """
 
@@ -20,30 +20,30 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.ab import boot_area_sha256, slot, slot_sha256
-from wrt_tests.device.storage import MOUNT, wait_mounted
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.outputs import RELEASE_FILE, Manifest, Release
-from wrt_tests.model.trees import linked_copy, replace
-from wrt_tests.sandbox import releases
-from wrt_tests.sandbox.internet import RELEASES
-from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
+from orbyt_tests import spec
+from orbyt_tests.device.ab import boot_area_sha256, slot, slot_sha256
+from orbyt_tests.device.storage import MOUNT, wait_mounted
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.outputs import RELEASE_FILE, Manifest, Release
+from orbyt_tests.model.trees import linked_copy, replace
+from orbyt_tests.sandbox import releases
+from orbyt_tests.sandbox.internet import RELEASES
+from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.device.storage import Disk
-    from wrt_tests.model.boards import Board
-    from wrt_tests.model.keys import Keys
-    from wrt_tests.sandbox.isp import Isp
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.device.storage import Disk
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.model.keys import Keys
+    from orbyt_tests.sandbox.isp import Isp
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "release/device-sync"
 PUBLISH = Path(__file__).resolve().parents[2] / "scripts" / "release-publish.sh"
-REPOSITORY = "wrt-build/sync"
+REPOSITORY = "orbyt/sync"
 LOCAL = f"{MOUNT}/repo"
 UPGRADE = "targets/*-sysupgrade.tar.gz"
 # A kmod of the build that the image does not carry, and its module.
@@ -56,7 +56,7 @@ TAMPERED = 1 << 20
 SYNC_TIMEOUT = 900
 # What the router logged around a failed sync: the container's fetch goes through
 # podman's network and honk, either of which can refuse it (EPERM).
-SYNC_LOG = "logread | grep -E 'wrt-sync|podman|netavark|honk' | tail -n 40"
+SYNC_LOG = "logread | grep -E 'orbyt-sync|podman|netavark|honk' | tail -n 40"
 # Release names that are no plain file name, as a misbehaving service could give.
 NOT_FILE_NAMES = ("..", "r1/../..", "it's")
 # What a package archive must not carry beside the packages: a manifest, an
@@ -73,7 +73,7 @@ OUTSIDE = "/etc/shadow"
 
 @dataclass
 class Releases:
-    """The stand-in's repository wrt-build/sync, and the router that syncs from it."""
+    """The stand-in's repository orbyt/sync, and the router that syncs from it."""
 
     online: Online
     assembled: Path
@@ -98,12 +98,12 @@ class Releases:
         )
 
     def sync(self, *options: str) -> tuple[bool, str]:
-        """Run wrt-sync; return whether it succeeded and what it said.
+        """Run orbyt-sync; return whether it succeeded and what it said.
 
         A failed sync's text ends with what the router logged around it.
         """
         output = self.router.run(
-            f"wrt-sync {' '.join(options)} 2>&1; echo $?", timeout=SYNC_TIMEOUT
+            f"orbyt-sync {' '.join(options)} 2>&1; echo $?", timeout=SYNC_TIMEOUT
         ).splitlines()
         ok, said = output[-1] == "0", "\n".join(output[:-1])
         if not ok:
@@ -137,7 +137,7 @@ def stand_in(
     signed_boards: Path,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Iterator[Releases]:
-    """Assemble the signed build as a release; point the router's wrt-sync at the stand-in."""
+    """Assemble the signed build as a release; point the router's orbyt-sync at the stand-in."""
     del trusted_ca  # requested for the router's trust in the stand-in
     assembled = tmp_path_factory.mktemp("sync") / "release"
     subprocess.run(
@@ -146,8 +146,8 @@ def stand_in(
         capture_output=True,
     )
     proxy.router.run(
-        f"uci set wrt-sync.main.api=https://{RELEASES[0]}"
-        f" && uci set wrt-sync.main.repository={REPOSITORY} && uci commit wrt-sync"
+        f"uci set orbyt-sync.main.api=https://{RELEASES[0]}"
+        f" && uci set orbyt-sync.main.repository={REPOSITORY} && uci commit orbyt-sync"
     )
     root = proxy.network.workdir / releases.ROOT
     yield Releases(proxy, assembled, root)
@@ -200,7 +200,7 @@ def test_an_interrupted_sync_changes_nothing(stand_in: Releases, data_disk: Disk
     assert "the current release stays" in said
     assert stand_in.current() == previous
     assert tag not in stand_in.kept()
-    # What apk and wrt-update read is the previous release's.
+    # What apk and orbyt-update read is the previous release's.
     for path in ("targets/packages/packages.adb", UPGRADE):
         assert f"/releases/{previous}/" in router.run(f"readlink -f {LOCAL}/current/{path}")
     assert KMOD[0] in router.run(f"apk search {KMOD[0]}")
@@ -335,11 +335,11 @@ def test_a_tampered_image_is_refused(
     (unsigned,) = build_output.glob(UPGRADE)
     try:
         _flip_a_bit(router, image, TAMPERED)
-        tampered = router.run("wrt-update 2>&1 || true", timeout=300)
+        tampered = router.run("orbyt-update 2>&1 || true", timeout=300)
         assert "Image check failed" in tampered, tampered
         # An image without a signature is refused as well: this build's own.
         router.put(unsigned, image)
-        refused = router.run("wrt-update 2>&1 || true", timeout=300)
+        refused = router.run("orbyt-update 2>&1 || true", timeout=300)
         assert "Image check failed" in refused, refused
     finally:
         router.run(f"mv {image}.whole {image}")
@@ -358,10 +358,10 @@ def test_the_upgrade_takes_the_manifest_s_image(stand_in: Releases, data_disk: D
     beside = f"{LOCAL}/current/targets/zz-sysupgrade.tar.gz"
     router.run(f"cp {image} {beside}")
     try:
-        said = router.run("wrt-update -T 2>&1", timeout=300)
+        said = router.run("orbyt-update -T 2>&1", timeout=300)
     finally:
         router.run(f"rm -f {beside}")
-    assert f"wrt-update: {image}" in said.splitlines(), said
+    assert f"orbyt-update: {image}" in said.splitlines(), said
 
 
 @spec(CAPABILITY, "Candidates require opt-in", "Default channel")
@@ -375,11 +375,11 @@ def test_only_stable_releases_by_default(stand_in: Releases, data_disk: Disk) ->
     assert stand_in.current() == stable
     assert candidate not in stand_in.kept()
     # Candidates come once the administrator asks for them.
-    router.run("uci set wrt-sync.main.channel=candidate && uci commit wrt-sync")
+    router.run("uci set orbyt-sync.main.channel=candidate && uci commit orbyt-sync")
     try:
         ok, said = stand_in.sync()
     finally:
-        router.run("uci set wrt-sync.main.channel=stable && uci commit wrt-sync")
+        router.run("uci set orbyt-sync.main.channel=stable && uci commit orbyt-sync")
     assert ok, said
     assert stand_in.current() == candidate
 
@@ -425,7 +425,7 @@ def test_a_release_of_several_boards(
     router = stand_in.router
     (image,) = router.run(f"ls {LOCAL}/current/{UPGRADE}").split()
     assert f"-{board.device}-" in image
-    router.run("wrt-update -T", timeout=300)
+    router.run("orbyt-update -T", timeout=300)
 
 
 @spec(CAPABILITY, "Sync the device's own board", "Another board's manifest")
@@ -470,7 +470,7 @@ def test_a_release_survives_a_power_cut(stand_in: Releases, data_disk: Disk, boa
     # The sums in a file first: a helper that failed must not leave sha256sum
     # nothing to check, and so nothing to fail.
     checked = router.run(
-        f"/usr/libexec/wrt-sync/manifest checksums {LOCAL}/current/manifest.json {board.device}"
+        f"/usr/libexec/orbyt-sync/manifest checksums {LOCAL}/current/manifest.json {board.device}"
         f" >/tmp/sums && cd {LOCAL}/current && sha256sum -c /tmp/sums 2>&1; echo exit=$?",
         timeout=120,
     )

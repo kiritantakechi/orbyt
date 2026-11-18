@@ -10,7 +10,7 @@ without the count of running scripts: a boot script that never
 returned kept the only slot, the shutdown ran none of its K scripts,
 and a reboot never completed. On the emulator, a uci-defaults script
 looping forever during a trial boot left the system in "- shutdown -"
-for ten minutes, until the test gave up; wrt-ab's trial deadline
+for ten minutes, until the test gave up; orbyt-ab's trial deadline
 reboots exactly then (trial-guards D6).
 
 Carry the procd patch that cancels the boot's scripts when the

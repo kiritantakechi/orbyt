@@ -3,7 +3,7 @@
 # Usage: scripts/check.sh [check...]   (all checks when none is named)
 # Runs on Linux and macOS with the tools of the quality devShell. NixOS cannot run
 # the generic Linux binaries that uv installs (Python, ruff, ty), so there the
-# script re-executes inside wrt-test-fhs.
+# script re-executes inside orbyt-test-fhs.
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"

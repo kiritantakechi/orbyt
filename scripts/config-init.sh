@@ -1,7 +1,7 @@
 #!/bin/sh
 # config-init: create the private configuration repository (r4s-release-pipeline D6).
 # Usage: scripts/config-init.sh <directory>
-# The repository config-push reads ($WRT_CONFIG_DIR), made from config-init.d:
+# The repository config-push reads ($ORBYT_CONFIG_DIR), made from config-init.d:
 # .sops.yaml naming the age recipient, secrets/secrets.enc.yaml (credentials,
 # encrypted), honk/*.dae.enc (honk's configuration, encrypted: its nodes,
 # subscriptions and native API token are secrets), uci/*.uci.tmpl (uci batches,
@@ -42,5 +42,5 @@ encrypt honk/config.dae honk/config.dae.enc
 
 git -C "${repo}" init -q
 git -C "${repo}" add -A
-git -C "${repo}" -c user.name=wrt-build -c user.email=wrt-build@localhost commit -q -m "wrt-config: skeleton"
+git -C "${repo}" -c user.name=orbyt -c user.email=orbyt@localhost commit -q -m "orbyt-config: skeleton"
 info "private configuration repository in ${repo}; edit with: sops ${repo}/secrets/secrets.enc.yaml"

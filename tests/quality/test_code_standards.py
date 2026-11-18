@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from wrt_tests import spec
+from orbyt_tests import spec
 
 CAPABILITY = "quality/code-standards"
 REPO = Path(__file__).resolve().parents[2]
@@ -78,14 +78,14 @@ def test_shellcheck_warning_fails(repo: Path) -> None:
 
 @spec(CAPABILITY, "Device code handles structured data in ucode", "jsonfilter in a device script")
 def test_jsonfilter_in_device_code_fails(repo: Path) -> None:
-    script = repo / "files" / "etc" / "uci-defaults" / "91-wrt-datapath"
+    script = repo / "files" / "etc" / "uci-defaults" / "91-orbyt-datapath"
     with script.open("a") as appended:
         appended.write("up=$(ifstatus wan | jsonfilter -e @.up)\n")
     line = len(script.read_text().splitlines())
     result = _run(repo, "check.sh", "forbidden-patterns")
     assert result.returncode != 0
     assert "FAIL  forbidden-patterns" in result.stdout
-    assert f"files/etc/uci-defaults/91-wrt-datapath:{line}:" in result.stdout
+    assert f"files/etc/uci-defaults/91-orbyt-datapath:{line}:" in result.stdout
     assert "no jsonfilter, jshn or /etc/opkg" in result.stderr
 
 
@@ -132,25 +132,25 @@ def test_a_library_function_that_nothing_calls_fails(repo: Path) -> None:
 @spec(CAPABILITY, "Layered test harness", "Harness module imports from a higher layer")
 def test_an_import_from_a_higher_layer_fails(repo: Path) -> None:
     # A module of the model layer that reaches up to the device layer.
-    with (repo / "tests" / "wrt_tests" / "model" / "poll.py").open("a") as module:
-        module.write("\nfrom wrt_tests.device.router import Router\n")
+    with (repo / "tests" / "orbyt_tests" / "model" / "poll.py").open("a") as module:
+        module.write("\nfrom orbyt_tests.device.router import Router\n")
     result = _run(repo, "check.sh", "tach")
     assert result.returncode != 0
     assert "FAIL  tach" in result.stdout
     # tach reports on stderr: the module, and what it imports.
-    assert "wrt_tests/model/poll.py" in result.stderr, result.stderr
-    assert "wrt_tests.device.router" in result.stderr, result.stderr
+    assert "orbyt_tests/model/poll.py" in result.stderr, result.stderr
+    assert "orbyt_tests.device.router" in result.stderr, result.stderr
 
 
 @spec(CAPABILITY, "No dead code in the host-side code", "Harness module that nothing imports")
 def test_a_harness_module_that_nothing_imports_fails(repo: Path) -> None:
-    orphan = repo / "tests" / "wrt_tests" / "model" / "orphan.py"
+    orphan = repo / "tests" / "orbyt_tests" / "model" / "orphan.py"
     orphan.write_text('"""A module that nothing imports."""\n')
     result = _run(repo, "check.sh", "spec-coverage")
     assert result.returncode != 0
     assert "FAIL  spec-coverage" in result.stdout
     output = result.stdout + result.stderr
-    assert "wrt_tests/model/orphan.py: no harness module or test imports it" in output, output
+    assert "orbyt_tests/model/orphan.py: no harness module or test imports it" in output, output
 
 
 @spec(CAPABILITY, "Symmetric naming", "Unpaired operation")
@@ -176,7 +176,7 @@ def test_fmt_then_check_passes(repo: Path) -> None:
     _break_indentation(repo / "scripts" / "fetch.sh")
     flake = repo / "flake.nix"
     flake.write_text(flake.read_text().replace("  outputs =", "  outputs  =", 1))
-    module = repo / "tests" / "wrt_tests" / "model" / "data.py"
+    module = repo / "tests" / "orbyt_tests" / "model" / "data.py"
     module.write_text(module.read_text().replace("import tomllib\n", "import   tomllib\n", 1))
     formatting = ("shfmt", "nixfmt", "ruff-format")
     assert _run(repo, "check.sh", *formatting).returncode != 0

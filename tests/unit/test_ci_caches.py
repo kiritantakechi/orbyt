@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests.model.github import HEAD, MAIN, Repository, run_script
+from orbyt_tests.model.github import HEAD, MAIN, Repository, run_script
 
 if TYPE_CHECKING:
     from pathlib import Path

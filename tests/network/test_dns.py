@@ -18,11 +18,11 @@ from urllib.parse import quote
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET
-from wrt_tests.services import app
-from wrt_tests.services.datapath import (
+from orbyt_tests import spec
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_TARGET
+from orbyt_tests.services import app
+from orbyt_tests.services.datapath import (
     NATIVE_API,
     PROXY_CONFIG,
     PROXY_HOOKS_L2,
@@ -34,7 +34,7 @@ from wrt_tests.services.datapath import (
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/dns"
 PROXY_DNS_PORT = 5353

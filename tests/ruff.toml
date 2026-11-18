@@ -14,7 +14,7 @@ ignore = [
     # D212 (summary on the first line); their opposites D203 and D213 conflict.
     "D203",
     "D213",
-    # The harness drives the pinned tools of wrt-test-fhs from PATH; every
+    # The harness drives the pinned tools of orbyt-test-fhs from PATH; every
     # argument comes from the test code itself, never from outside input.
     "S603",
     "S607",
@@ -27,9 +27,9 @@ ignore = [
 "**/test_*.py" = ["S101", "D103", "INP001"]
 "*/conftest.py" = ["INP001"]
 # Command-line tools print their report.
-"wrt_tests/model/boards.py" = ["T201"]
-"wrt_tests/model/coverage.py" = ["T201"]
-"wrt_tests/model/lib_check.py" = ["T201"]
+"orbyt_tests/model/boards.py" = ["T201"]
+"orbyt_tests/model/coverage.py" = ["T201"]
+"orbyt_tests/model/lib_check.py" = ["T201"]
 
 [lint.flake8-type-checking]
 # pydantic reads the annotations of its models when it builds them.

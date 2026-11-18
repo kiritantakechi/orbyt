@@ -1,5 +1,5 @@
 #!/bin/sh
-# honk's check for wrt-healthcheck (honk-datapath design D6): while honk starts
+# honk's check for orbyt-healthcheck (honk-datapath design D6): while honk starts
 # at boot, it runs, and its LAN programs sit on every LAN-side interface that
 # exists. There is nothing to check while it is disabled, as it stays until a
 # configuration is pushed.

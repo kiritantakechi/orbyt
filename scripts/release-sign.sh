@@ -11,7 +11,7 @@
 #    dropped;
 #  - every image with fwtool metadata gets a ucert chain in its trailer, a usign
 #    signature under a certificate of the firmware key, as SIGN_FIRMWARE would;
-#  - every signature is checked against <keyring> (default: wrt-keyring's files,
+#  - every signature is checked against <keyring> (default: orbyt-keyring's files,
 #    what the release image trusts), so a key no device trusts fails here;
 #  - manifest.json gets the signed files' sha256 and is signed with the firmware
 #    key (manifest.json.sig); SHA256SUMS lists every file.
@@ -32,7 +32,7 @@ signed=$2
 shift 2
 apk_key=
 fw_key=
-keyring="${REPO_DIR}/feed/utils/wrt-keyring/files"
+keyring="${REPO_DIR}/feed/utils/orbyt-keyring/files"
 while [ "$#" -ge 2 ]; do
 	case "$1" in
 		--apk-key) apk_key=$2 ;;
@@ -52,7 +52,7 @@ keyring=$(realpath "${keyring}")
 apk_keys="${keyring}/etc/apk/keys"
 fw_keys="${keyring}/etc/usign/keys"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-sign.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-sign.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
 
 manifest_checksums "${manifest}" >"${work}/expected"

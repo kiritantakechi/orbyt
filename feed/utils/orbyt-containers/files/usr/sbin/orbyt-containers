@@ -1,0 +1,72 @@
+#!/bin/sh
+# orbyt-containers: run the Pods declared on the data disk (r4s-services D4).
+# Usage: orbyt-containers apply
+# Each /mnt/data/containers/pods/<name>.yaml is a Kubernetes Pod named <name>;
+# <name>.options next to it, if any, holds more options of podman kube play, such
+# as --ip for a fixed address (docs/services.md). A declaration that changed since
+# it was last applied is played again (podman kube play --replace); an unchanged
+# one only has its Pod started. Every Pod joins podman's own network, podman
+# (bridge podman0: the fw4 zone podman, which honk serves), not the network kube
+# play would make for Pods. A Pod that does not come up keeps no other from
+# coming up; apply fails at the end, naming each such Pod (device-integrity D4).
+set -eu
+# shellcheck source=../../../../orbyt-data/files/lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
+
+PODS="${ORBYT_DATA}/containers/pods"
+# The hash of each declaration as last applied, on the data disk with its Pods.
+APPLIED="${ORBYT_DATA}/containers/applied"
+
+# up <declaration>: bring the Pod of one declaration up, played again only if
+# the declaration changed since it was last applied, and recorded as applied
+# only once it played. Its status is its last command's: the caller tests it, so
+# set -e does not hold inside.
+up() {
+	name=${1##*/}
+	name=${name%.yaml}
+	options=
+	[ ! -e "${PODS}/${name}.options" ] || options=$(cat "${PODS}/${name}.options")
+	hash=$(printf '%s\n' "${options}" | cat - "$1" | sha256sum)
+	hash=${hash%% *}
+	applied=$(cat "${APPLIED}/${name}" 2>/dev/null || true)
+	if [ "${applied}" = "${hash}" ] && podman pod exists "${name}"; then
+		podman pod start "${name}" >/dev/null
+	else
+		# shellcheck disable=SC2086 # the options are separate words
+		podman kube play --replace --network=podman ${options} "$1" >/dev/null &&
+			echo "${hash}" >"${APPLIED}/${name}"
+	fi
+}
+
+apply() {
+	mkdir -p "${APPLIED}"
+	down=
+	for declaration in "${PODS}"/*.yaml; do
+		[ -e "${declaration}" ] || continue
+		name=${declaration##*/}
+		name=${name%.yaml}
+		# shellcheck disable=SC2310 # up reports its own failure
+		if up "${declaration}"; then
+			echo "orbyt-containers: ${name} is up"
+		else
+			echo "orbyt-containers: ${name} did not come up" >&2
+			down="${down} ${name}"
+		fi
+	done
+	[ -z "${down}" ] || {
+		echo "orbyt-containers: not up:${down}" >&2
+		return 1
+	}
+}
+
+grep -q "${ORBYT_DATA_MOUNT}" /proc/mounts || {
+	echo "orbyt-containers: the data disk is not mounted" >&2
+	exit 1
+}
+case "${1:-}" in
+	apply) apply ;;
+	*)
+		echo "usage: orbyt-containers apply" >&2
+		exit 1
+		;;
+esac

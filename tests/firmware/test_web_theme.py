@@ -12,18 +12,18 @@ from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
+from orbyt_tests import spec
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
+    from orbyt_tests.device.router import Router
 
 CAPABILITY = "firmware/web-theme"
 REPO = Path(__file__).resolve().parents[2]
-THEME_DIR = REPO / "feed" / "luci" / "luci-theme-wrt"
+THEME_DIR = REPO / "feed" / "luci" / "luci-theme-orbyt"
 EXCEPTIONS = Path(__file__).with_name("web-theme-exceptions.toml")
-THEME = "/luci-static/wrt"
+THEME = "/luci-static/orbyt"
 STOCK = "/luci-static/bootstrap"
-DEFAULTS = "/rom/etc/uci-defaults/31_luci-theme-wrt"
+DEFAULTS = "/rom/etc/uci-defaults/31_luci-theme-orbyt"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # What loads a resource, in markup, in a stylesheet and in a script, when it names
 # another host: a scheme's // or a scheme-relative //. Links (<a href>) load nothing.
@@ -90,7 +90,7 @@ def test_an_upgrade_that_brings_the_theme_makes_it_the_default(router: Router) -
     # A configuration kept from an image without the theme: the stock theme chosen,
     # the image's unknown. The first boot of the new image runs its uci-defaults.
     router.run(
-        f"uci -q delete luci.themes.Wrt; uci set luci.main.mediaurlbase={STOCK}"
+        f"uci -q delete luci.themes.Orbyt; uci set luci.main.mediaurlbase={STOCK}"
         f" && uci commit luci && sh {DEFAULTS}"
     )
     assert router.run("uci get luci.main.mediaurlbase") == THEME

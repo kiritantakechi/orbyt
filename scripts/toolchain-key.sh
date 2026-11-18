@@ -16,7 +16,7 @@ tree=$(workdir_tree)
 ensure_fhs build "$@"
 
 [ -f "${tree}/feeds.conf" ] || die "no source tree; run 'just fetch' and 'just patch' first"
-[ -n "${WRT_BUILD_INPUTS:-}" ] || die "WRT_BUILD_INPUTS is not set; the build environment is too old"
+[ -n "${ORBYT_BUILD_INPUTS:-}" ] || die "ORBYT_BUILD_INPUTS is not set; the build environment is too old"
 
 arch=$(uname -m)
 # The generic kernel files go with toolchain/: the toolchain's kernel headers come
@@ -49,7 +49,7 @@ definition=$(git -C "${tree}" rev-parse \
 # Build environment fingerprint (flake.nix: buildInputsId): the store paths of the
 # host packages plus the build profile. Test and quality tooling are not part of
 # it, so adding them keeps the cached toolchain.
-environment=${WRT_BUILD_INPUTS##*/}
+environment=${ORBYT_BUILD_INPUTS##*/}
 # The scripts that build and pack the archive decide what it holds, and so do the
 # library modules they load (module-boundaries D8).
 set -- "${REPO_DIR}/scripts/toolchain-build.sh" "${REPO_DIR}/scripts/toolchain-pack.sh"

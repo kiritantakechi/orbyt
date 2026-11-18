@@ -7,17 +7,17 @@ exclude = [".venv*", "**/__pycache__", "fixtures"]
 ignore_type_checking_imports = false
 
 [[modules]]
-path = "wrt_tests.services"
+path = "orbyt_tests.services"
 layer = "services"
 
 [[modules]]
-path = "wrt_tests.device"
+path = "orbyt_tests.device"
 layer = "device"
 
 [[modules]]
-path = "wrt_tests.sandbox"
+path = "orbyt_tests.sandbox"
 layer = "sandbox"
 
 [[modules]]
-path = "wrt_tests.model"
+path = "orbyt_tests.model"
 layer = "model"

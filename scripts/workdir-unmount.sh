@@ -7,7 +7,7 @@ set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
 
-mountpoint=${1:-/mnt/wrt}
+mountpoint=${1:-/mnt/orbyt}
 
 require_linux
 uid=$(id -u)

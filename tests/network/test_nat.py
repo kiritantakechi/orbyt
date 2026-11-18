@@ -14,19 +14,19 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
-from wrt_tests.sandbox.netprobe import HTTP_PORT
-from wrt_tests.services.datapath import EINAT, NAT_RELEASE, QOSIFY, WAN, hooks, tc_programs
+from orbyt_tests import spec
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
+from orbyt_tests.sandbox.netprobe import HTTP_PORT
+from orbyt_tests.services.datapath import EINAT, NAT_RELEASE, QOSIFY, WAN, hooks, tc_programs
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
-    from wrt_tests.sandbox.net import Netns
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.sandbox.net import Netns
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/nat"
 # einat's public ports (its UCI default) and the kernel's local ephemeral ports.
@@ -39,7 +39,7 @@ HEALTHCHECK = "/etc/healthcheck.d/50-einat"
 # A table of the test's own on the router, which counts the IPv4 packets that
 # enter a device: at the WAN port the bare frames, PPPoE's being of other types
 # (test-fidelity D3), and at the session's device the packets it carries.
-PACKETS_TABLE = "wrt_test_packets"
+PACKETS_TABLE = "orbyt_test_packets"
 # The router's end of the PPPoE session.
 PPP_DEVICE = "pppoe-wan"
 
@@ -51,7 +51,7 @@ class Listener:
         """Start listening and wait until the socket is bound."""
         command = ("listen", "--port", str(port), "--timeout", str(timeout))
         self.process = subprocess.Popen(
-            client.argv(sys.executable, "-m", "wrt_tests.sandbox.netprobe", *command),
+            client.argv(sys.executable, "-m", "orbyt_tests.sandbox.netprobe", *command),
             stdout=subprocess.PIPE,
         )
         until(lambda: client.run("ss", "-Hlun", f"sport = :{port}"), timeout=10, what="listener")

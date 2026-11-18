@@ -1,13 +1,13 @@
 #!/bin/sh
 # build: build a board's configured tree and collect the outputs with a manifest.
 # Usage: scripts/build.sh <board> [profile]   (after fetch, patch, toolchain-build and config)
-# With WRT_COMPILER_CACHE_TRIM set, every compiler cache keeps only what the build
+# With ORBYT_COMPILER_CACHE_TRIM set, every compiler cache keeps only what the build
 # used.
 # It ends with the stages that took the most time, from OpenWrt's build time log
 # (build-acceleration D1), which stays in the tree's logs/.
 # Images and the package repository of one run belong together: kmods only load
 # on the kernel of the same build (vermagic), so they are collected side by side,
-# in $WRT_WORKDIR/out/<board>/<profile>. The toolchain must be the board-neutral
+# in $ORBYT_WORKDIR/out/<board>/<profile>. The toolchain must be the board-neutral
 # one (board-model D2): recorded by toolchain-build, with no board's -mcpu, and
 # left alone by the build.
 set -eu
@@ -30,7 +30,7 @@ grep -qx "CONFIG_BUILD_SUFFIX=\"${name}\"" "${tree}/.config" ||
 	die "the tree is not configured for ${board} (${profile}); run 'just config ${board} ${profile}' first"
 
 toolchain_dir=$(make -C "${tree}" -s val.TOOLCHAIN_DIR)
-record="${toolchain_dir}/wrt-toolchain.json"
+record="${toolchain_dir}/orbyt-toolchain.json"
 [ -f "${record}" ] || die "the toolchain has no record of its flags; run 'just toolchain-build'"
 toolchain_cflags=$(jq -r .cflags "${record}")
 ids=$(board_ids)
@@ -50,7 +50,7 @@ recorded=$(jq -r '.rust_std // ""' "${record}")
 [ "${rust_std}" = "${recorded}" ] ||
 	die "Rust's standard library is not the one the toolchain's record names; run 'just toolchain-build'"
 
-jobs=${WRT_JOBS:-$(nproc)}
+jobs=${ORBYT_JOBS:-$(nproc)}
 # Build times depend on the CPU, which differs between CI runners. lscpu names some
 # cores (Apple's) only by their vendor.
 cpu=$(lscpu | awk -F ': *' '
@@ -64,7 +64,7 @@ start=$(compiler_cache_start "${tree}")
 # The UB-indicative warnings of each package's last build (toolchain-o3 D4), kept
 # with the board's build directories, which live as long as what they record.
 build_dir=$(make -C "${tree}" -s val.BUILD_DIR)
-warnings="${build_dir}/wrt-warnings"
+warnings="${build_dir}/orbyt-warnings"
 mkdir -p "${warnings}"
 # The board's own output directory (BINARY_FOLDER) holds the packages of this
 # configuration alone. OpenWrt replaces a package's older apk when it packs it
@@ -92,11 +92,11 @@ compiler_cache_report "${tree}" "${start}"
 time_report "${tree}" "${log}"
 [ "${status}" -eq 0 ] ||
 	die "build failed; rerun 'make -C ${tree} -j1 V=s' on the failing package for details"
-# WRT_COMPILER_CACHE_TRIM (CI, where each board's cache is its own): drop what this
+# ORBYT_COMPILER_CACHE_TRIM (CI, where each board's cache is its own): drop what this
 # build did not use. Entries of an earlier toolchain or kernel configuration would
 # otherwise pile up past the cache quota. Locally the boards share the caches,
 # which keep everything up to their own limits.
-if [ -n "${WRT_COMPILER_CACHE_TRIM:-}" ]; then
+if [ -n "${ORBYT_COMPILER_CACHE_TRIM:-}" ]; then
 	compiler_cache_trim "${tree}" "${start}"
 fi
 # The board's build left the shared toolchain alone (build-acceleration D7).
@@ -146,12 +146,12 @@ info "kernel configuration overlay applied"
 # directories (BUILD_SUFFIX).
 bin_dir=$(make -C "${tree}" -s val.BIN_DIR)
 staging_dir=$(make -C "${tree}" -s val.STAGING_DIR)
-out="${WRT_WORKDIR}/out/${board}/${profile}"
+out="${ORBYT_WORKDIR}/out/${board}/${profile}"
 rm -rf "${out}"
 mkdir -p "${out}/targets" "${out}/packages"
 cp -a "${bin_dir}/." "${out}/targets/"
 cp -a "${output_dir}/packages/." "${out}/packages/"
-cp "${WRT_WORKDIR}/out/${board}/diffconfig-${profile}" "${out}/diffconfig"
+cp "${ORBYT_WORKDIR}/out/${board}/diffconfig-${profile}" "${out}/diffconfig"
 
 # warnings.json: the UB-indicative warnings of the packages in the board's image,
 # for the system tests' register check (quality/undefined-behavior).
@@ -171,11 +171,11 @@ uboot_build() {
 }
 variant=$(board_field "${board}" .uboot.variant)
 board_uboot=$(uboot_build "${variant}")
-qemu_uboot=$(uboot_build wrt-qemu)
+qemu_uboot=$(uboot_build orbyt-qemu)
 cp "${kernel}/.config" "${out}/kernel.config"
 cp "${board_uboot}/.config" "${out}/u-boot.config"
 cp "${qemu_uboot}/.config" "${out}/u-boot-qemu.config"
-cp "${staging_dir}/image/wrt-qemu-u-boot.bin" "${out}/u-boot-qemu.bin"
+cp "${staging_dir}/image/orbyt-qemu-u-boot.bin" "${out}/u-boot-qemu.bin"
 
 # manifest.json: which board (and its OpenWrt device) was built, in which build
 # directories (the build's name), from what and with which flags, and the hash

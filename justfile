@@ -1,6 +1,6 @@
-# Entry points of wrt-build. Every recipe runs the script of the same name in
+# Entry points of Orbyt. Every recipe runs the script of the same name in
 # scripts/ (design D12). Run inside `nix develop`; build and test recipes need a
-# Linux host and WRT_WORKDIR (see docs/dev-setup.md). A recipe passes its
+# Linux host and ORBYT_WORKDIR (see docs/dev-setup.md). A recipe passes its
 # arguments on as "$@", each as given: an argument pasted into the command line
 # would be read by the shell (release-integrity D8).
 
@@ -16,7 +16,7 @@ default:
 env-report:
     scripts/env-report.sh
 
-# Check out the pinned upstream sources (upstream.lock) into $WRT_WORKDIR/openwrt
+# Check out the pinned upstream sources (upstream.lock) into $ORBYT_WORKDIR/openwrt
 [group('build')]
 fetch:
     scripts/fetch.sh
@@ -76,7 +76,7 @@ check *names:
 fmt *names:
     scripts/fmt.sh "$@"
 
-# Create release keys: public halves into wrt-keyring, --upload the private (maintainer)
+# Create release keys: public halves into orbyt-keyring, --upload the private (maintainer)
 [group('release')]
 release-keys directory *args:
     nix run .#sign-tools -- scripts/release-keys.sh "$@"
@@ -111,7 +111,7 @@ github-audit *args:
 config-init directory:
     scripts/config-init.sh "$@"
 
-# Push the private configuration ($WRT_CONFIG_DIR) to a router over SSH
+# Push the private configuration ($ORBYT_CONFIG_DIR) to a router over SSH
 [group('ops')]
 config-push host *args:
     scripts/config-push.sh "$@"

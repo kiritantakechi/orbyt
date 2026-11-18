@@ -25,16 +25,16 @@ STOP=01
 #
 # honk starts at boot while this script is enabled, as daeuniverse's LuCI page
 # switches it. The image ships it disabled, and an upgrade keeps its rc.d links
-# (/lib/upgrade/keep.d/wrt-config).
-# shellcheck source=../../../utils/wrt-data/files/lib/functions/wrt-data.sh
-. /lib/functions/wrt-data.sh
+# (/lib/upgrade/keep.d/orbyt-config).
+# shellcheck source=../../../utils/orbyt-data/files/lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
 
 CONF=honk
 PROG=/usr/bin/honk-core
 RUN=/var/run/honk
 # The firmware's two files in the directory: the entry, and its settings.
-ENTRY_NAME=wrt-entry.dae
-SETTINGS_NAME=wrt-settings.dae
+ENTRY_NAME=orbyt-entry.dae
+SETTINGS_NAME=orbyt-settings.dae
 ENTRY="${RUN}/${ENTRY_NAME}"
 LOCK=/var/lock/honk.lock
 # procd runs the instance in services/honk/honk below this service cgroup.
@@ -43,7 +43,7 @@ CGROUP="/sys/fs/cgroup/services/${CONF}"
 # honk binds when they appear.
 INTERFACES="br-lan, podman0, tailscale0"
 # honk's data directory on the data disk, and in RAM (honk's own default).
-STATE_DISK="${WRT_DATA}/honk"
+STATE_DISK="${ORBYT_DATA}/honk"
 STATE_RAM=/var/lib/honk
 
 # big_cores: the CPUs of the highest capacity, which are the big cores of a
@@ -71,7 +71,7 @@ big_cores() {
 # while that is mounted and the directory there writable, made there with make;
 # in RAM otherwise.
 state_dir() {
-	if wrt_data_mounted &&
+	if orbyt_data_mounted &&
 		{ [ -d "${STATE_DISK}" ] || { [ "${1:-}" = make ] && mkdir -m 0700 "${STATE_DISK}"; }; } &&
 		[ -w "${STATE_DISK}" ]; then
 		echo "${STATE_DISK}"

@@ -13,15 +13,15 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import PROXIED_TARGET, PROXY
-from wrt_tests.services.datapath import PROXY_HOOKS_L3, hooks
+from orbyt_tests import spec
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import PROXIED_TARGET, PROXY
+from orbyt_tests.services.datapath import PROXY_HOOKS_L3, hooks
 
 if TYPE_CHECKING:
-    from wrt_tests.sandbox.net import Netns
-    from wrt_tests.services.datapath import Online
-    from wrt_tests.services.vpn import Tailnet, WireGuard
+    from orbyt_tests.sandbox.net import Netns
+    from orbyt_tests.services.datapath import Online
+    from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 CAPABILITY = "services/vpn"
 REPO = Path(__file__).resolve().parents[2]

@@ -4,17 +4,17 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.ubsan import PROBE, PROFILE, Traps, report
-from wrt_tests.model.shell import library
-from wrt_tests.model.undefined_behavior import load_register, load_report, stale, unreviewed
+from orbyt_tests import spec
+from orbyt_tests.device.ubsan import PROBE, PROFILE, Traps, report
+from orbyt_tests.model.shell import library
+from orbyt_tests.model.undefined_behavior import load_register, load_report, stale, unreviewed
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
-    from wrt_tests.model.outputs import Manifest
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.model.outputs import Manifest
 
 CAPABILITY = "quality/undefined-behavior"
 REVIEWED = "UB-indicative warnings fixed or reviewed"

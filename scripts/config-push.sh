@@ -1,7 +1,7 @@
 #!/bin/sh
 # config-push: push the private configuration to a router (r4s-release-pipeline D6).
 # Usage: scripts/config-push.sh <host> [--identity <key>]
-# Reads $WRT_CONFIG_DIR, config-init's repository. Its secrets are decrypted
+# Reads $ORBYT_CONFIG_DIR, config-init's repository. Its secrets are decrypted
 # with sops into a temporary directory, which goes when the push ends; the uci
 # templates are filled in from them. Each service's new files:
 #   network, ... (one per uci/<config>.uci.tmpl)   uci batches
@@ -38,8 +38,8 @@ case "$#:${1:-}" in
 	2:--identity) identity=$2 ;;
 	*) usage ;;
 esac
-config=${WRT_CONFIG_DIR:-}
-[ -n "${config}" ] && [ -d "${config}" ] || die "WRT_CONFIG_DIR does not name the configuration repository"
+config=${ORBYT_CONFIG_DIR:-}
+[ -n "${config}" ] && [ -d "${config}" ] || die "ORBYT_CONFIG_DIR does not name the configuration repository"
 device="$(dirname -- "$0")/config-push.d/device.uc"
 
 # router <command>...: run a command on the router, over ssh authenticated by a
@@ -52,10 +52,10 @@ router() {
 	ssh "$@"
 }
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-push.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-push.XXXXXX")
 # The router's copy once uploaded, then the local one, however the push ends.
 uploaded=0
-trap '[ "${uploaded}" = 0 ] || router "rm -rf /tmp/wrt-push" || true; rm -rf "${work}"' EXIT
+trap '[ "${uploaded}" = 0 ] || router "rm -rf /tmp/orbyt-push" || true; rm -rf "${work}"' EXIT
 trap 'exit 1' INT TERM
 new="${work}/new"
 mkdir -p "${new}"
@@ -171,8 +171,8 @@ done
 
 uploaded=1
 # shellcheck disable=SC2310 # router's status is ssh's alone
-tar -C "${new}" -cf - . | router 'umask 077 && rm -rf /tmp/wrt-push && mkdir -p /tmp/wrt-push/new &&
-	tar -xf - -C /tmp/wrt-push/new' ||
+tar -C "${new}" -cf - . | router 'umask 077 && rm -rf /tmp/orbyt-push && mkdir -p /tmp/orbyt-push/new &&
+	tar -xf - -C /tmp/orbyt-push/new' ||
 	die "cannot log in to ${host} with a key"
 # shellcheck disable=SC2310 # router's status is ssh's alone
 router ucode - validate <"${device}" ||

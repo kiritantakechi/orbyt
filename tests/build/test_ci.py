@@ -3,7 +3,7 @@
 And the workflows: main's runs delete the caches of merged branches and closed
 pull requests, branch runs save caches only within the quota's room, the system
 test jobs run every test module once, and runs cancel only what a newer commit
-superseded. The cache scripts run against a stand-in gh (wrt_tests.model.github);
+superseded. The cache scripts run against a stand-in gh (orbyt_tests.model.github);
 the rest reads .github/.
 """
 
@@ -17,16 +17,16 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 import yaml
 
-from wrt_tests import spec
-from wrt_tests.device.emu import sha256
-from wrt_tests.model.boards import load
-from wrt_tests.model.github import HEAD, MAIN, Repository, run_script
-from wrt_tests.model.outputs import MANIFEST_FILE
-from wrt_tests.model.shell import library
+from orbyt_tests import spec
+from orbyt_tests.device.emu import sha256
+from orbyt_tests.model.boards import load
+from orbyt_tests.model.github import HEAD, MAIN, Repository, run_script
+from orbyt_tests.model.outputs import MANIFEST_FILE
+from orbyt_tests.model.shell import library
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.outputs import Manifest
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.outputs import Manifest
 
 CAPABILITY = "build/ci"
 REPO = Path(__file__).resolve().parents[2]
@@ -220,7 +220,7 @@ def test_room_counts_every_job_that_saves(tmp_path: Path, savers: str, save: str
     firmware = _workflow()["jobs"]["firmware"]
     room = _step(firmware, "Room for the caches")
     assert room["env"]["CACHE_SAVERS"] == "${{ strategy.job-total }}"
-    assert '"$WRT_WORKDIR/dl" "$WRT_WORKDIR/compiler-cache"' in room["run"]
+    assert '"$ORBYT_WORKDIR/dl" "$ORBYT_WORKDIR/compiler-cache"' in room["run"]
     for name in ("Save download cache", "Save compiler cache"):
         assert "steps.room.outputs.save == 'true'" in _step(firmware, name)["if"]
     # Room for one board's cache, not for two.

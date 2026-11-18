@@ -4,13 +4,14 @@ import re
 from http import HTTPStatus
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.sandbox.oci import extract_root
+from orbyt_tests import spec
+from orbyt_tests.model.image import DEFAULT_HOSTNAME
+from orbyt_tests.sandbox.oci import extract_root
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
+    from orbyt_tests.device.router import Router
 
 CAPABILITY = "firmware/base-system"
 DEFAULT_LAN = "10.0.0.1"
@@ -62,8 +63,8 @@ done
 UCODE_KINDS = {
     "/usr/share/firewall4/templates/ruleset.uc",
     "/usr/share/ucode/node-exporter/metrics.uc",
-    "/usr/share/ucode/wrt/ab.uc",
-    "/usr/libexec/wrt-sync/fetch",
+    "/usr/share/ucode/orbyt/ab.uc",
+    "/usr/libexec/orbyt-sync/fetch",
 }
 
 
@@ -111,6 +112,16 @@ def test_upgrade_keeps_the_lan_address(router: Router, upgrade_image: Path) -> N
         assert router.run("uci get network.lan.ipaddr") == "10.0.0.3/24"
         assert "inet 10.0.0.3/24 " in router.run("ip -4 addr show dev br-lan")
         assert router.run("uci get system.@system[0].zram_size_mb") == "512"
+
+
+@spec(CAPABILITY, "The image's name", "A fresh install's name")
+def test_a_fresh_install_is_named_orbyt(router: Router) -> None:
+    assert router.run("uci get system.@system[0].hostname") == DEFAULT_HOSTNAME
+    assert router.run("cat /proc/sys/kernel/hostname") == DEFAULT_HOSTNAME
+    assert 'NAME="Orbyt"' in router.run("cat /etc/os-release").splitlines()
+    assert "DISTRIB_ID='Orbyt'" in router.run("cat /etc/openwrt_release").splitlines()
+    assert "Orbyt" in router.run("cat /etc/banner")
+    assert "OpenWrt" not in router.run("cat /etc/banner")
 
 
 @spec(CAPABILITY, "Web management interface", "Open the management interface")

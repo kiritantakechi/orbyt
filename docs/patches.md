@@ -211,7 +211,7 @@ Patch: `patches/packages/0003-crun-check-the-generated-JSON-before-using-it.patc
 
 Problem: `libcrun_container_update_from_values`, which `crun update` runs, ignores the status of `json_gen_get_buf`. When json-c cannot allocate the document or its text, the buffer stays unset, and the indeterminate pointer is parsed as the update's JSON. crun's other callers of `json_gen_get_buf` check the status; crun's main has the same code (2026-10-05).
 
-Why it matters here: `podman update` runs `crun update` for the containers of wrt-containers, and a router runs out of memory more readily than a server. The review of the build's warnings found it (`'buf' may be used uninitialized`).
+Why it matters here: `podman update` runs `crun update` for the containers of orbyt-containers, and a router runs out of memory more readily than a server. The review of the build's warnings found it (`'buf' may be used uninitialized`).
 
 What the patch does: the update fails with an error, after freeing the generator, as the other callers do.
 
@@ -383,7 +383,7 @@ Patch: `patches/openwrt/0030-fstools-format-a-UUID-without-assuming-its-alignmen
 
 Problem: libblkid-tiny's `blkid_probe_set_uuid_as()` reads the UUID it is given through an `unsigned short` pointer, but the probes pass pointers into on-disk structures of any alignment: btrfs passes its device item's UUID, at the odd offset 0x10b of the superblock. A misaligned load is undefined behavior, and the function made it even for a name it ignores.
 
-Why it matters here: the `ubsan` profile's fourth run trapped here: `block info` died on the data disk that `wrt-data init` had just formatted, so the data disk was never set up, and every module that uses it failed.
+Why it matters here: the `ubsan` profile's fourth run trapped here: `block info` died on the data disk that `orbyt-data init` had just formatted, so the data disk was never set up, and every module that uses it failed.
 
 What the patch does: the UUID is formatted a byte at a time, which gives the same text.
 
@@ -419,7 +419,7 @@ Patch: `patches/openwrt/0033-base-files-fwtool-read-the-firmware-keys-from-etc-u
 
 Problem: sysupgrade checks an image's signature with ucert against the keys in `/etc/opkg/keys` (`fwtool_check_signature()`). They are usign keys, kept in opkg's directory, which an image built with apk no longer needs for anything else.
 
-Why it matters here: the image has no opkg left, and no `/etc/opkg` (`device-modernization` D5): wrt-keyring puts the release keys in `/etc/usign/keys`, and sysupgrade has to find them there.
+Why it matters here: the image has no opkg left, and no `/etc/opkg` (`device-modernization` D5): orbyt-keyring puts the release keys in `/etc/usign/keys`, and sysupgrade has to find them there.
 
 What the patch does: `fwtool_check_signature()` reads `/etc/usign/keys`, named after the tool whose keys they are as `/etc/apk/keys` is, and `/etc/opkg/keys` on an image without that directory, so upstream's images check their signatures as before.
 
@@ -495,7 +495,7 @@ Patch: `patches/packages/0006-podman-match-equal-database-paths-without-resolvin
 
 Problem: `ValidateDBConfig` compares the paths the database recorded with the runtime's own, resolving the symlinks of each in turn; a path is resolved only if it exists. Without `--runroot`, the runtime's run root is the database's, the same string. The storage creates the run root after the validation, so a second podman process that creates it between the first one's two resolutions makes the same path compare unequal: `database run root "/run/containers/storage" does not match our run root "/tmp/run/containers/storage": database configuration mismatch`. Since podman 6, only the SQLite state validates its configuration: the BoltDB state is left for the migration to SQLite. Upstream fixed the same race for the volume path by creating it first (containers/podman#23515).
 
-Why it matters here: the image's run root goes through `/run` → `/var/run` → `/tmp/run`, and wrt-containers and wrt-sync run podman at the same time after a boot or a mount of the data disk. CI run 37324813891 lost a device sync to it (`device-robustness` D4).
+Why it matters here: the image's run root goes through `/run` → `/var/run` → `/tmp/run`, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk. CI run 37324813891 lost a device sync to it (`device-robustness` D4).
 
 What the patch does: the SQLite state resolves the paths only when they differ as strings; equal paths match. `PKG_RELEASE` goes to 2.
 
@@ -507,7 +507,7 @@ Patch: `patches/packages/0007-podman-lock-the-storage-s-home-mount-for-its-lazy-
 
 Problem: the storage's overlay driver probes three kernel features when it is first asked about them, after its initialization: idmapped lower layers, in `Status()`, which `podman info` calls, and in the creation of a layer or a container; volatile mounts, in `Status()` and when it mounts a layer; and data-only lower layers. Each probe mounts in a new directory under the driver's home, then unmounts by path. The store holds its graph lock while the driver initializes, which binds the home onto itself unless it is a mount point already (`mount.MakePrivate`), and while `Cleanup()` unmounts the home at a command's end. It does not hold it for `Status()` or the creations. When another process binds the home while a probe has its mounts under the home's previous mount, the bind hides them. podman warns `Unmount ".../overlay/compat1721885628/lower-mapped": invalid argument`, the probe's directory cannot be removed, and the mounts stay until a reboot.
 
-Why it matters here: the storage is on the data disk, and wrt-containers and wrt-sync run podman at the same time after a boot or a mount of the data disk, on a run root in RAM that has no record of the probes yet. Mounts left under the storage keep the data disk's mount busy until a reboot. CI run 38556156281 lost the services/containers test "Runtime commands at the same time" to it in both attempts: its cleanup could not remove the scratch storage (`Resource busy`).
+Why it matters here: the storage is on the data disk, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk, on a run root in RAM that has no record of the probes yet. Mounts left under the storage keep the data disk's mount busy until a reboot. CI run 38556156281 lost the services/containers test "Runtime commands at the same time" to it in both attempts: its cleanup could not remove the scratch storage (`Resource busy`).
 
 What the patch does: the driver gets a lock of its own, `home.lock` in the `overlay` directory of the run root. It is held while the driver binds the home, while `Cleanup()` unmounts it, and while a probe that runs after the initialization mounts under the home. It keeps two operations on one mount apart, as the graph lock does for the probes of the initialization, and a probe runs once per run root, so once per boot. Taking the graph lock in `Status()` instead would leave the creations' probes unlocked: they run under the layer store's lock, after which the graph lock cannot be taken. The lock file's name stands in a group of its own, the paths within the run home, beside the storage's group of the paths within the home. `PKG_RELEASE` goes to 3.
 
@@ -579,12 +579,12 @@ Patch: `patches/openwrt/0040-uboot-rockchip-configure-without-asking.patch` (add
 
 Problem: U-Boot's `scripts/kconfig/Makefile` merges a configuration fragment (`make <defconfig> <fragment>.config`) and then pipes `yes ""` into `make oldconfig`, so that every symbol the fragment brings up takes its default. U-Boot's Kconfig gives an int or hex symbol without a default an empty value, which is no valid one: `oldconfig` asks it again on every empty answer, and the merge never ends. Were the merge to end, the next `oldconfig` or `syncconfig` would ask it again at the end of its input, for ever. Linux merges with `olddefconfig` since 3266c806dc86 (2019) and gives such a symbol zero since 6262afa10ef7 (6.8); upstream U-Boot has neither.
 
-Why it matters here: every board's U-Boot and the emulator's merge `wrt-ab.config` and a board fragment onto their defconfig, and then, as both set `UBOOT_CUSTOMIZE_CONFIG`, OpenWrt's `include/u-boot.mk` changes `.config` with `scripts/config` and runs `make oldconfig`. On 2026-10-15 the emulator's build asked for `ENV_ADDR_REDUND` for two hours and filled the work volume, once `wrt-ab.config` turned on the second environment copy while the emulator's defconfig still kept the environment in flash (`trial-boot-resilience`, `uboot-config-merge`).
+Why it matters here: every board's U-Boot and the emulator's merge `orbyt-ab.config` and a board fragment onto their defconfig, and then, as both set `UBOOT_CUSTOMIZE_CONFIG`, OpenWrt's `include/u-boot.mk` changes `.config` with `scripts/config` and runs `make oldconfig`. On 2026-10-15 the emulator's build asked for `ENV_ADDR_REDUND` for two hours and filled the work volume, once `orbyt-ab.config` turned on the second environment copy while the emulator's defconfig still kept the environment in flash (`trial-boot-resilience`, `uboot-config-merge`).
 
 What the patches do:
 - 120, Linux's 3266c806dc86 as it is: the rule runs `olddefconfig` after the merge, which asks nothing and gives the configuration `yes ""` gives wherever it ends.
 - 121, Linux's 6262afa10ef7: an int symbol without a default is `0`, a hex one `0x0`. U-Boot's `sym_calc_value()` starts a number from `symbol_empty`, so its two cases set the tristate too.
-- `PKG_RELEASE` goes to 2. uboot-wrt-qemu takes uboot-rockchip's patch directory, as it takes its version and hash, so the emulator's U-Boot is built with the boards' patches.
+- `PKG_RELEASE` goes to 2. uboot-orbyt-qemu takes uboot-rockchip's patch directory, as it takes its version and hash, so the emulator's U-Boot is built with the boards' patches.
 
 Alternatives considered: 120 alone ends the merge, but on the VM the `oldconfig` after it, with stdin from /dev/null, wrote 1.1 GB of prompts for the empty `ENV_ADDR_REDUND` in 20 s. Stopping `oldconfig` at the end of its input was a 2023 Linux series, dropped for breaking builds that run make with stdin from /dev/null. OpenWrt's `FAIL_ON_UNCONFIGURED` hack for its kernel's Kconfig is meant for OpenWrt only.
 
@@ -596,11 +596,11 @@ Patch: `patches/packages/0009-netavark-run-aardvark-dns-in-a-cgroup-of-its-own-w
 
 Problem: netavark starts aardvark-dns, the DNS server of a network with DNS enabled, when a container on it needs one, and aardvark-dns then outlives that run of netavark and serves every container of its networks until the last one goes. With systemd it runs in a scope of its own (`systemd-run --scope`); without systemd it stays in the cgroup of whatever ran netavark. procd's 39b5aac8c1 (2026-10-18, in OpenWrt's procd of the pins of 2026-10-25) kills what a service leaves in its cgroup once the service's main process exits, as OpenRC's `rc_cgroup_cleanup` does when a service stops. aardvark-dns then died with the first service that ran a container and ended, its pid file staying behind. The next run of netavark that removed the network's last container found no process behind the pid file, started aardvark-dns on a configuration without a container, which exits at once, and failed: `aardvark-dns failed to start: Error from child process`.
 
-Why it matters here: podman's default network, which wrt-containers' Pods and wrt-sync's fetch container join, has DNS enabled. wrt-sync and `wrt-containers apply` run as procd instances that end once their work is done. On the R4S, aardvark-dns ran in `/services/wrt-sync/instance1` and was gone once wrt-sync had ended; stopping the app Pod then failed (2026-10-26).
+Why it matters here: podman's default network, which orbyt-containers' Pods and orbyt-sync's fetch container join, has DNS enabled. orbyt-sync and `orbyt-containers apply` run as procd instances that end once their work is done. On the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1` and was gone once orbyt-sync had ended; stopping the app Pod then failed (2026-10-26).
 
 What the patch does: on the cgroup v2 hierarchy, a rootful netavark without systemd has aardvark-dns join a cgroup of its own, `/sys/fs/cgroup/aardvark-dns`, made when it is missing, between fork and exec, so that the daemon it forks runs there too. podman moves conmon and the containers into `libpod_parent` the same way. A rootless netavark has no say over the hierarchy and leaves aardvark-dns where it is. `PKG_RELEASE` goes to 2.
 
-Verification log: without the patch, on the R4S, aardvark-dns ran in `/services/wrt-sync/instance1`, was gone with wrt-sync, and stopping the app Pod failed as above. With it, the services/containers tests passed on the R4S, "A service's container ended" among them (device-integrity): after wrt-sync ended, the app Pod stopped and started again, and aardvark-dns answered its name (2026-10-26).
+Verification log: without the patch, on the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1`, was gone with orbyt-sync, and stopping the app Pod failed as above. With it, the services/containers tests passed on the R4S, "A service's container ended" among them (device-integrity): after orbyt-sync ended, the app Pod stopped and started again, and aardvark-dns answered its name (2026-10-26).
 
 ### build: a host build's stages named after its logs in the time log
 
@@ -776,7 +776,7 @@ Patch: `patches/openwrt/0046-build-disable-the-services-TARGET_DISABLED_SERVICES
 
 Problem: `prepare_rootfs` enables every init script of the image except those its third argument names. The image builder passes `DISABLED_SERVICES` there; a build from source passes nothing. A package cannot ship its service disabled itself either: its `postinst` runs before `default_postinst` enables its init scripts.
 
-Why it matters here: honk must not run before a configuration is pushed (its built-in DNS upstream would answer the LAN), and its start-at-boot switch is its rc.d link, as daeuniverse's LuCI page sets it. With honk disabled in the image and its rc.d links kept through upgrades (`files/lib/upgrade/keep.d/wrt-config`), a new router starts without it and an upgraded one as it was. daeuniverse's own package disables honk from a uci-defaults script, which a firmware upgrade runs again.
+Why it matters here: honk must not run before a configuration is pushed (its built-in DNS upstream would answer the LAN), and its start-at-boot switch is its rc.d link, as daeuniverse's LuCI page sets it. With honk disabled in the image and its rc.d links kept through upgrades (`files/lib/upgrade/keep.d/orbyt-config`), a new router starts without it and an upgraded one as it was. daeuniverse's own package disables honk from a uci-defaults script, which a firmware upgrade runs again.
 
 What the patch does: `TARGET_DISABLED_SERVICES` in "Target Images", passed to `prepare_rootfs` wherever a build from source prepares a root filesystem (`package/Makefile`, `include/image.mk`). The rootfs cache key reads `.config`, so a changed list builds the root filesystem anew.
 
@@ -800,11 +800,11 @@ Patch: `patches/openwrt/0048-procd-cancel-the-boot-scripts-still-running-when-th
 
 Problem: procd runs the boot's `S` scripts and the shutdown's `K` scripts in one runqueue, one script at a time, and `rcS()` set that queue up anew for each run with libubox's `runqueue_init()`, which empties the task lists but keeps the count of running tasks. A shutdown that starts while a boot script still runs therefore starts none of its `K` scripts until that script returns, and nothing ends it before the halt: a boot script that never returns (one waiting for a device that never comes, a loop) keeps the system in procd's shutdown state for good, procd feeding the watchdog meanwhile. A reboot then never completes, whoever asked for it.
 
-Why it matters here: wrt-ab's trial supervisor turns a hung trial boot into a counted reboot (trial-guards D1), which is exactly a reboot while a boot script hangs. On the emulator, a uci-defaults script looping forever on a trial slot kept the system at `- shutdown -` for the ten minutes the probe watched, the script still running, and the rollback test of a hung boot timed out after 30 minutes on its first trial boot.
+Why it matters here: orbyt-ab's trial supervisor turns a hung trial boot into a counted reboot (trial-guards D1), which is exactly a reboot while a boot script hangs. On the emulator, a uci-defaults script looping forever on a trial slot kept the system at `- shutdown -` for the ten minutes the probe watched, the script still running, and the rollback test of a hung boot timed out after 30 minutes on its first trial boot.
 
 What the patch does: `rcS()` cancels what is left of the previous run instead of setting the queue up anew. The scripts not yet started are dropped; the running one gets SIGTERM and, 10 s later, SIGKILL, as a `shutdown` script past its 15 s already does; the shutdown's scripts start once it has ended. Every script of that queue gets the 10 s from SIGTERM to SIGKILL (none is cancelled otherwise), the queue is set up once, as procd's queue of single init scripts (`rc()`) is, and a script dropped before it started closes no output: its pipe was never opened, where the completion closed descriptor 0 for it. `PKG_RELEASE` goes to 7.
 
-Alternatives considered: a forced reboot (`reboot -f`) in wrt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
+Alternatives considered: a forced reboot (`reboot -f`) in orbyt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
 
 Verification log: 2026-11-17, the firmware/boot-rollback test of a boot script that hangs during a trial boot. With procd 6, on the emulated R4S and in CI run 43976186041 on both boards, it timed out waiting for the rollback; a probe in the hung script (never committed) found the system at `- shutdown -` from 61 s until 659 s, the script running throughout. With procd 7, each of its three hung trial boots reboots 7 s after the trial's deadline (`- SIGTERM processes -`, `- SIGKILL processes -`, `- reboot -`), the bootlimit is exceeded and slot A confirmed; the R4S's `upgrade` and `boot` suites pass, 44 tests. CI run 44002274413 passed on both boards.
 

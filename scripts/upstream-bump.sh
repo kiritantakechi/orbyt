@@ -23,7 +23,7 @@ if [ "${1:-}" = --lock ]; then
 fi
 [ -f "${LOCK_FILE}" ] || die "no lock file ${LOCK_FILE}"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-bump.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-bump.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
 names=$(lock_names)
 moved=

@@ -33,12 +33,12 @@ done
 # Our own feed wins over every package of the same name: scripts/feeds keeps
 # the first feed it installs a name from (-f overrides core packages only), so
 # ours goes first, onto no links from an earlier run, and the others after.
-log="${WRT_WORKDIR}/feeds.log"
+log="${ORBYT_WORKDIR}/feeds.log"
 (
 	cd "${tree}" &&
 		./scripts/feeds update -i -a &&
 		./scripts/feeds uninstall -a &&
-		./scripts/feeds install -a -f -p wrtbuild &&
+		./scripts/feeds install -a -f -p orbyt &&
 		./scripts/feeds install -a
 ) >"${log}" 2>&1 || die "feeds index/install failed; see ${log}"
 head=$(git -C "${tree}" rev-parse HEAD)

@@ -67,10 +67,10 @@ fetch_locked() (
 # its change, and the patch can go (upstreamed-patches D1).
 series_commit() (
 	dir=$1 repository=$2 commit=$3
-	scratch=$(mktemp -d "${TMPDIR:-/tmp}/wrt-series.XXXXXX")
+	scratch=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-series.XXXXXX")
 	trap 'rm -rf "${scratch}"' EXIT
 	export GIT_INDEX_FILE="${scratch}/index" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
-		GIT_COMMITTER_NAME=wrt-build GIT_COMMITTER_EMAIL=wrt-build@localhost
+		GIT_COMMITTER_NAME=orbyt GIT_COMMITTER_EMAIL=orbyt@localhost
 	git -C "${repository}" read-tree "${commit}"
 	for patch in "${dir}"/*.patch; do
 		[ -e "${patch}" ] || continue

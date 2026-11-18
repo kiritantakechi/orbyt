@@ -1,6 +1,6 @@
 # Code standards
 
-Every rule is enforced by `just check`; the `check` workflow in CI runs the same command and fails if it does not pass. `just fmt` does the formatting and maps one-to-one onto the format checks in `just check`. Both commands run on macOS and Linux, with the tools provided by `nix develop .#quality`; on NixOS they automatically run inside `wrt-test-fhs`, because the Python tools that uv installs are generic Linux binaries.
+Every rule is enforced by `just check`; the `check` workflow in CI runs the same command and fails if it does not pass. `just fmt` does the formatting and maps one-to-one onto the format checks in `just check`. Both commands run on macOS and Linux, with the tools provided by `nix develop .#quality`; on NixOS they automatically run inside `orbyt-test-fhs`, because the Python tools that uv installs are generic Linux binaries.
 
 ## Rules and checks
 
@@ -57,7 +57,7 @@ require_linux; tree=$(workdir_tree); ensure_fhs build "$@"   # only the guards i
 - **Operations on a specific object** use "object-verb": `env-report`, `image-audit`, `runner-prepare`, `toolchain-key`, `toolchain-build`, `toolchain-pack`, `toolchain-unpack`, `workdir-mount`, `workdir-unmount`.
 - **Paired operations** have symmetric names: `mount`/`unmount`, `pack`/`unpack`, `check`/`fmt`.
 - **Every script has a just recipe of the same name**, and conversely every just recipe (except `default`) has a script of the same name; `skeleton` checks this. Just recipes are grouped into `build`, `image`, `test`, `quality`, `ci` and `workdir`.
-- **Environment variables** all use the `WRT_` prefix.
+- **Environment variables** all use the `ORBYT_` prefix.
 
 ## Shell library modules
 
@@ -75,14 +75,14 @@ The scripts' shared functions live in `scripts/lib/`, one module per domain. A s
 | `warnings` | The UB-indicative warnings (`UB_WARNINGS`): read from a build's logs, recorded, and gathered for an image |
 | `upstream` | The sources pinned in `upstream.lock` (`LOCK_FILE`), fetched and patched |
 
-- **The tree is an argument.** `workdir_tree` checks `WRT_WORKDIR` and prints the tree's path; a script keeps it in its own variable, `tree=$(workdir_tree)`, and every function that works on a tree takes it first and checks it. The only globals are core's and each module's constants, derived from the repository's place.
+- **The tree is an argument.** `workdir_tree` checks `ORBYT_WORKDIR` and prints the tree's path; a script keeps it in its own variable, `tree=$(workdir_tree)`, and every function that works on a tree takes it first and checks it. The only globals are core's and each module's constants, derived from the repository's place.
 - **A module starts from core**, and says so: `: "${REPO_DIR:?load scripts/lib/core.sh first}"` after its header, before its `use` line.
 - **An awk program of more than ten lines** is a file beside its module (`ub-warnings.awk`, `image-logs.awk`, `merge-seeds.awk`), which the function runs with `awk -f` and the unit tests run directly; a shorter one stays inline.
 - **`modules`** (`lib-check`) fails on a call of a library function that the modules a file loads do not provide, and on a function that no script, module, test, workflow or recipe calls. The toolchain's cache key hashes the modules its scripts load.
 
 ## Test harness layers
 
-The test harness, `tests/wrt_tests`, is four packages, layered from the bottom up. A module imports only from its own layer and the layers below it, type-checking imports included; `tach` checks it with `tests/tach.toml`, which declares the layers and nothing more. A report means a module in the wrong layer, and is fixed by moving code, never by an exception in `tach.toml`.
+The test harness, `tests/orbyt_tests`, is four packages, layered from the bottom up. A module imports only from its own layer and the layers below it, type-checking imports included; `tach` checks it with `tests/tach.toml`, which declares the layers and nothing more. A report means a module in the wrong layer, and is fixed by moving code, never by an exception in `tach.toml`.
 
 | Layer | Holds | A new module goes here when it |
 |---|---|---|

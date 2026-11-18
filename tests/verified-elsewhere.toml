@@ -21,7 +21,7 @@ by = "build.yml host-toolchain restores the toolchain cache; firmware builds on 
 capability = "build/ci"
 requirement = "Cache keyed on actual inputs"
 scenario = "Only the packages feed updated"
-by = "scripts/toolchain-key.sh hashes tools/, toolchain/, target/linux/generic, OpenWrt's build files and scripts (rules.mk, include/, scripts/), lang/golang, lang/rust, the board-neutral configuration composed from the profile's seeds, the makefiles of the selected target and subtarget, WRT_BUILD_INPUTS, and the two scripts that build and pack the archive with the library modules they load (module-boundaries D8), and nothing else of the packages feed"
+by = "scripts/toolchain-key.sh hashes tools/, toolchain/, target/linux/generic, OpenWrt's build files and scripts (rules.mk, include/, scripts/), lang/golang, lang/rust, the board-neutral configuration composed from the profile's seeds, the makefiles of the selected target and subtarget, ORBYT_BUILD_INPUTS, and the two scripts that build and pack the archive with the library modules they load (module-boundaries D8), and nothing else of the packages feed"
 
 [[scenario]]
 capability = "build/ci"
@@ -57,7 +57,7 @@ by = "scripts/toolchain-key.sh reads no file of the target's image/ directory, w
 capability = "build/ci"
 requirement = "Cache keyed on actual inputs"
 scenario = "One compiler cache per stage"
-by = "build.yml's caches job: after run 37143040755 the ref held one compiler cache for the host stage and one for each board, each trimmed to what its build used (WRT_COMPILER_CACHE_TRIM); later runs keep the newest of each (docs/ci.md, Cache usage)"
+by = "build.yml's caches job: after run 37143040755 the ref held one compiler cache for the host stage and one for each board, each trimmed to what its build used (ORBYT_COMPILER_CACHE_TRIM); later runs keep the newest of each (docs/ci.md, Cache usage)"
 
 [[scenario]]
 capability = "build/ci"
@@ -101,13 +101,13 @@ by = "just build <board> dev on the local VM; build.yml firmware"
 capability = "build/environment"
 requirement = "Configurable build directory outside the repository"
 scenario = "Build directory on an external volume"
-by = "local VM: WRT_WORKDIR on the SSD volume (docs/dev-setup.md), the compiler caches of every language in its compiler-cache/ (ccache, go-build, sccache); workdir_tree refuses paths inside the repository"
+by = "local VM: ORBYT_WORKDIR on the SSD volume (docs/dev-setup.md), the compiler caches of every language in its compiler-cache/ (ccache, go-build, sccache); workdir_tree refuses paths inside the repository"
 
 [[scenario]]
 capability = "build/environment"
 requirement = "Configurable build directory outside the repository"
 scenario = "A new source tree"
-by = "every CI job of build.yml: each starts from a fresh checkout, fetch and patch, restores its compiler cache into $WRT_WORKDIR/compiler-cache, and reports what each cache served"
+by = "every CI job of build.yml: each starts from a fresh checkout, fetch and patch, restores its compiler cache into $ORBYT_WORKDIR/compiler-cache, and reports what each cache served"
 
 [[scenario]]
 capability = "build/environment"
@@ -193,7 +193,7 @@ by = "docs/optimization.md lists every no-lto opt-out with its patch in patches/
 
 # firmware/web-theme: looked at in a browser against the emulator's LuCI, reached
 # from the Mac through a port forwarded into the test's network namespace
-# (luci-theme-wrt D9), on the R4S image of luci-theme-wrt.
+# (luci-theme-orbyt D9), on the R4S image of luci-theme-orbyt.
 
 [[scenario]]
 capability = "firmware/web-theme"
@@ -205,7 +205,7 @@ by = "2026-11-18, the login page and the overview with the browser emulating a d
 capability = "firmware/web-theme"
 requirement = "Light and dark"
 scenario = "Dark pinned in a light browser"
-by = "2026-11-18, the browser emulating a light preference: Dark pinned with the switch on the interfaces page, then the firewall page opened: prefers-color-scheme light, the key luci-theme-wrt stored as dark, data-darkmode true, the page dark; the login page likewise with the key set"
+by = "2026-11-18, the browser emulating a light preference: Dark pinned with the switch on the interfaces page, then the firewall page opened: prefers-color-scheme light, the key luci-theme-orbyt stored as dark, data-darkmode true, the page dark; the login page likewise with the key set"
 
 [[scenario]]
 capability = "firmware/web-theme"

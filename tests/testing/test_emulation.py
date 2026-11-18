@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, cast
 import pytest
 from labgrid.driver import QEMUDriver
 
-from wrt_tests import spec
-from wrt_tests.device.emu import (
+from orbyt_tests import spec
+from orbyt_tests.device.emu import (
     Console,
     ConsoleEndedError,
     boot_files,
@@ -21,15 +21,15 @@ from wrt_tests.device.emu import (
     read_fit,
     sha256,
 )
-from wrt_tests.device.router import CLOCK_SKEW
-from wrt_tests.device.storage import PLUG_TIMEOUT, Disk, device
-from wrt_tests.model.poll import until
+from orbyt_tests.device.router import CLOCK_SKEW
+from orbyt_tests.device.storage import PLUG_TIMEOUT, Disk, device
+from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
-    from wrt_tests.model.outputs import EmulationSource, Manifest
-    from wrt_tests.sandbox.net import Netns, Network
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.model.outputs import EmulationSource, Manifest
+    from orbyt_tests.sandbox.net import Netns, Network
 
 CAPABILITY = "testing/emulation"
 DHCP_TIMEOUT = 60.0
@@ -67,7 +67,7 @@ def test_boots_the_shipped_artifacts(
     assert banner is not None
     assert router.run("cat /proc/version") == banner.group().decode()
     arguments = router.run("cat /proc/cmdline").split()
-    assert {"wrt.slot=a", "fstools_overlay_compression_type=zstd"} <= set(arguments)
+    assert {"orbyt.slot=a", "fstools_overlay_compression_type=zstd"} <= set(arguments)
 
 
 @spec(CAPABILITY, "Boot with the board identity", "Read board name")

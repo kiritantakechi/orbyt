@@ -4,7 +4,7 @@ The router's services beyond routing (r4s-services): a USB SSD as the data disk,
 
 ## The web interface
 
-LuCI, at `http://10.0.0.1` from the LAN, wears the image's own theme, `luci-theme-wrt`: the menu in a sidebar, the page's place, LuCI's pending changes and a light/dark switch in the top bar, and each section as a card. The switch's Automatic follows the browser's light or dark setting; Light and Dark pin one in that browser. Below 800 pixels the menu becomes a drawer behind the menu button; below 600, tables become stacked rows. LuCI's own icons (devices, ports, signal strength) are drawn in the theme's line icons, in green when up and faint when down; its realtime graphs, firewall zone colors and status colors follow the light or dark mode. The theme loads nothing from outside the router.
+LuCI, at `http://10.0.0.1` from the LAN, wears the image's own theme, `luci-theme-orbyt`: the menu in a sidebar, the page's place, LuCI's pending changes and a light/dark switch in the top bar, and each section as a card. The switch's Automatic follows the browser's light or dark setting; Light and Dark pin one in that browser. Below 800 pixels the menu becomes a drawer behind the menu button; below 600, tables become stacked rows. LuCI's own icons (devices, ports, signal strength) are drawn in the theme's line icons, in green when up and faint when down; its realtime graphs, firewall zone colors and status colors follow the light or dark mode. The theme loads nothing from outside the router.
 
 The theme becomes LuCI's default once: on a fresh install, and on the first boot of an upgrade that brings it. Any later choice stays across upgrades: LuCI's stock theme, bootstrap, is still installed and selectable under System › System › Language and Style › Design.
 
@@ -22,12 +22,12 @@ One USB SSD, btrfs, identified by its filesystem UUID (any port, any device name
 
 ### Set one up
 
-`wrt-data init` erases a disk and makes it the data disk. Without an argument it lists the USB disks; with one, it asks for the device's full name again before it erases anything:
+`orbyt-data init` erases a disk and makes it the data disk. Without an argument it lists the USB disks; with one, it asks for the device's full name again before it erases anything:
 
 ```sh
-wrt-data init             # USB disks: device, size, model
-wrt-data init /dev/sda    # then type /dev/sda to confirm
-wrt-data status           # the mount and the subvolumes
+orbyt-data init             # USB disks: device, size, model
+orbyt-data init /dev/sda    # then type /dev/sda to confirm
+orbyt-data status           # the mount and the subvolumes
 ```
 
 It creates the filesystem (label `wrtdata`) and the subvolumes, names the disk by UUID in the fstab entry `wrtdata`, and mounts it. The image holds that entry from its first boot, disabled and without a disk, so that the services below know from the start where their data will be. An existing data disk on a new or reset router is not initialized again: set its UUID (from `block info`) in that entry instead, with `uci set fstab.wrtdata.uuid=<UUID>`, `uci set fstab.wrtdata.enabled=1` and `uci commit fstab`, then reboot.
@@ -38,20 +38,20 @@ The container service, SMB and the persistent log start only while `/mnt/data` i
 
 ### Snapshots
 
-At 03:17 every day cron takes a read-only snapshot of `containers` and `shares` (`wrt-snap now`) and deletes those older than the last seven days, today's included (`wrt-snap prune`). Take one yourself at any time:
+At 03:17 every day cron takes a read-only snapshot of `containers` and `shares` (`orbyt-snap now`) and deletes those older than the last seven days, today's included (`orbyt-snap prune`). Take one yourself at any time:
 
 ```sh
-wrt-snap now              # prints the two new snapshots
-wrt-snap list shares      # the snapshots of shares, oldest first
+orbyt-snap now              # prints the two new snapshots
+orbyt-snap list shares      # the snapshots of shares, oldest first
 ```
 
 ### Restore a file from a snapshot
 
-A snapshot is a read-only copy of the subvolume as it was: copy the file back out of it. Set `file` to the file's path in the share; the commands take it from the newest snapshot (any other from `wrt-snap list shares` works the same way):
+A snapshot is a read-only copy of the subvolume as it was: copy the file back out of it. Set `file` to the file's path in the share; the commands take it from the newest snapshot (any other from `orbyt-snap list shares` works the same way):
 
 ```sh
 file=photos/cat.jpg
-snapshot=$(wrt-snap list shares | tail -n 1)
+snapshot=$(orbyt-snap list shares | tail -n 1)
 cp -a "${snapshot}/${file}" "/mnt/data/shares/${file}"
 ```
 
@@ -73,7 +73,7 @@ podman runs app containers (qBittorrent and the like, never in the image), with 
 
 ### Declare a Pod
 
-Each app is a Kubernetes Pod in `/mnt/data/containers/pods/<name>.yaml`, named `<name>`. The `wrt-containers` service plays every declaration with `podman kube play` once the data disk is mounted (at boot, or when it is plugged in), and replays one only when it has changed since; an unchanged Pod is started as it is. Every Pod joins podman's network `podman` (10.88.0.0/16 on `podman0`). More options of `podman kube play` go into `<name>.options` next to it, such as a fixed address:
+Each app is a Kubernetes Pod in `/mnt/data/containers/pods/<name>.yaml`, named `<name>`. The `orbyt-containers` service plays every declaration with `podman kube play` once the data disk is mounted (at boot, or when it is plugged in), and replays one only when it has changed since; an unchanged Pod is started as it is. Every Pod joins podman's network `podman` (10.88.0.0/16 on `podman0`). More options of `podman kube play` go into `<name>.options` next to it, such as a fixed address:
 
 ```yaml
 # /mnt/data/containers/pods/torrent.yaml
@@ -102,7 +102,7 @@ spec:
 
 ```sh
 echo --ip=10.88.0.20 >/mnt/data/containers/pods/torrent.options
-/etc/init.d/wrt-containers restart
+/etc/init.d/orbyt-containers restart
 ```
 
 ### Expose a port

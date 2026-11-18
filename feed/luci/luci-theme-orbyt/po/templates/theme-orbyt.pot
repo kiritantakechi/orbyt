@@ -1,0 +1,17 @@
+msgid ""
+msgstr "Content-Type: text/plain; charset=UTF-8"
+
+#: themes/luci-theme-orbyt/ucode/template/themes/orbyt/header.ut
+msgctxt "orbyt"
+msgid "Appearance"
+msgstr ""
+
+#: themes/luci-theme-orbyt/ucode/template/themes/orbyt/header.ut
+msgctxt "orbyt"
+msgid "Dark"
+msgstr ""
+
+#: themes/luci-theme-orbyt/ucode/template/themes/orbyt/header.ut
+msgctxt "orbyt"
+msgid "Light"
+msgstr ""

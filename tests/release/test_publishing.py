@@ -2,7 +2,7 @@
 
 scripts/release-publish.sh assembles the session's signed build (conftest), as
 the sign job hands it on (board-model D10); its upload is judged by what it hands
-to gh, a stand-in on PATH (wrt_tests.model.github) that records its arguments
+to gh, a stand-in on PATH (orbyt_tests.model.github) that records its arguments
 and answers for the branch it publishes from. The workflow checks read
 .github/workflows/build.yml.
 """
@@ -18,17 +18,17 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 import yaml
 
-from wrt_tests import spec
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.github import REPOSITORY, Repository, install
-from wrt_tests.model.outputs import MANIFEST_FILE, RELEASE_FILE, Manifest, Release
-from wrt_tests.model.trees import linked_copy, replace
+from orbyt_tests import spec
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.github import REPOSITORY, Repository, install
+from orbyt_tests.model.outputs import MANIFEST_FILE, RELEASE_FILE, Manifest, Release
+from orbyt_tests.model.trees import linked_copy, replace
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from wrt_tests.model.boards import Board
+    from orbyt_tests.model.boards import Board
 
 CAPABILITY = "release/publishing"
 REPO = Path(__file__).resolve().parents[2]

@@ -1,0 +1,23 @@
+{#
+	luci-theme-orbyt: closes the shell the header opened, with LuCI's and the
+	distribution's versions as links, and loads the menu (luci-theme-orbyt D2, D4).
+	Licensed under the Apache License 2.0, as LuCI.
+-#}
+
+		{% if (!blank_page): %}
+				</div>
+				<footer class="footer">
+					<a href="https://github.com/openwrt/luci" target="_blank" rel="noreferrer">{{ version.luciname }} ({{ version.luciversion }})</a>
+					<span aria-hidden="true">·</span>
+					<a href="{{ entityencode(version.disturl ?? '#', true) }}" target="_blank" rel="noreferrer">{{ version.distname }} {{ version.distversion }} ({{ version.distrevision }})</a>
+					{% if (lua_active): %}
+					<span aria-hidden="true">·</span>
+					<span>{{ _('Lua compatibility mode active') }}</span>
+					{% endif %}
+				</footer>
+			</div>
+		</div>
+		<script>L.require('menu-orbyt')</script>
+		{% endif %}
+	</body>
+</html>

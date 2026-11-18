@@ -5,11 +5,23 @@ CONFIG_PREINITOPT=y
 CONFIG_TARGET_PREINIT_IP="10.0.0.1"
 CONFIG_TARGET_PREINIT_BROADCAST="10.0.0.255"
 CONFIG_TARGET_DEFAULT_LAN_IP_FROM_PREINIT=y
+# The image is Orbyt (orbyt-brand D3): the distribution in the release files,
+# /etc/os-release, LuCI and the banner, and the image files' prefix, which stay
+# orbyt-<target>-<device>-… without the version in them.
+CONFIG_VERSIONOPT=y
+CONFIG_VERSION_DIST="Orbyt"
+CONFIG_VERSION_MANUFACTURER="Orbyt"
+CONFIG_VERSION_MANUFACTURER_URL="https://codeberg.org/kiritan/orbyt"
+CONFIG_VERSION_HOME_URL="https://codeberg.org/kiritan/orbyt"
+CONFIG_VERSION_BUG_URL="https://codeberg.org/kiritan/orbyt/issues"
+CONFIG_VERSION_SUPPORT_URL="https://codeberg.org/kiritan/orbyt"
+# CONFIG_VERSION_FILENAMES is not set
+# CONFIG_VERSION_CODE_FILENAMES is not set
 # LuCI on uhttpd + ucode, Simplified Chinese, in the image's own theme
-# (luci-theme-wrt), with LuCI's stock theme beside it.
+# (luci-theme-orbyt), with LuCI's stock theme beside it.
 CONFIG_PACKAGE_luci=y
 CONFIG_LUCI_LANG_zh_Hans=y
-CONFIG_PACKAGE_luci-theme-wrt=y
+CONFIG_PACKAGE_luci-theme-orbyt=y
 # The kernel RNG makes urngd unnecessary.
 # CONFIG_PACKAGE_urngd is not set
 CONFIG_PACKAGE_zram-swap=y

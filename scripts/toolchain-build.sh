@@ -7,7 +7,7 @@
 # Every board builds on this one toolchain (board-model D2), so it is built from
 # the profile's configuration without a board: its C library and Rust's standard
 # library carry no board's -mcpu. The flags it was built with and the hashes of
-# both libraries go to wrt-toolchain.json in the toolchain directory, which
+# both libraries go to orbyt-toolchain.json in the toolchain directory, which
 # build.sh checks. The record is written as soon as the cross toolchain is
 # built, and again with Rust's library, so a failed Go or Rust build leaves the
 # cross toolchain to the next run. The toolchain stays only while the
@@ -37,13 +37,13 @@ ensure_fhs build "$@"
 [ -f "${tree}/feeds.conf" ] || die "no source tree; run 'just fetch' and 'just patch' first"
 link_tree "${tree}"
 write_board_table "${tree}"
-wanted="${WRT_WORKDIR}/out/seed-toolchain-${profile}.config"
+wanted="${ORBYT_WORKDIR}/out/seed-toolchain-${profile}.config"
 compose_seeds "${tree}" "${profile}" "" "${wanted}"
 info "make defconfig (toolchain, ${profile})"
 configure_tree "${tree}" "${wanted}"
 
 toolchain_dir=$(make -C "${tree}" -s val.TOOLCHAIN_DIR)
-record="${toolchain_dir}/wrt-toolchain.json"
+record="${toolchain_dir}/orbyt-toolchain.json"
 cflags=$(make -C "${tree}" -s val.TARGET_CFLAGS)
 # Rust's standard library has C parts compiled with the target's flags, so it
 # goes with the C toolchain whenever that is built anew.
@@ -70,7 +70,7 @@ write_record() {
 		>"${record}"
 }
 
-jobs=${WRT_JOBS:-$(nproc)}
+jobs=${ORBYT_JOBS:-$(nproc)}
 log=$(time_log "${tree}" host)
 start=$(compiler_cache_start "${tree}")
 status=0
@@ -93,9 +93,9 @@ fi
 compiler_cache_report "${tree}" "${start}"
 time_report "${tree}" "${log}"
 [ "${status}" -eq 0 ] || die "building the host tools and the toolchains failed"
-# WRT_COMPILER_CACHE_TRIM (CI, where the host stage keeps a cache of its own): drop
+# ORBYT_COMPILER_CACHE_TRIM (CI, where the host stage keeps a cache of its own): drop
 # what this build did not use.
-if [ -n "${WRT_COMPILER_CACHE_TRIM:-}" ]; then
+if [ -n "${ORBYT_COMPILER_CACHE_TRIM:-}" ]; then
 	compiler_cache_trim "${tree}" "${start}"
 fi
 rust_std=$(toolchain_rust_std "${tree}")

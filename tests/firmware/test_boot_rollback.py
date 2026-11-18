@@ -6,8 +6,8 @@ import time
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.device.ab import (
+from orbyt_tests import spec
+from orbyt_tests.device.ab import (
     BOOT_DISK,
     ENV_COPIES,
     ENV_SIZE,
@@ -19,18 +19,18 @@ from wrt_tests.device.ab import (
     slot,
     slot_sha256,
 )
-from wrt_tests.device.emu import extract_fit_image, read_fit, run
-from wrt_tests.model.image import SECTOR, default_environment, read_mbr
+from orbyt_tests.device.emu import extract_fit_image, read_fit, run
+from orbyt_tests.model.image import SECTOR, default_environment, read_mbr
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/boot-rollback"
 UBOOT_DIR = Path(__file__).resolve().parents[2] / "uboot"
 UBOOT_SECTOR = 16384
 UBOOT_BANNER = r"U-Boot 20\d\d\.\d\d"
-# Variables U-Boot itself defines for the slot logic, besides those of wrt-ab.env.
+# Variables U-Boot itself defines for the slot logic, besides those of orbyt-ab.env.
 LOGIC = ("bootcmd", "altbootcmd", "bootlimit")
 # The variables a stored environment may set, as both bootloaders' flags list
 # names them: the slot logic's state alone.
@@ -39,11 +39,11 @@ UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 BOOT_LIMIT = 3
 PANIC_REBOOT = 10.0
 # A stored boot command, which the bootloader must ignore.
-HIJACK = "echo wrt-hijacked"
+HIJACK = "echo orbyt-hijacked"
 # A trial deadline short enough for three hung boots in a test.
 TRIAL_DEADLINE = 60
 # A uci-defaults script, which the boot script S10boot runs, and an upgrade carries.
-HANG = "/etc/uci-defaults/95-wrt-test-hang"
+HANG = "/etc/uci-defaults/95-orbyt-test-hang"
 
 
 def _names(env_file: Path) -> set[str]:
@@ -53,7 +53,7 @@ def _names(env_file: Path) -> set[str]:
 
 def _trial(router: Router) -> None:
     """Put the running slot in the trial state, with the health check out of the way."""
-    router.run("/etc/init.d/wrt-healthcheck disable")
+    router.run("/etc/init.d/orbyt-healthcheck disable")
     setenv(router, boot_slot=slot(router), upgrade_available=1, bootcount=0)
 
 
@@ -138,7 +138,7 @@ def test_cut_short_write_keeps_the_previous_state(router: Router) -> None:
     "The environment where the bootloader names it",
 )
 def test_the_environment_is_where_the_bootloader_names_it(router: Router) -> None:
-    named = re.search(r"(?:^| )wrt\.env=(\S+)", router.run("cat /proc/cmdline"))
+    named = re.search(r"(?:^| )orbyt\.env=(\S+)", router.run("cat /proc/cmdline"))
     assert named is not None
     copies = [tuple(int(part, 16) for part in copy.split("@")) for copy in named[1].split(",")]
     assert copies == [(ENV_SIZE, offset) for offset in ENV_COPIES]
@@ -149,8 +149,8 @@ def test_the_environment_is_where_the_bootloader_names_it(router: Router) -> Non
         )
     ]
     assert configured == [(BOOT_DISK, offset, ENV_SIZE) for offset in ENV_COPIES]
-    setenv(router, wrt_probe="written")
-    assert getenv(router, "wrt_probe") == "written"
+    setenv(router, orbyt_probe="written")
+    assert getenv(router, "orbyt_probe") == "written"
 
 
 @spec(
@@ -162,11 +162,11 @@ def test_no_upgrade_without_the_bootloader_s_environment(
     router: Router, upgrade_image: Path
 ) -> None:
     named = router.run(
-        "ucode -e \"import { environment } from 'wrt.ab';"
-        " printf('%J', environment('root=PARTUUID=x rw wrt.slot=a'));\""
+        "ucode -e \"import { environment } from 'orbyt.ab';"
+        " printf('%J', environment('root=PARTUUID=x rw orbyt.slot=a'));\""
     )
     assert named == "null"
-    # What a bootloader without wrt.env= leaves: no configuration.
+    # What a bootloader without orbyt.env= leaves: no configuration.
     router.run(
         "while uci -q delete ubootenv.@ubootenv[0]; do :; done && uci commit ubootenv"
         " && rm /etc/fw_env.config"
@@ -193,8 +193,8 @@ def test_the_first_boot_script_reads_the_environment(router: Router, upgrade_ima
     router.detach(f"sleep 1; sysupgrade -n {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
     assert slot(router) == other
-    # wrt-trial, the first boot script, names the trial only when it read it.
-    assert f"wrt-trial: slot {other} is on trial" in router.run("dmesg")
+    # orbyt-trial, the first boot script, names the trial only when it read it.
+    assert f"orbyt-trial: slot {other} is on trial" in router.run("dmesg")
 
 
 @spec(
@@ -205,12 +205,12 @@ def test_the_first_boot_script_reads_the_environment(router: Router, upgrade_ima
 def test_stored_boot_command_is_ignored(router: Router) -> None:
     console = router.emulator.console
     since = console.mark()
-    setenv(router, boot_slot="b", bootcmd=HIJACK, wrt_boot=HIJACK)
+    setenv(router, boot_slot="b", bootcmd=HIJACK, orbyt_boot=HIJACK)
     # The boot that follows reads an environment that holds them.
-    assert (getenv(router, "bootcmd"), getenv(router, "wrt_boot")) == (HIJACK, HIJACK)
+    assert (getenv(router, "bootcmd"), getenv(router, "orbyt_boot")) == (HIJACK, HIJACK)
     router.reboot()
     assert slot(router) == "b"
-    assert "wrt-hijacked" not in console.text(since)
+    assert "orbyt-hijacked" not in console.text(since)
 
 
 @spec(CAPABILITY, "Trial boot counting and automatic rollback", "New slot fails repeatedly")
@@ -219,7 +219,7 @@ def test_rollback_after_three_unconfirmed_boots(router: Router, upgrade_image: P
     # so its health check fails every time, quickly.
     router.run(
         "uci set uhttpd.main.listen_http=127.0.0.1:80"
-        " && uci set wrt-ab.healthcheck.total=10 && uci set wrt-ab.healthcheck.interval=5"
+        " && uci set orbyt-ab.healthcheck.total=10 && uci set orbyt-ab.healthcheck.interval=5"
         " && uci commit"
     )
     console = router.emulator.console
@@ -233,7 +233,7 @@ def test_rollback_after_three_unconfirmed_boots(router: Router, upgrade_image: P
     assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == ("a", "0")
     assert getenv(router, "bootcount") == "0"
     # The failed slot booted exactly bootlimit times after the upgrade.
-    assert len(re.findall(r"wrt\.slot=b", console.text(since))) == BOOT_LIMIT
+    assert len(re.findall(r"orbyt\.slot=b", console.text(since))) == BOOT_LIMIT
 
 
 @spec(CAPABILITY, "Hangs and panics become reboots", "A boot script hangs during a trial boot")
@@ -244,15 +244,15 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
     # starts; on the original slot it ends at once and goes, as uci-defaults do.
     hang = "\n".join(
         (
-            ". /lib/functions/wrt-ab.sh",
-            f'[ "$(wrt_ab_slot)" = {other} ] || exit 0',
+            ". /lib/functions/orbyt-ab.sh",
+            f'[ "$(orbyt_ab_slot)" = {other} ] || exit 0',
             "while :; do sleep 3600; done",
         )
     )
     router.run(
         f"printf '%s\\n' {shlex.quote(hang)} >{HANG} && echo {HANG} >>/etc/sysupgrade.conf"
-        f" && uci set wrt-ab.trial=trial && uci set wrt-ab.trial.deadline={TRIAL_DEADLINE}"
-        " && uci commit wrt-ab"
+        f" && uci set orbyt-ab.trial=trial && uci set orbyt-ab.trial.deadline={TRIAL_DEADLINE}"
+        " && uci commit orbyt-ab"
     )
     console = router.emulator.console
     since = console.mark()
@@ -264,8 +264,8 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
     assert slot(router) == running
     assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (running, "0")
     text = console.text(since)
-    assert len(re.findall(rf"wrt\.slot={other}", text)) == BOOT_LIMIT
-    reboots = re.findall(rf"wrt-trial: slot {other}: .*; rebooting", text)
+    assert len(re.findall(rf"orbyt\.slot={other}", text)) == BOOT_LIMIT
+    reboots = re.findall(rf"orbyt-trial: slot {other}: .*; rebooting", text)
     assert len(reboots) == BOOT_LIMIT, reboots
 
 
@@ -342,7 +342,7 @@ def test_watchdog_chain_configuration(
     binary, _ = _board_uboot(emulation_dir, tmp_path)
     assert (
         "watchdog.open_timeout=90"
-        in default_environment(binary.read_bytes(), "wrt_boot")["wrt_boot"]
+        in default_environment(binary.read_bytes(), "orbyt_boot")["orbyt_boot"]
     )
 
 
@@ -353,9 +353,9 @@ def test_same_logic_in_both_bootloaders(
     board: Board, build_output: Path, emulation_dir: Path, tmp_path: Path
 ) -> None:
     binary, dtb = _board_uboot(emulation_dir, tmp_path)
-    shipped = default_environment(binary.read_bytes(), "wrt_boot")
-    qemu = default_environment((build_output / "u-boot-qemu.bin").read_bytes(), "wrt_boot")
-    shared = _names(UBOOT_DIR / "wrt-ab.env") | set(LOGIC)
+    shipped = default_environment(binary.read_bytes(), "orbyt_boot")
+    qemu = default_environment((build_output / "u-boot-qemu.bin").read_bytes(), "orbyt_boot")
+    shared = _names(UBOOT_DIR / "orbyt-ab.env") | set(LOGIC)
     constants = _names(UBOOT_DIR / f"board-{board.id}.env")
     assert constants == _names(UBOOT_DIR / "board-qemu.env")
     assert {name: shipped[name] for name in shared} == {name: qemu[name] for name in shared}
@@ -365,7 +365,7 @@ def test_same_logic_in_both_bootloaders(
     for name, environment in (("u-boot.config", shipped), ("u-boot-qemu.config", qemu)):
         config = _config(build_output / name)
         assert config.get("CONFIG_ENV_IS_IN_MMC") == "y", name
-        assert int(config["CONFIG_ENV_MMC_DEVICE_INDEX"]) == int(environment["wrt_mmc"]), name
+        assert int(config["CONFIG_ENV_MMC_DEVICE_INDEX"]) == int(environment["orbyt_mmc"]), name
         assert config.get("CONFIG_ENV_REDUNDANT") == "y", name
         offsets = (config["CONFIG_ENV_OFFSET"], config["CONFIG_ENV_OFFSET_REDUND"])
         assert tuple(int(offset, 16) for offset in offsets) == ENV_COPIES, name
@@ -376,6 +376,6 @@ def test_same_logic_in_both_bootloaders(
     # ...which the board's device tree makes its boot disk's controller: an eMMC
     # is soldered on, an SD card is not.
     assert run("fdtget", str(dtb), "/", "compatible").split()[0] == board.board_name
-    controller = run("fdtget", str(dtb), "/aliases", f"mmc{shipped['wrt_mmc']}").strip()
+    controller = run("fdtget", str(dtb), "/aliases", f"mmc{shipped['orbyt_mmc']}").strip()
     properties = run("fdtget", "-p", str(dtb), controller).split()
     assert ("non-removable" in properties) == (board.boot_disk == "emmc"), controller

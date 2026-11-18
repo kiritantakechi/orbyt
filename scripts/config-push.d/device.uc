@@ -1,7 +1,7 @@
 // The router's half of config-push (r4s-release-pipeline D6, device-modernization D3),
 // sent over SSH for every push, so the router never runs a stale copy.
-// Usage: ucode - validate | hashes | apply <service>   (in /tmp/wrt-push)
-// config-push uploads each service's new files to /tmp/wrt-push/new/<service>:
+// Usage: ucode - validate | hashes | apply <service>   (in /tmp/orbyt-push)
+// config-push uploads each service's new files to /tmp/orbyt-push/new/<service>:
 //  validate      checks them without touching the configuration: honk's with
 //                honk's own check of the entry its service would write around
 //                honk.config.config_file (/etc/init.d/honk check), each service's
@@ -24,9 +24,9 @@ import { glob, lsdir, lstat, mkdir, open, popen, readfile, stat, writefile } fro
 import * as ubus from 'ubus';
 import { cursor } from 'uci';
 
-const PUSH = '/tmp/wrt-push';
+const PUSH = '/tmp/orbyt-push';
 const NEW = `${PUSH}/new`;
-const STATE = '/etc/wrt-config';
+const STATE = '/etc/orbyt-config';
 const PODS = '/mnt/data/containers/pods';
 const SAVED = `${PUSH}/saved`;
 const TAILSCALE_KEY = `${STATE}/tailscale.key`;
@@ -337,7 +337,7 @@ function reload(name) {
 			: run('/etc/init.d/honk stop');
 
 	case 'pods':
-		return !stat(PODS) || run('/etc/init.d/wrt-containers restart');
+		return !stat(PODS) || run('/etc/init.d/orbyt-containers restart');
 
 	case 'smb':
 		return run('/etc/init.d/ksmbd restart');

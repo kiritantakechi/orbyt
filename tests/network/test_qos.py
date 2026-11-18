@@ -13,17 +13,17 @@ from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
-from wrt_tests.services import qos
-from wrt_tests.services.datapath import WAN, hooks
+from orbyt_tests import spec
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
+from orbyt_tests.services import qos
+from orbyt_tests.services.datapath import WAN, hooks
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/qos"
 DEFAULT_RATE = "100Mbit"
@@ -36,7 +36,7 @@ FAIR_RATE = f"{FAIR_MBIT}mbit"
 SHAPED_SHARE = (0.8, 1.05)
 FAIR_SECONDS = 60
 FAIRNESS = 0.2
-VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-wrt.conf
+VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-orbyt.conf
 RECOVERY = 60
 # Ingress shaping: the interface's ifb, the rate, and how long the download runs.
 IFB = "ifb-pppoe-wan"

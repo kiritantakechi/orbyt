@@ -15,7 +15,7 @@ The factory image goes to the board's boot disk: the NanoPi R4S's SD card, the N
    - **NanoPi R4S:** write it to the SD card on a computer (check the device name first; this erases the card):
 
      ```sh
-     gzip -dc openwrt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-factory.img.gz | sudo dd of=/dev/<sd> bs=4M conv=fsync
+     gzip -dc orbyt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-factory.img.gz | sudo dd of=/dev/<sd> bs=4M conv=fsync
      ```
 
    - **NanoPi R6S:** write it to the eMMC from a system on an SD card, or over USB in maskrom mode (below).
@@ -31,7 +31,7 @@ The factory image goes to the board's boot disk: the NanoPi R4S's SD card, the N
 
    If the backup changes the LAN address, reconnect at the new one.
 
-From here on, upgrade with the board's single-slot image, `openwrt-rockchip-armv8-<device>-erofs-sysupgrade.tar.gz`. To go back to the previous version, run `wrt-slot switch`, or let U-Boot roll back on its own after three failed boots.
+From here on, upgrade with the board's single-slot image, `orbyt-rockchip-armv8-<device>-erofs-sysupgrade.tar.gz`. To go back to the previous version, run `orbyt-slot switch`, or let U-Boot roll back on its own after three failed boots.
 
 ## The NanoPi R6S's eMMC
 
@@ -39,7 +39,7 @@ From here on, upgrade with the board's single-slot image, `openwrt-rockchip-armv
 
 ```sh
 grep . /sys/block/mmcblk*/device/type
-gzip -dc openwrt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img.gz | dd of=/dev/mmcblk<N> bs=4M conv=fsync
+gzip -dc orbyt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img.gz | dd of=/dev/mmcblk<N> bs=4M conv=fsync
 ```
 
 Power off, take the SD card out, and power on again: the R6S boots from its eMMC.
@@ -47,9 +47,9 @@ Power off, take the SD card out, and power on again: the R6S boots from its eMMC
 **Over USB, in maskrom mode.** When the eMMC holds no loader the boot ROM can run, it waits for a computer on USB. Hold the MASK button while powering the R6S on, connected to the computer as FriendlyElec's wiki shows for maskrom mode. Then write the unpacked factory image with `rkdeveloptool`, which first loads rkbin's RK3588 USB loader (`bin/rk35/rk3588_spl_loader_v<version>.bin`; docs/supply-chain/rkbin.md) into the board:
 
 ```sh
-gzip -dk openwrt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img.gz
+gzip -dk orbyt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img.gz
 rkdeveloptool db rk3588_spl_loader_v<version>.bin
-rkdeveloptool wl 0 openwrt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img
+rkdeveloptool wl 0 orbyt-rockchip-armv8-friendlyarm_nanopi-r6s-erofs-factory.img
 rkdeveloptool rd
 ```
 

@@ -5,9 +5,9 @@
 # labgrid description of its machine (board-model D7); pytest then runs as root of
 # a private user namespace with its own network (design D14), so nothing on the
 # host changes and no real root is needed. The emulator's files go to
-# $WRT_TESTDIR/emu and pytest's own, disks and signed builds among them, to
-# $WRT_TESTDIR/test/<board>, which each run empties first: /tmp may be memory,
-# and a run's files would stay there. $WRT_TESTDIR is the work directory unless
+# $ORBYT_TESTDIR/emu and pytest's own, disks and signed builds among them, to
+# $ORBYT_TESTDIR/test/<board>, which each run empties first: /tmp may be memory,
+# and a run's files would stay there. $ORBYT_TESTDIR is the work directory unless
 # set: a disk slow to flush stalls the emulator (docs/dev-setup.md).
 set -eu
 # shellcheck source=scripts/lib/core.sh
@@ -25,8 +25,8 @@ board_field "${board}" .device >/dev/null
 shift
 [ "$#" -eq 0 ] || shift
 
-out="${WRT_WORKDIR}/out/${board}/${profile}"
-testdir=${WRT_TESTDIR:-${WRT_WORKDIR}}
+out="${ORBYT_WORKDIR}/out/${board}/${profile}"
+testdir=${ORBYT_TESTDIR:-${ORBYT_WORKDIR}}
 set -- "$@" --junitxml "${REPO_DIR}/tests/.reports/emulation.xml" \
 	--basetemp "${testdir}/test/${board}"
 [ -f "${out}/manifest.json" ] || die "no build outputs in ${out}; run 'just build ${board} ${profile}' first"

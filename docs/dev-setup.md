@@ -34,24 +34,24 @@ One-time setup:
 # on macOS: stop Spotlight from indexing the volume, then allocate the image.
 # HFS+ has no sparse files, so mkfile writes all 112 GiB (takes a while).
 touch /Volumes/SSD/.metadata_never_index
-mkfile -n 112g /Volumes/SSD/wrt-work.ext4
+mkfile -n 112g /Volumes/SSD/orbyt-work.ext4
 
 # in the VM (creates the filesystem once, owned by kiritan, then mounts it):
-orb -m nixos -u root /Users/kiritan/Projects/wrt-build/scripts/workdir-mount.sh --format --owner kiritan
+orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-mount.sh --format --owner kiritan
 ```
 
 After each VM restart, mount it again (the script can be run repeatedly and never reformats):
 
 ```sh
-orb -m nixos -u root /Users/kiritan/Projects/wrt-build/scripts/workdir-mount.sh
+orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-mount.sh
 ```
 
-By default, the image file is `/mnt/mac/Volumes/SSD/wrt-work.ext4` and the mount point is `/mnt/wrt`. Its owner is set once, when the filesystem is created, and kept in it: as root, the VM sees the Mac's files as root's own, so the owner has to be named then.
+By default, the image file is `/mnt/mac/Volumes/SSD/orbyt-work.ext4` and the mount point is `/mnt/orbyt`. Its owner is set once, when the filesystem is created, and kept in it: as root, the VM sees the Mac's files as root's own, so the owner has to be named then.
 
 Notes:
 
 - Do not unplug the SSD or let the Mac sleep while it is mounted, or the ext4 file system may be corrupted.
-- Before unplugging the drive, run `orb -m nixos -u root /Users/kiritan/Projects/wrt-build/scripts/workdir-unmount.sh` in the VM.
+- Before unplugging the drive, run `orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-unmount.sh` in the VM.
 - The current SSD's measured sequential write speed is about 75 MB/s (2026-09-28, `dd` writing 2 GiB with `fdatasync`). This is the upper bound on local build I/O; the timings of the first full build are recorded in `docs/ci.md`.
 
 ## 3. PPP for the test sandbox
@@ -59,7 +59,7 @@ Notes:
 The emulated ISP runs pppd inside the test sandbox, which needs the `ppp_generic` and `ppp_async` modules and a `/dev/ppp` open to regular users; the WireGuard peer needs the `wireguard` module. After each VM restart, run (the OrbStack NixOS VM has no `modprobe` on its path, so kmod comes from nixpkgs):
 
 ```sh
-orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flakes" nix shell nixpkgs#kmod -c /Users/kiritan/Projects/wrt-build/scripts/sandbox-prepare.sh'
+orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flakes" nix shell nixpkgs#kmod -c /Users/kiritan/Projects/orbyt/scripts/sandbox-prepare.sh'
 ```
 
 `just env-report` fails with this hint when PPP is not ready. CI runs the same script from `runner-prepare.sh`.
@@ -69,10 +69,10 @@ orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flak
 Every build is for one board, named by its description under `boards/`: `r4s` (NanoPi R4S) or `r6s` (NanoPi R6S). In the VM, run:
 
 ```sh
-cd /Users/kiritan/Projects/wrt-build
+cd /Users/kiritan/Projects/orbyt
 export NIX_CONFIG="experimental-features = nix-command flakes"
-export WRT_WORKDIR=/mnt/wrt
-export WRT_TESTDIR=/home/kiritan/wrt-test  # the emulator's and the tests' files, on the VM's own disk
+export ORBYT_WORKDIR=/mnt/orbyt
+export ORBYT_TESTDIR=/home/kiritan/orbyt-test  # the emulator's and the tests' files, on the VM's own disk
 nix develop -c just build r4s dev  # check the board, fetch, patch, toolchain, config, build
 ```
 
@@ -88,22 +88,22 @@ just download                # every source the configured board's build needs
 just env-report
 ```
 
-The boards share one source tree and one toolchain, built without any board's CPU flags by `just toolchain-build`: the cross toolchain, and the Go and Rust host toolchains built on it (in `staging_dir/hostpkg`). `just build` brings the toolchain up to date first. A toolchain is built anew, as a whole, when it has no record of the flags it was built with, when the configuration's flags differ from the recorded ones, or when its C library or Rust's standard library is not the one its record names. So it is when the content it is built from changes: `toolchain/`, its patches included, or the generic kernel files of the board's kernel version, from which its kernel headers come; every make in the tree checks that, committed or not (patch 0038). Each board builds in directories of its own (`build_dir/target-*_<board>`, `staging_dir/target-*_<board>` and `bin/<board>`), so building one board leaves another's build as it was, and a board's build that compiles any part of the toolchain fails. A board's build directory records the toolchain it was built with: once the toolchain is built anew, each board builds all its packages anew when it is built next, and only then. The outputs go to `$WRT_WORKDIR/out/<board>/<profile>`, and `just test <board> <profile>` boots them in the emulator.
+The boards share one source tree and one toolchain, built without any board's CPU flags by `just toolchain-build`: the cross toolchain, and the Go and Rust host toolchains built on it (in `staging_dir/hostpkg`). `just build` brings the toolchain up to date first. A toolchain is built anew, as a whole, when it has no record of the flags it was built with, when the configuration's flags differ from the recorded ones, or when its C library or Rust's standard library is not the one its record names. So it is when the content it is built from changes: `toolchain/`, its patches included, or the generic kernel files of the board's kernel version, from which its kernel headers come; every make in the tree checks that, committed or not (patch 0038). Each board builds in directories of its own (`build_dir/target-*_<board>`, `staging_dir/target-*_<board>` and `bin/<board>`), so building one board leaves another's build as it was, and a board's build that compiles any part of the toolchain fails. A board's build directory records the toolchain it was built with: once the toolchain is built anew, each board builds all its packages anew when it is built next, and only then. The outputs go to `$ORBYT_WORKDIR/out/<board>/<profile>`, and `just test <board> <profile>` boots them in the emulator.
 
 A build rebuilds only what changed. `just patch` moves the source tree to the patched commits in one checkout, so a file whose content stays the same keeps its modification time, and the build's stamps are named after the content of what they were built from and the target's compiler flags. A build with nothing changed therefore compiles nothing, and a change of `CONFIG_EXTRA_OPTIMIZATION` rebuilds every package with the new flags.
 
-The compiler caches live beside the tree, in `$WRT_WORKDIR/compiler-cache`, one per language: `ccache/` for C and C++ (with `config/ccache.conf` linked in), `go-build/` for Go's build cache, and `sccache/` for Rust packages. The tree links them as `.ccache`, `tmp/go-build` and `.sccache`, so they outlive the tree, and every build reports what each of them served.
+The compiler caches live beside the tree, in `$ORBYT_WORKDIR/compiler-cache`, one per language: `ccache/` for C and C++ (with `config/ccache.conf` linked in), `go-build/` for Go's build cache, and `sccache/` for Rust packages. The tree links them as `.ccache`, `tmp/go-build` and `.sccache`, so they outlive the tree, and every build reports what each of them served.
 
 Every build ends with a report of the stages that took the most time (`docs/ci.md`, Build time). Before build-acceleration, `just build r4s dev` with nothing changed took 28 minutes (2026-10-03, 23 of them in make): re-applying the patch series gave every patched file a new modification time, so the kernel was prepared (3:48) and compiled (9:47) again, and 16 packages with it, 58 stages in all. Since, the same build takes 5 minutes and a half (2026-10-04): 22 s of make, in which only the kernel's two forced passes run, and find nothing to build; the rest is fetch, patch, two make defconfig and the outputs.
 
-A board's build directories take about 18 GB with the `dev` profile: `build_dir/target-*_<board>` 16 to 17 GB, its staging directory 1 GB (2026-10-04). What the boards share takes about 24 GB: Rust's host build in `build_dir/hostpkg` (16 GB), the cross toolchain's build (4 GB), the host tools' (2 GB) and the installed toolchains (2 GB); the sources and the downloads take 4 GB more, and the compiler caches about 20 GB (ccache up to its 12 GB, Go's cache 7 GB, sccache's 0.5 GB). With both boards built, the 112 GiB volume holds 87 GB. When space runs short, Rust's build stages can go: they sit in `build_dir/hostpkg/rustc-*/build/<build triple>`, which nothing reads after the compiler is installed, as `build/dist` and the stamps next to `build` keep later builds from compiling Rust again. So can a board's `build_dir/target-*_<board>` (the compiler caches keep its next build short), or old emulator directories under `$WRT_TESTDIR/emu`.
+A board's build directories take about 18 GB with the `dev` profile: `build_dir/target-*_<board>` 16 to 17 GB, its staging directory 1 GB (2026-10-04). What the boards share takes about 24 GB: Rust's host build in `build_dir/hostpkg` (16 GB), the cross toolchain's build (4 GB), the host tools' (2 GB) and the installed toolchains (2 GB); the sources and the downloads take 4 GB more, and the compiler caches about 20 GB (ccache up to its 12 GB, Go's cache 7 GB, sccache's 0.5 GB). With both boards built, the 112 GiB volume holds 87 GB. When space runs short, Rust's build stages can go: they sit in `build_dir/hostpkg/rustc-*/build/<build triple>`, which nothing reads after the compiler is installed, as `build/dist` and the stamps next to `build` keep later builds from compiling Rust again. So can a board's `build_dir/target-*_<board>` (the compiler caches keep its next build short), or old emulator directories under `$ORBYT_TESTDIR/emu`.
 
 Notes:
 
-- Commands that need an FHS environment enter it themselves; you do not need to enter it manually. Build-related commands enter `wrt-build-fhs`; tests and `env-report` enter `wrt-test-fhs` (which contains all the tools of the build environment).
+- Commands that need an FHS environment enter it themselves; you do not need to enter it manually. Build-related commands enter `orbyt-build-fhs`; tests and `env-report` enter `orbyt-test-fhs` (which contains all the tools of the build environment).
 - Running these commands directly on macOS fails immediately with a hint and creates no directories.
 - `just check` and `just fmt` run on any host; see `docs/conventions.md` for the rules.
-- Keep the tests off the work volume: set `WRT_TESTDIR` to a directory on the VM's own disk (its default is `$WRT_WORKDIR`). The loop-mounted volume reaches its SSD through the host, and a flush there waits until the host has written everything it holds for the volume, a minute for a gigabyte. ext4 flushes with every journal commit, so a test's burst of writes stalls every writer on the volume for seconds, the emulator with its disks too, and the router then misses its network deadlines. The VM's own disk flushes the same gigabyte in half a second. `scripts/workdir-mount.sh` also has the loop device use direct I/O, so the VM does not cache the volume a second time, and small dirty-page limits in the VM (`vm.dirty_bytes` of 256 MB, `vm.dirty_background_bytes` of 64 MB, in `/etc/nixos/configuration.nix`) keep writes from piling up in it.
+- Keep the tests off the work volume: set `ORBYT_TESTDIR` to a directory on the VM's own disk (its default is `$ORBYT_WORKDIR`). The loop-mounted volume reaches its SSD through the host, and a flush there waits until the host has written everything it holds for the volume, a minute for a gigabyte. ext4 flushes with every journal commit, so a test's burst of writes stalls every writer on the volume for seconds, the emulator with its disks too, and the router then misses its network deadlines. The VM's own disk flushes the same gigabyte in half a second. `scripts/workdir-mount.sh` also has the loop device use direct I/O, so the VM does not cache the volume a second time, and small dirty-page limits in the VM (`vm.dirty_bytes` of 256 MB, `vm.dirty_background_bytes` of 64 MB, in `/etc/nixos/configuration.nix`) keep writes from piling up in it.
 - Run one heavy job on the VM at a time: a build, or one board's tests.
 
 Flakes cannot see new files that are not yet committed to the repository (by default they use only files tracked by git). Until you commit, use `nix develop path:.` instead of `nix develop`.

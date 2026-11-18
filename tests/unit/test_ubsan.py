@@ -1,20 +1,20 @@
-"""A ubsan build's traps, read from the kernel log and the console (wrt_tests.device.ubsan)."""
+"""A ubsan build's traps, read from the kernel log and the console (orbyt_tests.device.ubsan)."""
 
 from typing import TYPE_CHECKING, cast
 
 import pytest
 
-from wrt_tests.device.ubsan import Trap, Traps, parse, report
+from orbyt_tests.device.ubsan import Trap, Traps, parse, report
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
+    from orbyt_tests.device.router import Router
 
 # What arm64_show_signal logs for a process killed by a UBSan trap, and for one
 # killed by a segmentation fault, with the kernel's time in front.
 TRAP = """\
-[   41.112233] wrt-ubsan-probe[1234]: unhandled exception: User debug trap in \
-wrt-ubsan-probe[aaaab4560000+1000]
-[   41.112240] CPU: 1 UID: 0 PID: 1234 Comm: wrt-ubsan-probe Not tainted 6.18.52 #0
+[   41.112233] orbyt-ubsan-probe[1234]: unhandled exception: User debug trap in \
+orbyt-ubsan-probe[aaaab4560000+1000]
+[   41.112240] CPU: 1 UID: 0 PID: 1234 Comm: orbyt-ubsan-probe Not tainted 6.18.52 #0
 [   41.112245] Hardware name: FriendlyElec NanoPi R4S (DT)
 [   41.112250] pstate: 60001000 (nZCv daif -PAN -UAO -TCO -DIT +SSBS BTYPE=--)
 [   41.112255] pc : 0000aaaab4560654
@@ -30,10 +30,10 @@ level 2 translation fault in netifd[aaaac0000000+30000]
 def test_a_trap_names_its_process_and_address() -> None:
     assert parse(TRAP + SEGFAULT) == [
         Trap(
-            process="wrt-ubsan-probe",
+            process="orbyt-ubsan-probe",
             pid=1234,
             pc="0000aaaab4560654",
-            where=" in wrt-ubsan-probe[aaaab4560000+1000]",
+            where=" in orbyt-ubsan-probe[aaaab4560000+1000]",
             time="41.112233",
         )
     ]
@@ -42,7 +42,7 @@ def test_a_trap_names_its_process_and_address() -> None:
 def test_a_log_without_times_still_names_the_trap() -> None:
     plain = "\n".join(line.split("] ", 1)[1] for line in TRAP.splitlines())
     assert [str(trap) for trap in parse(plain)] == [
-        "wrt-ubsan-probe[1234] at pc 0000aaaab4560654 in wrt-ubsan-probe[aaaab4560000+1000]"
+        "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654 in orbyt-ubsan-probe[aaaab4560000+1000]"
     ]
 
 
@@ -86,7 +86,7 @@ def test_each_trap_is_reported_once() -> None:
     # answer has nothing to report of its own.
     traps = Traps(cast("Router", _Router("", TRAP, TRAP, None)))
     assert traps.new() == []
-    assert [trap.process for trap in traps.new()] == ["wrt-ubsan-probe"]
+    assert [trap.process for trap in traps.new()] == ["orbyt-ubsan-probe"]
     assert traps.new() == []
     assert traps.new() == []
 
@@ -98,7 +98,7 @@ def test_a_trap_before_a_reboot_is_reported() -> None:
     assert traps.new() == []
     router.emulator.console.record = TRAP + REBOOT
     assert [str(trap) for trap in traps.new()] == [
-        "wrt-ubsan-probe[1234] at pc 0000aaaab4560654 in wrt-ubsan-probe[aaaab4560000+1000]"
+        "orbyt-ubsan-probe[1234] at pc 0000aaaab4560654 in orbyt-ubsan-probe[aaaab4560000+1000]"
     ]
 
 
@@ -106,7 +106,7 @@ def test_a_trap_in_the_console_and_the_kernel_log_is_reported_once() -> None:
     router = _Router(TRAP, TRAP, None)
     router.emulator.console.record = TRAP
     traps = Traps(cast("Router", router))
-    assert [trap.process for trap in traps.new()] == ["wrt-ubsan-probe"]
+    assert [trap.process for trap in traps.new()] == ["orbyt-ubsan-probe"]
     assert traps.new() == []
     # A router that does not answer: the console still has nothing new.
     assert traps.new() == []
@@ -122,5 +122,5 @@ def test_a_report_still_arriving_is_reported_once_whole() -> None:
 
 def test_a_trap_fails_naming_each_process() -> None:
     report([], "during the test")
-    with pytest.raises(pytest.fail.Exception, match=r"wrt-ubsan-probe\[1234\] at pc"):
+    with pytest.raises(pytest.fail.Exception, match=r"orbyt-ubsan-probe\[1234\] at pc"):
         report(parse(TRAP), "during the test")

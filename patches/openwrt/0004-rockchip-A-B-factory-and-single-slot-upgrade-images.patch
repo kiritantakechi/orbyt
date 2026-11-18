@@ -3,7 +3,7 @@ From: kiritantakechi <kiritantakechi@gmail.com>
 Date: Mon, 28 Sep 2026 23:55:25 +0800
 Subject: [PATCH] rockchip: A/B factory and single-slot upgrade images
 
-Give the devices of wrt-build's boards, as env/wrt-boards.mk lists them,
+Give the devices of Orbyt's boards, as env/orbyt-boards.mk lists them,
 two slots: boot-A, root-A, boot-B and root-B on an MBR after the 32 MiB
 that hold u-boot-rockchip.bin. The factory image carries the same system
 in both slots and an empty U-Boot environment, so the first boot takes
@@ -15,7 +15,7 @@ gen_image_ab.sh writes the disk. Both images build the boot partition
 the same way (ab-boot). Every other device is unchanged.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
-Upstream-Status: Inappropriate [wrt-build's A/B slot layout]
+Upstream-Status: Inappropriate [Orbyt's A/B slot layout]
 ---
  scripts/gen_image_ab.sh              | 30 ++++++++++++++++++++++++++++
  target/linux/rockchip/image/Makefile | 29 +++++++++++++++++++++++++++
@@ -66,8 +66,8 @@ index d46d192..0b4063f 100644
  include $(TOPDIR)/rules.mk
  include $(INCLUDE_DIR)/image.mk
  
-+# The devices of wrt-build's boards, which take the A/B images (Device/wrt-ab).
-+include $(TOPDIR)/env/wrt-boards.mk
++# The devices of Orbyt's boards, which take the A/B images (Device/orbyt-ab).
++include $(TOPDIR)/env/orbyt-boards.mk
 +
  DEVICE_VARS += UBOOT_DEVICE_NAME
  
@@ -100,12 +100,12 @@ index d46d192..0b4063f 100644
    DEVICE_DTS_DIR = $$(DTS_DIR)/rockchip
    DEVICE_DTS = $$(SOC)-$(lastword $(subst _, ,$(1)))
    UBOOT_DEVICE_NAME = $(lastword $(subst _, ,$(1)))-$$(SOC)
-+  $(if $(filter $(1),$(WRT_AB_DEVICES)),$(Device/wrt-ab))
++  $(if $(filter $(1),$(ORBYT_AB_DEVICES)),$(Device/orbyt-ab))
 +endef
 +
-+# A/B slots of wrt-build: a factory image with both slots and a single-slot
++# A/B slots of Orbyt: a factory image with both slots and a single-slot
 +# upgrade image, whose kernel member is the boot partition of the slot.
-+define Device/wrt-ab
++define Device/orbyt-ab
 +  IMAGES := factory.img.gz sysupgrade.tar.gz
 +  IMAGE/factory.img.gz = boot-common | ab-boot | ab-disk | gzip
 +  IMAGE/sysupgrade.tar.gz = boot-common | ab-boot | sysupgrade-tar kernel=$$$$@.bootfs | gzip | append-metadata

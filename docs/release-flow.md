@@ -11,10 +11,10 @@ Monday: bump.yml ── upstream moved ──> pushes bump/<date> (its build run
          -> publish         (a pre-release: the candidate, with every board's assets)
   the PR merges once check and upgrade-drill passed
 main: the same pipeline -> sign (approval) -> upgrade-drill -> publish (the stable release)
-router: wrt-sync (daily, through honk) -> /mnt/data/repo/current -> apk, wrt-update
+router: orbyt-sync (daily, through honk) -> /mnt/data/repo/current -> apk, orbyt-update
 ```
 
-GitHub runs the pipeline and holds the releases; the repository itself lives on Codeberg (codeberg.org/kiritan/wrt-build), and GitHub (github.com/kiritantakechi/wrt-build) mirrors it.
+GitHub runs the pipeline and holds the releases; the repository itself lives on Codeberg (codeberg.org/kiritan/orbyt), and GitHub (github.com/kiritantakechi/orbyt) mirrors it.
 
 ## Step by step
 
@@ -23,11 +23,11 @@ GitHub runs the pipeline and holds the releases; the repository itself lives on 
    Every commit pushed to the branch, the maintainer's fixes among them, starts the branch's build anew, and that run decides the pull request. The pull request's own run builds nothing (it cannot sign) and reports its drill job as `upgrade-drill of the branch`, so the required `upgrade-drill` waits for the branch's run. A commit that changes only documents no test reads starts no build, and leaves the pull request waiting on it: record a run in `docs/ci.md` on main after the merge.
 2. **The build.** `build.yml` builds the ci profile, the release build, of every board under `boards/`, and tests each board's build in the emulator with keys made for the run. A patch that no longer applies fails `host-toolchain`, the first job, and names the patch; a patch whose change upstream has made, so that it applies in reverse, is named as such, to be dropped rather than refreshed.
 3. **The signing approval.** `sign` waits for the maintainer: GitHub asks for a review of the `release-signing` deployment in the run's page (Review deployments, then Approve and deploy). Before approving, read the pull request's diff and the build's log. `sign` then runs the pinned signing tools (`nix run .#sign-tools`) on every board's unsigned artifacts and nothing else, all in this one approval; the keys exist only in that environment. Each artifact is signed as the board it is named after, whose manifest must say so; every file the manifest lists must match it, and only those files are passed on.
-4. **The upgrade drill.** For each board, `drill` boots the board's latest stable release in the emulator (this build itself before the first one), pushes a test configuration with `config-push`, syncs the signed candidate with `wrt-sync --candidate`, upgrades with `wrt-update` and waits for the health check to confirm the new slot. The configuration must still be there. A candidate that is never confirmed is rolled back by U-Boot, and that board's drill fails. The check `upgrade-drill` passes only when the system tests and every board's drill passed; on a pull request, where nothing is signed and no drill runs, the system tests alone decide it, except for a bump's, whose check is its branch's run's.
+4. **The upgrade drill.** For each board, `drill` boots the board's latest stable release in the emulator (this build itself before the first one), pushes a test configuration with `config-push`, syncs the signed candidate with `orbyt-sync --candidate`, upgrades with `orbyt-update` and waits for the health check to confirm the new slot. The configuration must still be there. A candidate that is never confirmed is rolled back by U-Boot, and that board's drill fails. The check `upgrade-drill` passes only when the system tests and every board's drill passed; on a pull request, where nothing is signed and no drill runs, the system tests alone decide it, except for a bump's, whose check is its branch's run's.
 5. **The candidate.** `publish` makes the drilled candidate a pre-release: routers on the candidate channel get it, the others do not. A release carries each board's set: the factory and upgrade images, whose names carry the board's OpenWrt device (`friendlyarm_nanopi-r4s`, `friendlyarm_nanopi-r6s`), and the package repository, the manifest and its signature named after it (`<device>-repo.tar`, `<device>-manifest.json`, `<device>-manifest.json.sig`). One `SHA256SUMS` covers every asset. Boards built from different sources, or from different commits of this repository, are never published together, and the notes name the lock the builds were made from. A release is tagged on the commit that was built, and only while that commit is current for its branch: the branch holds it, or has moved past it by commits that change only files `build.yml` does not run for, as documentation commits do, which start no run of their own (`scripts/lib/runs.sh` holds `build.yml`'s `paths` for the scripts). A run its branch has moved past by a change the build reads, a re-run among them, publishes nothing: the newer run does.
 6. **The merge.** main's rules let the pull request merge only after `check` and `upgrade-drill` passed. Merge it on GitHub, then bring main to Codeberg (below).
 7. **The stable release.** The push to main runs the pipeline again: another approval, another drill, and `publish` makes it the latest stable release, tagged `r<date>-<openwrt commit>-<run>`. Its notes name the upstream commits, the patch queue's hash and the kernel.
-8. **The router.** At 04:43 every day `wrt-sync` fetches its board's set of the newest stable release into the data disk, through honk like any LAN traffic; `wrt-update` upgrades to it when you choose.
+8. **The router.** At 04:43 every day `orbyt-sync` fetches its board's set of the newest stable release into the data disk, through honk like any LAN traffic; `orbyt-update` upgrades to it when you choose.
 
 ### Bringing main to Codeberg
 
@@ -43,19 +43,19 @@ Anything pushed to main goes to both remotes, Codeberg first.
 
 ## On the router
 
-The router's first release is a flash of the stable release's factory image (`docs/migration-single-to-ab.md`). It trusts the release keys only: the image's `/etc/apk/keys` and `/etc/usign/keys` hold nothing else (`wrt-keyring`).
+The router's first release is a flash of the stable release's factory image (`docs/migration-single-to-ab.md`). It trusts the release keys only: the image's `/etc/apk/keys` and `/etc/usign/keys` hold nothing else (`orbyt-keyring`).
 
 ```sh
-wrt-sync                   # fetch the newest stable release; prints "<tag> is current"
+orbyt-sync                   # fetch the newest stable release; prints "<tag> is current"
 apk add kmod-dummy         # packages and kmods come from the local repository
-wrt-update                 # upgrade to the current release (the other slot, on trial)
+orbyt-update                 # upgrade to the current release (the other slot, on trial)
 ```
 
 - **The local repository** is `/mnt/data/repo`: `releases/<tag>` for the three latest releases and `current` for the newest. apk reads `current`, so packages install with the WAN down; without the data disk apk finds no repository, and the router goes on routing.
 - **Nothing unverified becomes current.** The container fetches the router's own board's set into `.incoming`: the manifest and its signature and the package repository named after the device its board name gives (`friendlyarm,nanopi-r6s` is `friendlyarm_nanopi-r6s`), and the upgrade image the manifest names. The router makes it current only once the manifest's signature verifies with the release keys, the manifest lists the upgrade image and the package indexes, and each of them matches it. An interrupted sync, or a file that differs from the manifest, leaves the previous release current, and what a sync downloaded goes when it ends, whether its release became current or not. `current` changes by one rename over the link, flushed to the disk before the sync reports it, so a power cut leaves one release current or the other.
-- **Nothing unsigned is installed.** sysupgrade refuses an upgrade image without a valid signature of a release key (`REQUIRE_IMAGE_SIGNATURE`), and `wrt-update` never forces it. The signature's certificate is valid from the moment of signing, so the router's clock must be right: NTP sets it once the WAN is up.
-- **Candidates** come only on request: `uci set wrt-sync.main.channel=candidate && uci commit wrt-sync`, or once with `wrt-sync --candidate`.
-- **An older release** of the three kept upgrades like the current one: `sysupgrade /mnt/data/repo/releases/<tag>/targets/*-sysupgrade.tar.gz`. Going back to the other slot needs no upgrade at all: `wrt-slot switch`.
+- **Nothing unsigned is installed.** sysupgrade refuses an upgrade image without a valid signature of a release key (`REQUIRE_IMAGE_SIGNATURE`), and `orbyt-update` never forces it. The signature's certificate is valid from the moment of signing, so the router's clock must be right: NTP sets it once the WAN is up.
+- **Candidates** come only on request: `uci set orbyt-sync.main.channel=candidate && uci commit orbyt-sync`, or once with `orbyt-sync --candidate`.
+- **An older release** of the three kept upgrades like the current one: `sysupgrade /mnt/data/repo/releases/<tag>/targets/*-sysupgrade.tar.gz`. Going back to the other slot needs no upgrade at all: `orbyt-slot switch`.
 
 A dev image (`just build <board> dev`) requires signed upgrades as well; it trusts the key its build made. Force a dev image onto a router of your own with `sysupgrade -F`.
 
@@ -67,15 +67,15 @@ Once, in this order. Each step is the maintainer's; `just github-audit` reads ba
 2. **The release keys**, on the maintainer's own machine:
 
    ```sh
-   just release-keys ~/wrt-release-keys --upload
+   just release-keys ~/orbyt-release-keys --upload
    ```
 
-   It makes the apk key (EC P-256) and the firmware key (usign) in that new directory, puts their public halves into `feed/utils/wrt-keyring/files`, and with `--upload` stores the private halves as the environment's secrets `RELEASE_APK_KEY` and `RELEASE_FW_KEY`. Back the directory up offline, then delete it; commit the public keys.
+   It makes the apk key (EC P-256) and the firmware key (usign) in that new directory, puts their public halves into `feed/utils/orbyt-keyring/files`, and with `--upload` stores the private halves as the environment's secrets `RELEASE_APK_KEY` and `RELEASE_FW_KEY`. Back the directory up offline, then delete it; commit the public keys.
 3. **Signing on.** The repository variable `RELEASE_SIGNING` set to `enabled` (Settings, Secrets and variables, Actions, Variables). Until then `sign` and what follows are skipped.
 4. **The first stable release** is the first run of main after that: approve it, and it is drilled from this build and published.
 
 ### Rotating a key
 
-1. Make the new pair with `just release-keys` (without `--upload`); keep both public keys in `wrt-keyring` and publish a release signed with the old key: routers now trust both.
+1. Make the new pair with `just release-keys` (without `--upload`); keep both public keys in `orbyt-keyring` and publish a release signed with the old key: routers now trust both.
 2. Once the routers run it, upload the new private keys (`gh secret set RELEASE_APK_KEY --env release-signing` and the same for `RELEASE_FW_KEY`). The next release is signed with the new keys.
-3. When no router needs the old key, remove its public half from `wrt-keyring`.
+3. When no router needs the old key, remove its public half from `orbyt-keyring`.

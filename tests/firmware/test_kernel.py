@@ -5,23 +5,23 @@ import subprocess
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.device.ab import BOOT_DISK
+from orbyt_tests import spec
+from orbyt_tests.device.ab import BOOT_DISK
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/kernel"
 PATCHES = Path(__file__).resolve().parents[2] / "patches" / "openwrt"
 BBR3_ONLY_SYMBOLS = ("bbr_skb_marked_lost", "bbr_tso_segs")
 KERNEL_PATCH_DIR = re.compile(r"^target/linux/[^/]+/(patches|hack|pending|backport)-[0-9.]+/")
 BBR3_PATCH = re.compile(r"^target/linux/generic/hack-[0-9.]+/960-bbr3-")
-BPF_OBJECT = "/tmp/wrt_pass.o"  # noqa: S108 (a path on the router)
+BPF_OBJECT = "/tmp/orbyt_pass.o"  # noqa: S108 (a path on the router)
 # The smallest tcx program: it hands every packet on (TCX_NEXT). libbpf derives the
 # program and attach type from the section name.
 TCX_SOURCE = """\
-__attribute__((section("tcx/ingress"), used)) int wrt_pass(void *ctx) { return -1; }
+__attribute__((section("tcx/ingress"), used)) int orbyt_pass(void *ctx) { return -1; }
 char LICENSE[] __attribute__((section("license"), used)) = "GPL";
 """
 
@@ -55,7 +55,7 @@ def test_cgroup2_only(router: Router) -> None:
 
 @spec(CAPABILITY, "BPF and cgroup v2", "Load a tcx program")
 def test_tcx_program_attaches(router: Router, tmp_path: Path) -> None:
-    program = tmp_path / "wrt_pass.o"
+    program = tmp_path / "orbyt_pass.o"
     subprocess.run(
         ["clang", "--target=bpf", "-O2", "-g", "-c", "-x", "c", "-", "-o", str(program)],
         input=TCX_SOURCE,
@@ -64,14 +64,14 @@ def test_tcx_program_attaches(router: Router, tmp_path: Path) -> None:
     )
     router.put(program, BPF_OBJECT)
     router.run("mountpoint -q /sys/fs/bpf || mount -t bpf bpf /sys/fs/bpf")
-    router.run(f"bpftool prog load {BPF_OBJECT} /sys/fs/bpf/wrt_pass")
+    router.run(f"bpftool prog load {BPF_OBJECT} /sys/fs/bpf/orbyt_pass")
     try:
-        router.run("bpftool net attach tcx_ingress pinned /sys/fs/bpf/wrt_pass dev br-lan")
+        router.run("bpftool net attach tcx_ingress pinned /sys/fs/bpf/orbyt_pass dev br-lan")
         listing = router.run("bpftool net show dev br-lan")
-        assert re.search(r"tcx/ingress\s+wrt_pass\b", listing), listing
+        assert re.search(r"tcx/ingress\s+orbyt_pass\b", listing), listing
     finally:
         router.returncode("bpftool net detach tcx_ingress dev br-lan")
-        router.run("rm -f /sys/fs/bpf/wrt_pass")
+        router.run("rm -f /sys/fs/bpf/orbyt_pass")
 
 
 @spec(CAPABILITY, "Root and overlay filesystems built in", "Boot without loading modules")
@@ -163,9 +163,9 @@ def test_kmod_of_another_kernel_is_refused(router: Router) -> None:
     (installed,) = router.run("apk list --installed kernel | cut -d' ' -f1").split()
     own = f"kernel={installed.removeprefix('kernel-')}"
     assert own.startswith(f"kernel={version}~"), own
-    router.run(f"apk add --virtual kmod-wrt-vermagic-probe '{own}'")
-    router.run("apk del kmod-wrt-vermagic-probe")
+    router.run(f"apk add --virtual kmod-orbyt-vermagic-probe '{own}'")
+    router.run("apk del kmod-orbyt-vermagic-probe")
     dependency = f"kernel={version}~{'0' * 32}-r1"
-    code = router.returncode(f"apk add --virtual kmod-wrt-vermagic-probe '{dependency}'")
+    code = router.returncode(f"apk add --virtual kmod-orbyt-vermagic-probe '{dependency}'")
     assert code != 0
-    assert router.returncode("apk info -e kmod-wrt-vermagic-probe") != 0
+    assert router.returncode("apk info -e kmod-orbyt-vermagic-probe") != 0

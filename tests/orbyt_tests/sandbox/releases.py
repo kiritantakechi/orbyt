@@ -1,0 +1,207 @@
+"""A stand-in for GitHub's Releases API on the emulated internet (r4s-release-pipeline D7).
+
+``serve`` answers what orbyt-sync asks, over HTTPS with the test CA's certificate:
+a repository's newest stable release (``/repos/<owner>/<repo>/releases/latest``),
+its releases newest first (``/repos/<owner>/<repo>/releases``), and each asset at
+its ``browser_download_url`` (``/<owner>/<repo>/releases/download/<tag>/<asset>``,
+as on GitHub). A repository's releases are directories under
+``<root>/<owner>/<repo>``, each an assembled release (release-publish.sh) that
+``publish`` put there, with the time it did in ``.published``. A release with a
+``.cut`` file sends only that many bytes of each asset, then drops the
+connection: a sync interrupted halfway. Every download is recorded in the
+release's ``.downloads``, which ``downloads`` reads.
+"""
+
+import argparse
+import json
+import os
+import shutil
+import ssl
+import time
+from http import HTTPStatus
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, override
+
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.outputs import RELEASE_FILE, Release
+
+PORT = 443
+CHUNK = 1 << 16
+DOWNLOADS = ".downloads"
+PUBLISHED = ".published"
+# Where the sandbox's stand-in serves from, in the sandbox's directory.
+ROOT = Path("inet") / "releases"
+
+
+def publish(
+    root: Path,
+    repository: str,
+    release: Path,
+    *,
+    tag: str | None = None,
+    prerelease: bool | None = None,
+) -> str:
+    """Publish an assembled release in ``repository`` (owner/repo), the newest now; return its tag.
+
+    ``tag`` and ``prerelease`` publish it as another release: one assembled
+    build stands for several. Its files are linked, not copied (none changes).
+    """
+    info = read_json(release / RELEASE_FILE, Release)
+    info = info.model_copy(
+        update={
+            "tag": tag or info.tag,
+            "prerelease": info.prerelease if prerelease is None else prerelease,
+        }
+    )
+    target = root / repository / info.tag
+    shutil.copytree(release, target, copy_function=os.link)
+    write_json(target / RELEASE_FILE, info)
+    (target / PUBLISHED).write_text(str(time.time()))
+    return info.tag
+
+
+def rename(root: Path, repository: str, tag: str, name: str) -> None:
+    """Have the API name release ``tag`` ``name``; its directory, and its assets' URLs, stay.
+
+    ``name`` may be no file name at all, as a misbehaving service would answer.
+    """
+    target = root / repository / tag
+    info = read_json(target / RELEASE_FILE, Release)
+    write_json(target / RELEASE_FILE, info.model_copy(update={"tag": name}))
+
+
+def cut(root: Path, repository: str, tag: str, size: int | None) -> None:
+    """Have downloads of ``tag`` stop after ``size`` bytes, or run whole again (None)."""
+    marker = root / repository / tag / ".cut"
+    if size is None:
+        marker.unlink(missing_ok=True)
+    else:
+        marker.write_text(str(size))
+
+
+def downloads(root: Path, repository: str, tag: str) -> list[str]:
+    """Return the assets of ``tag`` downloaded so far, in order, each as often as it was."""
+    record = root / repository / tag / DOWNLOADS
+    return record.read_text().splitlines() if record.is_file() else []
+
+
+def _releases(directory: Path, base: str) -> list[dict[str, Any]]:
+    """Return a repository's releases in the API's form, newest first."""
+    found = []
+    for release in directory.iterdir() if directory.is_dir() else ():
+        if not (release / PUBLISHED).is_file():
+            continue
+        info = read_json(release / RELEASE_FILE, Release)
+        found.append(
+            {
+                "tag_name": info.tag,
+                "name": info.tag,
+                "prerelease": info.prerelease,
+                "draft": False,
+                "body": info.notes,
+                "published": float((release / PUBLISHED).read_text()),
+                "assets": [
+                    {
+                        "name": asset,
+                        "size": (release / asset).stat().st_size,
+                        "browser_download_url": f"{base}/download/{release.name}/{asset}",
+                    }
+                    for asset in info.assets
+                    if asset != RELEASE_FILE
+                ],
+            }
+        )
+    return sorted(found, key=lambda release: -release["published"])
+
+
+class _Handler(BaseHTTPRequestHandler):
+    root: Path
+    base: str
+
+    @override
+    def log_message(self, format: str, *args: object) -> None:
+        """Keep the test output free of access logs."""
+
+    def _json(self, value: object) -> None:
+        body = json.dumps(value).encode()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _listed(self, owner: str, name: str) -> list[dict[str, Any]]:
+        return _releases(self.root / owner / name, f"{self.base}/{owner}/{name}/releases")
+
+    def do_GET(self) -> None:
+        """Answer the API's requests and the downloads."""
+        path = self.path.split("?", 1)[0].strip("/").split("/")
+        match path:
+            case ["repos", owner, name, "releases"]:
+                self._json(self._listed(owner, name))
+            case ["repos", owner, name, "releases", "latest"]:
+                stable = [r for r in self._listed(owner, name) if not r["prerelease"]]
+                if stable:
+                    self._json(stable[0])
+                else:
+                    self.send_error(HTTPStatus.NOT_FOUND)
+            case [owner, name, "releases", "download", tag, asset] if (
+                self.root / owner / name / tag / asset
+            ).is_file():
+                release = self.root / owner / name / tag
+                self._download(release / asset, release / ".cut")
+            case _:
+                self.send_error(HTTPStatus.NOT_FOUND)
+
+    def _download(self, file: Path, cut_file: Path) -> None:
+        with (file.parent / DOWNLOADS).open("a") as record:
+            record.write(f"{file.name}\n")
+        size = file.stat().st_size
+        limit = int(cut_file.read_text()) if cut_file.is_file() else size
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Length", str(size))
+        self.end_headers()
+        with file.open("rb") as source:
+            remaining = min(size, limit)
+            while remaining:
+                chunk = source.read(min(CHUNK, remaining))
+                self.wfile.write(chunk)
+                remaining -= len(chunk)
+        if limit < size:
+            self.close_connection = True
+            self.connection.close()
+
+
+def serve(root: Path, address: str, name: str, certificate: Path, key: Path) -> None:
+    """Serve the releases under ``root`` on ``address`` as https://``name``."""
+    root.mkdir(parents=True, exist_ok=True)
+    handler = type("Handler", (_Handler,), {"root": root, "base": f"https://{name}"})
+    context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    context.load_cert_chain(certificate, key)
+    with ThreadingHTTPServer((address, PORT), handler) as server:
+        # Each handshake runs in its request's thread, on the first read
+        # (OpenSSL negotiates there), not in accept: a client that connects
+        # ahead and sends nothing yet, as a proxy's connection pool does,
+        # would otherwise hold up every client behind it.
+        server.socket = context.wrap_socket(
+            server.socket, server_side=True, do_handshake_on_connect=False
+        )
+        server.serve_forever()
+
+
+def main() -> None:
+    """Command line: serve the releases of a directory."""
+    parser = argparse.ArgumentParser(prog="releases", description=__doc__.splitlines()[0])
+    parser.add_argument("root", type=Path)
+    parser.add_argument("--address", required=True)
+    parser.add_argument("--name", required=True)
+    parser.add_argument("--certificate", type=Path, required=True)
+    parser.add_argument("--key", type=Path, required=True)
+    args = parser.parse_args()
+    serve(args.root, args.address, args.name, args.certificate, args.key)
+
+
+if __name__ == "__main__":
+    main()

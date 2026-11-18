@@ -12,18 +12,18 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests.sandbox.isp import LOGIN
-from wrt_tests.services.config import ConfigRepository
-from wrt_tests.services.datapath import PROXY_CONFIG
-from wrt_tests.services.drill import Drill
-from wrt_tests.services.vpn import key_pair
+from orbyt_tests.sandbox.isp import LOGIN
+from orbyt_tests.services.config import ConfigRepository
+from orbyt_tests.services.datapath import PROXY_CONFIG
+from orbyt_tests.services.drill import Drill
+from orbyt_tests.services.vpn import key_pair
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wrt_tests.device.storage import Disk
-    from wrt_tests.model.keys import Keys
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.storage import Disk
+    from orbyt_tests.model.keys import Keys
+    from orbyt_tests.services.datapath import Online
 
 SHARE_USER = {"name": "drill", "password": "drill-secret-1"}
 

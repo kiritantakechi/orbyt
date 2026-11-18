@@ -19,26 +19,26 @@ from typing import TYPE_CHECKING, Literal, cast
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.fixtures import claim
-from wrt_tests.device.router import SSH_PORT
-from wrt_tests.model.boards import BOARDS_DIR, Description
-from wrt_tests.model.coverage import VerifiedElsewhere
-from wrt_tests.model.data import DataError, read_json, read_toml
-from wrt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
-from wrt_tests.model.poll import until
-from wrt_tests.model.undefined_behavior import Diagnostic, Review
-from wrt_tests.services.fixtures import pytest_runtest_makereport
-from wrt_tests.services.vpn import LAN_PREFIX, WireGuard
+from orbyt_tests import spec
+from orbyt_tests.device.fixtures import claim
+from orbyt_tests.device.router import SSH_PORT
+from orbyt_tests.model.boards import BOARDS_DIR, Description
+from orbyt_tests.model.coverage import VerifiedElsewhere
+from orbyt_tests.model.data import DataError, read_json, read_toml
+from orbyt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
+from orbyt_tests.model.poll import until
+from orbyt_tests.model.undefined_behavior import Diagnostic, Review
+from orbyt_tests.services.fixtures import pytest_runtest_makereport
+from orbyt_tests.services.vpn import LAN_PREFIX, WireGuard
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
     from pydantic import BaseModel
 
-    from wrt_tests.device.emu import Emulator
-    from wrt_tests.device.router import Router
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.emu import Emulator
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "testing/harness"
 TESTS_DIR = Path(__file__).resolve().parents[1]
@@ -54,7 +54,7 @@ DEMO_SPEC = """## ADDED Requirements
 - **WHEN** a
 - **THEN** b
 """
-COVERED_TEST = """from wrt_tests import spec
+COVERED_TEST = """from orbyt_tests import spec
 
 
 @spec("demo/widget", "Demo", "covered one")
@@ -90,7 +90,7 @@ def demo(tmp_path: Path) -> tuple[Path, Path]:
 
 def _coverage(openspec: Path, tests: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return _python(
-        *("-m", "wrt_tests.model.coverage"),
+        *("-m", "orbyt_tests.model.coverage"),
         *("--openspec", str(openspec), "--tests", str(tests)),
         *args,
         cwd=tests,
@@ -135,7 +135,7 @@ def _wheel(directory: Path, name: str) -> Path:
     files = {
         f"{name}/__init__.py": "",
         f"{dist_info}/METADATA": f"Metadata-Version: 2.1\nName: {name}\nVersion: 1.0\n",
-        f"{dist_info}/WHEEL": "Wheel-Version: 1.0\nGenerator: wrt-tests\nRoot-Is-Purelib: true\n"
+        f"{dist_info}/WHEEL": "Wheel-Version: 1.0\nGenerator: orbyt-tests\nRoot-Is-Purelib: true\n"
         "Tag: py3-none-any\n",
     }
     record = "".join(f"{path},,\n" for path in files) + f"{dist_info}/RECORD,,\n"
@@ -149,7 +149,7 @@ def _wheel(directory: Path, name: str) -> Path:
 @spec(CAPABILITY, "Fixtures by layer", "Fixture defined in the root configuration")
 def test_a_fixture_in_the_root_configuration_fails(demo: tuple[Path, Path]) -> None:
     openspec, tests = demo
-    shutil.copytree(TESTS_DIR / "wrt_tests", tests / "wrt_tests")
+    shutil.copytree(TESTS_DIR / "orbyt_tests", tests / "orbyt_tests")
     (tests / "conftest.py").write_text(
         "import pytest\n\n\n@pytest.fixture(scope='session')\ndef local() -> int:\n    return 1\n"
     )
@@ -276,7 +276,7 @@ DATA_FILES = {
         FIXTURES / "source.json", lambda p: read_json(p, EmulationSource)
     ),
     "toolchain record": _JsonFile(
-        FIXTURES / "wrt-toolchain.json", lambda p: read_json(p, ToolchainRecord)
+        FIXTURES / "orbyt-toolchain.json", lambda p: read_json(p, ToolchainRecord)
     ),
     "release": _JsonFile(FIXTURES / "release.json", lambda p: read_json(p, Release)),
 }
@@ -334,8 +334,8 @@ def test_a_reboot_that_does_not_come_names_its_command(router: Router) -> None:
     assert console_note.startswith("the console since:")
 
 
-# A lock that a process of a command holds, as wrt-sync holds its own.
-LOCK = "/tmp/wrt-test.lock"  # noqa: S108 (a path on the router)
+# A lock that a process of a command holds, as orbyt-sync holds its own.
+LOCK = "/tmp/orbyt-test.lock"  # noqa: S108 (a path on the router)
 COMMAND_LIMIT = 3.0
 LOCK_FREED = 10.0
 
@@ -422,7 +422,7 @@ def test_a_failing_online_test_names_the_datapath(online: Online) -> None:
 
 # A table of the test's own on the router, which drops new connections to SSH:
 # the router takes none, while the one open goes on (test-fidelity D14).
-NO_NEW_SSH = "wrt_test_no_new_ssh"
+NO_NEW_SSH = "orbyt_test_no_new_ssh"
 REPORT_SECONDS = 20.0
 
 

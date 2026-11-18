@@ -1,7 +1,7 @@
 """The UB-indicative warnings, collected and reviewed (toolchain-o3 D4).
 
 The build collects them from its logs (scripts/lib/warnings.sh); the system tests check
-them against the register (wrt_tests.model.undefined_behavior).
+them against the register (orbyt_tests.model.undefined_behavior).
 """
 
 import json
@@ -10,8 +10,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests.model.shell import awk_program, library
-from wrt_tests.model.undefined_behavior import (
+from orbyt_tests.model.shell import awk_program, library
+from orbyt_tests.model.undefined_behavior import (
     Diagnostic,
     Review,
     load_register,

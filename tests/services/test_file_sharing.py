@@ -10,18 +10,18 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.storage import announce, boot_disk_entries, mount_options, wait_mounted
-from wrt_tests.model.poll import until
+from orbyt_tests import spec
+from orbyt_tests.device.storage import announce, boot_disk_entries, mount_options, wait_mounted
+from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.device.storage import Disk
-    from wrt_tests.sandbox.net import Netns
-    from wrt_tests.services.datapath import Online
-    from wrt_tests.services.vpn import Tailnet, WireGuard
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.device.storage import Disk
+    from orbyt_tests.sandbox.net import Netns
+    from orbyt_tests.services.datapath import Online
+    from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 CAPABILITY = "services/file-sharing"
 SHARE = "shares"

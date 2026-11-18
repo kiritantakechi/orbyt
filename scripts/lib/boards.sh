@@ -29,7 +29,7 @@ board_field() (
 
 # write_board_table <tree>: each board's U-Boot variant, id and environment
 # directory, and its device, for the A/B hooks of uboot-rockchip and of the image
-# recipe (env/wrt-boards.mk, board-model D3 and D4).
+# recipe (env/orbyt-boards.mk, board-model D3 and D4).
 write_board_table() (
 	[ -d "$1" ] || die "write_board_table: no build tree at $1"
 	boards=
@@ -43,10 +43,10 @@ write_board_table() (
 		devices="${devices:+${devices} }${device}"
 	done
 	mkdir -p "$1/env"
-	update_file "$1/env/wrt-boards.mk" <<-EOF
+	update_file "$1/env/orbyt-boards.mk" <<-EOF
 		# Written by scripts/lib/boards.sh from boards/*.json (board-model D3, D4): the
 		# U-Boot variant, id and environment directory, and the device of every board.
-		WRT_AB_BOARDS := ${boards}
-		WRT_AB_DEVICES := ${devices}
+		ORBYT_AB_BOARDS := ${boards}
+		ORBYT_AB_DEVICES := ${devices}
 	EOF
 )

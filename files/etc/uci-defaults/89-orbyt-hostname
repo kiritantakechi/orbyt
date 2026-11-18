@@ -1,0 +1,7 @@
+#!/bin/sh
+# The image's name as the hostname (orbyt-brand D3), while the configuration
+# holds the one base-files generates: a name an administrator chose stays.
+hostname=$(uci -q get system.@system[0].hostname) || exit 0
+[ "${hostname}" = OpenWrt ] || exit 0
+uci set system.@system[0].hostname='orbyt'
+uci commit system

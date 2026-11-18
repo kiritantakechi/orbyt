@@ -22,17 +22,17 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 import yaml
 
-from wrt_tests import spec
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.outputs import MANIFEST_FILE, Manifest
+from orbyt_tests import spec
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-    from wrt_tests.model.boards import Board
-    from wrt_tests.services.datapath import Online
-    from wrt_tests.services.drill import Drill
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.services.datapath import Online
+    from orbyt_tests.services.drill import Drill
 
 CAPABILITY = "release/upstream-bump"
 REPO = Path(__file__).resolve().parents[2]
@@ -417,7 +417,7 @@ def _patch_step(
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, **GIT_IDENTITY, "WRT_WORKDIR": str(work)},
+        env={**os.environ, **GIT_IDENTITY, "ORBYT_WORKDIR": str(work)},
     )
 
 
@@ -451,7 +451,7 @@ def test_a_patch_upstream_made_is_named_as_such(tmp_path: Path) -> None:
 
 
 def _factory(board: Board, *, suffix: str = "") -> str:
-    return f"openwrt-rockchip-armv8-{board.device}{suffix}-erofs-factory.img.gz"
+    return f"orbyt-rockchip-armv8-{board.device}{suffix}-erofs-factory.img.gz"
 
 
 def _manifest(board: Board, run: str, files: dict[str, str]) -> Manifest:
@@ -508,7 +508,7 @@ def _drill_base(
         env={
             **os.environ,
             "PATH": f"{gh}{os.pathsep}{os.environ['PATH']}",
-            "WRT_WORKDIR": str(root / "work"),
+            "ORBYT_WORKDIR": str(root / "work"),
         },
     )
 

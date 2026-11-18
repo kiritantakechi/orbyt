@@ -82,7 +82,7 @@ stale_packages() (
 # make defconfig dropped or changed any of their lines (renamed or removed
 # options, unmet dependencies). A configuration the same as the one its build
 # directories were last configured with keeps that one's time
-# (tmp/wrt-config-<build>, the build being host or the build directories'
+# (tmp/orbyt-config-<build>, the build being host or the build directories'
 # suffix): the kernel's configuration follows .config's time, and every kernel
 # module follows the kernel's (build-acceleration D4).
 configure_tree() (
@@ -95,7 +95,7 @@ configure_tree() (
 		exit 1
 	fi
 	suffix=$(sed -n 's/^CONFIG_BUILD_SUFFIX="\(.*\)"$/\1/p' "$1/.config")
-	last="$1/tmp/wrt-config-${suffix:-host}"
+	last="$1/tmp/orbyt-config-${suffix:-host}"
 	if cmp -s "$1/.config" "${last}"; then
 		touch -r "${last}" "$1/.config"
 	else

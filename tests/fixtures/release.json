@@ -9,8 +9,8 @@
     "friendlyarm_nanopi-r4s-manifest.json",
     "friendlyarm_nanopi-r4s-manifest.json.sig",
     "friendlyarm_nanopi-r4s-repo.tar",
-    "openwrt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-factory.img.gz",
-    "openwrt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-sysupgrade.tar.gz",
+    "orbyt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-factory.img.gz",
+    "orbyt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-sysupgrade.tar.gz",
     "SHA256SUMS"
   ]
 }

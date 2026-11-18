@@ -1,6 +1,6 @@
 """network/transparent-proxy: honk on the LAN side, splitting by rule into direct and proxied.
 
-honk runs with the test configuration (wrt_tests.services.datapath.PROXY_CONFIG): the
+honk runs with the test configuration (orbyt_tests.services.datapath.PROXY_CONFIG): the
 socks5 exit on the emulated internet is its only node, PROXIED_TARGET goes through
 it, everything else goes direct.
 """
@@ -17,13 +17,13 @@ from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.device.router import SSH_PORT
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
-from wrt_tests.sandbox.netprobe import HTTP_PORT, PORT
-from wrt_tests.services import app
-from wrt_tests.services.datapath import (
+from orbyt_tests import spec
+from orbyt_tests.device.router import SSH_PORT
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
+from orbyt_tests.sandbox.netprobe import HTTP_PORT, PORT
+from orbyt_tests.services import app
+from orbyt_tests.services.datapath import (
     NATIVE_API,
     NATIVE_API_PORT,
     PROXIED,
@@ -44,9 +44,9 @@ from wrt_tests.services.datapath import (
 if TYPE_CHECKING:
     from collections.abc import Generator, Iterator
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/transparent-proxy"
 BIND_TIMEOUT = 60
@@ -377,7 +377,7 @@ def test_honk_decides_on_through_firewall_reloads(proxy_restored: Online) -> Non
         online.client().argv(
             sys.executable,
             "-m",
-            "wrt_tests.sandbox.netprobe",
+            "orbyt_tests.sandbox.netprobe",
             "flows",
             DIRECT_TARGET[0],
             *("--rate", str(NEW_FLOWS), "--seconds", seconds, "--sources", str(FLOW_SOURCES)),

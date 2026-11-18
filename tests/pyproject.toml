@@ -1,7 +1,7 @@
 [project]
-name = "wrt-tests"
+name = "orbyt-tests"
 version = "0"
-description = "System tests for the wrt-build firmware: one test per spec scenario (design D13)"
+description = "System tests for the Orbyt firmware: one test per spec scenario (design D13)"
 requires-python = ">=3.14"
 dependencies = [
     "labgrid>=26.0",
@@ -10,10 +10,10 @@ dependencies = [
 ]
 
 [project.scripts]
-board-check = "wrt_tests.model.boards:main"
-emu-prepare = "wrt_tests.device.emu:main"
-lib-check = "wrt_tests.model.lib_check:main"
-spec-coverage = "wrt_tests.model.coverage:main"
+board-check = "orbyt_tests.model.boards:main"
+emu-prepare = "orbyt_tests.device.emu:main"
+lib-check = "orbyt_tests.model.lib_check:main"
+spec-coverage = "orbyt_tests.model.coverage:main"
 
 [dependency-groups]
 dev = [
@@ -31,5 +31,5 @@ build-backend = "uv_build"
 python-preference = "only-managed"
 
 [tool.uv.build-backend]
-module-name = "wrt_tests"
+module-name = "orbyt_tests"
 module-root = ""

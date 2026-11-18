@@ -40,7 +40,7 @@ define Package/honk
   SUBMENU:=Web Servers/Proxies
   TITLE:=Transparent proxy in eBPF, bound to the LAN side
   URL:=https://github.com/daeuniverse/honk
-  DEPENDS:=@(aarch64||x86_64) $(RUST_ARCH_DEPENDS) +libstdcpp +wrt-data \
+  DEPENDS:=@(aarch64||x86_64) $(RUST_ARCH_DEPENDS) +libstdcpp +orbyt-data \
     +flock +bpftool \
     +kmod-veth +kmod-sched-core +kmod-sched-bpf \
     +kmod-nft-core +kmod-nft-queue +kmod-nfnetlink-queue +kmod-nf-conntrack \
@@ -49,7 +49,7 @@ endef
 
 define Package/honk/description
   honk splits traffic by rules in the kernel with eBPF: direct traffic never
-  leaves the kernel, proxied traffic goes to its nodes. wrt-build binds it to
+  leaves the kernel, proxied traffic goes to its nodes. Orbyt binds it to
   br-lan, podman0 and tailscale0 only, and never to a WAN interface. Its web
   UI, doona, is served by its native API once the configuration enables it.
 endef

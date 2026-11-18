@@ -16,7 +16,7 @@ nix develop -c just test dev release ops unit
 
 ```sh
 nix develop -c just drill-base
-WRT_SIGNED=<signed build> nix develop -c just test drill-base -m drill
+ORBYT_SIGNED=<signed build> nix develop -c just test drill-base -m drill
 ```
 
 ## The first release

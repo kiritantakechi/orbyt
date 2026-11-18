@@ -13,20 +13,20 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.poll import until
-from wrt_tests.sandbox.isp import DELEGATED_PREFIX, POOL_SIZE, POOL_START
-from wrt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
-from wrt_tests.sandbox.netprobe import PORT
+from orbyt_tests import spec
+from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.isp import DELEGATED_PREFIX, POOL_SIZE, POOL_START
+from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
+from orbyt_tests.sandbox.netprobe import PORT
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
-    from wrt_tests.sandbox.net import Netns
-    from wrt_tests.services.datapath import Online
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.sandbox.net import Netns
+    from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/wan"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
@@ -39,7 +39,7 @@ DOWNLOAD_SECONDS = 60
 OFFLOAD_TIMEOUT = 20
 RECEIVED_TIMEOUT = 10
 # A table of the test's own: a reload of the firewall leaves it alone.
-FORWARD_COUNTER = "wrt_test_forward"
+FORWARD_COUNTER = "orbyt_test_forward"
 
 
 @spec(CAPABILITY, "PPPoE dial-up", "Image contains no credentials")
@@ -48,7 +48,7 @@ def test_image_has_no_credentials(router: Router, board: Board) -> None:
     assert router.run("uci get network.wan.device") == board.wan.device
     for option in ("username", "password"):
         assert router.returncode(f"uci -q get network.wan.{option}") != 0, option
-    # The rest of the datapath's defaults (uci-defaults 91-wrt-datapath).
+    # The rest of the datapath's defaults (uci-defaults 91-orbyt-datapath).
     assert router.run("uci get network.wan6.device") == "@wan"
     assert router.run("uci get network.lan.ip6assign") == "64"
     assert router.run("uci get firewall.@defaults[0].flow_offloading") == "1"
@@ -138,7 +138,7 @@ def _lan_state(online: Online, address: str) -> str:
 def test_inbound_ipv6_is_rejected(online: Online) -> None:
     _, ipv6 = online.addresses()
     client = online.client()
-    server = client.spawn(sys.executable, "-m", "wrt_tests.sandbox.netprobe", "serve")
+    server = client.spawn(sys.executable, "-m", "orbyt_tests.sandbox.netprobe", "serve")
     try:
         until(lambda: client.run("ss", "-Hltn", f"sport = :{PORT}"), timeout=10, what="netprobe")
         # The LAN reaches the server; the internet's connection is refused (a

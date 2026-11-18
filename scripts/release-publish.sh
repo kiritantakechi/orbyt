@@ -65,7 +65,7 @@ while [ "$#" -gt 0 ]; do
 done
 [ ! -e "${release}" ] || die "${release} exists already"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/wrt-release.XXXXXX")
+work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-release.XXXXXX")
 trap 'rm -rf "${work}"' EXIT INT TERM
 
 # Each board's build is one build: every image and package index is the one its

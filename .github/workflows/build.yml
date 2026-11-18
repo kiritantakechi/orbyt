@@ -66,7 +66,7 @@ defaults:
     shell: bash
 
 env:
-  WRT_WORKDIR: /mnt/wrt
+  ORBYT_WORKDIR: /mnt/orbyt
   NIX_CONFIG: experimental-features = nix-command flakes
 
 jobs:
@@ -109,7 +109,7 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           key: ${{ steps.key.outputs.key }}
-          path: ${{ env.WRT_WORKDIR }}/toolchain-cache.tar.zst
+          path: ${{ env.ORBYT_WORKDIR }}/toolchain-cache.tar.zst
 
       # On a miss only, and read-only: the firmware jobs save the download cache,
       # and one saved first here would lack the target's sources under its key.
@@ -119,7 +119,7 @@ jobs:
         with:
           key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
           restore-keys: dl-
-          path: ${{ env.WRT_WORKDIR }}/dl
+          path: ${{ env.ORBYT_WORKDIR }}/dl
 
       # The host stage's own compiler cache (build-acceleration D6): what an
       # earlier host build compiled, LLVM's C++ included, for one that only some
@@ -135,22 +135,22 @@ jobs:
         with:
           key: ${{ steps.compiler-cache.outputs.key }}
           restore-keys: ${{ steps.compiler-cache.outputs.prefix }}
-          path: ${{ env.WRT_WORKDIR }}/compiler-cache
+          path: ${{ env.ORBYT_WORKDIR }}/compiler-cache
 
       - name: Build tools and toolchains
         if: steps.cache.outputs.cache-hit != 'true'
         env:
-          WRT_COMPILER_CACHE_TRIM: 1
+          ORBYT_COMPILER_CACHE_TRIM: 1
         run: |
           nix develop .#build -c just toolchain-build ci
-          nix develop .#build -c just toolchain-pack "$WRT_WORKDIR/toolchain-cache.tar.zst"
+          nix develop .#build -c just toolchain-pack "$ORBYT_WORKDIR/toolchain-cache.tar.zst"
 
       - name: Save toolchain
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v6
         with:
           key: ${{ steps.key.outputs.key }}
-          path: ${{ env.WRT_WORKDIR }}/toolchain-cache.tar.zst
+          path: ${{ env.ORBYT_WORKDIR }}/toolchain-cache.tar.zst
 
       # Off the default branch, only within the quota's room, so that main's
       # caches stay (build-integrity D5); the toolchain above is saved regardless.
@@ -160,14 +160,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: nix develop .#build -c just cache-room "$WRT_WORKDIR/compiler-cache" >> "$GITHUB_OUTPUT"
+        run: nix develop .#build -c just cache-room "$ORBYT_WORKDIR/compiler-cache" >> "$GITHUB_OUTPUT"
 
       - name: Save compiler cache
         if: always() && steps.compiler-cache-room.outputs.save == 'true'
         uses: actions/cache/save@v6
         with:
           key: ${{ steps.compiler-cache.outputs.key }}
-          path: ${{ env.WRT_WORKDIR }}/compiler-cache
+          path: ${{ env.ORBYT_WORKDIR }}/compiler-cache
 
   firmware:
     needs: host-toolchain
@@ -201,7 +201,7 @@ jobs:
         with:
           key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
           restore-keys: dl-
-          path: ${{ env.WRT_WORKDIR }}/dl
+          path: ${{ env.ORBYT_WORKDIR }}/dl
 
       # Every language's compiler cache in one (build-acceleration D6), the
       # board's own (scripts/compiler-cache-key.sh).
@@ -214,7 +214,7 @@ jobs:
         with:
           key: ${{ steps.compiler-cache.outputs.key }}
           restore-keys: ${{ steps.compiler-cache.outputs.prefix }}
-          path: ${{ env.WRT_WORKDIR }}/compiler-cache
+          path: ${{ env.ORBYT_WORKDIR }}/compiler-cache
 
       # Restored last, so that the toolchain is the most recently used of the
       # caches this job restores: past the quota GitHub evicts the least recently
@@ -224,11 +224,11 @@ jobs:
         uses: actions/cache/restore@v6
         with:
           key: ${{ needs.host-toolchain.outputs.key }}
-          path: ${{ env.WRT_WORKDIR }}/toolchain-cache.tar.zst
+          path: ${{ env.ORBYT_WORKDIR }}/toolchain-cache.tar.zst
           fail-on-cache-miss: true
 
       - name: Unpack toolchain
-        run: nix develop .#build -c just toolchain-unpack "$WRT_WORKDIR/toolchain-cache.tar.zst"
+        run: nix develop .#build -c just toolchain-unpack "$ORBYT_WORKDIR/toolchain-cache.tar.zst"
 
       # Every source the build needs, before it builds: the download cache is
       # saved only when this step got them all (release-integrity D6).
@@ -239,7 +239,7 @@ jobs:
       - name: Build firmware
         env:
           # The board's own cache: it keeps what this build used (scripts/build.sh).
-          WRT_COMPILER_CACHE_TRIM: 1
+          ORBYT_COMPILER_CACHE_TRIM: 1
         run: nix develop .#build -c scripts/build.sh "$BOARD" ci
 
       # Off the default branch, only within the quota's room, so that main's
@@ -252,35 +252,35 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           CACHE_SAVERS: ${{ strategy.job-total }}
-        run: nix develop .#build -c just cache-room "$WRT_WORKDIR/dl" "$WRT_WORKDIR/compiler-cache" >> "$GITHUB_OUTPUT"
+        run: nix develop .#build -c just cache-room "$ORBYT_WORKDIR/dl" "$ORBYT_WORKDIR/compiler-cache" >> "$GITHUB_OUTPUT"
 
       - name: Save download cache
         if: always() && steps.download.outcome == 'success' && steps.room.outputs.save == 'true'
         uses: actions/cache/save@v6
         with:
           key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
-          path: ${{ env.WRT_WORKDIR }}/dl
+          path: ${{ env.ORBYT_WORKDIR }}/dl
 
       - name: Save compiler cache
         if: always() && steps.room.outputs.save == 'true'
         uses: actions/cache/save@v6
         with:
           key: ${{ steps.compiler-cache.outputs.key }}
-          path: ${{ env.WRT_WORKDIR }}/compiler-cache
+          path: ${{ env.ORBYT_WORKDIR }}/compiler-cache
 
       - name: Build logs
         if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: logs-${{ matrix.board }}
-          path: ${{ env.WRT_WORKDIR }}/openwrt/logs
+          path: ${{ env.ORBYT_WORKDIR }}/openwrt/logs
           if-no-files-found: ignore
 
       - name: Upload unsigned firmware
         uses: actions/upload-artifact@v7
         with:
           name: firmware-unsigned-${{ matrix.board }}
-          path: ${{ env.WRT_WORKDIR }}/out/${{ matrix.board }}/ci
+          path: ${{ env.ORBYT_WORKDIR }}/out/${{ matrix.board }}/ci
           if-no-files-found: error
 
   # Every run saves a compiler cache per board, holding what its build used, and,
@@ -351,7 +351,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: firmware-unsigned-${{ matrix.board }}
-          path: ${{ env.WRT_WORKDIR }}/out/${{ matrix.board }}/ci
+          path: ${{ env.ORBYT_WORKDIR }}/out/${{ matrix.board }}/ci
 
       - name: Host environment
         run: |
@@ -379,8 +379,8 @@ jobs:
           name: system-test-console-${{ matrix.board }}-${{ matrix.suite.name }}
           # QEMU's log names a reset the console does not explain (trial-boot-resilience D5).
           path: |
-            ${{ env.WRT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
-            ${{ env.WRT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
+            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
+            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
           if-no-files-found: ignore
 
   # The keys exist only in the release-signing environment, whose reviewers
@@ -458,12 +458,12 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: firmware-unsigned-${{ matrix.board }}
-          path: ${{ env.WRT_WORKDIR }}/out/${{ matrix.board }}/ci
+          path: ${{ env.ORBYT_WORKDIR }}/out/${{ matrix.board }}/ci
 
       - uses: actions/download-artifact@v8
         with:
           name: firmware-signed
-          path: ${{ env.WRT_WORKDIR }}/signed
+          path: ${{ env.ORBYT_WORKDIR }}/signed
 
       - name: Drill base
         env:
@@ -472,7 +472,7 @@ jobs:
 
       - name: Upgrade drill
         env:
-          WRT_SIGNED: ${{ env.WRT_WORKDIR }}/signed/${{ matrix.board }}
+          ORBYT_SIGNED: ${{ env.ORBYT_WORKDIR }}/signed/${{ matrix.board }}
         run: nix develop -c just test "$BOARD" drill-base -m drill -rs
 
       - name: Test report
@@ -491,8 +491,8 @@ jobs:
           name: drill-console-${{ matrix.board }}
           # QEMU's log names a reset the console does not explain (trial-boot-resilience D5).
           path: |
-            ${{ env.WRT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
-            ${{ env.WRT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
+            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
+            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
           if-no-files-found: ignore
 
   # The check main's rules require (board-model D9), under the name it always

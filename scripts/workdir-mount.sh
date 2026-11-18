@@ -25,8 +25,8 @@ while [ "$#" -gt 0 ]; do
 	esac
 	shift
 done
-image=${1:-/mnt/mac/Volumes/SSD/wrt-work.ext4}
-mountpoint=${2:-/mnt/wrt}
+image=${1:-/mnt/mac/Volumes/SSD/orbyt-work.ext4}
+mountpoint=${2:-/mnt/orbyt}
 
 require_linux
 uid=$(id -u)

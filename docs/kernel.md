@@ -17,9 +17,9 @@ Kernel configuration comes from three sources, each responsible for one kind of 
 Enabling a symbol often makes a batch of new symbols beneath it visible. Kernel configuration stops outright when it meets a visible symbol with no value, so the new symbols must be given values as well. To find them:
 
 ```sh
-# inside wrt-build-fhs, after one complete build of a board (here r4s)
-K=$(ls -d "$WRT_WORKDIR"/openwrt/build_dir/target-*_r4s/linux-rockchip_armv8/linux-[0-9]*)
-TC=$(ls -d "$WRT_WORKDIR"/openwrt/staging_dir/toolchain-aarch64_*)
+# inside orbyt-build-fhs, after one complete build of a board (here r4s)
+K=$(ls -d "$ORBYT_WORKDIR"/openwrt/build_dir/target-*_r4s/linux-rockchip_armv8/linux-[0-9]*)
+TC=$(ls -d "$ORBYT_WORKDIR"/openwrt/staging_dir/toolchain-aarch64_*)
 cp "$K/.config" /tmp/try.config
 printf '%s\n' CONFIG_NEW_SYMBOL=y >>/tmp/try.config
 make -s -C "$K" ARCH=arm64 CROSS_COMPILE="$TC/bin/aarch64-openwrt-linux-musl-" \

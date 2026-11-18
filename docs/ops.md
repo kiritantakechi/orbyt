@@ -7,8 +7,8 @@ The router's own configuration and secrets live in a private repository of their
 `just config-init` makes it: a git repository, outside this one, with the skeleton of `scripts/config-init.d`.
 
 ```sh
-just config-init ~/wrt-config
-export WRT_CONFIG_DIR=~/wrt-config
+just config-init ~/orbyt-config
+export ORBYT_CONFIG_DIR=~/orbyt-config
 ```
 
 | Path | Holds |
@@ -22,11 +22,11 @@ export WRT_CONFIG_DIR=~/wrt-config
 Edit an encrypted file with sops, which decrypts it into a temporary file for the editor and encrypts it again, and commit as usual:
 
 ```sh
-sops ~/wrt-config/secrets/secrets.enc.yaml
-sops ~/wrt-config/honk/config.dae.enc
+sops ~/orbyt-config/secrets/secrets.enc.yaml
+sops ~/orbyt-config/honk/config.dae.enc
 ```
 
-Nothing goes in as plain text: the `.gitignore` keeps out `*.dec` and `*.plain`, and gitleaks finds nothing in the history (`gitleaks git ~/wrt-config`).
+Nothing goes in as plain text: the `.gitignore` keeps out `*.dec` and `*.plain`, and gitleaks finds nothing in the history (`gitleaks git ~/orbyt-config`).
 
 ### honk's native API
 
@@ -58,18 +58,18 @@ The router ran dae before honk; nothing on it migrates. In the private repositor
 ## Pushing
 
 ```sh
-just config-push 192.168.1.1 --identity ~/.ssh/wrt
+just config-push 192.168.1.1 --identity ~/.ssh/orbyt
 ```
 
 The push logs in as root with that key (or the agent's), never with a password. Put the key's public half in the router's `/etc/dropbear/authorized_keys` first (LuCI: System, Administration, SSH-Keys). Then:
 
-1. The secrets are decrypted into a temporary directory, which goes when the push ends, and the templates are filled in. Its files are root's alone, here and in the router's copy, `/tmp/wrt-push`, which goes too, however the push ends.
+1. The secrets are decrypted into a temporary directory, which goes when the push ends, and the templates are filled in. Its files are root's alone, here and in the router's copy, `/tmp/orbyt-push`, which goes too, however the push ends.
 2. Everything is checked on the router before anything changes: honk's configuration with `/etc/init.d/honk check`, which runs `honk-core check` on the entry the honk service would run around it, and each service's uci batches, in order, on a copy of the configuration that keeps their changes to itself. A batch that changes a package the router holds uncommitted changes to, as LuCI holds them until Save & Apply, stops the push here, naming the package: commit or revert them first (`uci changes <package>`). A push that fails here changes nothing.
 3. Each service whose files changed since its last push (honk, network and the other uci configurations, tailscale, smb, pods) is written and reloaded (a uci configuration committed package by package from the push's own changes, so that uncommitted changes to other packages stay uncommitted), and the push waits until it is back: its own check passes (honk's health check, the LAN up, `tailscale status`, ksmbd serving the shares it offers, every Pod running), and every daemon that ran before runs on without a restart for as long as procd may take to act on the change: its longest trigger delay, then twice the longest stop timeout among those daemons, then one more check (13 s with the image's defaults). A reload still to come, a restart under way and a daemon procd keeps starting again all show within it. One that does not come back gets everything the push changed for it back (for Tailscale its key and tailscaled's state, so it is logged in as before without logging in again; for the SMB users `/etc/passwd`, `/etc/group` and ksmbd's user database), is reloaded with it, and the push fails, naming it.
 
-Tailscale logs in with `tailscale up --force-reauth --auth-key=file:/etc/wrt-config/tailscale.key`: the key is in a file only root reads, never on a command line. A node logged in already ignores a key without `--force-reauth`, so a new key would not take effect, nor a refused one be noticed; with it, the node logs in anew, which drops the tailnet's connections for a moment: push over the LAN, not over the tailnet.
+Tailscale logs in with `tailscale up --force-reauth --auth-key=file:/etc/orbyt-config/tailscale.key`: the key is in a file only root reads, never on a command line. A node logged in already ignores a key without `--force-reauth`, so a new key would not take effect, nor a refused one be noticed; with it, the node logs in anew, which drops the tailnet's connections for a moment: push over the LAN, not over the tailnet.
 
-Pushing the same configuration again reloads nothing. What the push wrote is kept through upgrades: the uci configuration, `/etc/honk` and whether honk starts at boot (its `/etc/rc.d` links), `/etc/tailscale`, `/etc/wrt-config` (what was last pushed), the SMB users.
+Pushing the same configuration again reloads nothing. What the push wrote is kept through upgrades: the uci configuration, `/etc/honk` and whether honk starts at boot (its `/etc/rc.d` links), `/etc/tailscale`, `/etc/orbyt-config` (what was last pushed), the SMB users.
 
 ## The age key
 

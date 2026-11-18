@@ -1,14 +1,14 @@
 """build/upstream-pinning: every patch states its upstream status, with write-ups in step.
 
 And a patch series gives the same commit whatever the git configuration of the
-user who applies it (wrt_tests.model.series, as patch.sh applies it).
+user who applies it (orbyt_tests.model.series, as patch.sh applies it).
 """
 
 import os
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.model.patches import (
+from orbyt_tests import spec
+from orbyt_tests.model.patches import (
     DOC,
     repository_patches,
     unstated,
@@ -16,7 +16,7 @@ from wrt_tests.model.patches import (
     without_write_up,
     write_ups,
 )
-from wrt_tests.model.series import Series
+from orbyt_tests.model.series import Series
 
 if TYPE_CHECKING:
     from pathlib import Path

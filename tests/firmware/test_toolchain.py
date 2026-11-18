@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from wrt_tests import spec
+from orbyt_tests import spec
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from wrt_tests.model.boards import Board
-    from wrt_tests.model.outputs import Manifest
+    from orbyt_tests.model.boards import Board
+    from orbyt_tests.model.outputs import Manifest
 
 CAPABILITY = "firmware/toolchain"
 PATCHES = Path(__file__).resolve().parents[2] / "patches" / "openwrt"

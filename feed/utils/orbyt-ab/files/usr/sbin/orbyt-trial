@@ -1,0 +1,58 @@
+#!/usr/bin/ucode
+// orbyt-trial: give a trial boot a deadline that no boot script can hold off
+// (trial-guards D1).
+// Usage: orbyt-trial   (once per boot, from /etc/init.d/orbyt-trial, the first boot script)
+// On a trial boot of the running slot it waits for the deadline, counted on the
+// monotonic clock from the kernel's start, then reboots, which U-Boot counts:
+// unless the health check has recorded a result for the boot by then, or the
+// environment no longer names the running slot on trial. A boot that is not a
+// trial, or whose environment cannot be read, it leaves at once, as the health
+// check never reboots for a trial state it cannot know. It writes to the kernel
+// log: logd starts after it, and the console shows the kernel log of a boot whose
+// scripts never got as far as SSH.
+'use strict';
+
+import { access, writefile } from 'fs';
+import { cursor } from 'uci';
+import { slot, variables } from 'orbyt.ab';
+
+const RESULT = '/var/run/orbyt-healthcheck.json';
+const DEADLINE = 900;
+
+// log(priority, message): a line of the kernel log, at a syslog priority.
+function log(priority, message) {
+	writefile('/dev/kmsg', `<${priority}>orbyt-trial: ${message}\n`);
+}
+
+// on_trial(environment, running): the environment names the running slot on
+// trial; false for one that cannot be read.
+function on_trial(environment, running) {
+	return environment?.boot_slot == running && environment?.upgrade_available == '1';
+}
+
+// seconds(): seconds since the kernel's start, on the monotonic clock, which
+// setting the time of day does not move.
+function seconds() {
+	return clock(true)[0];
+}
+
+let running = slot();
+
+if (!running || !on_trial(variables(), running))
+	exit(0);
+
+// A deadline that is not a positive number of seconds is the default's.
+let configured = +(cursor().get('orbyt-ab', 'trial', 'deadline') ?? DEADLINE);
+let deadline = configured > 0 ? configured : DEADLINE;
+
+log(5, `slot ${running} is on trial; it reboots ${deadline} s after the kernel's start` +
+	' unless the health check decides first');
+
+while (seconds() < deadline)
+	sleep(min(deadline - seconds(), 60) * 1000);
+
+if (access(RESULT) || !on_trial(variables(), running))
+	exit(0);
+
+log(3, `slot ${running}: no health check decided its trial boot by ${deadline} s; rebooting`);
+system(['reboot']);

@@ -1,5 +1,5 @@
 {
-  description = "wrt-build: reproducible OpenWrt build environment for the boards of boards/";
+  description = "Orbyt: reproducible OpenWrt build environment for the boards of boards/";
 
   inputs = {
     # Stable base for the build environment: the host tools behind the cached toolchain.
@@ -226,7 +226,7 @@
       testSsh =
         pkgs:
         let
-          config = pkgs.writeText "wrt-test-ssh-config" ''
+          config = pkgs.writeText "orbyt-test-ssh-config" ''
             Host *
               StrictHostKeyChecking no
               UserKnownHostsFile /dev/null
@@ -246,7 +246,7 @@
       # the cached toolchain.
       buildInputsId =
         pkgs:
-        pkgs.writeText "wrt-build-inputs" (
+        pkgs.writeText "orbyt-build-inputs" (
           nixpkgs.lib.concatLines (map toString (buildPackages pkgs)) + buildProfile
         );
 
@@ -261,8 +261,8 @@
           inherit name;
           targetPkgs = _: packages;
           profile = buildProfile + ''
-            export WRT_BUILD_INPUTS=${buildInputsId pkgs}
-            export WRT_FHS=${kind}
+            export ORBYT_BUILD_INPUTS=${buildInputsId pkgs}
+            export ORBYT_FHS=${kind}
           '';
           runScript = "bash";
         };
@@ -270,13 +270,13 @@
       # The test environment is a superset of the build environment, so scripts
       # that only need the build environment also run inside the test one.
       environmentsFor = pkgs: unstable: {
-        wrt-build-fhs = fhsFor pkgs {
-          name = "wrt-build-fhs";
+        orbyt-build-fhs = fhsFor pkgs {
+          name = "orbyt-build-fhs";
           kind = "build";
           packages = buildPackages pkgs;
         };
-        wrt-test-fhs = fhsFor pkgs {
-          name = "wrt-test-fhs";
+        orbyt-test-fhs = fhsFor pkgs {
+          name = "orbyt-test-fhs";
           kind = "test";
           packages = buildPackages pkgs ++ testPackages pkgs unstable;
         };
@@ -287,7 +287,7 @@
         pkgs: unstable:
         environmentsFor pkgs unstable
         // {
-          default = (environmentsFor pkgs unstable).wrt-build-fhs;
+          default = (environmentsFor pkgs unstable).orbyt-build-fhs;
           # The release signing tools (r4s-release-pipeline D2): `nix run .#sign-tools`.
           sign-tools = import ./nix/sign-tools.nix { inherit pkgs; };
         }
@@ -307,7 +307,7 @@
             quality = pkgs.mkShellNoCC { packages = qualityTools pkgs unstable; };
             build = pkgs.mkShellNoCC {
               inputsFrom = [ quality ];
-              packages = [ environments.wrt-build-fhs ];
+              packages = [ environments.orbyt-build-fhs ];
             };
             default = pkgs.mkShellNoCC {
               inputsFrom = [ quality ];

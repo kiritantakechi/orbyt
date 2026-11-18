@@ -1,4 +1,4 @@
-"""Unit tests of wrt_tests.model.boards: the board descriptions and their schema."""
+"""Unit tests of orbyt_tests.model.boards: the board descriptions and their schema."""
 
 import json
 import shutil
@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from wrt_tests.model.boards import BOARDS_DIR, Description, load, load_all
-from wrt_tests.model.data import DataError, read_json
+from orbyt_tests.model.boards import BOARDS_DIR, Description, load, load_all
+from orbyt_tests.model.data import DataError, read_json
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -24,7 +24,7 @@ def test_the_supported_boards_load() -> None:
 
 
 def test_the_device_follows_the_board_name() -> None:
-    # wrt-sync finds its board's release assets by the device its board name gives.
+    # orbyt-sync finds its board's release assets by the device its board name gives.
     for board in load_all():
         assert board.device == board.board_name.replace(",", "_"), board.id
 

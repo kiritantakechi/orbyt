@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from wrt_tests import spec
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.series import Series
+from orbyt_tests import spec
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.series import Series
 
 CAPABILITY = "build/environment"
 REPO = Path(__file__).resolve().parents[2]
@@ -39,7 +39,7 @@ def test_macos_is_refused(entry_point: str, macos: dict[str, str], tmp_path: Pat
     workdir.mkdir()
     result = subprocess.run(
         [str(REPO / "scripts" / f"{entry_point}.sh")],
-        env={**macos, "WRT_WORKDIR": str(workdir)},
+        env={**macos, "ORBYT_WORKDIR": str(workdir)},
         capture_output=True,
         text=True,
         check=False,
@@ -55,7 +55,7 @@ def test_failed_step_stops_the_build(tmp_path: Path) -> None:
     not_a_directory.write_text("")
     result = subprocess.run(
         ["just", "--justfile", str(REPO / "justfile"), "build", load_all()[0].id, "dev"],
-        env={**os.environ, "WRT_WORKDIR": str(not_a_directory)},
+        env={**os.environ, "ORBYT_WORKDIR": str(not_a_directory)},
         capture_output=True,
         text=True,
         check=False,

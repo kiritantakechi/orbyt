@@ -16,23 +16,23 @@ from typing import TYPE_CHECKING, Any, cast
 import pytest
 import yaml
 
-from wrt_tests import spec
-from wrt_tests.device.emu import sha256
-from wrt_tests.model.boards import load_all
-from wrt_tests.model.data import read_json, write_json
-from wrt_tests.model.keys import APK_KEYS, FIRMWARE_KEYS, Keys, sign
-from wrt_tests.model.outputs import MANIFEST_FILE, Manifest
-from wrt_tests.model.trees import linked_copy, replace
-from wrt_tests.sandbox.oci import extract_root
+from orbyt_tests import spec
+from orbyt_tests.device.emu import sha256
+from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.data import read_json, write_json
+from orbyt_tests.model.keys import APK_KEYS, FIRMWARE_KEYS, Keys, sign
+from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
+from orbyt_tests.model.trees import linked_copy, replace
+from orbyt_tests.sandbox.oci import extract_root
 
 if TYPE_CHECKING:
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.outputs import EmulationSource
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.outputs import EmulationSource
 
 CAPABILITY = "release/signing"
 REPO = Path(__file__).resolve().parents[2]
 WORKFLOWS = REPO / ".github" / "workflows"
-KEYRING = REPO / "feed" / "utils" / "wrt-keyring" / "files"
+KEYRING = REPO / "feed" / "utils" / "orbyt-keyring" / "files"
 SECRETS = ("RELEASE_APK_KEY", "RELEASE_FW_KEY")
 ENVIRONMENT = "release-signing"
 INDEX = "targets/packages/packages.adb"

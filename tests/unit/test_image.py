@@ -1,4 +1,4 @@
-"""Unit tests of wrt_tests.model.image: reading a sysupgrade image from bytes and listings."""
+"""Unit tests of orbyt_tests.model.image: reading a sysupgrade image from bytes and listings."""
 
 import gzip
 import io
@@ -6,7 +6,7 @@ import struct
 
 import pytest
 
-from wrt_tests.model.image import (
+from orbyt_tests.model.image import (
     SECTOR,
     default_environment,
     gunzip_first_member,
@@ -53,22 +53,22 @@ def test_read_mbr_rejects_a_disk_without_boot_signature() -> None:
 # Strings of a U-Boot binary around its built-in environment.
 BINARY = (
     b"\x7fELF\x02U-Boot 2026.07\0%s=%s\0\0\x00\x13"
-    b"bootcmd=run wrt_boot\0bootlimit=3\0wrt_boot=if test a; then\trun b; fi\0\0"
+    b"bootcmd=run orbyt_boot\0bootlimit=3\0wrt_boot=if test a; then\trun b; fi\0\0"
     b"\xff\xfeother\0\0"
 )
 
 
 def test_default_environment_reads_the_marked_block() -> None:
-    assert default_environment(BINARY, "wrt_boot") == {
-        "bootcmd": "run wrt_boot",
+    assert default_environment(BINARY, "orbyt_boot") == {
+        "bootcmd": "run orbyt_boot",
         "bootlimit": "3",
-        "wrt_boot": "if test a; then\trun b; fi",
+        "orbyt_boot": "if test a; then\trun b; fi",
     }
 
 
 def test_default_environment_needs_the_marker() -> None:
-    with pytest.raises(LookupError, match="wrt_other"):
-        default_environment(BINARY, "wrt_other")
+    with pytest.raises(LookupError, match="orbyt_other"):
+        default_environment(BINARY, "orbyt_other")
 
 
 # Shortened ``dumpimage -l`` listings of the two FITs in a shipped image, of an example board.

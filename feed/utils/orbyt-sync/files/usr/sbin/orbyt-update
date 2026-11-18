@@ -1,0 +1,22 @@
+#!/bin/sh
+# orbyt-update: upgrade to the current release of the local repository
+# (r4s-release-pipeline D4).
+# Usage: orbyt-update [sysupgrade option...]
+# sysupgrade writes the release's upgrade image to the inactive slot and boots it
+# on trial (r4s-ab-rollback); it refuses the image unless a trusted firmware key
+# signed it, and orbyt-update never forces it. The image is the one the release's
+# signed manifest names, whatever else its directory holds (device-integrity D3).
+set -eu
+# shellcheck source=../../../../orbyt-data/files/lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
+# shellcheck source=../../lib/functions/orbyt-sync.sh
+. /lib/functions/orbyt-sync.sh
+
+current="${ORBYT_DATA}/repo/current"
+device=$(orbyt_sync_device)
+image=$(/usr/libexec/orbyt-sync/manifest image "${current}/manifest.json" "${device}" 2>/dev/null) || {
+	echo "orbyt-update: no local release; run orbyt-sync" >&2
+	exit 1
+}
+echo "orbyt-update: ${current}/targets/${image}"
+exec sysupgrade "$@" "${current}/targets/${image}"

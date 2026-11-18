@@ -3,15 +3,15 @@
 import re
 from typing import TYPE_CHECKING
 
-from wrt_tests import spec
-from wrt_tests.device.emu import boot_files, extract_fit_image, read_fit, run
-from wrt_tests.model.image import SECTOR, default_environment, read_mbr
+from orbyt_tests import spec
+from orbyt_tests.device.emu import boot_files, extract_fit_image, read_fit, run
+from orbyt_tests.model.image import DEFAULT_HOSTNAME, SECTOR, default_environment, read_mbr
 
 if TYPE_CHECKING:
     from pathlib import Path
 
-    from wrt_tests.device.router import Router
-    from wrt_tests.model.boards import Board
+    from orbyt_tests.device.router import Router
+    from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/rootfs"
 # Digest of every file of the read-only root, independent of the overlay above it.
@@ -21,7 +21,7 @@ ROM_DIGEST = "find /rom -xdev -type f | sort | xargs sha256sum | sha256sum"
 LOADER_SECTOR, UBOOT_SECTOR = 64, 16384
 # boot-A and boot-B, each with the kernel FIT of its slot.
 BOOT_PARTITIONS = (1, 3)
-# What the slot logic (uboot/wrt-ab.env) runs besides the command that starts
+# What the slot logic (uboot/orbyt-ab.env) runs besides the command that starts
 # the kernel: part uuid, load from the ext4 boot partition, and saveenv to the
 # environment on the boot disk, where bootcount lives too.
 SLOT_LOGIC = (
@@ -85,7 +85,7 @@ def test_factory_reset_only_clears_the_overlay(router: Router) -> None:
     router.run("uci set system.@system[0].hostname=changed && uci commit system")
     router.run("touch /root/user-file && sync")
     router.reboot("firstboot -y && reboot")
-    assert router.run("uci get system.@system[0].hostname") == "OpenWrt"
+    assert router.run("uci get system.@system[0].hostname") == DEFAULT_HOSTNAME
     assert router.returncode("[ -e /root/user-file ]") != 0
     assert router.run(ROM_DIGEST) == rom
     assert _mount(router, "/overlay")[1] == "f2fs"
@@ -111,12 +111,12 @@ def test_boot_chain(board: Board, build_output: Path, emulation_dir: Path, tmp_p
     assert uboot.selected("Firmware")["OS"] == "ARM Trusted Firmware"
     assert "u-boot" in uboot.configuration.properties["Loadables"]
     extract_fit_image(itb, uboot.images["u-boot"], tmp_path / "u-boot.bin")
-    environment = default_environment((tmp_path / "u-boot.bin").read_bytes(), "wrt_boot")
-    assert environment["bootcmd"] == "run wrt_boot"
+    environment = default_environment((tmp_path / "u-boot.bin").read_bytes(), "orbyt_boot")
+    assert environment["bootcmd"] == "run orbyt_boot"
     # It has what the slot logic runs on the board itself.
     config = (build_output / "u-boot.config").read_text().splitlines()
     enabled = {line.removesuffix("=y") for line in config if line.endswith("=y")}
-    start = f"CONFIG_CMD_{environment['wrt_bootos'].split()[0].upper()}"
+    start = f"CONFIG_CMD_{environment['orbyt_bootos'].split()[0].upper()}"
     assert {*SLOT_LOGIC, start} <= enabled, {*SLOT_LOGIC, start} - enabled
 
     for partition in BOOT_PARTITIONS:

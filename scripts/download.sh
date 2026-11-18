@@ -13,5 +13,5 @@ tree=$(workdir_tree)
 ensure_fhs build "$@"
 
 [ -f "${tree}/.config" ] || die "no .config; run 'just config <board>' first"
-jobs=${WRT_JOBS:-$(nproc)}
+jobs=${ORBYT_JOBS:-$(nproc)}
 make -C "${tree}" -j"${jobs}" download

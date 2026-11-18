@@ -1,4 +1,4 @@
-# Build working tree lives outside the repo ($WRT_WORKDIR); never commit build output.
+# Build working tree lives outside the repo ($ORBYT_WORKDIR); never commit build output.
 /work/
 /out/
 /result
