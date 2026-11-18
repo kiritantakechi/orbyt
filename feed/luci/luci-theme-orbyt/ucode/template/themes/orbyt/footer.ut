@@ -1,6 +1,7 @@
 {#
 	luci-theme-orbyt: closes the shell the header opened, with LuCI's and the
-	distribution's versions as links, and loads the menu (luci-theme-orbyt D2, D4).
+	distribution's versions as links, and loads the menu (luci-theme-wrt D2, D4;
+	orbyt-theme D2).
 	Licensed under the Apache License 2.0, as LuCI.
 -#}
 

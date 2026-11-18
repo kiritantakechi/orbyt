@@ -1,7 +1,8 @@
 {#
-	luci-theme-orbyt: the login, as a card on the canvas (luci-theme-orbyt D2). The form
-	is LuCI's, its fields and the authentication plugins' included; the view
-	(view/orbyt/sysauth.js) focuses the password and shows LuCI's spinner on submit.
+	luci-theme-orbyt: the login, as a card on the canvas (luci-theme-wrt D2; orbyt-theme
+	D2, D4): the lockup with the mark above the form. The form is LuCI's, its fields
+	and the authentication plugins' included; the view (view/orbyt/sysauth.js)
+	focuses the password and shows LuCI's spinner on submit.
 	Licensed under the Apache License 2.0, as LuCI.
 -#}
 
@@ -13,13 +14,11 @@
 
 <main class="login">
 	<form method="post" class="login-card cbi-map" id="login">
-		<div class="brand">
-			<span class="brand-mark" aria-hidden="true">orbyt</span>
-			<span class="brand-text">
-				<span class="brand-name">{{ _('Log in') }} · {{ striptags(boardinfo.hostname ?? '?') }}</span>
-				<span class="brand-model">{{ striptags(boardinfo.model ?? '') }}</span>
-			</span>
+		<div class="lockup">
+			{% include('themes/orbyt/mark', { id: 'login' }) %}
+			<span class="lockup-text">Orbyt<small>{{ striptags(boardinfo.hostname ?? '?') }}{% if (boardinfo.model): %} · {{ striptags(boardinfo.model) }}{% endif %}</small></span>
 		</div>
+		<h1 class="login-title">{{ _('Log in') }}</h1>
 
 		{% if (auth_message): %}
 		<div class="alert-message{% if (auth_plugin): %} warning{% endif %}">

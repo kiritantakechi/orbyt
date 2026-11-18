@@ -1,9 +1,10 @@
 /*
- * luci-theme-orbyt (luci-theme-orbyt D5): a sidebar of LuCI's menu, a top bar with
- * the page's place, LuCI's indicators and a light/dark switch, and the page's
- * sections as cards on a green-tinted canvas with an emerald accent. Dark mode
- * is LuCI's own :root[data-darkmode="true"]. System fonts only: nothing loads
- * from outside the router.
+ * luci-theme-orbyt (luci-theme-wrt D5; orbyt-theme D1 to D5): a header with the
+ * lockup, LuCI's indicators and the light/dark switch, a sidebar of LuCI's menu,
+ * and the page's sections as flat panels: white with a mint second ground in
+ * light, night navy in dark, emerald as the one action color. Dark mode is LuCI's
+ * own :root[data-darkmode="true"]. System fonts only: nothing loads from outside
+ * the router.
  *
  * The rules that make LuCI's widgets work (dropdowns, tooltips, the modal, tab
  * panes, the file browser, tables stacked on phones) follow LuCI's bootstrap
@@ -12,52 +13,66 @@
 
 /* Tokens ------------------------------------------------------------------- */
 
+/* The values are TouhouAsia's semantic layer (orbyt-theme D1): the ground, the
+ * second ground of panels and the sidebar, the raised ground of fields and tiles,
+ * a neutral tint, three inks, the accent, hairlines and the three tones. */
 :root {
-	--canvas: #f3f6f4;
-	--surface: #ffffff;
-	--raised: #f8faf9;
-	--sunken: #eef3f0;
-	--ink: #12201a;
-	--ink-strong: #0a140f;
-	--muted: #5a6b63;
-	--faint: #8a9a92;
-	--line: #dbe4df;
-	--line-strong: #c4d2cb;
-	--accent: #0c8f63;
-	--accent-strong: #08714e;
+	--canvas: #ffffff;
+	--surface: #f0fdf4;
+	--raised: #ffffff;
+	--sunken: #f1f5f9;
+	--ink: #0f172a;
+	--ink-strong: #0f172a;
+	--muted: #334155;
+	--faint: #64748b;
+	/* A device that is down, a port without link, a signal gone. */
+	--off: #94a3b8;
+	--line: #e2e8f0;
+	--line-brand: #a7f3d0;
+	--line-strong: #64748b;
+	--outline: rgb(15 23 42 / .26);
+	--rule: #059669;
+	--focus: #047857;
+	--focus-gap: #ffffff;
+	--accent: #047857;
+	--accent-strong: #065f46;
 	--accent-ink: #ffffff;
-	--accent-soft: #e2f4ec;
-	--warn: #b25f00;
-	--warn-soft: #fff1dc;
-	--crit: #c2362e;
-	--crit-soft: #fde8e6;
+	--accent-soft: #ecfdf5;
+	--success: #047857;
+	--warn: #b45309;
+	--warn-soft: #fffbeb;
+	--crit: #b91c1c;
+	--crit-soft: #fef2f2;
 	--crit-ink: #ffffff;
-	--info: #2563b8;
-	--info-soft: #e5eefb;
-	/* Series of LuCI's graphs (D11): blue, orange, aqua, validated as a set against
-	 * each mode's surface. Red stays the color of errors. */
+	--info: #1d4ed8;
+	--info-soft: #eff6ff;
+	/* The stream gradient of the mark (orbyt-theme D4). */
+	--stream-a: #059669;
+	--stream-b: #10b981;
+	--stream-c: #1e40af;
+	/* Series of LuCI's graphs (luci-theme-wrt D11): blue, orange, aqua, validated as a
+	 * set against each mode's surface. Red stays the color of errors. */
 	--chart-1: #2a78d6;
 	--chart-2: #eb6834;
 	--chart-3: #1baf7a;
-	/* How much of a firewall zone's color tints the surface it sits on. */
-	--zone-tint: 45%;
-	--shadow: 0 1px 2px rgb(18 32 26 / .06), 0 4px 16px rgb(18 32 26 / .05);
-	--shadow-pop: 0 8px 30px rgb(18 32 26 / .18);
-	--overlay: rgb(5 12 9 / .45);
-	--font-ui: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB",
-		"Microsoft YaHei", "Noto Sans CJK SC", "Source Han Sans SC", Roboto, "Helvetica Neue",
-		Arial, sans-serif;
-	--font-code: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas,
-		"Liberation Mono", monospace;
-	--r-sm: 6px;
-	--r: 10px;
-	--r-lg: 14px;
-	--sidebar: 248px;
-	--field-height: 36px;
+	--overlay: rgb(4 13 26 / .45);
+	--font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+		"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", Inter, sans-serif;
+	--font-code: ui-monospace, "SF Mono", Menlo, Consolas, "Monaspace Neon Var", monospace;
+	/* Rectangles take 8 px; inline code 4 px; buttons, tags and rules are pills. */
+	--r: 8px;
+	--header: 64px;
+	--sidebar: 240px;
+	--field-height: 40px;
+	--button-small: 32px;
+	/* Motion is color, background, border and ring only (orbyt-theme D1). */
+	--ease: cubic-bezier(.22, .61, .36, 1);
+	--motion: color 140ms var(--ease), background-color 140ms var(--ease),
+		border-color 140ms var(--ease), box-shadow 140ms var(--ease);
 
 	/* bootstrap's names, which LuCI applications' own styles use. */
-	--background-color-high: var(--surface);
-	--background-color-medium: var(--raised);
+	--background-color-high: var(--raised);
+	--background-color-medium: var(--surface);
 	--background-color-low: var(--sunken);
 	--text-color-highest: var(--ink-strong);
 	--text-color-high: var(--ink);
@@ -70,12 +85,12 @@
 	--primary-color-medium: var(--accent);
 	--primary-color-low: var(--accent-strong);
 	--on-primary-color: var(--accent-ink);
-	--error-color-high-rgb: 194, 54, 46;
+	--error-color-high-rgb: 185, 28, 28;
 	--error-color-high: rgb(var(--error-color-high-rgb));
 	--error-color-medium: var(--crit);
 	--error-color-low: var(--crit);
 	--on-error-color: var(--crit-ink);
-	--success-color-high-rgb: 12, 143, 99;
+	--success-color-high-rgb: 4, 120, 87;
 	--success-color-high: rgb(var(--success-color-high-rgb));
 	--success-color-medium: var(--accent);
 	--success-color-low: var(--accent-strong);
@@ -92,34 +107,39 @@
 }
 
 :root[data-darkmode="true"] {
-	--canvas: #0b1210;
-	--surface: #121b18;
-	--raised: #172320;
-	--sunken: #0e1714;
-	--ink: #e4eee9;
-	--ink-strong: #f6faf8;
-	--muted: #93a49c;
-	--faint: #6a7b73;
-	--line: #23312c;
-	--line-strong: #33453e;
-	--accent: #34d399;
-	--accent-strong: #6ee7b7;
-	--accent-ink: #04130d;
-	--accent-soft: #123328;
-	--warn: #f5a524;
-	--warn-soft: #33260f;
+	--canvas: #040d1a;
+	--surface: #0b1d33;
+	--raised: #07182b;
+	--sunken: rgb(241 245 249 / .10);
+	--ink: #f1f5f9;
+	--ink-strong: #f1f5f9;
+	--muted: #cbd5e1;
+	--faint: #94a3b8;
+	--off: #64748b;
+	--line: rgb(241 245 249 / .12);
+	--line-brand: rgb(100 255 218 / .16);
+	--outline: rgb(241 245 249 / .26);
+	--rule: #10b981;
+	--focus: #64ffda;
+	--focus-gap: #040d1a;
+	--accent: #10b981;
+	--accent-strong: #34d399;
+	--accent-ink: #040d1a;
+	--accent-soft: rgb(16 185 129 / .14);
+	--success: #34d399;
+	--warn: #fbbf24;
+	--warn-soft: rgb(251 191 36 / .14);
 	--crit: #f87171;
-	--crit-soft: #3a1a19;
-	--crit-ink: #1a0605;
-	--info: #7aa7f5;
-	--info-soft: #172640;
+	--crit-soft: rgb(248 113 113 / .14);
+	--crit-ink: #040d1a;
+	--info: #93c5fd;
+	--info-soft: rgb(147 197 253 / .14);
+	--stream-a: #64ffda;
+	--stream-c: #0284c7;
 	--chart-1: #3987e5;
 	--chart-2: #d95926;
 	--chart-3: #199e70;
-	--zone-tint: 24%;
-	--shadow: 0 1px 2px rgb(0 0 0 / .4), 0 6px 20px rgb(0 0 0 / .25);
-	--shadow-pop: 0 10px 34px rgb(0 0 0 / .55);
-	--overlay: rgb(0 0 0 / .6);
+	--overlay: rgb(4 13 26 / .6);
 	--error-color-high-rgb: 248, 113, 113;
 	--success-color-high-rgb: 52, 211, 153;
 	--disabled-opacity: .45;
@@ -136,7 +156,7 @@
 }
 
 * {
-	scroll-margin-top: 72px;
+	scroll-margin-top: 80px;
 }
 
 html,
@@ -148,7 +168,8 @@ body {
 body {
 	background: var(--canvas);
 	color: var(--ink);
-	font: 14px/1.55 var(--font-ui);
+	font: 14px/1.5 var(--font-ui);
+	letter-spacing: -0.006em;
 	-webkit-font-smoothing: antialiased;
 	-webkit-text-size-adjust: 100%;
 }
@@ -156,16 +177,16 @@ body {
 h1, h2, h3, h4, h5, h6, legend {
 	margin: 0;
 	color: var(--ink);
-	font-weight: 650;
+	font-weight: 600;
 	line-height: 1.3;
 	text-wrap: balance;
 }
 
-h1 { font-size: 24px; }
-h2 { font-size: 22px; }
-h3, legend { font-size: 15px; }
-h4 { font-size: 14px; }
-h5, h6 { font-size: 13px; }
+h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
+h3, legend { font-size: 16px; font-weight: 800; letter-spacing: -0.011em; }
+h4 { font-size: 15px; letter-spacing: -0.009em; }
+h5, h6 { font-size: 13px; letter-spacing: 0; }
 h6 { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* A heading after running content keeps its distance, as in views that build their
@@ -176,7 +197,7 @@ h6 { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 }
 
 h1 small, h2 small, h3 small, h4 small, h5 small, h6 small {
-	color: var(--muted);
+	color: var(--faint);
 	font-weight: 500;
 }
 
@@ -187,12 +208,13 @@ p {
 p small,
 small {
 	font-size: .9em;
-	color: var(--muted);
+	color: var(--faint);
 }
 
 a {
 	color: var(--accent);
 	text-decoration: none;
+	transition: var(--motion);
 }
 
 a:hover {
@@ -200,9 +222,11 @@ a:hover {
 	text-decoration: underline;
 }
 
+/* The focus ring: a gap in the ground's color, then the focus color (orbyt-theme
+ * D1); the outline is transparent so that forced colors still show one. */
 :focus-visible {
-	outline: 2px solid var(--accent);
-	outline-offset: 2px;
+	outline: 2px solid transparent;
+	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
 }
 
 ul, ol {
@@ -233,7 +257,7 @@ hr {
 	border-bottom: 1px solid var(--line);
 }
 
-strong { font-weight: 650; }
+strong { font-weight: 600; }
 em { font-style: italic; }
 
 abbr[title] {
@@ -256,7 +280,8 @@ img { max-width: 100%; }
 
 code, pre, kbd, samp {
 	font-family: var(--font-code);
-	font-size: 12.5px;
+	font-size: 13px;
+	letter-spacing: 0;
 }
 
 code {
@@ -271,7 +296,7 @@ pre {
 	margin: 0 0 1em;
 	padding: 10px 12px;
 	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
+	border-radius: var(--r);
 	background: var(--sunken);
 	line-height: 1.5;
 	white-space: pre-wrap;
@@ -293,7 +318,6 @@ fieldset {
 fieldset legend {
 	display: block;
 	padding-top: 1em;
-	font-size: 17px;
 }
 
 .icon {
@@ -309,236 +333,75 @@ fieldset legend {
 
 .mono {
 	font-family: var(--font-code);
-	font-size: 12.5px;
+	font-size: 13px;
+	letter-spacing: 0;
 }
 
-/* The shell ---------------------------------------------------------------- */
+/* The mark (orbyt-theme D4): its gradient takes the mode's stream colors. */
+.orbyt-mark {
+	width: 32px;
+	height: 32px;
+	flex: none;
+}
+
+.orbyt-mark .stream-a { stop-color: var(--stream-a); }
+.orbyt-mark .stream-b { stop-color: var(--stream-b); }
+.orbyt-mark .stream-c { stop-color: var(--stream-c); }
+
+/* The shell (orbyt-theme D2) ------------------------------------------------- */
 
 .shell {
 	display: grid;
 	grid-template-columns: var(--sidebar) minmax(0, 1fr);
+	grid-template-rows: var(--header) minmax(0, 1fr);
 	min-height: 100%;
-}
-
-.sidebar {
-	position: sticky;
-	top: 0;
-	height: 100vh;
-	overflow-y: auto;
-	display: flex;
-	flex-direction: column;
-	gap: 4px;
-	padding: 16px 12px;
-	background: var(--surface);
-	border-right: 1px solid var(--line);
-}
-
-.brand {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	padding: 4px 8px 14px;
-	color: var(--ink);
-}
-
-.brand:hover {
-	color: var(--ink);
-	text-decoration: none;
-}
-
-.brand-mark {
-	display: grid;
-	place-items: center;
-	width: 32px;
-	height: 32px;
-	flex: none;
-	border-radius: 9px;
-	background: var(--accent);
-	color: var(--accent-ink);
-	font-size: 13px;
-	font-weight: 750;
-	letter-spacing: .02em;
-}
-
-.brand-text {
-	display: grid;
-	min-width: 0;
-}
-
-.brand-name {
-	font-size: 15px;
-	font-weight: 700;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.brand-model {
-	color: var(--muted);
-	font-size: 12px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-}
-
-.mainmenu {
-	display: flex;
-	flex-direction: column;
-	gap: 2px;
-}
-
-.menu-head,
-.menu-leaf {
-	display: flex;
-	align-items: center;
-	gap: 10px;
-	width: 100%;
-	padding: 8px 10px;
-	border: 0;
-	border-radius: var(--r-sm);
-	background: none;
-	color: var(--ink);
-	font: inherit;
-	font-weight: 600;
-	text-align: left;
-	cursor: pointer;
-}
-
-.menu-head:hover,
-.menu-leaf:hover {
-	background: var(--raised);
-	color: var(--ink);
-	text-decoration: none;
-}
-
-.menu-head .icon,
-.menu-leaf .icon {
-	color: var(--muted);
-}
-
-.menu-group.current > .menu-head .icon:first-child,
-.menu-leaf.active .icon {
-	color: var(--accent);
-}
-
-.menu-leaf.active {
-	background: var(--accent-soft);
-	color: var(--accent-strong);
-}
-
-.menu-head .chevron {
-	margin-left: auto;
-	width: 16px;
-	height: 16px;
-	transition: transform .15s;
-}
-
-.menu-group.closed .chevron {
-	transform: rotate(-90deg);
-}
-
-.menu-group.closed .menu-items {
-	display: none;
-}
-
-.menu-items {
-	display: flex;
-	flex-direction: column;
-	gap: 1px;
-	margin: 0;
-	padding: 2px 0 6px 28px;
-	list-style: none;
-}
-
-.menu-items a {
-	display: block;
-	padding: 6px 10px;
-	border-radius: var(--r-sm);
-	color: var(--muted);
-}
-
-.menu-items a:hover {
-	background: var(--raised);
-	color: var(--ink);
-	text-decoration: none;
-}
-
-.menu-items a.active {
-	background: var(--accent-soft);
-	color: var(--accent-strong);
-	font-weight: 600;
-}
-
-.sidebar-foot {
-	display: grid;
-	gap: 2px;
-	margin-top: auto;
-	padding: 12px 10px 4px;
-	border-top: 1px solid var(--line);
-	color: var(--muted);
-	font-size: 12px;
-}
-
-.sidebar-foot .modes {
-	display: flex;
-	flex-wrap: wrap;
-	gap: 6px;
-	margin-bottom: 6px;
-}
-
-.sidebar-foot .modes a.active {
-	color: var(--ink);
-	font-weight: 600;
-}
-
-.main {
-	display: flex;
-	flex-direction: column;
-	min-width: 0;
 }
 
 .topbar {
 	position: sticky;
 	top: 0;
 	z-index: 50;
+	grid-column: 1 / -1;
 	display: flex;
 	align-items: center;
-	gap: 12px;
-	padding: 12px 28px;
+	gap: 16px;
+	height: var(--header);
+	padding: 0 48px;
 	border-bottom: 1px solid var(--line);
-	background: color-mix(in srgb, var(--canvas) 86%, transparent);
-	backdrop-filter: saturate(1.4) blur(10px);
-	-webkit-backdrop-filter: saturate(1.4) blur(10px);
+	background: var(--canvas);
 }
 
-.crumbs {
+.lockup {
 	display: flex;
 	align-items: center;
-	gap: 6px;
+	gap: 10px;
 	min-width: 0;
-	color: var(--muted);
-	white-space: nowrap;
-}
-
-/* Each part of the page's place truncates on its own, the separator at the start
- * of the parts after the first, so that an ellipsis clips a name and never a "›";
- * the menu's levels give way, the page's own name only once it fills the bar. */
-.crumbs > * {
-	min-width: 0;
-	overflow: hidden;
-	text-overflow: ellipsis;
-}
-
-.crumbs > * + *::before {
-	content: "›";
-	margin-right: 6px;
-}
-
-.crumbs b {
-	flex-shrink: 0;
-	max-width: 100%;
 	color: var(--ink);
-	font-weight: 650;
+	font-size: 20px;
+	font-weight: 800;
+	letter-spacing: -0.012em;
+	line-height: 1.2;
+}
+
+.lockup:hover {
+	color: var(--ink);
+	text-decoration: none;
+}
+
+.lockup-text {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+.lockup small {
+	overflow: hidden;
+	color: var(--faint);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
+	text-overflow: ellipsis;
+	white-space: nowrap;
 }
 
 .spacer {
@@ -549,21 +412,24 @@ fieldset legend {
 	display: flex;
 	align-items: center;
 	gap: 6px;
-	flex-wrap: wrap;
+	min-width: 0;
 	justify-content: flex-end;
 }
 
+/* LuCI's indicators (the pending changes) are tags: neutral, and in the warning
+ * tone while active. */
 #indicators [data-indicator] {
 	display: inline-flex;
 	align-items: center;
 	gap: 6px;
-	padding: 4px 10px;
+	height: 24px;
+	padding: 0 10px;
 	border-radius: 999px;
-	background: var(--raised);
-	border: 1px solid var(--line);
+	background: var(--sunken);
 	color: var(--muted);
-	font-size: 12.5px;
-	font-weight: 600;
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
 	white-space: nowrap;
 }
 
@@ -572,7 +438,6 @@ fieldset legend {
 }
 
 #indicators [data-indicator][data-style="active"] {
-	border-color: transparent;
 	background: var(--warn-soft);
 	color: var(--warn);
 }
@@ -587,65 +452,207 @@ fieldset legend {
 
 .segmented {
 	display: inline-flex;
-	padding: 3px;
+	gap: 2px;
+	padding: 2px;
 	border: 1px solid var(--line);
 	border-radius: 999px;
-	background: var(--raised);
 }
 
 .segmented button {
 	display: inline-flex;
 	align-items: center;
 	gap: 4px;
-	padding: 4px 10px;
+	height: 28px;
+	padding: 0 12px;
 	border: 0;
 	border-radius: 999px;
 	background: none;
 	color: var(--muted);
 	font: inherit;
-	font-size: 12.5px;
-	line-height: 1.4;
+	font-size: 13px;
+	font-weight: 500;
 	cursor: pointer;
+	transition: var(--motion);
+}
+
+.segmented button:hover {
+	color: var(--accent);
 }
 
 .segmented button[aria-pressed="true"] {
-	background: var(--surface);
-	color: var(--ink);
-	box-shadow: var(--shadow);
+	background: var(--accent-soft);
+	color: var(--accent);
 }
 
 .icon-btn {
 	display: inline-grid;
 	place-items: center;
-	width: 34px;
-	height: 34px;
+	width: 40px;
+	height: 40px;
 	padding: 0;
-	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
-	background: var(--surface);
+	border: 0;
+	border-radius: 999px;
+	background: none;
 	color: var(--ink);
 	cursor: pointer;
+	transition: var(--motion);
+}
+
+.icon-btn:hover {
+	background: var(--accent-soft);
+	color: var(--accent);
 }
 
 /* The drawer's button, after .icon-btn so that this display wins; @media 800px shows it. */
 .menu-toggle {
 	display: none;
+	margin-left: -8px;
+}
+
+/* The sidebar: the menu's first level as small group labels over text entries; the
+ * current entry in the text color with a vertical brand rule. */
+.sidebar {
+	position: sticky;
+	top: var(--header);
+	align-self: start;
+	height: calc(100vh - var(--header));
+	overflow-y: auto;
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+	padding: 24px 16px;
+	border-right: 1px solid var(--line);
+	background: var(--surface);
+}
+
+.mainmenu {
+	display: flex;
+	flex-direction: column;
+	gap: 20px;
+}
+
+.mainmenu h2 {
+	margin: 0 0 6px 12px;
+	color: var(--faint);
+	font-size: 12px;
+	font-weight: 600;
+	letter-spacing: 0;
+	line-height: 1.5;
+}
+
+.mainmenu a,
+.menu-logout {
+	position: relative;
+	display: block;
+	padding: 7px 12px;
+	border-radius: var(--r);
+	color: var(--muted);
+	font-weight: 500;
+}
+
+.mainmenu a:hover,
+.menu-logout:hover {
+	color: var(--accent);
+	text-decoration: none;
+}
+
+.mainmenu a[aria-current] {
+	color: var(--ink);
+	font-weight: 600;
+}
+
+.mainmenu a[aria-current]::before {
+	content: "";
+	position: absolute;
+	top: 8px;
+	bottom: 8px;
+	left: 0;
+	width: 3px;
+	border-radius: 2px;
+	background: var(--rule);
+}
+
+.sidebar-foot {
+	display: grid;
+	gap: 2px;
+	margin-top: auto;
+	color: var(--faint);
+	font-size: 12px;
+}
+
+.sidebar-foot .modes {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+	padding: 0 12px;
+}
+
+.sidebar-foot .modes a.active {
+	color: var(--ink);
+	font-weight: 600;
+}
+
+/* Logout is the header's button from 800 pixels up, the drawer's entry below. */
+.menu-logout {
+	display: none;
+}
+
+.main {
+	display: flex;
+	flex-direction: column;
+	min-width: 0;
+}
+
+/* The page's place: each part truncates on its own, the separator at the start of
+ * the parts after the first, so that an ellipsis clips a name and never a "/"; the
+ * menu's levels give way, the page's own name only once it fills the line. */
+.crumbs {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	width: 100%;
+	max-width: 1200px;
+	min-width: 0;
+	margin: 0 auto;
+	padding: 28px 48px 0;
+	color: var(--faint);
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.crumbs > * {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.crumbs > * + *::before {
+	content: "/";
+	margin-right: 6px;
+}
+
+.crumbs b {
+	flex-shrink: 0;
+	max-width: 100%;
+	color: var(--ink);
+	font-weight: 600;
 }
 
 .container,
 #maincontent {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 24px;
 	width: 100%;
-	max-width: 1280px;
-	padding: 24px 28px 40px;
+	max-width: 1200px;
+	margin: 0 auto;
+	padding: 20px 48px 64px;
 }
 
 #maincontent > #view {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 24px;
 }
 
 .footer {
@@ -653,9 +660,12 @@ fieldset legend {
 	flex-wrap: wrap;
 	gap: 8px;
 	margin-top: auto;
-	padding: 16px 28px 24px;
+	padding: 20px 48px 28px;
+	border-top: 1px solid var(--line);
+	background: var(--surface);
 	color: var(--faint);
 	font-size: 12px;
+	letter-spacing: 0;
 }
 
 .footer a {
@@ -666,46 +676,51 @@ fieldset legend {
 	display: none;
 }
 
-/* Maps and sections as cards ------------------------------------------------- */
+/* Maps and sections as panels (orbyt-theme D3) ------------------------------- */
 
 .cbi-map {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: 24px;
 }
 
+/* The page's title, with the brand rule under it that marks the current place. */
 .cbi-map > h2,
 #view > h2,
 #maincontent > h2 {
-	font-size: 22px;
+	font-size: 28px;
+	line-height: 1.25;
+}
+
+.cbi-map > h2::after,
+#view > h2::after,
+#maincontent > h2::after {
+	content: "";
+	display: block;
+	width: 48px;
+	height: 3px;
+	margin-top: 12px;
+	border-radius: 999px;
+	background: var(--rule);
 }
 
 .cbi-map-descr,
 .cbi-section-descr,
 .table .tr.cbi-section-table-descr .th {
 	margin: 0;
-	color: var(--muted);
+	color: var(--faint);
 	font-weight: normal;
 }
 
 .cbi-section {
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 16px;
 	min-width: 0;
-	padding: 18px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-lg);
+	padding: 24px;
+	border: 1px solid var(--line-brand);
+	border-radius: var(--r);
 	background: var(--surface);
-	box-shadow: var(--shadow);
-}
-
-.cbi-section > h3:first-child,
-.cbi-section > .cbi-title:first-child,
-.cbi-section > legend:first-child {
-	margin: -18px -18px 0;
-	padding: 14px 18px;
-	border-bottom: 1px solid var(--line);
 }
 
 .cbi-title {
@@ -713,10 +728,6 @@ fieldset legend {
 	align-items: center;
 	justify-content: space-between;
 	gap: 12px;
-}
-
-.cbi-title > h3 {
-	margin: 0;
 }
 
 .cbi-section .cbi-section,
@@ -728,13 +739,6 @@ fieldset legend {
 	border: 0;
 	border-radius: 0;
 	background: none;
-	box-shadow: none;
-}
-
-.cbi-section .cbi-section > h3:first-child {
-	margin: 0;
-	padding: 0;
-	border: 0;
 }
 
 .cbi-section-node {
@@ -750,8 +754,8 @@ fieldset legend {
 
 .cbi-section-error {
 	padding: 10px 12px;
-	border: 1px solid var(--crit);
-	border-radius: var(--r-sm);
+	border: 1px solid color-mix(in srgb, var(--crit) 30%, transparent);
+	border-radius: var(--r);
 	background: var(--crit-soft);
 }
 
@@ -768,10 +772,10 @@ fieldset legend {
 
 .cbi-value {
 	display: grid;
-	grid-template-columns: 220px minmax(0, 1fr);
+	grid-template-columns: 200px minmax(0, 1fr);
 	gap: 6px 24px;
 	align-items: start;
-	padding: 12px 0;
+	padding: 16px 0;
 	border-bottom: 1px solid var(--line);
 }
 
@@ -793,9 +797,9 @@ fieldset legend {
 
 .cbi-value-title,
 .cbi-value label.cbi-value-title {
-	padding-top: 8px;
+	padding-top: 9px;
 	color: var(--ink);
-	font-weight: 600;
+	font-weight: 500;
 	text-align: left;
 }
 
@@ -820,8 +824,8 @@ fieldset legend {
 .cbi-value-description {
 	position: relative;
 	margin: 0 0 0 1.4em;
-	color: var(--muted);
-	font-size: 12.5px;
+	color: var(--faint);
+	font-size: 13px;
 }
 
 .cbi-value-description:not(:empty)::before {
@@ -876,6 +880,7 @@ select,
 textarea {
 	font-family: var(--font-ui);
 	font-size: 14px;
+	letter-spacing: -0.006em;
 }
 
 input,
@@ -889,19 +894,20 @@ select,
 	max-width: 420px;
 	min-height: var(--field-height);
 	margin: 0;
-	padding: 7px 11px;
+	padding: 9px 12px;
 	border: 1px solid var(--line-strong);
-	border-radius: var(--r-sm);
-	background: var(--surface);
+	border-radius: var(--r);
+	background: var(--raised);
 	color: var(--ink);
 	line-height: 20px;
-	transition: border-color .15s, box-shadow .15s;
+	transition: var(--motion);
 }
 
 textarea {
 	min-height: 6em;
 	font-family: var(--font-code);
 	font-size: 13px;
+	letter-spacing: 0;
 	vertical-align: top;
 	overflow: auto;
 }
@@ -915,18 +921,21 @@ textarea:hover,
 select:hover,
 .cbi-select:hover,
 .cbi-dropdown:not(.btn):not(.cbi-button):hover {
-	border-color: color-mix(in srgb, var(--ink) 30%, var(--line-strong));
+	border-color: var(--muted);
 }
 
 input:focus,
 textarea:focus,
 select:focus,
 .cbi-select.focus,
-.cbi-dropdown:focus,
+.cbi-dropdown:focus {
+	border-color: var(--focus);
+	outline: 2px solid transparent;
+	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
+}
+
 .cbi-dropdown[open] {
-	outline: none;
 	border-color: var(--accent);
-	box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
 ::placeholder {
@@ -954,16 +963,8 @@ input[type="search"] {
 
 .cbi-input-invalid,
 .cbi-input-invalid.cbi-dropdown:not(.btn):not(.cbi-button),
-.cbi-input-invalid.cbi-dropdown:not([open]) > ul > li,
-.cbi-value-error input {
+.cbi-input-invalid:focus {
 	border-color: var(--crit);
-	color: var(--crit);
-}
-
-.cbi-input-invalid:focus,
-.cbi-select.cbi-input-invalid {
-	border-color: var(--crit);
-	box-shadow: 0 0 0 3px var(--crit-soft);
 }
 
 input[disabled],
@@ -980,7 +981,7 @@ textarea[disabled],
 input[readonly],
 select[readonly],
 textarea[readonly] {
-	background: var(--raised);
+	background: var(--sunken);
 	cursor: auto;
 }
 
@@ -997,7 +998,7 @@ textarea[readonly] {
 	height: 100%;
 	max-width: none;
 	margin: 0;
-	padding: 7px 28px 7px 11px;
+	padding: 9px 28px 9px 12px;
 	border: 0;
 	background: transparent;
 	box-shadow: none;
@@ -1018,7 +1019,7 @@ textarea[readonly] {
 }
 
 .cbi-select select option {
-	background: var(--surface);
+	background: var(--raised);
 	color: var(--ink);
 }
 
@@ -1046,8 +1047,8 @@ input[type="radio"] {
 	-webkit-appearance: none;
 	position: relative;
 	display: inline-block;
-	width: 18px;
-	height: 18px;
+	width: 20px;
+	height: 20px;
 	min-height: 0;
 	max-width: none;
 	margin: 0;
@@ -1069,10 +1070,10 @@ input[type="radio"]::after {
 input[type="checkbox"]::before,
 input[type="radio"]::before {
 	inset: 0;
-	border: 1.5px solid var(--bd-color);
+	border: 1px solid var(--bd-color);
 	border-radius: 5px;
-	background: var(--surface);
-	transition: background .15s, border-color .15s;
+	background: var(--raised);
+	transition: var(--motion);
 }
 
 input[type="radio"]::before {
@@ -1087,8 +1088,8 @@ input[type="radio"]:checked::before {
 
 input[type="checkbox"]::after,
 input[type="radio"]::after {
-	top: 3px;
-	left: 3px;
+	top: 4px;
+	left: 4px;
 	width: 12px;
 	height: 12px;
 }
@@ -1102,8 +1103,8 @@ input[type="checkbox"]:checked::after {
 }
 
 input[type="radio"]:checked::after {
-	top: 5px;
-	left: 5px;
+	top: 6px;
+	left: 6px;
 	width: 8px;
 	height: 8px;
 	border-radius: 50%;
@@ -1112,8 +1113,8 @@ input[type="radio"]:checked::after {
 
 input[type="checkbox"]:focus-visible::before,
 input[type="radio"]:focus-visible::before {
-	box-shadow: 0 0 0 3px var(--accent-soft);
-	border-color: var(--accent);
+	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
+	border-color: var(--focus);
 }
 
 input[type="checkbox"].cbi-input-invalid,
@@ -1212,9 +1213,9 @@ label > input[type="radio"] {
 
 .cbi-dynlist > .item {
 	position: relative;
-	padding: 7px 2.6em 7px 11px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
+	padding: 9px 2.6em 9px 12px;
+	border: 1px solid var(--line-strong);
+	border-radius: var(--r);
 	background: var(--raised);
 	color: var(--ink);
 	font-family: var(--font-code);
@@ -1378,7 +1379,7 @@ label > input[type="radio"] {
 .cbi-dropdown > ul.dropdown > li,
 .cbi-dropdown:not(.btn):not(.cbi-button) > ul > li {
 	min-height: 20px;
-	padding: 7px 11px;
+	padding: 9px 12px;
 	color: var(--ink);
 }
 
@@ -1430,10 +1431,8 @@ label > input[type="radio"] {
 	max-width: min(32rem, calc(100vw - 32px));
 	overflow-y: auto;
 	border: 1px solid var(--line-strong);
-	border-radius: var(--r-sm);
-	background: var(--surface);
-	box-shadow: var(--shadow-pop);
-	transition: max-height .125s ease-in;
+	border-radius: var(--r);
+	background: var(--raised);
 }
 
 .cbi-dropdown > ul > li[display],
@@ -1475,7 +1474,7 @@ label > input[type="radio"] {
 
 .cbi-dropdown[open] > ul.dropdown > li.focus,
 .cbi-dropdown[open] > ul.dropdown > li:hover {
-	background: var(--raised);
+	background: var(--sunken);
 	color: var(--ink);
 }
 
@@ -1494,7 +1493,7 @@ label > input[type="radio"] {
 	max-width: none;
 }
 
-/* Buttons -------------------------------------------------------------------- */
+/* Buttons: pills by role (orbyt-theme D3) ------------------------------------- */
 
 button,
 .btn,
@@ -1503,165 +1502,146 @@ button,
 	font: inherit;
 }
 
+/* A button is the secondary by default, an outline of the text at 26%; the roles
+ * below set the same five properties: the ink, the line and fill, and the line,
+ * fill and ink on hover. */
 .btn,
 .cbi-button {
 	--on-color: var(--ink);
+	--btn-line: var(--outline);
+	--btn-fill: transparent;
+	--btn-line-hover: var(--accent);
+	--btn-fill-hover: var(--accent-soft);
+	--btn-on-hover: var(--accent);
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
 	min-height: var(--field-height);
-	padding: 0 14px;
-	border: 1px solid var(--line-strong);
-	border-radius: var(--r-sm);
-	background: var(--surface);
+	padding: 0 18px;
+	border: 1px solid var(--btn-line);
+	border-radius: 999px;
+	background: var(--btn-fill);
 	color: var(--on-color);
 	font-weight: 600;
+	letter-spacing: -0.006em;
 	line-height: 1.4;
 	white-space: nowrap;
 	cursor: pointer;
-	transition: background .15s, border-color .15s, box-shadow .15s;
+	transition: var(--motion);
 }
 
 .btn:hover,
 .cbi-button:hover {
-	border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong));
-	color: var(--on-color);
+	border-color: var(--btn-line-hover);
+	background: var(--btn-fill-hover);
+	color: var(--btn-on-hover);
 	text-decoration: none;
 }
 
-.btn:focus-visible,
-.cbi-button:focus-visible {
-	outline: none;
-	box-shadow: 0 0 0 3px var(--accent-soft);
+.btn.active {
 	border-color: var(--accent);
-}
-
-.btn.active,
-.btn:active,
-.cbi-button:active {
-	background: var(--raised);
+	background: var(--accent-soft);
 }
 
 .btn.disabled,
 .btn[disabled],
 .cbi-button[disabled] {
 	opacity: var(--disabled-opacity);
-	box-shadow: none;
 	cursor: default;
 }
 
+/* Secondary: edit, add, save, action and neutral buttons. */
 .cbi-button-positive,
 .cbi-button-fieldadd,
 .cbi-button-add,
-.cbi-button-save {
-	--on-color: var(--accent-strong);
-}
-
+.cbi-button-save,
 .cbi-button-neutral,
 .cbi-button-download,
 .cbi-button-find,
-.cbi-button-link,
 .cbi-button-up,
-.cbi-button-down {
-	--on-color: var(--ink);
-}
-
-.btn.primary,
+.cbi-button-down,
 .cbi-button-action,
-.cbi-button-apply,
 .cbi-button-reload,
 .cbi-button-edit {
-	--on-color: var(--accent-strong);
+	--on-color: var(--ink);
+	--btn-line: var(--outline);
+	--btn-fill: transparent;
 }
 
+/* Primary: the page's apply, and whatever LuCI marks important. */
+.btn.primary,
+.btn.success,
+.btn.important,
+.cbi-button.important,
+.cbi-button-apply {
+	--on-color: var(--accent-ink);
+	--btn-line: var(--accent);
+	--btn-fill: var(--accent);
+	--btn-line-hover: var(--accent-strong);
+	--btn-fill-hover: var(--accent-strong);
+	--btn-on-hover: var(--accent-ink);
+}
+
+/* Ghost: a link-like button. */
+.btn.ghost,
+.cbi-button-link {
+	--on-color: var(--accent);
+	--btn-line: transparent;
+	--btn-fill: transparent;
+	--btn-line-hover: transparent;
+	--btn-fill-hover: var(--accent-soft);
+	--btn-on-hover: var(--accent-strong);
+}
+
+/* Danger: the danger ink, no fill until hovered. */
 .cbi-button-negative,
 .cbi-section-remove .cbi-button,
 .cbi-button-reset,
-.cbi-button-remove {
-	--on-color: var(--crit);
-}
-
-.cbi-button-negative:hover,
-.cbi-button-remove:hover,
-.cbi-button-reset:hover,
-.cbi-section-remove .cbi-button:hover {
-	border-color: var(--crit);
-	background: var(--crit-soft);
-}
-
-.btn.primary,
-.cbi-button-action.important,
-.cbi-button-apply.important,
-.cbi-button-positive.important,
-.cbi-page-actions .cbi-button-apply,
-.cbi-page-actions .cbi-button-save,
-.cbi-section-actions .cbi-button-edit {
-	--on-color: var(--accent-ink);
-
-	border-color: var(--accent);
-	background: var(--accent);
-}
-
-.btn.primary:hover,
-.cbi-button-action.important:hover,
-.cbi-button-apply.important:hover,
-.cbi-button-positive.important:hover,
-.cbi-page-actions .cbi-button-apply:hover,
-.cbi-page-actions .cbi-button-save:hover,
-.cbi-section-actions .cbi-button-edit:hover {
-	border-color: var(--accent-strong);
-	background: var(--accent-strong);
-}
-
-.cbi-page-actions .cbi-button-apply + .cbi-button-save,
-.cbi-page-actions .cbi-button-negative + .cbi-button-save {
-	--on-color: var(--accent-strong);
-
-	border-color: var(--line-strong);
-	background: var(--surface);
-}
-
-.cbi-button-negative.important {
-	--on-color: var(--crit-ink);
-
-	border-color: var(--crit);
-	background: var(--crit);
-}
-
-.btn.large {
-	min-height: 42px;
-	padding: 0 18px;
-	font-size: 15px;
-}
-
-.btn.small {
-	min-height: 28px;
-	padding: 0 9px;
-	font-size: 12px;
-}
-
+.cbi-button-remove,
 .btn.danger,
 .btn.error {
-	--on-color: var(--crit-ink);
-
-	border-color: var(--crit);
-	background: var(--crit);
+	--on-color: var(--crit);
+	--btn-line: transparent;
+	--btn-fill: transparent;
+	--btn-line-hover: transparent;
+	--btn-fill-hover: var(--crit-soft);
+	--btn-on-hover: var(--crit);
 }
 
-.btn.success {
-	--on-color: var(--accent-ink);
-
-	border-color: var(--accent);
-	background: var(--accent);
+/* A confirmation that destroys something (the reset's "Erase") fills with the ink. */
+.cbi-button-negative.important {
+	--on-color: var(--crit-ink);
+	--btn-line: var(--crit);
+	--btn-fill: var(--crit);
+	--btn-line-hover: var(--crit);
+	--btn-fill-hover: color-mix(in srgb, var(--crit) 85%, var(--ink));
+	--btn-on-hover: var(--crit-ink);
 }
 
 .btn.info {
-	--on-color: #ffffff;
+	--on-color: var(--accent-ink);
+	--btn-line: var(--info);
+	--btn-fill: var(--info);
+	--btn-line-hover: var(--info);
+	--btn-fill-hover: color-mix(in srgb, var(--info) 85%, var(--ink));
+	--btn-on-hover: var(--accent-ink);
+}
 
-	border-color: var(--info);
-	background: var(--info);
+.btn.large {
+	min-height: 48px;
+	padding: 0 22px;
+	font-size: 15px;
+}
+
+/* Small buttons, and every button inside a table, are 32 px. */
+.btn.small,
+.table .td .btn,
+.table .td .cbi-button {
+	min-height: var(--button-small);
+	padding: 0 14px;
+	font-size: 13px;
 }
 
 .close {
@@ -1690,11 +1670,8 @@ button,
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	align-items: center;
-	gap: 8px;
-	padding: 14px 18px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-lg);
-	background: var(--raised);
+	gap: 12px;
+	padding: 8px 0 0;
 }
 
 .cbi-page-actions > :not([method="post"]):not(.cbi-button-apply):not(.cbi-button-negative):not(.cbi-button-save):not(.cbi-button-reset) {
@@ -1723,21 +1700,17 @@ button,
 	gap: 8px;
 }
 
-/* Tabs ----------------------------------------------------------------------- */
+/* Tabs: text, the brand rule under the active one (orbyt-theme D3) ------------- */
 
 .tabs,
 .cbi-tabmenu {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 2px;
+	gap: 4px;
 	margin: 0;
-	padding: 0 4px;
+	padding: 0;
 	border-bottom: 1px solid var(--line);
 	list-style: none;
-}
-
-#tabmenu .tabs {
-	margin-bottom: 4px;
 }
 
 .tabs > li,
@@ -1750,12 +1723,12 @@ button,
 
 .tabs > li > a,
 .cbi-tabmenu > li > a {
+	position: relative;
 	display: block;
 	margin-bottom: -1px;
-	padding: 10px 10px;
-	border-bottom: 2px solid transparent;
-	color: var(--accent-strong);
-	font-weight: 600;
+	padding: 10px 12px;
+	color: var(--muted);
+	font-weight: 500;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1763,23 +1736,25 @@ button,
 
 .tabs > li > a:hover,
 .cbi-tabmenu > li > a:hover {
+	color: var(--accent);
 	text-decoration: none;
 }
 
 .tabs > li.active > a,
 .cbi-tabmenu > li:not(.cbi-tab-disabled) > a {
-	border-bottom-color: var(--accent);
 	color: var(--ink);
 }
 
-.tabs > li:not(.active) > a,
-.cbi-tabmenu > .cbi-tab-disabled > a {
-	color: var(--muted);
-}
-
-.tabs > li:not(.active) > a:hover,
-.cbi-tabmenu > .cbi-tab-disabled > a:hover {
-	color: var(--ink);
+.tabs > li.active > a::after,
+.cbi-tabmenu > li:not(.cbi-tab-disabled) > a::after {
+	content: "";
+	position: absolute;
+	right: 12px;
+	bottom: 0;
+	left: 12px;
+	height: 3px;
+	border-radius: 2px;
+	background: var(--rule);
 }
 
 .cbi-tab-disabled[data-errors]::after {
@@ -1795,7 +1770,7 @@ button,
 	background: var(--crit);
 	color: var(--crit-ink);
 	font-size: 11.5px;
-	font-weight: 700;
+	font-weight: 600;
 }
 
 .cbi-tabmenu.map > li > a {
@@ -1804,7 +1779,7 @@ button,
 
 .cbi-tab-descr {
 	margin: 0;
-	color: var(--muted);
+	color: var(--faint);
 }
 
 /* CBI tab panes: only the active one shows. */
@@ -1818,16 +1793,14 @@ button,
 	height: auto;
 	opacity: 1;
 	overflow: visible;
-	transition: opacity .25s ease-in;
 }
 
-/* A pane collapsed to no height keeps its box too: a section's card would leave
+/* A pane collapsed to no height keeps its box too: a section's panel would leave
  * its padding and border behind it (the interfaces page's other tabs). */
 [data-tab-title]:not([data-tab-active="true"]) {
 	margin: 0;
 	padding: 0;
 	border: 0;
-	box-shadow: none;
 }
 
 .tab-content > .tab-pane,
@@ -1873,28 +1846,40 @@ table.table td {
 	border-top: 0;
 }
 
+/* A strong line under the header row, hairlines between the rows; the row after
+ * the header draws no line of its own. */
 .table .tr:first-child .th,
 table.table th {
 	border-top: 0;
-	color: var(--muted);
-	font-size: 12.5px;
+	border-bottom: 1px solid var(--line-strong);
+	color: var(--faint);
+	font-size: 12px;
 	font-weight: 600;
+	letter-spacing: 0;
 	vertical-align: top;
 	white-space: nowrap;
+}
+
+.table .tr:has(> .th) + .tr > .td,
+table.table tr:has(> th) + tr > td {
+	border-top: 0;
 }
 
 .table[width="33%"], .th[width="33%"], .td[width="33%"] { width: 33%; }
 .table[width="100%"], .th[width="100%"], .td[width="100%"] { width: 100%; }
 
-.cbi-rowstyle-2,
-.tr.table-titles,
-.tr.cbi-section-table-titles {
-	background: var(--raised);
+/* The overview's key and value tables: the key column in the faint ink, as the
+ * canvas's rows of keys and values (orbyt-theme D3). */
+body[data-page="admin-status-overview"] .table .td[width="33%"] {
+	color: var(--faint);
+	font-size: 13px;
+	font-weight: 500;
 }
 
 .tr.table-titles .th,
 .tr.cbi-section-table-titles .th {
 	border-top: 0;
+	border-bottom: 1px solid var(--line-strong);
 }
 
 .table.valign-middle .td {
@@ -1933,7 +1918,7 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 .cbi-section-table .tr:hover .td,
 .cbi-section-table .tr:hover .th,
 .cbi-section-table .tr:hover::before {
-	background-color: var(--raised);
+	background-color: var(--sunken);
 }
 
 .cbi-section-table .tr.cbi-section-table-descr .th {
@@ -2040,15 +2025,17 @@ table table td,
 	font-family: var(--font-code);
 }
 
-/* Alerts and labels ---------------------------------------------------------- */
+/* Alerts and labels: the tone's tint, never a colored edge (orbyt-theme D3) ------ */
 
 .alert-message {
+	--tone: var(--info);
+	--tone-soft: var(--info-soft);
+
 	position: relative;
-	padding: 12px 14px;
-	border: 1px solid var(--line);
-	border-left: 4px solid var(--info);
+	padding: 12px 16px;
+	border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
 	border-radius: var(--r);
-	background: var(--info-soft);
+	background: var(--tone-soft);
 	color: var(--ink);
 	white-space: unset;
 }
@@ -2072,52 +2059,54 @@ table table td,
 }
 
 .alert-message.warning {
-	border-left-color: var(--warn);
-	background: var(--warn-soft);
+	--tone: var(--warn);
+	--tone-soft: var(--warn-soft);
 }
 
 .alert-message.danger,
 .alert-message.error {
-	border-left-color: var(--crit);
-	background: var(--crit-soft);
+	--tone: var(--crit);
+	--tone-soft: var(--crit-soft);
 }
 
 .alert-message.success {
-	border-left-color: var(--accent);
-	background: var(--accent-soft);
+	--tone: var(--success);
+	--tone-soft: var(--accent-soft);
 }
 
 .alert-message.info {
-	border-left-color: var(--info);
-	background: var(--info-soft);
+	--tone: var(--info);
+	--tone-soft: var(--info-soft);
 }
 
 .alert-message.notice {
-	border-left-color: var(--line-strong);
-	background: var(--raised);
+	--tone: var(--line-strong);
+	--tone-soft: var(--sunken);
 }
 
 .modal.alert-message {
 	color: var(--ink);
 }
 
+/* Labels are soft pills in the tone's tint. */
 .label {
 	display: inline-flex;
 	align-items: center;
+	height: 22px;
 	margin: .125em 0 .125em .4em;
-	padding: 2px 9px;
+	padding: 0 9px;
 	border-radius: 999px;
-	background: var(--raised);
-	border: 1px solid var(--line);
-	color: var(--ink);
+	background: var(--sunken);
+	color: var(--muted);
 	font-size: 12px;
-	font-weight: 600;
+	font-weight: 500;
+	letter-spacing: 0;
 	white-space: nowrap;
 }
 
 a.label:link,
 a.label:visited {
-	color: var(--ink);
+	color: var(--muted);
 }
 
 a.label:hover {
@@ -2125,25 +2114,21 @@ a.label:hover {
 }
 
 .label.important {
-	border-color: transparent;
-	background: var(--accent);
-	color: var(--accent-ink);
+	background: var(--accent-soft);
+	color: var(--accent);
 }
 
 .label.warning {
-	border-color: transparent;
 	background: var(--warn-soft);
 	color: var(--warn);
 }
 
 .label.success {
-	border-color: transparent;
 	background: var(--accent-soft);
-	color: var(--accent-strong);
+	color: var(--success);
 }
 
 .label.notice {
-	border-color: transparent;
 	background: var(--info-soft);
 	color: var(--info);
 }
@@ -2170,11 +2155,8 @@ body[data-page="admin-status-overview"] .cbi-title .label.notice:hover {
 	z-index: 900;
 	overflow: auto;
 	background: var(--overlay);
-	backdrop-filter: blur(3px);
-	-webkit-backdrop-filter: blur(3px);
 	opacity: 0;
 	visibility: hidden;
-	transition: opacity .125s ease-in;
 }
 
 body.modal-overlay-active {
@@ -2198,11 +2180,10 @@ body.modal-overlay-active #modal_overlay {
 	max-width: 600px;
 	min-height: 32px;
 	margin: 6em auto;
-	padding: 22px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-lg);
+	padding: 24px;
+	border: 1px solid var(--line-brand);
+	border-radius: var(--r);
 	background: var(--surface);
-	box-shadow: var(--shadow-pop);
 }
 
 .modal > * {
@@ -2213,6 +2194,7 @@ body.modal-overlay-active #modal_overlay {
 
 .modal > h4 {
 	font-size: 16px;
+	font-weight: 800;
 }
 
 .modal > pre,
@@ -2253,15 +2235,13 @@ body.modal-overlay-active #modal_overlay {
 	z-index: 1000;
 	left: -10000px;
 	padding: 6px 10px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
-	background: var(--surface);
-	box-shadow: var(--shadow-pop);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--r);
+	background: var(--raised);
 	color: var(--ink);
 	font-size: 12.5px;
 	white-space: pre;
 	opacity: 0;
-	transition: opacity .25s ease-in;
 }
 
 .cbi-tooltip-container:hover .cbi-tooltip:not(:empty) {
@@ -2275,7 +2255,7 @@ body.modal-overlay-active #modal_overlay {
 }
 
 .cbi-tooltip.success {
-	border-color: var(--accent);
+	border-color: var(--success);
 	background: var(--accent-soft);
 }
 
@@ -2285,7 +2265,7 @@ body.modal-overlay-active #modal_overlay {
 }
 
 .cbi-tooltip.notice {
-	background: var(--raised);
+	background: var(--sunken);
 }
 
 /* Progress, spinners, transitions --------------------------------------------- */
@@ -2293,11 +2273,10 @@ body.modal-overlay-active #modal_overlay {
 .cbi-progressbar {
 	position: relative;
 	min-width: 170px;
-	height: 8px;
+	height: 6px;
 	margin: 1.6em 0 4px;
 	border-radius: 999px;
 	background: var(--sunken);
-	border: 1px solid var(--line);
 }
 
 .cbi-progressbar > div {
@@ -2305,7 +2284,6 @@ body.modal-overlay-active #modal_overlay {
 	width: 0%;
 	border-radius: 999px;
 	background: var(--accent);
-	transition: width .25s ease-in;
 }
 
 .cbi-progressbar::before {
@@ -2383,7 +2361,7 @@ body.modal-overlay-active #modal_overlay {
 	margin: 0 10px;
 	border: 1px solid var(--line);
 	border-radius: var(--r);
-	background: var(--surface);
+	background: var(--raised);
 	text-align: center;
 	white-space: nowrap;
 	line-height: 1.3;
@@ -2393,7 +2371,7 @@ body.modal-overlay-active #modal_overlay {
 .ifacebox .ifacebox-head {
 	padding: 4px 8px;
 	border-bottom: 1px solid var(--line);
-	background: var(--raised);
+	background: var(--sunken);
 	color: var(--ink);
 	font-weight: 600;
 }
@@ -2422,7 +2400,7 @@ body.modal-overlay-active #modal_overlay {
 	gap: 4px;
 	padding: 3px 7px;
 	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
+	border-radius: var(--r);
 	background: var(--raised);
 	color: var(--ink);
 	line-height: 1.3;
@@ -2437,7 +2415,7 @@ body.modal-overlay-active #modal_overlay {
 
 .ifacebadge-active {
 	border-color: var(--accent);
-	font-weight: 650;
+	font-weight: 600;
 }
 
 .ifacebadge > *,
@@ -2504,26 +2482,46 @@ body.modal-overlay-active #modal_overlay {
 .zonebadge {
 	display: inline-block;
 	padding: 3px 6px;
-	border-radius: var(--r-sm);
+	border-radius: var(--r);
 	color: var(--ink);
 	white-space: nowrap;
 }
 
-/* A firewall zone wears its color (LuCI's --zone-color-rgb, set inline) as a tint
- * of the surface with an edge in the full color, alike in light and dark (D11); a
- * zone's bar in the port status, an empty badge, keeps its color whole. */
-.zonebadge[style*="--zone-color-rgb"]:not(:empty),
-.ifacebox-head[style*="--zone-color-rgb"] {
-	background: color-mix(in srgb, rgb(var(--zone-color-rgb)) var(--zone-tint), var(--surface)) !important;
-	color: var(--ink);
-}
-
+/* A firewall zone is a neutral chip with a dot of its color (LuCI's
+ * --zone-color-rgb, set inline; orbyt-theme D3, replacing luci-theme-wrt D11's
+ * tint). A zone's bar in the port status, and an empty badge, keep the color whole. */
 .zonebadge[style*="--zone-color-rgb"]:not(:empty) {
-	box-shadow: inset 3px 0 rgb(var(--zone-color-rgb));
+	display: inline-flex;
+	align-items: center;
+	gap: 7px;
+	min-height: 24px;
+	padding: 0 10px 0 8px;
+	border: 1px solid var(--line);
+	border-radius: 999px;
+	background: var(--raised) !important;
+	color: var(--ink);
+	font-size: 12px;
+	font-weight: 500;
+	letter-spacing: 0;
 }
 
+.zonebadge[style*="--zone-color-rgb"]:not(:empty)::before {
+	content: "";
+	flex: none;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: rgb(var(--zone-color-rgb));
+}
+
+.zonebadge[style*="--zone-color-rgb"]:empty,
 .ifacebox-head[style*="--zone-color-rgb"] {
-	box-shadow: inset 0 -2px rgb(var(--zone-color-rgb));
+	background: rgb(var(--zone-color-rgb));
+}
+
+/* A bar of any zone's color: its text stays the dark ink in both modes. */
+.ifacebox-head[style*="--zone-color-rgb"] {
+	color: #0f172a;
 }
 
 .zonebadge > em,
@@ -2586,10 +2584,10 @@ body.modal-overlay-active #modal_overlay {
 
 /* luci-base's icons (icons/*.svg: devices, ports, signal strength, loading) and the
  * file browser's (cbi/*.svg), drawn in the theme's glyphs, icons/ beside this file
- * (D10): the stock picture moves out of its box, and the box's background, in the
- * color of what the icon tells, shows through the glyph. An icon named nowhere
- * below gets the generic glyph; tests/firmware/test_web_theme.py has every icon
- * LuCI installs named. */
+ * (luci-theme-wrt D10): the stock picture moves out of its box, and the box's
+ * background, in the color of what the icon tells, shows through the glyph. An icon
+ * named nowhere below gets the generic glyph; tests/firmware/test_web_theme.py has
+ * every icon LuCI installs named. */
 img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi/"])[src$=".svg"] {
 	object-position: -99999px 0;
 	background-color: var(--glyph-ink, var(--accent));
@@ -2598,10 +2596,10 @@ img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi
 }
 
 /* What an icon tells: a device disabled or down, a port without link and no signal
- * faint; the file browser's files and links in the muted tone, its directories,
+ * in the off color (orbyt-theme D1); the file browser's files and links in the muted tone, its directories,
  * which open, in the accent. */
 img:is([src$="_disabled.svg"], [src$="/port_down.svg"], [src$="/port_pse_down.svg"], [src$="/signal-none.svg"]) {
-	--glyph-ink: var(--faint);
+	--glyph-ink: var(--off);
 }
 
 img:is([src$="/resources/cbi/file.svg"], [src$="/resources/cbi/link.svg"]) {
@@ -2733,9 +2731,9 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 	min-width: 210px;
 	max-width: 100%;
 	height: 0;
-	border: 1px solid var(--line);
-	border-radius: var(--r-sm);
-	background: var(--surface);
+	border: 1px solid var(--line-strong);
+	border-radius: var(--r);
+	background: var(--raised);
 	opacity: 0;
 	overflow: hidden;
 }
@@ -2744,7 +2742,6 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 	height: auto;
 	opacity: 1;
 	overflow: visible;
-	transition: opacity .25s ease-in;
 }
 
 .cbi-filebrowser > * {
@@ -2778,7 +2775,7 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 }
 
 .cbi-filebrowser > ul > li:hover {
-	background: var(--raised);
+	background: var(--sunken);
 }
 
 .cbi-filebrowser > ul > li > div:first-child {
@@ -2843,14 +2840,15 @@ form.inline { display: inline; margin-bottom: 0; }
 	filter: invert(100%) hue-rotate(150deg);
 }
 
-/* LuCI's realtime graphs (D11): their box, grid and labels in the mode's colors,
- * and each series in the theme's palette, keyed by the color LuCI writes inline on
- * a line and on its legend alike: blue, red and green, and the load's three reds. */
+/* LuCI's realtime graphs (luci-theme-wrt D11): their box, grid and labels in the
+ * mode's colors, and each series in the theme's palette, keyed by the color LuCI
+ * writes inline on a line and on its legend alike: blue, red and green, and the
+ * load's three reds. */
 #view div[style*="border:1px solid #000"][style*="background:#fff"] {
 	overflow: hidden;
 	border: 1px solid var(--line) !important;
 	border-radius: var(--r);
-	background: var(--surface) !important;
+	background: var(--raised) !important;
 }
 
 #view div[style] > svg line[style] {
@@ -2895,7 +2893,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	border-bottom-color: var(--chart-3) !important;
 }
 
-/* Colours LuCI's views set inline for a state (the port status's PoE power, the
+/* Colors LuCI's views set inline for a state (the port status's PoE power, the
  * password's strength), in the tokens that turn dark with the mode. */
 [style="color:#000"] { color: var(--ink) !important; }
 [style="color:#888"] { color: var(--faint) !important; }
@@ -2918,21 +2916,19 @@ form.inline { display: inline; margin-bottom: 0; }
 	gap: 16px;
 	width: min(400px, 100%);
 	padding: 28px;
-	border: 1px solid var(--line);
-	border-radius: var(--r-lg);
+	border: 1px solid var(--line-brand);
+	border-radius: var(--r);
 	background: var(--surface);
-	box-shadow: var(--shadow);
 }
 
-.login-card .brand {
-	padding: 0;
+.login-title {
+	font-size: 22px;
 }
 
 .login-card .cbi-section {
 	padding: 0;
 	border: 0;
 	background: none;
-	box-shadow: none;
 }
 
 .login-card .cbi-value {
@@ -2951,12 +2947,8 @@ form.inline { display: inline; margin-bottom: 0; }
 }
 
 .login-card .cbi-button-apply {
-	--on-color: var(--accent-ink);
-
 	width: 100%;
-	min-height: 42px;
-	border-color: var(--accent);
-	background: var(--accent);
+	min-height: 48px;
 	font-size: 15px;
 }
 
@@ -2967,21 +2959,27 @@ form.inline { display: inline; margin-bottom: 0; }
 		grid-template-columns: minmax(0, 1fr);
 	}
 
+	.topbar {
+		gap: 8px;
+		padding: 0 16px;
+	}
+
 	.sidebar {
 		position: fixed;
 		z-index: 300;
 		top: 0;
 		left: 0;
-		width: min(280px, 85vw);
+		height: 100vh;
+		width: min(300px, 85vw);
 		transform: translateX(-100%);
-		/* Closed, the drawer casts no shadow onto the page and its links take no
-		 * focus; it hides once it has slid out. */
+		/* Closed, the drawer's links take no focus; it hides once it has slid out
+		 * (orbyt-theme D2: the drawer is as it was). */
 		visibility: hidden;
 		transition: transform .2s, visibility 0s .2s;
 	}
 
 	body.drawer-open .sidebar {
-		box-shadow: var(--shadow-pop);
+		border-right-color: var(--line-brand);
 		transform: none;
 		visibility: visible;
 		transition: transform .2s;
@@ -2999,43 +2997,57 @@ form.inline { display: inline; margin-bottom: 0; }
 		display: inline-grid;
 	}
 
-	/* The page's place takes the room the buttons leave and truncates in it; the
-	 * bar wraps only when the buttons alone do not fit. */
-	.topbar {
-		flex-wrap: wrap;
-		padding: 10px 16px;
+	.menu-logout {
+		display: block;
 	}
 
-	.crumbs {
-		flex: 1 1 0;
-	}
-
-	.spacer {
+	.topbar .logout,
+	.lockup small {
 		display: none;
+	}
+
+	/* The indicators take the room the other buttons leave and clip in it. */
+	#indicators {
+		flex: 1 1 0;
+		overflow: hidden;
 	}
 
 	.segmented .label-text {
 		display: none;
 	}
 
+	.segmented button {
+		padding: 0 9px;
+	}
+
+	.crumbs {
+		padding: 20px 20px 0;
+	}
+
 	.container,
 	#maincontent {
-		padding: 16px 16px 32px;
+		padding: 16px 20px 40px;
 	}
 
 	.footer {
-		padding: 12px 16px 20px;
+		padding: 16px 20px 24px;
+	}
+
+	.cbi-map > h2,
+	#view > h2,
+	#maincontent > h2 {
+		font-size: 24px;
+	}
+
+	.cbi-map > h2::after,
+	#view > h2::after,
+	#maincontent > h2::after {
+		width: 40px;
+		margin-top: 10px;
 	}
 
 	.cbi-section {
-		padding: 14px;
-	}
-
-	.cbi-section > h3:first-child,
-	.cbi-section > .cbi-title:first-child,
-	.cbi-section > legend:first-child {
-		margin: -14px -14px 0;
-		padding: 12px 14px;
+		padding: 20px;
 	}
 
 	.cbi-value {
@@ -3059,6 +3071,14 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 }
 
+/* Below 480 pixels the lockup is the mark alone, and the header keeps its room for
+ * the indicators and the switch. */
+@media (max-width: 480px) {
+	.lockup-text {
+		display: none;
+	}
+}
+
 /* Below 600 pixels: tables as stacked rows, as LuCI's phones expect ---------- */
 
 @media (max-width: 600px) {
@@ -3074,7 +3094,7 @@ form.inline { display: inline; margin-bottom: 0; }
 
 	.modal {
 		margin: 1.5em auto;
-		padding: 16px;
+		padding: 20px;
 	}
 
 	.table {
@@ -3170,7 +3190,7 @@ form.inline { display: inline; margin-bottom: 0; }
 		flex: 1 1 100%;
 		padding: 4px 6px;
 		border-bottom: 1px solid var(--line);
-		background: var(--raised) !important;
+		background: var(--sunken) !important;
 		font-size: 15px;
 		font-weight: 600;
 	}
@@ -3244,7 +3264,7 @@ form.inline { display: inline; margin-bottom: 0; }
 
 	.cbi-page-actions,
 	.actions {
-		padding: 10px;
+		padding: 8px 0 0;
 	}
 
 	[data-page="admin-status-overview"] .td[width="33%"] {

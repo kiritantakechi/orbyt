@@ -1,7 +1,7 @@
 'use strict';
 'require view';
 
-// The login card's behavior (luci-theme-orbyt D2): focus on the password, and the
+// The login card's behavior (luci-theme-wrt D2): focus on the password, and the
 // spinner on the button once the form is on its way.
 return view.extend({
 	render() {

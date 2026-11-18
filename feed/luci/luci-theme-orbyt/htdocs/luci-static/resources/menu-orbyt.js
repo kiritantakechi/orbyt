@@ -2,56 +2,10 @@
 'require baseclass';
 'require ui';
 
-// luci-theme-orbyt's menu (luci-theme-orbyt D4): the mode's first level as the
-// sidebar's groups, their pages as links, the third level as tabs, the page's
-// place in the top bar; the drawer below 800 pixels, and the light/dark switch.
-
-const OPEN_GROUPS = 'luci-theme-orbyt-menu';
-
-// An outline icon per first-level node LuCI and its applications use; others
-// get the generic one.
-const ICONS = {
-	status: 'M3.5 18a9 9 0 1 1 17 0M12 14l4-4',
-	system: 'M6 6h12v12H6zM9 2v4M15 2v4M9 18v4M15 18v4M2 9h4M2 15h4M18 9h4M18 15h4',
-	services: 'M21 8l-9-5-9 5 9 5 9-5zM3 8v8l9 5 9-5V8M12 13v8',
-	network: 'M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18zM3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18',
-	vpn: 'M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6l8-3z',
-	nas: 'M3 12h18v8H3zM5 12l2.5-7h9L19 12M16 16h.01',
-	statistics: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
-	docker: 'M3 9h4v4H3zM8 9h4v4H8zM13 9h4v4h-4zM8 4h4v4H8zM3 15c0 3 3 5 8 5 6 0 9-3 10-7',
-	logout: 'M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l-5-5 5-5M5 12h11'
-};
-const GENERIC = 'M4 6h16M4 12h16M4 18h10';
-const CHEVRON = 'M6 9l6 6 6-6';
-
-function icon(path, extra) {
-	const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	const shape = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-
-	svg.setAttribute('class', extra ? `icon ${extra}` : 'icon');
-	svg.setAttribute('viewBox', '0 0 24 24');
-	svg.setAttribute('aria-hidden', 'true');
-	shape.setAttribute('d', path);
-	svg.appendChild(shape);
-
-	return svg;
-}
-
-function storedGroups() {
-	try {
-		return new Set(JSON.parse(localStorage.getItem(OPEN_GROUPS) ?? '[]'));
-	}
-	catch (e) {
-		return new Set();
-	}
-}
-
-function storeGroups(groups) {
-	try {
-		localStorage.setItem(OPEN_GROUPS, JSON.stringify([...groups]));
-	}
-	catch (e) {}
-}
+// luci-theme-orbyt's menu (luci-theme-wrt D4; orbyt-theme D2): the mode's first
+// level as the sidebar's groups of text entries, the third level as tabs, the
+// page's place above the content and logout in the header; the drawer below 800
+// pixels, and the light/dark switch.
 
 return baseclass.extend({
 	__init__() {
@@ -70,6 +24,7 @@ return baseclass.extend({
 
 		this.renderMenu(mode, path);
 		this.renderModes(modes, mode);
+		this.renderLogout(mode);
 
 		let node = tree;
 		let url = '';
@@ -90,54 +45,29 @@ return baseclass.extend({
 
 	renderMenu(mode, path) {
 		const nav = document.querySelector('#mainmenu');
-		const open = storedGroups();
+		const entry = (href, title, current) => E('a', {
+			'href': href,
+			'aria-current': current ? 'page' : null
+		}, [ _(title) ]);
 
 		ui.menu.getChildren(mode).forEach((category) => {
 			const pages = ui.menu.getChildren(category);
 			const active = path[1] === category.name;
-			const glyph = ICONS[category.name] ?? GENERIC;
+
+			// Logout has its place in the header, and in the drawer's foot.
+			if (category.name === 'logout')
+				return;
 
 			if (pages.length === 0) {
-				nav.appendChild(E('a', {
-					'class': `menu-leaf${active ? ' active' : ''}`,
-					'href': L.url(mode.name, category.name)
-				}, [ icon(glyph), E('span', {}, [ _(category.title) ]) ]));
+				nav.appendChild(entry(L.url(mode.name, category.name), category.title, active));
 				return;
 			}
 
-			const expanded = active || open.has(category.name);
-			const list = E('ul', { 'class': 'menu-items' }, pages.map((page) => {
-				const current = active && path[2] === page.name;
-
-				return E('li', {}, [
-					E('a', {
-						'class': current ? 'active' : null,
-						'href': L.url(mode.name, category.name, page.name),
-						'aria-current': current ? 'page' : null
-					}, [ _(page.title) ])
-				]);
-			}));
-			const head = E('button', {
-				'class': 'menu-head',
-				'type': 'button',
-				'aria-expanded': String(expanded)
-			}, [ icon(glyph), E('span', {}, [ _(category.title) ]), icon(CHEVRON, 'chevron') ]);
-			const group = E('div', {
-				'class': `menu-group${expanded ? '' : ' closed'}${active ? ' current' : ''}`
-			}, [ head, list ]);
-
-			head.addEventListener('click', () => {
-				const closed = group.classList.toggle('closed');
-
-				head.setAttribute('aria-expanded', String(!closed));
-				if (closed)
-					open.delete(category.name);
-				else
-					open.add(category.name);
-				storeGroups(open);
-			});
-
-			nav.appendChild(group);
+			nav.appendChild(E('div', { 'class': 'menu-group' }, [
+				E('h2', {}, [ _(category.title) ]),
+				...pages.map((page) => entry(L.url(mode.name, category.name, page.name),
+					page.title, active && path[2] === page.name))
+			]));
 		});
 	},
 
@@ -151,6 +81,26 @@ return baseclass.extend({
 			'class': node === current ? 'active' : null,
 			'href': L.url(node.name)
 		}, [ _(node.title) ]))));
+	},
+
+	// Logout is a first-level node of LuCI's menu; where there is none, there is no
+	// button. The header's button shows from 800 pixels up, the drawer's entry below.
+	renderLogout(mode) {
+		const node = ui.menu.getChildren(mode).find((child) => child.name === 'logout');
+
+		if (!node)
+			return;
+
+		const href = L.url(mode.name, node.name);
+
+		document.querySelector('.topbar').appendChild(E('a', {
+			'class': 'btn ghost small logout',
+			'href': href
+		}, [ _(node.title) ]));
+		document.querySelector('.sidebar-foot').appendChild(E('a', {
+			'class': 'menu-logout',
+			'href': href
+		}, [ _(node.title) ]));
 	},
 
 	renderTabMenu(tree, url, level, trail) {
@@ -222,7 +172,7 @@ return baseclass.extend({
 
 		buttons.forEach((button) => {
 			button.addEventListener('click', () => {
-				window.wrtTheme(button.dataset.choice);
+				window.orbytTheme(button.dataset.choice);
 				show();
 			});
 		});

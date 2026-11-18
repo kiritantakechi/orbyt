@@ -1,6 +1,7 @@
-# luci-theme-orbyt: the image's own LuCI theme (luci-theme-orbyt D1): a sidebar of
-# LuCI's menu, a top bar with the page's place, LuCI's indicators and a light/dark
-# switch, and the page's sections as cards; light and dark by LuCI's data-darkmode.
+# luci-theme-orbyt: the image's own LuCI theme (luci-theme-wrt D1; orbyt-theme): a
+# header with the lockup, LuCI's indicators and a light/dark switch, a sidebar of
+# LuCI's menu, and the page's sections as flat panels; light and dark by LuCI's
+# data-darkmode.
 # Builds on LuCI's luci.mk from the luci feed, as luci-app-honk does.
 
 include $(TOPDIR)/rules.mk

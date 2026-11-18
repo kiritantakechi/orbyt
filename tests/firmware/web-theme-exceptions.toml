@@ -1,5 +1,5 @@
 # Classes LuCI's stock theme (bootstrap) styles and luci-theme-orbyt does not, each
-# with its reason (luci-theme-orbyt D6). tests/firmware/test_web_theme.py fails on a
+# with its reason (luci-theme-wrt D6). tests/firmware/test_web_theme.py fails on a
 # class missing from both the theme and this list, and on an entry the theme now
 # styles or bootstrap no longer does.
 
@@ -17,7 +17,7 @@ reason = "bootstrap's top-bar submenus, which the sidebar's groups replace"
 
 [[class]]
 class = "dropdown-toggle"
-reason = "bootstrap's top-bar submenu arrows, which the sidebar's chevrons replace"
+reason = "bootstrap's top-bar submenu arrows; the sidebar's groups are always open"
 
 [[class]]
 class = "menu-dropdown"
@@ -30,3 +30,7 @@ reason = "bootstrap's footer list of modes, which the sidebar's foot replaces"
 [[class]]
 class = "divider"
 reason = "the separators of bootstrap's footer list of modes"
+
+[[class]]
+class = "cbi-rowstyle-2"
+reason = "bootstrap's striped rows; the theme separates a table's rows by hairlines alone (orbyt-theme D3)"

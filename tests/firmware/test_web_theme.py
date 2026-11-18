@@ -9,8 +9,10 @@ a browser (verified-elsewhere).
 import re
 import tomllib
 from http import HTTPStatus
+from http.client import HTTPConnection
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
 
 from orbyt_tests import spec
 
@@ -42,6 +44,15 @@ SOURCES = (".ut", ".css", ".js", ".svg")
 # signal strength and loading, and the file browser's.
 LUCI_ICONS = "cd /www/luci-static/resources && ls icons/*.svg cbi/*.svg"
 GENERIC_GLYPH = "icons/generic.svg"
+LUCI = "/cgi-bin/luci/"
+PAGE = f"{LUCI}admin/status/overview"
+# The mark is an inline <svg class="orbyt-mark">; the pages name the theme's own
+# icon file as their icon.
+MARK = 'class="orbyt-mark"'
+ICON = re.compile(
+    rf"<link\b[^>]*\brel=[\"']icon[\"'][^>]*\bhref=[\"']{re.escape(THEME)}/mark\.svg[\"']",
+    re.IGNORECASE,
+)
 
 
 def _uncommented(css: str) -> str:
@@ -76,6 +87,23 @@ def _get(router: Router, path: str) -> str:
     status, body = router.http(path)
     assert status == HTTPStatus.OK, (path, status)
     return body
+
+
+def _login(router: Router) -> str:
+    """Log in to LuCI as root (the image has no password set) and return the session cookie."""
+    connection = HTTPConnection(router.address, timeout=30)
+    try:
+        connection.request(
+            "POST",
+            LUCI,
+            body=urlencode({"luci_username": "root", "luci_password": ""}),
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+        cookie = connection.getresponse().getheader("Set-Cookie")
+    finally:
+        connection.close()
+    assert cookie is not None, "the login set no session cookie"
+    return cookie.split(";", 1)[0]
 
 
 @spec(CAPABILITY, "The image's own theme by default", "Fresh install")
@@ -149,3 +177,14 @@ def test_the_theme_files_load_nothing_from_outside() -> None:
         if (loads := _loads(path.read_text(encoding="utf-8")))
     }
     assert found == {}
+
+
+@spec(CAPABILITY, "Orbyt's mark", "The mark on the pages")
+def test_the_login_and_the_pages_carry_the_mark(router: Router) -> None:
+    _, login = router.http(LUCI)
+    status, page = router.http(PAGE, headers={"Cookie": _login(router)})
+    assert status == HTTPStatus.OK, status
+    pages = {"the login page": login, "a page after login": page}
+    assert [name for name, text in pages.items() if MARK not in text] == []
+    assert [name for name, text in pages.items() if not ICON.search(text)] == []
+    assert "<svg" in _get(router, f"{THEME}/mark.svg")

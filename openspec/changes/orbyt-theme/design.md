@@ -10,7 +10,7 @@
 
 **Goals:**
 - The canvas's look on every LuCI page, light and dark, desktop and phone.
-- TouhouAsia's hard rules kept where LuCI's markup allows: no shadows, colour-only states, one action colour, 4.5:1 text contrast, the focus ring.
+- TouhouAsia's hard rules kept where LuCI's markup allows: no shadows, color-only states, one action color, 4.5:1 text contrast, the focus ring.
 
 **Non-Goals:**
 - Changing LuCI's views: as before, the theme styles the markup they produce.
@@ -34,11 +34,11 @@ The theme's variables take TouhouAsia's semantic values, light on `:root` and da
 | rule, focus | `#059669`, `#047857` | `#10b981`, `#64ffda` |
 | warning, danger, info | `#b45309`, `#b91c1c`, `#1d4ed8` with their 50 tints | `#fbbf24`, `#f87171`, `#93c5fd` at 14% |
 
-The bootstrap compatibility variables LuCI's modules read point at these. Motion is TouhouAsia's: colour, background, border and shadow transitions only, 80 to 220 ms, ease-out, none under reduced motion.
+The bootstrap compatibility variables LuCI's modules read point at these. Motion is TouhouAsia's: color, background, border and shadow transitions only, 80 to 220 ms, ease-out, none under reduced motion.
 
 ### D2. The layout
 
-A 64 px header across the page: the lockup (the mark, "Orbyt", the hostname and model below it), LuCI's indicators, the light/dark switch and logout. Below it the sidebar, 240 px, on the second ground: the menu's first level as small group labels, their pages as text entries, the current one in the text colour with a 3 px vertical brand rule; no icons, as TouhouAsia has no icon set. The content beside it, at most 1200 px: the breadcrumb (`/` separated), LuCI's tab menu, the view. Below 800 pixels the sidebar becomes a drawer behind a menu button in the header, closed by the button, a tap beside it or Escape, as before.
+A 64 px header across the page: the lockup (the mark, "Orbyt", the hostname and model below it), LuCI's indicators, the light/dark switch and logout. Below it the sidebar, 240 px, on the second ground: the menu's first level as small group labels, their pages as text entries, the current one in the text color with a 3 px vertical brand rule; no icons, as TouhouAsia has no icon set. The content beside it, at most 1200 px: the breadcrumb (`/` separated), LuCI's tab menu, the view. Below 800 pixels the sidebar becomes a drawer behind a menu button in the header, closed by the button, a tap beside it or Escape, as before.
 
 TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page takes the 64 px header, 28 px page titles and 16 px section titles, and keeps its 40 px fields, with 32 px buttons inside tables.
 
@@ -49,12 +49,12 @@ TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page
 - Fields: 40 px, 8 px radius, the strong border, the raised ground; an invalid one takes the danger border (LuCI's `cbi-input-invalid`).
 - Tables: a strong line under the header row, hairline rows; figures in monospace where LuCI marks them as such (`code`, `pre`).
 - Tabs: text with the 3 px brand rule under the active one, no fill.
-- Alerts: the tone's tint and a border of its ink at 30%, never a coloured edge; LuCI's message carries the word.
-- Labels and badges: soft pills in the tone's tint; zones a neutral chip with a dot of the zone's colour (replacing luci-theme-wrt D11's tint).
+- Alerts: the tone's tint and a border of its ink at 30%, never a colored edge; LuCI's message carries the word.
+- Labels and badges: soft pills in the tone's tint; zones a neutral chip with a dot of the zone's color (replacing luci-theme-wrt D11's tint).
 
 ### D4. The mark
 
-The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 6.4 at 1:30 cut free by a 9.6 gap, filled with the stream gradient (light `#059669`, `#10b981`, `#1e40af`; dark `#64ffda`, `#10b981`, `#0284c7`). Inline in the header and the login, its colours from the mode's tokens; `mark.svg` as the pages' icon, which picks its inks by `prefers-color-scheme` (an icon file cannot read the page's pinned mode).
+The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 6.4 at 1:30 cut free by a 9.6 gap, filled with the stream gradient (light `#059669`, `#10b981`, `#1e40af`; dark `#64ffda`, `#10b981`, `#0284c7`). Inline in the header and the login, its colors from the mode's tokens; `mark.svg` as the pages' icon, which picks its inks by `prefers-color-scheme` (an icon file cannot read the page's pinned mode).
 
 ### D5. Fonts
 
