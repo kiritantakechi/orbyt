@@ -1,7 +1,9 @@
 # A/B sysupgrade (r4s-ab-rollback design D6). sysupgrade and its
 # second stage source every /lib/upgrade/*.sh in name order, so the definitions
-# below replace the whole-disk ones of the rockchip platform.sh before this file.
-# An upgrade writes only the slot that is not running, then makes it the trial slot.
+# below replace the whole-disk ones of the rockchip platform.sh, and anything
+# else defined there, only as the last file: hence the name's z- (orbyt-brand
+# D1). An upgrade writes only the slot that is not running, then makes it the
+# trial slot.
 
 # shellcheck source=../functions/orbyt-ab.sh
 . /lib/functions/orbyt-ab.sh
