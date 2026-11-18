@@ -22,7 +22,6 @@
 	--raised: #ffffff;
 	--sunken: #f1f5f9;
 	--ink: #0f172a;
-	--ink-strong: #0f172a;
 	--muted: #334155;
 	--faint: #64748b;
 	/* A device that is down, a port without link, a signal gone. */
@@ -34,6 +33,8 @@
 	--rule: #059669;
 	--focus: #047857;
 	--focus-gap: #ffffff;
+	--selection: #a7f3d0;
+	--link-hover: #065f46;
 	--accent: #047857;
 	--accent-strong: #065f46;
 	--accent-ink: #ffffff;
@@ -62,11 +63,12 @@
 	/* Rectangles take 8 px; inline code 4 px; buttons, tags and rules are pills. */
 	--r: 8px;
 	--header: 64px;
-	--sidebar: 240px;
+	--sidebar: 256px;
 	--field-height: 40px;
 	--button-small: 32px;
 	/* Motion is color, background, border and ring only (orbyt-theme D1). */
 	--ease: cubic-bezier(.22, .61, .36, 1);
+	--slide: 220ms;
 	--motion: color 140ms var(--ease), background-color 140ms var(--ease),
 		border-color 140ms var(--ease), box-shadow 140ms var(--ease);
 
@@ -74,7 +76,7 @@
 	--background-color-high: var(--raised);
 	--background-color-medium: var(--surface);
 	--background-color-low: var(--sunken);
-	--text-color-highest: var(--ink-strong);
+	--text-color-highest: var(--ink);
 	--text-color-high: var(--ink);
 	--text-color-medium: var(--muted);
 	--text-color-low: var(--faint);
@@ -99,6 +101,7 @@
 	--warn-color-medium: var(--warn);
 	--warn-color-low: var(--warn);
 	--on-warn-color: var(--ink);
+	/* For LuCI applications' own styles only: the theme never fades a state. */
 	--disabled-opacity: .55;
 	--font-sans: var(--font-ui);
 	--font-mono: var(--font-code);
@@ -112,7 +115,6 @@
 	--raised: #07182b;
 	--sunken: rgb(241 245 249 / .10);
 	--ink: #f1f5f9;
-	--ink-strong: #f1f5f9;
 	--muted: #cbd5e1;
 	--faint: #94a3b8;
 	--off: #64748b;
@@ -122,6 +124,8 @@
 	--rule: #10b981;
 	--focus: #64ffda;
 	--focus-gap: #040d1a;
+	--selection: rgb(100 255 218 / .24);
+	--link-hover: #64ffda;
 	--accent: #10b981;
 	--accent-strong: #34d399;
 	--accent-ink: #040d1a;
@@ -133,7 +137,7 @@
 	--crit-soft: rgb(248 113 113 / .14);
 	--crit-ink: #040d1a;
 	--info: #93c5fd;
-	--info-soft: rgb(147 197 253 / .14);
+	--info-soft: rgb(96 165 250 / .14);
 	--stream-a: #64ffda;
 	--stream-c: #0284c7;
 	--chart-1: #3987e5;
@@ -182,10 +186,10 @@ h1, h2, h3, h4, h5, h6, legend {
 	text-wrap: balance;
 }
 
-h1 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
-h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.02em; }
-h3, legend { font-size: 16px; font-weight: 800; letter-spacing: -0.011em; }
-h4 { font-size: 15px; letter-spacing: -0.009em; }
+h1, h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.012em; }
+legend { font-size: 16px; font-weight: 800; letter-spacing: -0.011em; }
+h4 { font-size: 16px; letter-spacing: -0.011em; color: var(--accent); }
 h5, h6 { font-size: 13px; letter-spacing: 0; }
 h6 { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 
@@ -205,9 +209,9 @@ p {
 	margin: 0 0 .75em;
 }
 
-p small,
 small {
-	font-size: .9em;
+	font-size: 12px;
+	letter-spacing: 0;
 	color: var(--faint);
 }
 
@@ -218,8 +222,20 @@ a {
 }
 
 a:hover {
-	color: var(--accent-strong);
+	color: var(--link-hover);
+}
+
+/* A link in running text is underlined; the interface's own links are not. */
+:is(p, .cbi-map-descr, .cbi-section-descr, .cbi-value-description, .alert-message)
+	a:not(.btn, .cbi-button, .label) {
 	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 3px;
+}
+
+::selection {
+	background: var(--selection);
+	color: var(--ink);
 }
 
 /* The focus ring: a gap in the ground's color, then the focus color (orbyt-theme
@@ -242,19 +258,14 @@ li {
 	color: inherit;
 }
 
-ul.unstyled {
-	list-style: none;
-	margin-left: 0;
-}
-
 dl { margin: 0 0 1em; }
 dl dt { font-weight: 600; }
 dl dd { margin: 0 0 0 .75em; }
 
 hr {
-	margin: 1.25em 0;
+	margin: 24px 0;
 	border: 0;
-	border-bottom: 1px solid var(--line);
+	border-bottom: 1px solid var(--line-brand);
 }
 
 strong { font-weight: 600; }
@@ -282,23 +293,26 @@ code, pre, kbd, samp {
 	font-family: var(--font-code);
 	font-size: 13px;
 	letter-spacing: 0;
+	font-variant-numeric: tabular-nums;
 }
 
-code {
-	padding: 1px 5px;
+:not(pre) > code {
+	padding: .1em .35em;
 	border-radius: 4px;
 	background: var(--sunken);
 	color: var(--ink);
 }
 
+/* Code and command output in TouhouAsia's code block: the panel's ground and edge. */
 pre {
 	display: block;
 	margin: 0 0 1em;
-	padding: 10px 12px;
-	border: 1px solid var(--line);
+	padding: 16px;
+	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
-	background: var(--sunken);
-	line-height: 1.5;
+	background: var(--surface);
+	color: var(--ink);
+	line-height: 1.65;
 	white-space: pre-wrap;
 	word-wrap: break-word;
 	overflow: auto;
@@ -366,7 +380,7 @@ fieldset legend {
 	align-items: center;
 	gap: 16px;
 	height: var(--header);
-	padding: 0 48px;
+	padding: 0 32px;
 	border-bottom: 1px solid var(--line);
 	background: var(--canvas);
 }
@@ -421,8 +435,7 @@ fieldset legend {
 #indicators [data-indicator] {
 	display: inline-flex;
 	align-items: center;
-	gap: 6px;
-	height: 24px;
+	height: 22px;
 	padding: 0 10px;
 	border-radius: 999px;
 	background: var(--sunken);
@@ -442,14 +455,6 @@ fieldset legend {
 	color: var(--warn);
 }
 
-#indicators [data-indicator][data-style="active"]::before {
-	content: "";
-	width: 7px;
-	height: 7px;
-	border-radius: 50%;
-	background: currentColor;
-}
-
 .segmented {
 	display: inline-flex;
 	gap: 2px;
@@ -461,7 +466,6 @@ fieldset legend {
 .segmented button {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
 	height: 28px;
 	padding: 0 12px;
 	border: 0;
@@ -509,8 +513,10 @@ fieldset legend {
 	margin-left: -8px;
 }
 
-/* The sidebar: the menu's first level as small group labels over text entries; the
- * current entry in the text color with a vertical brand rule. */
+/* The sidebar: TouhouAsia's aside, on the page's own ground, holding the menu as its
+ * table of contents: each of the menu's first level an eyebrow over its entries,
+ * which hang from a hairline; the current entry in the text color, its brand rule
+ * on the hairline. */
 .sidebar {
 	position: sticky;
 	top: var(--header);
@@ -519,62 +525,69 @@ fieldset legend {
 	overflow-y: auto;
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
-	padding: 24px 16px;
+	gap: 28px;
+	padding: 32px 24px 24px 32px;
 	border-right: 1px solid var(--line);
-	background: var(--surface);
+	background: var(--canvas);
 }
 
 .mainmenu {
 	display: flex;
 	flex-direction: column;
-	gap: 20px;
+	gap: 28px;
 }
 
+/* The eyebrow: TouhouAsia's label above a table of contents. */
 .mainmenu h2 {
-	margin: 0 0 6px 12px;
-	color: var(--faint);
+	margin: 0 0 12px;
+	color: var(--accent);
+	font-family: var(--font-code);
 	font-size: 12px;
 	font-weight: 600;
-	letter-spacing: 0;
-	line-height: 1.5;
+	letter-spacing: .04em;
+	line-height: 1.4;
+	text-transform: uppercase;
 }
 
-.mainmenu a,
-.menu-logout {
+.menu-list {
+	display: flex;
+	flex-direction: column;
+	border-left: 1px solid var(--line);
+}
+
+.menu-list a {
 	position: relative;
 	display: block;
-	padding: 7px 12px;
-	border-radius: var(--r);
+	padding: 6px 0 6px 16px;
 	color: var(--muted);
-	font-weight: 500;
+	font-size: 14px;
+	line-height: 1.4;
 }
 
-.mainmenu a:hover,
-.menu-logout:hover {
-	color: var(--accent);
-	text-decoration: none;
+.menu-list a:hover {
+	color: var(--ink);
 }
 
-.mainmenu a[aria-current] {
+.menu-list a[aria-current] {
 	color: var(--ink);
 	font-weight: 600;
 }
 
-.mainmenu a[aria-current]::before {
+.menu-list a[aria-current]::before {
 	content: "";
 	position: absolute;
-	top: 8px;
-	bottom: 8px;
-	left: 0;
+	top: 6px;
+	bottom: 6px;
+	left: -2px;
 	width: 3px;
-	border-radius: 2px;
+	border-radius: 999px;
 	background: var(--rule);
 }
 
 .sidebar-foot {
 	display: grid;
-	gap: 2px;
+	justify-items: start;
+	gap: 16px;
 	margin-top: auto;
 	color: var(--faint);
 	font-size: 12px;
@@ -584,7 +597,6 @@ fieldset legend {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
-	padding: 0 12px;
 }
 
 .sidebar-foot .modes a.active {
@@ -592,9 +604,16 @@ fieldset legend {
 	font-weight: 600;
 }
 
-/* Logout is the header's button from 800 pixels up, the drawer's entry below. */
-.menu-logout {
+/* Logout and the light/dark switch are the header's from 800 pixels up, the
+ * drawer's foot's below. */
+.menu-logout,
+.sidebar-foot .segmented {
 	display: none;
+}
+
+.menu-logout {
+	font-size: 14px;
+	font-weight: 600;
 }
 
 .main {
@@ -603,20 +622,21 @@ fieldset legend {
 	min-width: 0;
 }
 
-/* The page's place: each part truncates on its own, the separator at the start of
- * the parts after the first, so that an ellipsis clips a name and never a "/"; the
- * menu's levels give way, the page's own name only once it fills the line. */
+/* The page's place, TouhouAsia's breadcrumb: the levels above as links, " / "
+ * between them, the page itself in the text color. Each part truncates on its own,
+ * the separator at the start of the parts after the first, so that an ellipsis
+ * clips a name and never a "/"; the levels give way, the page's own name only once
+ * it fills the line. */
 .crumbs {
 	display: flex;
-	align-items: center;
-	gap: 6px;
+	align-items: baseline;
 	width: 100%;
 	max-width: 1200px;
 	min-width: 0;
 	margin: 0 auto;
-	padding: 28px 48px 0;
-	color: var(--faint);
-	font-size: 13px;
+	padding: 32px 48px 0;
+	color: var(--muted);
+	font-size: 14px;
 	white-space: nowrap;
 }
 
@@ -628,14 +648,24 @@ fieldset legend {
 
 .crumbs > * + *::before {
 	content: "/";
-	margin-right: 6px;
+	margin: 0 10px;
+	color: var(--faint);
 }
 
-.crumbs b {
+.crumbs a {
+	color: var(--muted);
+}
+
+.crumbs a:hover {
+	color: var(--link-hover);
+	text-decoration: underline;
+}
+
+.crumbs [aria-current] {
 	flex-shrink: 0;
 	max-width: 100%;
 	color: var(--ink);
-	font-weight: 600;
+	font-weight: 500;
 }
 
 .container,
@@ -684,32 +714,30 @@ fieldset legend {
 	gap: 24px;
 }
 
-/* The page's title, with the brand rule under it that marks the current place. */
+/* The page's title, from the left edge, no rule under it: the brand rule marks
+ * only the reader's place (the menu's entry, the tab). Its description follows
+ * close below, within the measure. */
 .cbi-map > h2,
 #view > h2,
 #maincontent > h2 {
-	font-size: 28px;
 	line-height: 1.25;
 }
 
-.cbi-map > h2::after,
-#view > h2::after,
-#maincontent > h2::after {
-	content: "";
-	display: block;
-	width: 48px;
-	height: 3px;
-	margin-top: 12px;
-	border-radius: 999px;
-	background: var(--rule);
+.cbi-map > h2 + .cbi-map-descr {
+	margin-top: -12px;
 }
 
 .cbi-map-descr,
 .cbi-section-descr,
 .table .tr.cbi-section-table-descr .th {
 	margin: 0;
-	color: var(--faint);
+	color: var(--muted);
 	font-weight: normal;
+}
+
+.cbi-map-descr,
+.cbi-section-descr {
+	max-width: 640px;
 }
 
 .cbi-section {
@@ -817,7 +845,7 @@ fieldset legend {
 
 /* The field's column puts each child on its own line already; LuCI's line breaks
  * between them (the local time's input and its buttons) would add an empty one. */
-.cbi-value-field > br {
+.cbi-value > .cbi-value-field > br {
 	display: none;
 }
 
@@ -883,10 +911,18 @@ textarea {
 	letter-spacing: -0.006em;
 }
 
+/* What a field holds is set a step larger than its label, as TouhouAsia's fields. */
+input,
+select,
+textarea,
+.cbi-dropdown:not(.btn):not(.cbi-button) {
+	font-size: 15px;
+	letter-spacing: -0.009em;
+}
+
 input,
 textarea,
 select,
-.cbi-select,
 .cbi-input-text,
 .cbi-dropdown:not(.btn):not(.cbi-button) {
 	display: inline-block;
@@ -919,17 +955,16 @@ select[multiple] {
 input:hover,
 textarea:hover,
 select:hover,
-.cbi-select:hover,
 .cbi-dropdown:not(.btn):not(.cbi-button):hover {
 	border-color: var(--muted);
 }
 
+/* A field in use shows the ring however it was focused. */
 input:focus,
 textarea:focus,
 select:focus,
-.cbi-select.focus,
 .cbi-dropdown:focus {
-	border-color: var(--focus);
+	border-color: var(--accent);
 	outline: 2px solid transparent;
 	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
 }
@@ -961,21 +996,28 @@ input[type="search"] {
 	appearance: textfield;
 }
 
+/* An invalid field keeps its danger edge while it has focus. */
 .cbi-input-invalid,
+[aria-invalid="true"],
 .cbi-input-invalid.cbi-dropdown:not(.btn):not(.cbi-button),
-.cbi-input-invalid:focus {
+:is(.cbi-input-invalid, [aria-invalid="true"]):focus {
 	border-color: var(--crit);
 }
 
+/* Disabled: the field steps back onto the neutral fill, its text in the faint ink;
+ * never faded. */
 input[disabled],
-button[disabled],
 select[disabled],
 textarea[disabled],
-.cbi-select[disabled]::before,
 .cbi-dropdown[disabled]:not(.btn):not(.cbi-button) {
-	opacity: var(--disabled-opacity);
+	border-color: var(--line);
+	background-color: var(--sunken);
+	color: var(--faint);
+	cursor: not-allowed;
+}
+
+.cbi-dropdown[disabled] {
 	pointer-events: none;
-	cursor: default;
 }
 
 input[readonly],
@@ -985,55 +1027,12 @@ textarea[readonly] {
 	cursor: auto;
 }
 
-.cbi-select {
-	position: relative;
-	padding: 0;
-}
-
-.cbi-select select,
-.cbi-select select:focus {
-	appearance: none;
-	-webkit-appearance: none;
-	width: 100%;
-	height: 100%;
-	max-width: none;
-	margin: 0;
-	padding: 9px 28px 9px 12px;
-	border: 0;
-	background: transparent;
-	box-shadow: none;
-	cursor: pointer;
-}
-
-.cbi-select::before {
-	content: "▾";
-	position: absolute;
-	top: 0;
-	right: 0;
-	bottom: 0;
-	display: flex;
-	align-items: center;
-	padding: 0 10px;
-	color: var(--muted);
-	pointer-events: none;
-}
-
-.cbi-select select option {
-	background: var(--raised);
-	color: var(--ink);
-}
-
-.cbi-select select option:checked {
-	background: var(--accent);
-	color: var(--accent-ink);
-}
-
 select:not([multiple]) {
 	appearance: none;
 	-webkit-appearance: none;
 	padding-right: 30px;
-	background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%),
-		linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+	background-image: linear-gradient(45deg, transparent 50%, var(--faint) 50%),
+		linear-gradient(135deg, var(--faint) 50%, transparent 50%);
 	background-position: calc(100% - 16px) 50%, calc(100% - 11px) 50%;
 	background-size: 5px 5px;
 	background-repeat: no-repeat;
@@ -1070,20 +1069,30 @@ input[type="radio"]::after {
 input[type="checkbox"]::before,
 input[type="radio"]::before {
 	inset: 0;
-	border: 1px solid var(--bd-color);
-	border-radius: 5px;
+	border: 1.5px solid var(--bd-color);
+	border-radius: 4px;
 	background: var(--raised);
 	transition: var(--motion);
+}
+
+input[type="checkbox"]:hover,
+input[type="radio"]:hover {
+	--bd-color: var(--muted);
 }
 
 input[type="radio"]::before {
 	border-radius: 50%;
 }
 
-input[type="checkbox"]:checked::before,
-input[type="radio"]:checked::before {
+/* Checked: the checkbox fills with the accent, its check in the accent's own ink;
+ * the radio takes an accent ring and dot. */
+input[type="checkbox"]:checked::before {
 	border-color: var(--accent);
 	background: var(--accent);
+}
+
+input[type="radio"]:checked::before {
+	border-color: var(--accent);
 }
 
 input[type="checkbox"]::after,
@@ -1103,18 +1112,17 @@ input[type="checkbox"]:checked::after {
 }
 
 input[type="radio"]:checked::after {
-	top: 6px;
-	left: 6px;
-	width: 8px;
-	height: 8px;
+	top: 5px;
+	left: 5px;
+	width: 10px;
+	height: 10px;
 	border-radius: 50%;
-	background: var(--accent-ink);
+	background: var(--accent);
 }
 
 input[type="checkbox"]:focus-visible::before,
 input[type="radio"]:focus-visible::before {
 	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
-	border-color: var(--focus);
 }
 
 input[type="checkbox"].cbi-input-invalid,
@@ -1122,16 +1130,33 @@ input[type="radio"].cbi-input-invalid {
 	--bd-color: var(--crit);
 }
 
-input[type="checkbox"][disabled]::before,
-input[type="checkbox"][disabled]::after,
-input[type="radio"][disabled]::before,
-input[type="radio"][disabled]::after {
-	opacity: var(--disabled-opacity);
+/* Disabled: the frame steps back onto the neutral fill; a checked control keeps its
+ * check or dot in the faint ink. */
+input[type="checkbox"][disabled],
+input[type="radio"][disabled] {
+	--bd-color: var(--line);
+
+	cursor: not-allowed;
 }
 
+input[type="checkbox"][disabled]::before,
+input[type="radio"][disabled]::before {
+	background: var(--sunken);
+}
+
+input[type="checkbox"][disabled]:checked::before {
+	border-color: var(--faint);
+	background: var(--faint);
+}
+
+input[type="radio"][disabled]:checked::after {
+	background: var(--faint);
+}
+
+/* A choice sits 10 px from its label. */
 label > input[type="checkbox"],
 label > input[type="radio"] {
-	margin-right: .4em;
+	margin-right: 10px;
 }
 
 .cbi-value-field > .cbi-checkbox,
@@ -1139,20 +1164,20 @@ label > input[type="radio"] {
 	display: inline-flex;
 	align-items: center;
 	min-height: var(--field-height);
-	gap: .4em;
+	gap: 10px;
 }
 
 .cbi-checkbox {
 	display: inline-flex;
 	align-items: center;
-	gap: .4em;
+	gap: 10px;
 }
 
 .cbi-radio {
 	display: inline-flex;
 	align-items: center;
-	gap: .3em;
-	margin-right: 1em;
+	gap: 10px;
+	margin-right: 24px;
 	cursor: pointer;
 }
 
@@ -1512,14 +1537,14 @@ button,
 	--btn-fill: transparent;
 	--btn-line-hover: var(--accent);
 	--btn-fill-hover: var(--accent-soft);
-	--btn-on-hover: var(--accent);
+	--btn-on-hover: var(--ink);
 
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
 	min-height: var(--field-height);
-	padding: 0 18px;
+	padding: 0 20px;
 	border: 1px solid var(--btn-line);
 	border-radius: 999px;
 	background: var(--btn-fill);
@@ -1545,13 +1570,6 @@ button,
 	background: var(--accent-soft);
 }
 
-.btn.disabled,
-.btn[disabled],
-.cbi-button[disabled] {
-	opacity: var(--disabled-opacity);
-	cursor: default;
-}
-
 /* Secondary: edit, add, save, action and neutral buttons. */
 .cbi-button-positive,
 .cbi-button-fieldadd,
@@ -1559,7 +1577,6 @@ button,
 .cbi-button-save,
 .cbi-button-neutral,
 .cbi-button-download,
-.cbi-button-find,
 .cbi-button-up,
 .cbi-button-down,
 .cbi-button-action,
@@ -1592,7 +1609,7 @@ button,
 	--btn-fill: transparent;
 	--btn-line-hover: transparent;
 	--btn-fill-hover: var(--accent-soft);
-	--btn-on-hover: var(--accent-strong);
+	--btn-on-hover: var(--accent);
 }
 
 /* Danger: the danger ink, no fill until hovered. */
@@ -1629,6 +1646,25 @@ button,
 	--btn-on-hover: var(--accent-ink);
 }
 
+/* Disabled: the label greys and the frame steps back onto the neutral fill; a
+ * button without a frame (ghost, danger) keeps none. Never faded. */
+:is(.btn, .cbi-button):is(.disabled, [disabled]) {
+	--on-color: var(--faint);
+	--btn-line: transparent;
+	--btn-fill: var(--sunken);
+	--btn-line-hover: transparent;
+	--btn-fill-hover: var(--sunken);
+	--btn-on-hover: var(--faint);
+
+	cursor: not-allowed;
+}
+
+:is(.btn.ghost, .cbi-button-link, .cbi-button-negative:not(.important), .cbi-section-remove .cbi-button,
+	.cbi-button-reset, .cbi-button-remove, .btn.danger, .btn.error):is(.disabled, [disabled]) {
+	--btn-fill: transparent;
+	--btn-fill-hover: transparent;
+}
+
 .btn.large {
 	min-height: 48px;
 	padding: 0 22px;
@@ -1640,23 +1676,20 @@ button,
 .table .td .btn,
 .table .td .cbi-button {
 	min-height: var(--button-small);
-	padding: 0 14px;
+	padding: 0 16px;
 	font-size: 13px;
 }
 
 .close {
 	float: right;
-	color: var(--ink);
+	color: var(--faint);
 	font-size: 20px;
 	font-weight: 600;
 	line-height: 1;
-	opacity: .35;
 }
 
 .close:hover {
 	color: var(--ink);
-	text-decoration: none;
-	opacity: .6;
 }
 
 .btn .close,
@@ -1683,16 +1716,6 @@ button,
 	margin: 0;
 }
 
-.actions .secondary-action,
-.cbi-page-actions .secondary-action {
-	margin-right: auto;
-}
-
-.actions .secondary-action a,
-.cbi-page-actions .secondary-action a {
-	line-height: var(--field-height);
-}
-
 .button-row {
 	display: flex;
 	flex-wrap: wrap;
@@ -1706,7 +1729,7 @@ button,
 .cbi-tabmenu {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 4px;
+	gap: 0 24px;
 	margin: 0;
 	padding: 0;
 	border-bottom: 1px solid var(--line);
@@ -1726,9 +1749,11 @@ button,
 	position: relative;
 	display: block;
 	margin-bottom: -1px;
-	padding: 10px 12px;
+	padding: 12px 0 14px;
 	color: var(--muted);
+	font-size: 15px;
 	font-weight: 500;
+	letter-spacing: -0.009em;
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
@@ -1736,24 +1761,25 @@ button,
 
 .tabs > li > a:hover,
 .cbi-tabmenu > li > a:hover {
-	color: var(--accent);
+	color: var(--ink);
 	text-decoration: none;
 }
 
 .tabs > li.active > a,
 .cbi-tabmenu > li:not(.cbi-tab-disabled) > a {
 	color: var(--ink);
+	font-weight: 600;
 }
 
 .tabs > li.active > a::after,
 .cbi-tabmenu > li:not(.cbi-tab-disabled) > a::after {
 	content: "";
 	position: absolute;
-	right: 12px;
+	right: 0;
 	bottom: 0;
-	left: 12px;
+	left: 0;
 	height: 3px;
-	border-radius: 2px;
+	border-radius: 999px;
 	background: var(--rule);
 }
 
@@ -1771,10 +1797,6 @@ button,
 	color: var(--crit-ink);
 	font-size: 11.5px;
 	font-weight: 600;
-}
-
-.cbi-tabmenu.map > li > a {
-	font-size: 15px;
 }
 
 .cbi-tab-descr {
@@ -1803,15 +1825,6 @@ button,
 	border: 0;
 }
 
-.tab-content > .tab-pane,
-.tab-content > div {
-	display: none;
-}
-
-.tab-content > .active {
-	display: block;
-}
-
 /* Tables: <table> and LuCI's .table/.tr/.td boxes ------------------------------ */
 
 .table {
@@ -1821,6 +1834,7 @@ button,
 	margin: 0;
 	padding: 0;
 	border-collapse: collapse;
+	font-variant-numeric: tabular-nums;
 }
 
 .tr {
@@ -1846,16 +1860,30 @@ table.table td {
 	border-top: 0;
 }
 
+/* The table's first and last columns sit flush with the panel's content. */
+.table .tr > :is(.th, .td):first-child,
+table.table tr > :is(th, td):first-child {
+	padding-left: 0;
+}
+
+.table .tr > :is(.th, .td):last-child,
+table.table tr > :is(th, td):last-child {
+	padding-right: 0;
+}
+
 /* A strong line under the header row, hairlines between the rows; the row after
- * the header draws no line of its own. */
+ * the header draws no line of its own. The heads are TouhouAsia's table heads: the
+ * eyebrow's monospace capitals, in the faint ink. */
 .table .tr:first-child .th,
 table.table th {
 	border-top: 0;
 	border-bottom: 1px solid var(--line-strong);
 	color: var(--faint);
+	font-family: var(--font-code);
 	font-size: 12px;
 	font-weight: 600;
-	letter-spacing: 0;
+	letter-spacing: .04em;
+	text-transform: uppercase;
 	vertical-align: top;
 	white-space: nowrap;
 }
@@ -1880,10 +1908,6 @@ body[data-page="admin-status-overview"] .table .td[width="33%"] {
 .tr.cbi-section-table-titles .th {
 	border-top: 0;
 	border-bottom: 1px solid var(--line-strong);
-}
-
-.table.valign-middle .td {
-	vertical-align: middle;
 }
 
 .tr.placeholder {
@@ -1915,12 +1939,6 @@ th[data-sortable-row] { cursor: pointer; }
 th[data-sort-direction="asc"]::after { content: "\a0\25b2"; }
 th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 
-.cbi-section-table .tr:hover .td,
-.cbi-section-table .tr:hover .th,
-.cbi-section-table .tr:hover::before {
-	background-color: var(--sunken);
-}
-
 .cbi-section-table .tr.cbi-section-table-descr .th {
 	font-weight: normal;
 }
@@ -1943,8 +1961,7 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 .table.cbi-section-table input[type="password"],
 .table.cbi-section-table input[type="text"],
 .table.cbi-section-table textarea,
-.table.cbi-section-table select,
-.table.cbi-section-table .cbi-select {
+.table.cbi-section-table select {
 	width: 100%;
 	min-width: auto;
 	max-width: none;
@@ -1953,8 +1970,7 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 /* A select keeps room for LuCI's short choices (accept, reject, drop) with its
  * arrow: squeezed to its cell, the firewall's zones showed one character each.
  * A table too wide for its card scrolls in it. */
-.table.cbi-section-table select,
-.table.cbi-section-table .cbi-select {
+.table.cbi-section-table select {
 	min-width: 6.5em;
 }
 
@@ -1963,8 +1979,7 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 	white-space: nowrap;
 }
 
-.table.cbi-section-table .td.cbi-section-table-cell select,
-.table.cbi-section-table .td.cbi-section-table-cell .cbi-select {
+.table.cbi-section-table .td.cbi-section-table-cell select {
 	width: inherit;
 }
 
@@ -2021,7 +2036,7 @@ table table td,
 	width: 100%;
 	max-width: none;
 	min-height: 60vh;
-	color: var(--ink-strong);
+	color: var(--ink);
 	font-family: var(--font-code);
 }
 
@@ -2032,7 +2047,7 @@ table table td,
 	--tone-soft: var(--info-soft);
 
 	position: relative;
-	padding: 12px 16px;
+	padding: 16px 20px;
 	border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
 	border-radius: var(--r);
 	background: var(--tone-soft);
@@ -2052,6 +2067,11 @@ table table td,
 	background: transparent;
 	color: inherit;
 	line-height: inherit;
+}
+
+.alert-message h4 {
+	font-size: 16px;
+	font-weight: 600;
 }
 
 .alert-message button {
@@ -2094,7 +2114,7 @@ table table td,
 	align-items: center;
 	height: 22px;
 	margin: .125em 0 .125em .4em;
-	padding: 0 9px;
+	padding: 0 10px;
 	border-radius: 999px;
 	background: var(--sunken);
 	color: var(--muted);
@@ -2138,12 +2158,15 @@ body[data-page="admin-status-overview"] .cbi-title .label {
 	margin: 0;
 }
 
+/* The overview's switches for its sections: a section hidden shows its switch in
+ * the neutral tone. */
 body[data-page="admin-status-overview"] .cbi-title .label.notice {
-	opacity: var(--disabled-opacity);
+	background: var(--sunken);
+	color: var(--faint);
 }
 
 body[data-page="admin-status-overview"] .cbi-title .label.notice:hover {
-	opacity: 1;
+	color: var(--muted);
 }
 
 /* The modal ------------------------------------------------------------------ */
@@ -2193,8 +2216,10 @@ body.modal-overlay-active #modal_overlay {
 }
 
 .modal > h4 {
-	font-size: 16px;
+	color: var(--ink);
+	font-size: 20px;
 	font-weight: 800;
+	letter-spacing: -0.012em;
 }
 
 .modal > pre,
@@ -2239,7 +2264,8 @@ body.modal-overlay-active #modal_overlay {
 	border-radius: var(--r);
 	background: var(--raised);
 	color: var(--ink);
-	font-size: 12.5px;
+	font-size: 12px;
+	letter-spacing: 0;
 	white-space: pre;
 	opacity: 0;
 }
@@ -2293,7 +2319,8 @@ body.modal-overlay-active #modal_overlay {
 	left: 0;
 	right: 0;
 	color: var(--muted);
-	font-size: 12.5px;
+	font-size: 12px;
+	letter-spacing: 0;
 	white-space: pre;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -2829,8 +2856,6 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 .top { vertical-align: top !important; }
 .middle { vertical-align: middle !important; }
 .bottom { vertical-align: bottom !important; }
-.pull-right { float: right; }
-.pull-left { float: left; }
 .nowrap:not(span) { white-space: nowrap; }
 form.inline { display: inline; margin-bottom: 0; }
 
@@ -2915,14 +2940,14 @@ form.inline { display: inline; margin-bottom: 0; }
 	flex-direction: column;
 	gap: 16px;
 	width: min(400px, 100%);
-	padding: 28px;
+	padding: 32px;
 	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
 	background: var(--surface);
 }
 
 .login-title {
-	font-size: 22px;
+	margin-top: 8px;
 }
 
 .login-card .cbi-section {
@@ -2948,8 +2973,6 @@ form.inline { display: inline; margin-bottom: 0; }
 
 .login-card .cbi-button-apply {
 	width: 100%;
-	min-height: 48px;
-	font-size: 15px;
 }
 
 /* Below 800 pixels: the sidebar as a drawer ---------------------------------- */
@@ -2975,14 +2998,14 @@ form.inline { display: inline; margin-bottom: 0; }
 		/* Closed, the drawer's links take no focus; it hides once it has slid out
 		 * (orbyt-theme D2: the drawer is as it was). */
 		visibility: hidden;
-		transition: transform .2s, visibility 0s .2s;
+		transition: transform var(--slide) var(--ease), visibility 0s var(--slide);
 	}
 
 	body.drawer-open .sidebar {
 		border-right-color: var(--line-brand);
 		transform: none;
 		visibility: visible;
-		transition: transform .2s;
+		transition: transform var(--slide) var(--ease);
 	}
 
 	body.drawer-open .scrim {
@@ -3001,7 +3024,12 @@ form.inline { display: inline; margin-bottom: 0; }
 		display: block;
 	}
 
+	.sidebar-foot .segmented {
+		display: inline-flex;
+	}
+
 	.topbar .logout,
+	.topbar .segmented,
 	.lockup small {
 		display: none;
 	}
@@ -3012,13 +3040,6 @@ form.inline { display: inline; margin-bottom: 0; }
 		overflow: hidden;
 	}
 
-	.segmented .label-text {
-		display: none;
-	}
-
-	.segmented button {
-		padding: 0 9px;
-	}
 
 	.crumbs {
 		padding: 20px 20px 0;
@@ -3039,13 +3060,6 @@ form.inline { display: inline; margin-bottom: 0; }
 		font-size: 24px;
 	}
 
-	.cbi-map > h2::after,
-	#view > h2::after,
-	#maincontent > h2::after {
-		width: 40px;
-		margin-top: 10px;
-	}
-
 	.cbi-section {
 		padding: 20px;
 	}
@@ -3063,7 +3077,6 @@ form.inline { display: inline; margin-bottom: 0; }
 	input,
 	textarea,
 	select,
-	.cbi-select,
 	.cbi-dynlist,
 	.control-group,
 	.cbi-dropdown:not(.btn):not(.cbi-button) {
@@ -3139,11 +3152,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	.col-2 { flex: 2 2 60px !important; }
 	.col-3 { flex: 3 3 90px !important; }
 	.col-4 { flex: 4 4 120px !important; }
-	.col-5 { flex: 5 5 150px !important; }
-	.col-6 { flex: 6 6 180px !important; }
 	.col-7 { flex: 7 7 210px !important; }
-	.col-8 { flex: 8 8 240px !important; }
-	.col-9 { flex: 9 9 270px !important; }
 	.col-10 { flex: 10 10 300px !important; }
 
 	.td select {
@@ -3241,12 +3250,6 @@ form.inline { display: inline; margin-bottom: 0; }
 	.td.cbi-value-field[data-widget="fvalue"] {
 		flex-basis: 50%;
 		text-align: left;
-	}
-
-	.cbi-section-table .tr:hover .td,
-	.cbi-section-table .tr:hover .th,
-	.cbi-section-table .tr:hover::before {
-		background-color: transparent;
 	}
 
 	input,
@@ -3373,6 +3376,31 @@ form.inline { display: inline; margin-bottom: 0; }
 	.td .ifacebox .ifacebox-head > *,
 	.ifacebox .ifacebox-body > * {
 		margin: .125em;
+	}
+}
+
+/* Forced colors: the system's colors replace the palette. What only a fill draws is
+ * drawn again in the system's inks: the brand rules of the current entry and tab,
+ * the radio's dot, the check, LuCI's icons; tags and callouts take an edge. */
+@media (forced-colors: active) {
+	.menu-list a[aria-current]::before,
+	.tabs > li.active > a::after,
+	.cbi-tabmenu > li:not(.cbi-tab-disabled) > a::after,
+	input[type="radio"]:checked::after {
+		forced-color-adjust: none;
+		background: Highlight;
+	}
+
+	input[type="checkbox"]:checked::after,
+	img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi/"])[src$=".svg"] {
+		forced-color-adjust: none;
+		background-color: CanvasText;
+	}
+
+	.label,
+	.alert-message,
+	#indicators [data-indicator] {
+		border: 1px solid CanvasText;
 	}
 }
 

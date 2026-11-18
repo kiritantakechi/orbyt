@@ -20,6 +20,10 @@
 
   Verify: 1.1 passes on the emulator.
 
+- [ ] 2.4 Bring the theme to TouhouAsia of 2026-11-19 (D1 to D3): the aside as a table of contents, the breadcrumb's links, no rule under the page's title, the components' metrics and states, forced colors; drop the rules for the classes nothing names, recording bootstrap's in the exceptions.
+
+  Verify: `just check` passes; the coverage test holds with the new exceptions on the emulator.
+
 ## 3. In a browser (design D6)
 
 - [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.

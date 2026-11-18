@@ -34,3 +34,42 @@ reason = "the separators of bootstrap's footer list of modes"
 [[class]]
 class = "cbi-rowstyle-2"
 reason = "bootstrap's striped rows; the theme separates a table's rows by hairlines alone (orbyt-theme D3)"
+
+# Styled by bootstrap, named by no view, script or template of LuCI's feed or this
+# repository's (orbyt-theme D3).
+
+[[class]]
+class = "cbi-button-find"
+reason = "a button style no LuCI view asks for"
+
+[[class]]
+class = "cbi-select"
+reason = "a wrapper around selects that LuCI's widgets no longer draw"
+
+[[class]]
+class = "pull-left"
+reason = "a float helper no LuCI view uses"
+
+[[class]]
+class = "pull-right"
+reason = "a float helper no LuCI view uses"
+
+[[class]]
+class = "secondary-action"
+reason = "a slot in the page actions that no LuCI view fills"
+
+[[class]]
+class = "tab-content"
+reason = "bootstrap's tab panes, which LuCI's views no longer build"
+
+[[class]]
+class = "tab-pane"
+reason = "bootstrap's tab panes, which LuCI's views no longer build"
+
+[[class]]
+class = "unstyled"
+reason = "a bare list style no LuCI view uses"
+
+[[class]]
+class = "valign-middle"
+reason = "a table alignment no LuCI view uses"

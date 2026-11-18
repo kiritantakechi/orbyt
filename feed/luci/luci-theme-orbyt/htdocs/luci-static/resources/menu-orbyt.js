@@ -4,8 +4,9 @@
 
 // luci-theme-orbyt's menu (luci-theme-wrt D4; orbyt-theme D2): the mode's first
 // level as the sidebar's groups of text entries, the third level as tabs, the
-// page's place above the content and logout in the header; the drawer below 800
-// pixels, and the light/dark switch.
+// page's place as a breadcrumb above the content and logout in the header; the
+// drawer below 800 pixels, and the light/dark switch, in the header and in the
+// drawer's foot.
 
 return baseclass.extend({
 	__init__() {
@@ -34,7 +35,7 @@ return baseclass.extend({
 			node = node.children?.[path[i]];
 			url = url + (url ? '/' : '') + path[i];
 			if (node && i > 0)
-				trail.push(node);
+				trail.push({ node, url });
 		}
 
 		if (node)
@@ -58,16 +59,17 @@ return baseclass.extend({
 			if (category.name === 'logout')
 				return;
 
-			if (pages.length === 0) {
-				nav.appendChild(entry(L.url(mode.name, category.name), category.title, active));
-				return;
-			}
+			// A first level without pages of its own is one entry, without a label.
+			const group = E('div', { 'class': 'menu-group' });
+			const entries = pages.length === 0
+				? [ entry(L.url(mode.name, category.name), category.title, active) ]
+				: pages.map((page) => entry(L.url(mode.name, category.name, page.name),
+					page.title, active && path[2] === page.name));
 
-			nav.appendChild(E('div', { 'class': 'menu-group' }, [
-				E('h2', {}, [ _(category.title) ]),
-				...pages.map((page) => entry(L.url(mode.name, category.name, page.name),
-					page.title, active && path[2] === page.name))
-			]));
+			if (pages.length > 0)
+				group.appendChild(E('h2', {}, [ _(category.title) ]));
+			group.appendChild(E('div', { 'class': 'menu-list' }, entries));
+			nav.appendChild(group);
 		});
 	},
 
@@ -126,18 +128,19 @@ return baseclass.extend({
 		container.style.display = '';
 
 		if (activeNode) {
-			trail.push(activeNode);
+			trail.push({ node: activeNode, url: `${url}/${activeNode.name}` });
 			this.renderTabMenu(activeNode, `${url}/${activeNode.name}`, level + 1, trail);
 		}
 	},
 
+	// The levels above the page link to it, as LuCI's own first pages of a level do.
 	renderCrumbs(trail) {
 		const crumbs = document.querySelector('#crumbs');
 
-		trail.forEach((node, index) => {
-			const last = index === trail.length - 1;
-
-			crumbs.appendChild(E(last ? 'b' : 'span', { 'class': last ? null : 'trail' }, [ _(node.title) ]));
+		trail.forEach(({ node, url }, index) => {
+			crumbs.appendChild(index === trail.length - 1
+				? E('span', { 'aria-current': 'page' }, [ _(node.title) ])
+				: E('a', { 'href': L.url(url) }, [ _(node.title) ]));
 		});
 	},
 
@@ -160,8 +163,15 @@ return baseclass.extend({
 		});
 	},
 
+	// The header's switch, and a copy in the drawer's foot for phones, where the
+	// header has no room for it.
 	bindThemeSwitch() {
-		const buttons = document.querySelectorAll('#theme-switch [data-choice]');
+		const copy = document.querySelector('#theme-switch').cloneNode(true);
+
+		copy.removeAttribute('id');
+		document.querySelector('.sidebar-foot').appendChild(copy);
+
+		const buttons = document.querySelectorAll('.segmented [data-choice]');
 		const show = () => {
 			const choice = document.documentElement.getAttribute('data-theme-choice');
 
