@@ -1,6 +1,8 @@
 """quality/code-standards: one command enforces every rule and catches each violation."""
 
+import importlib
 import os
+import pkgutil
 import re
 import shutil
 import subprocess
@@ -9,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+import orbyt_tests
 from orbyt_tests import spec
 
 CAPABILITY = "quality/code-standards"
@@ -183,3 +186,16 @@ def test_fmt_then_check_passes(repo: Path) -> None:
     assert _run(repo, "fmt.sh", *formatting).returncode == 0
     result = _run(repo, "check.sh", *formatting)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# Every module of the harness, and through them every dependency the tests use:
+# a free-threaded build of a dependency can still turn the GIL back on, for the
+# whole process, when it is imported (python-style D1).
+@spec(CAPABILITY, "Python on the free-threaded interpreter", "A dependency turns the GIL back on")
+def test_the_harness_leaves_the_gil_off() -> None:
+    prefix = f"{orbyt_tests.__name__}."
+    for module in pkgutil.walk_packages(orbyt_tests.__path__, prefix):
+        importlib.import_module(module.name)
+    assert sys.version_info[:2] == (3, 15)
+    assert sys.abi_info.free_threaded
+    assert not sys._is_gil_enabled()

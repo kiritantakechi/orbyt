@@ -19,8 +19,10 @@ import subprocess
 from typing import TYPE_CHECKING, cast
 
 import pytest
+from labgrid import Environment
+from labgrid.util.ssh import sshmanager
 
-from orbyt_tests.device.emu import Emulator
+from orbyt_tests.device.emu import TARGET_FILE, Emulator
 from orbyt_tests.device.router import Router
 from orbyt_tests.device.storage import Disk, initialize, wait_mounted
 from orbyt_tests.device.trust import trust_keys
@@ -35,6 +37,19 @@ if TYPE_CHECKING:
 
     from orbyt_tests.model.keys import Keys
     from orbyt_tests.sandbox.net import Network
+
+
+@pytest.fixture(scope="session")
+def target(emulation_dir: Path) -> Iterator[Target]:
+    """Return the emulated board's labgrid target, as emu-prepare described it.
+
+    labgrid's pytest plugin is off (python-style D1): this is the one thing the
+    tests took from it. Its SSH connections close with the session.
+    """
+    environment = Environment(config_file=str(emulation_dir / TARGET_FILE))
+    yield environment.get_target()
+    environment.cleanup()
+    sshmanager.close_all()
 
 
 @pytest.fixture(scope="session")

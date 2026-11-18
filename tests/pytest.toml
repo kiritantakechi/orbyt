@@ -6,6 +6,10 @@ addopts = [
     "--strict-config",
     "--import-mode=importlib",
     "-p", "orbyt_tests.model.markers",
+    # labgrid's plugin imports its coordinator's client, and with it grpc, whose
+    # extension turns the GIL back on; the tests take labgrid's drivers alone and
+    # their target from the device layer (python-style D1).
+    "-p", "no:labgrid",
 ]
 testpaths = ["."]
 # pytest skips build/ and dist/ by default; here build/ holds the build/* specs.

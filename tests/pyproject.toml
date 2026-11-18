@@ -2,11 +2,11 @@
 name = "orbyt-tests"
 version = "0"
 description = "System tests for the Orbyt firmware: one test per spec scenario (design D13)"
-requires-python = ">=3.14"
+requires-python = ">=3.15"
 dependencies = [
     "labgrid>=26.0",
     "pydantic>=2.12",
-    "pytest>=9.1",
+    "pytest==9.2.0",
 ]
 
 [project.scripts]
@@ -17,9 +17,9 @@ spec-coverage = "orbyt_tests.model.coverage:main"
 
 [dependency-groups]
 dev = [
-    "ruff>=0.17.2",
+    "ruff==0.17.5",
     "tach>=0.35.3",
-    "ty>=0.0.91",
+    "ty==0.0.106",
 ]
 
 [build-system]

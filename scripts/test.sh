@@ -38,8 +38,5 @@ uv sync --locked --quiet
 LG_EMU_DIR=$(uv run --no-sync emu-prepare "${out}" "${testdir}/emu")
 export LG_EMU_DIR
 info "emulator files in ${LG_EMU_DIR}"
-# The description is joined to its option: pytest finds its rootdir, and so
-# pytest.toml, before labgrid's options are known, and would take a separate
-# value for a path to test, the ancestor of the tests that run with no paths.
 exec unshare --user --map-root-user --net --mount --pid --mount-proc --fork -- \
-	uv run --no-sync pytest --lg-env="${LG_EMU_DIR}/target.yaml" "$@"
+	uv run --no-sync pytest "$@"

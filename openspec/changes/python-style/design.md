@@ -20,7 +20,9 @@
 
 ### D1. The interpreter
 
-`tests/.python-version` names `3.15t`, `requires-python` is `>=3.15`, and uv resolves the lock for it. A test in `tests/quality/` asserts the running interpreter is a free-threaded 3.15 build and the GIL still off after importing the dependencies the tests use (`sys._is_gil_enabled()`), so that a dependency upgrade that turns it back on fails. CI restores and saves uv's cache (`~/.cache/uv`) keyed by `uv.lock`, `.python-version` and the runner's architecture, so the source builds happen once per lock.
+`tests/.python-version` names `3.15t`, `requires-python` is `>=3.15`, and uv resolves the lock for it. A test in `tests/quality/` imports every module of the harness, and through them every dependency the tests use, and asserts the interpreter is a free-threaded 3.15 build with the GIL still off (`sys._is_gil_enabled()`), so that a dependency upgrade that turns it back on fails. `PYTHON_GIL=0` is never set: it would silence that check rather than make anything safe.
+
+labgrid's pytest plugin imports its coordinator's client at load, and with it grpc, whose extension (built from source, as grpcio has no 3.15t wheel) turns the GIL back on for the whole process. The tests use no coordinator: they take labgrid's drivers alone. So the plugin is off (`-p no:labgrid`), and the device layer provides the one thing the tests took from it, the session's `target`, from the description emu-prepare writes (`target.yaml` in `LG_EMU_DIR`), closing labgrid's SSH connections at the session's end as the plugin did; `scripts/test.sh` no longer passes `--lg-env`. CI restores and saves uv's cache (`~/.cache/uv`) keyed by `uv.lock`, `.python-version` and the runner's architecture, so the source builds happen once per lock.
 
 ### D2. Pinned tools and the standard's configuration
 

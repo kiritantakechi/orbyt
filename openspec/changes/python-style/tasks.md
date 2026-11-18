@@ -2,9 +2,11 @@
 
 ## 1. Interpreter and tools (design D1, D2)
 
-- [ ] 1.1 Pin ruff, ty and pytest exactly; move the tests to `3.15t` and resolve the lock; add the interpreter's test to `tests/quality/`.
+- [x] 1.1 Pin ruff, ty and pytest exactly; move the tests to `3.15t` and resolve the lock; add the interpreter's test to `tests/quality/`; turn labgrid's pytest plugin off and give the device layer the session's `target`.
 
-  Verify: `uv sync --locked` installs on 3.15t in the FHS shell; the new test passes, and fails with the GIL forced on (`PYTHON_GIL=1`).
+  Verify: `uv sync --locked` installs on 3.15t in the FHS shell; the new test passes, and fails with the GIL forced on (`PYTHON_GIL=1`); the unit and quality suites pass.
+
+  Result (2026-11-19): with labgrid's plugin on, the new test failed: grpc, imported by it, turned the GIL on. With it off: passes, fails under `PYTHON_GIL=1`.
 
 - [ ] 1.2 Cache uv's cache in CI's jobs that sync the tests' environment.
 
