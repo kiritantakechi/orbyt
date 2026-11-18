@@ -44,7 +44,7 @@ Within one power cycle U-Boot also falls back to the other slot when a slot's ke
 
 A trial boot has a deadline, `orbyt-ab.trial.deadline` seconds from the kernel's start on the monotonic clock (900 by default). `orbyt-trial`, the first boot script, waits for it on a trial boot of the running slot, and reboots when the health check has recorded no result by then and the environment still names the running slot on trial: a boot script that never returns, which keeps the health check (the last boot script) from ever starting, so costs one counted boot, and three of them roll back, instead of holding the slot on trial for ever. The reboot cancels the hung script: procd's shutdown stops the boot scripts still running before it runs its own (patch 0048, `docs/patches.md`). It writes to the kernel log, which the console shows on a boot that never got as far as SSH.
 
-While the running slot is on trial, sysupgrade refuses to write the other slot, the one a rollback returns to (`Slot a is on trial: ...`); `orbyt-update` never forces past it. The health check confirms a trial only while the environment still names the slot it named when the checks began: a `orbyt-slot switch` written meanwhile stays.
+While the running slot is on trial, sysupgrade refuses to write the other slot, the one a rollback returns to (`Slot a is on trial: ...`); `orbyt-update` never forces past it. The health check confirms a trial only while the environment still names the slot it named when the checks began: an `orbyt-slot switch` written meanwhile stays.
 
 ## Recovering by hand over the serial console
 

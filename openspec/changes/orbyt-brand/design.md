@@ -33,7 +33,7 @@
 | `wrt` (a name alone) | `orbyt` | the sandbox's PPPoE and tailnet users, U-Boot's environment source file |
 | `wrt<name>`, `Wrt<Name>`, `wrt<Name>` joined | `orbyt<name>`, `Orbyt<Name>`, `orbyt<Name>` | the data disk's label and fstab section `orbytdata`, the work volume's label `orbytwork`, U-Boot's make functions `OrbytAB/…`, the theme's `window.orbytTheme` |
 
-A one-off script applies the mapping to file contents and to file and directory names; a search for the old forms afterwards, case-insensitive with OpenWrt and ImmortalWrt excluded, must find nothing outside this change's own documents, which record the mapping.
+A one-off script applies the mapping to file contents and to file and directory names, and to the articles before them ("an orbyt_"); a name whose sort order the system relies on keeps its place: sysupgrade sources `/lib/upgrade/*.sh` in name order, and the A/B upgrade's definitions replace `platform.sh`'s only from the last file, which `wrt-ab.sh` was and `orbyt-ab.sh` is not, so it is `z-orbyt-ab.sh`; a search for the old forms afterwards, case-insensitive with OpenWrt and ImmortalWrt excluded, must find nothing outside this change's own documents, which record the mapping.
 
 The first pass matched a name only between separators, and kept the archive, the CI runs before the rename and the release key's comment as history. A second pass, after the maintainer's word, applies the mapping there too, with the joined and camel-case forms the first had missed (`wrtdata`, `WrtAB`, `wrtTheme`, and `\0wrt_boot` in a unit test's data, which failed the test), and relabels the work volume. The archived luci-theme change is renamed with the rest; orbyt-theme, whose design replaces it, removes it.
 
