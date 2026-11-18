@@ -52,10 +52,6 @@ def repo(tmp_path: Path) -> Path:
         (copy / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / name, copy / name)
     subprocess.run(["git", "init", "-q", str(copy)], check=True)
-    # The Python checks run in the tests' virtual environment, shared
-    # with the copy.
-    environment = Path(sys.prefix)
-    (copy / "tests" / environment.name).symlink_to(environment)
     return copy
 
 

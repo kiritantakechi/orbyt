@@ -42,6 +42,12 @@
 
   Result: the console's buffer and end are read and written under its condition; the login's list is read after the reader is joined; the HTTP server's handlers share nothing with the test thread. The probe's servers run in a task group, and each connection is answered within the probe's timeout, then closed. `unit/test_netprobe.py` passes; the network suite exercises the servers.
 
+- [x] 3.2 Keep the tests' environment outside the repository (D5).
+
+  Verify: after `just check` and a test run, no `tests/.venv-*` exists in the checkout; a `path:` copy of it holds no environment; the code standards' tests pass.
+
+  Result (2026-11-19): a `path:` copy of the worktree went from 755 MB to 7.9 MB; the code standards' 11 tests pass with the scratch copy on `ORBYT_TESTS_VENV`.
+
 ## 4. Verification
 
 - [ ] 4.1 `just check`, the unit suite, and the system suite on the emulator on 3.15t.

@@ -41,6 +41,10 @@ labgrid's pytest plugin imports its coordinator's client at load, and with it gr
 
 Each finding is fixed with the invariant it breaks stated; none is fixed by a `time.sleep`.
 
+### D5. The tests' environment outside the repository
+
+The tests' virtual environment lived in the tree (`tests/.venv-<host>`), ignored by git. On the VM, which has no git, the dev shells come from `nix develop path:.`, which copies the directory into the store as it is, ignored files too: on 2026-11-19 each copy of a worktree was 755 MB, 747 of them its environments, and a copy is made anew whenever a file changes; the day's copies filled the Mac's disk (`nix-collect-garbage` freed 204 GiB). `use_tests_venv` now puts the environment outside the repository, under `${XDG_CACHE_HOME:-~/.cache}/orbyt/`, one per checkout (named after a checksum of its path) and host, and exports it as `ORBYT_TESTS_VENV`, which a scratch copy of the repository (the code standards' tests) inherits instead of a symlink in its tree.
+
 ## Risks / Trade-offs
 
 - [Source builds lengthen a cold CI job] → uv's cache keyed by the lock; the builds recur only when the lock or the interpreter changes.

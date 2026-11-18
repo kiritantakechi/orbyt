@@ -107,10 +107,18 @@ repo_files() (
 )
 
 # use_tests_venv: point uv at the tests' virtual environment for this OS and
-# architecture. macOS and the Linux VM share the repository, and a virtual
-# environment only works on the host that created it.
+# architecture: macOS and the Linux VM share the repository, and a virtual
+# environment only works on the host that created it. It lives outside the
+# repository, one per checkout: a copy of the tree (a flake's path: source,
+# which takes ignored files too, a test's scratch repository) must not carry
+# it (python-style D5). ORBYT_TESTS_VENV, when set, names it, as a scratch
+# copy shares its original's.
 use_tests_venv() {
-	host=$(uname -sm | tr 'A-Z ' 'a-z-')
-	UV_PROJECT_ENVIRONMENT="${REPO_DIR}/tests/.venv-${host}"
-	export UV_PROJECT_ENVIRONMENT
+	if [ -z "${ORBYT_TESTS_VENV:-}" ]; then
+		host=$(uname -sm | tr 'A-Z ' 'a-z-')
+		checkout=$(printf '%s' "${REPO_DIR}" | cksum | cut -d ' ' -f 1)
+		ORBYT_TESTS_VENV="${XDG_CACHE_HOME:-${HOME}/.cache}/orbyt/tests-${checkout}-${host}"
+	fi
+	UV_PROJECT_ENVIRONMENT=${ORBYT_TESTS_VENV}
+	export ORBYT_TESTS_VENV UV_PROJECT_ENVIRONMENT
 }
