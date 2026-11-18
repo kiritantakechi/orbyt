@@ -1,4 +1,6 @@
-"""netprobe: the probes the tests run inside the sandbox's namespaces (r4s-ebpf-datapath D11).
+"""netprobe: the probes the tests run inside the sandbox's namespaces.
+
+(r4s-ebpf-datapath D11)
 
 ``serve`` runs on the emulated internet and reports what it sees of a
 flow, on port PORT of every address, IPv4 and IPv6:
@@ -34,6 +36,7 @@ or from a pool of them in turn.
 import argparse
 import asyncio
 import contextlib
+import functools
 import ipaddress
 import json
 import os
@@ -44,7 +47,7 @@ import time
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Awaitable, Callable
 
 PORT = 8007
 HTTP_PORT = 80
@@ -107,12 +110,15 @@ def _seen(address: str, port: int | None = None, **extra: int) -> bytes:
 
 
 def _esp_payload(sock: socket.socket, packet: bytes) -> bytes:
-    """Strip the IPv4 header that raw IPv4 sockets, unlike IPv6 ones, deliver."""
+    """Strip the header raw IPv4 sockets deliver (raw IPv6 has none)."""
     return packet[(packet[0] & 0x0F) * 4 :] if sock.family == socket.AF_INET else packet
 
 
 def _syn_mss(headers: bytes) -> int:
-    """Return the MSS option of a SYN, from its network and TCP headers as received."""
+    """Return the MSS option of a SYN from its headers as received.
+
+    The headers are its network and TCP headers.
+    """
     if headers[0] >> 4 == IPV4:
         tcp = headers[(headers[0] & 0x0F) * 4 :]
     elif headers[6] == socket.IPPROTO_TCP:  # IPv6, TCP its next header
@@ -141,12 +147,29 @@ def _peer(writer: asyncio.StreamWriter) -> bytes:
     return _seen(host, port, mss=_syn_mss(syn))
 
 
+async def _bounded(
+    respond: Callable[[asyncio.StreamReader, asyncio.StreamWriter], Awaitable[None]],
+    reader: asyncio.StreamReader,
+    writer: asyncio.StreamWriter,
+) -> None:
+    """Answer a connection with ``respond`` in TIMEOUT, then close it.
+
+    A client that sends or reads nothing holds its handler no longer;
+    the timeout reaches the server's log (python-style D4).
+    """
+    try:
+        async with asyncio.timeout(TIMEOUT):
+            await respond(reader, writer)
+            writer.close()
+            await writer.wait_closed()
+    finally:
+        writer.close()
+
+
 async def _tcp(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
     del reader
     writer.write(_peer(writer) + b"\n")
     await writer.drain()
-    writer.close()
-    await writer.wait_closed()
 
 
 async def _http(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -154,18 +177,19 @@ async def _http(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> N
     while (await reader.readline()).strip():  # the headers
         pass
     body = _peer(writer)
-    head = f"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
+    head = (
+        "HTTP/1.0 200 OK\r\nContent-Type: application/json\r\n"
+        f"Content-Length: {len(body)}\r\n\r\n"
+    )
     # A HEAD response has the GET's head and no body (RFC 9110, 9.3.2):
     # a health check that sends HEAD, then GET on the same connection,
     # reads the GET's.
     writer.write(head.encode() + (b"" if method == b"HEAD" else body))
     await writer.drain()
-    writer.close()
-    await writer.wait_closed()
 
 
 def _local(ancillary: list[tuple[int, int, bytes]]) -> str:
-    """Return the address a datagram was sent to, from its packet information."""
+    """Return a datagram's destination, from its packet info."""
     for level, kind, data in ancillary:
         if (level, kind) == (socket.IPPROTO_IP, socket.IP_PKTINFO):
             return socket.inet_ntop(
@@ -178,7 +202,7 @@ def _local(ancillary: list[tuple[int, int, bytes]]) -> str:
 
 
 def _from(family: socket.AddressFamily, local: str) -> list[tuple[int, int, bytes]]:
-    """Return the packet information that makes a reply leave from ``local``."""
+    """Return the packet info that sends a reply from ``local``."""
     if family == socket.AF_INET:
         info = struct.pack("=i4s4s", 0, socket.inet_aton(local), bytes(4))
         return [(socket.IPPROTO_IP, socket.IP_PKTINFO, info)]
@@ -187,10 +211,10 @@ def _from(family: socket.AddressFamily, local: str) -> list[tuple[int, int, byte
 
 
 def _listening(family: socket.AddressFamily, port: int) -> socket.socket:
-    """Return a TCP socket listening on every address of ``family`` that keeps each SYN.
+    """Return a TCP socket listening on every address of ``family``.
 
-    It keeps them from before it listens, so that no connection comes
-    without.
+    The socket keeps each SYN. It keeps them from before it listens, so
+    that no connection comes without.
     """
     sock = socket.socket(family, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -206,11 +230,11 @@ def _listening(family: socket.AddressFamily, port: int) -> socket.socket:
 def _answering(
     family: socket.AddressFamily, kind: socket.SocketKind, port: int
 ) -> socket.socket:
-    """Return a socket that learns where each datagram was sent, to answer from there.
+    """Return a socket that learns where each datagram was sent.
 
-    A host with several addresses would otherwise answer from its first
-    one, and a stateful firewall on the way back rightly takes that for
-    another flow.
+    It answers from there. A host with several addresses would otherwise
+    answer from its first one, and a stateful firewall on the way back
+    rightly takes that for another flow.
     """
     raw = kind == socket.SOCK_RAW
     sock = socket.socket(family, kind, socket.IPPROTO_ESP if raw else 0)
@@ -248,8 +272,10 @@ async def serve(port: int) -> None:
     loop = asyncio.get_running_loop()
     families = (socket.AF_INET, socket.AF_INET6)
     servers = [
-        await asyncio.start_server(handler, sock=_listening(family, listen_port))
-        for handler, listen_port in ((_tcp, port), (_http, HTTP_PORT))
+        await asyncio.start_server(
+            functools.partial(_bounded, respond), sock=_listening(family, listen_port)
+        )
+        for respond, listen_port in ((_tcp, port), (_http, HTTP_PORT))
         for family in families
     ]
     for family in families:
@@ -257,7 +283,10 @@ async def serve(port: int) -> None:
         loop.add_reader(udp, _udp_reply, udp)
         esp = _answering(family, socket.SOCK_RAW, 0)
         loop.add_reader(esp, _esp_reply, esp)
-    await asyncio.gather(*(server.serve_forever() for server in servers))
+    # One server's failure ends the others, and the probe with them.
+    async with asyncio.TaskGroup() as group:
+        for server in servers:
+            group.create_task(server.serve_forever())
 
 
 def tcp(host: str, port: int) -> Seen:
@@ -267,7 +296,7 @@ def tcp(host: str, port: int) -> Seen:
 
 
 def connect(host: str, port: int) -> Seen:
-    """Open a TCP connection to any server; return whether it was accepted."""
+    """Connect to any TCP server; return whether it connected."""
     try:
         with socket.create_connection((host, port), timeout=TIMEOUT):
             return {"connection": "accepted"}
@@ -278,14 +307,17 @@ def connect(host: str, port: int) -> Seen:
 
 
 def greeting(host: str, port: int) -> Seen:
-    """Connect and return the first line the server sends, as one that speaks first (SSH) does."""
+    """Connect and return the first line the server sends.
+
+    That is how a server that speaks first (SSH) behaves.
+    """
     with socket.create_connection((host, port), timeout=TIMEOUT) as sock:
         line = sock.makefile(encoding="utf-8", errors="replace").readline()
         return {"greeting": line.rstrip("\r\n")}
 
 
 def udp(host: str, port: int, *, source_port: int = 0, big: bool = False) -> Seen:
-    """Send one datagram (from ``source_port``) and return what the server saw.
+    """Return what the server saw of a datagram from ``source_port``.
 
     ``size`` and ``from`` describe the answer: its length and its
     source.
@@ -301,15 +333,16 @@ def udp(host: str, port: int, *, source_port: int = 0, big: bool = False) -> See
 def flows(
     host: str, port: int, *, rate: float, seconds: float, sources: int = 0
 ) -> Seen:
-    """Start ``rate`` new UDP flows a second for ``seconds``: a datagram from a socket each.
+    """Start ``rate`` new UDP flows a second for ``seconds``.
 
-    Every flow starts on its schedule, the flow after ``n`` of them ``n
-    / rate`` seconds after the first, and one that falls behind starts
-    as soon as it can, so their number is ``rate * seconds`` however
-    busy the host. Each flow has a fresh source port, or with
-    ``sources`` one of that many in turn, each time to the next
-    destination port: every flow is still a new five-tuple, and an
-    endpoint-independent NAT maps no more than ``sources`` ports.
+    Each flow is a datagram from a socket. Every flow starts on its
+    schedule, the flow after ``n`` of them ``n / rate`` seconds after
+    the first, and one that falls behind starts as soon as it can, so
+    their number is ``rate * seconds`` however busy the host. Each flow
+    has a fresh source port, or with ``sources`` one of that many in
+    turn, each time to the next destination port: every flow is still a
+    new five-tuple, and an endpoint-independent NAT maps no more than
+    ``sources`` ports.
     """
     family = _family(host)
     start = time.monotonic()
@@ -327,7 +360,7 @@ def flows(
 
 
 def esp(host: str, spi: int) -> Seen:
-    """Send one ESP packet with ``spi`` and return what the server saw."""
+    """Send one ESP packet with ``spi``; return what the server saw."""
     with socket.socket(_family(host), socket.SOCK_RAW, socket.IPPROTO_ESP) as sock:
         sock.settimeout(TIMEOUT)
         sock.sendto(ESP_HEADER.pack(spi, 1) + b"whoami", (host, 0))
@@ -339,7 +372,7 @@ def esp(host: str, spi: int) -> Seen:
 
 
 def listen(port: int, *, ipv6: bool = False, timeout: float = TIMEOUT * 6) -> Seen:
-    """Wait for one datagram on ``port`` and return its source and payload."""
+    """Receive a datagram on ``port``; return its source and payload."""
     with socket.socket(
         socket.AF_INET6 if ipv6 else socket.AF_INET, socket.SOCK_DGRAM
     ) as sock:
@@ -350,7 +383,7 @@ def listen(port: int, *, ipv6: bool = False, timeout: float = TIMEOUT * 6) -> Se
 
 
 def send(host: str, port: int, payload: str, *, bind: str = "") -> Seen:
-    """Send one datagram (from address ``bind``) and return the local port it left from."""
+    """Send a datagram from address ``bind``; return its local port."""
     with socket.socket(_family(host), socket.SOCK_DGRAM) as sock:
         sock.bind((bind, 0))
         sock.sendto(payload.encode(), (host, port))
@@ -366,7 +399,10 @@ def _checksum(data: bytes) -> int:
 
 
 def inject(interface: str, mac: str, source: str, destination: str, port: int) -> Seen:
-    """Put an IPv4/UDP frame for ``destination`` on ``interface``, addressed to ``mac``."""
+    """Put an IPv4/UDP frame for ``destination`` on ``interface``.
+
+    The frame is addressed to ``mac``.
+    """
     addresses = socket.inet_aton(source) + socket.inet_aton(destination)
     payload = b"spoofed"
     udp_header = struct.pack("!HHHH", 40000, port, 8 + len(payload), 0)
@@ -390,7 +426,10 @@ def inject(interface: str, mac: str, source: str, destination: str, port: int) -
 
 
 def _skip_name(message: bytes, offset: int) -> int:
-    """Return the offset after a DNS name: labels up to an empty one, or a pointer."""
+    """Return the offset after a DNS name.
+
+    A name is labels up to an empty one, or a pointer.
+    """
     length = message[offset]
     if length == 0:
         return offset + 1
@@ -400,10 +439,11 @@ def _skip_name(message: bytes, offset: int) -> int:
 
 
 def _exchange(sock: socket.socket, query: bytes, address: tuple[str, int]) -> bytes:
-    """Send ``query`` and return the answer, retrying the same query as a stub resolver does.
+    """Send ``query`` and return the answer.
 
-    dnsmasq, with strict-order, moves on to its next server only when a
-    client asks again.
+    The query is retried as a stub resolver does. dnsmasq, with
+    strict-order, moves on to its next server only when a client asks
+    again.
     """
     for _ in range(RESOLVE_ATTEMPTS - 1):
         sock.sendto(query, address)
@@ -414,7 +454,10 @@ def _exchange(sock: socket.socket, query: bytes, address: tuple[str, int]) -> by
 
 
 def resolve(name: str, server: str, kind: str, *, port: int = 53) -> Seen:
-    """Ask ``server`` for the ``kind`` records of ``name``; return the rcode and answers."""
+    """Ask ``server`` for the ``kind`` records of ``name``.
+
+    Return the rcode and answers.
+    """
     ident = os.getpid() & 0xFFFF
     question = b"".join(
         bytes([len(label)]) + label.encode() for label in name.split(".")
@@ -456,7 +499,10 @@ def _dhcp6_option(code: int, data: bytes) -> bytes:
 
 
 def solicit_prefix(interface: str) -> Seen:
-    """Solicit a delegated prefix on ``interface``; return the first offer."""
+    """Solicit a delegated prefix; return the first offer.
+
+    The solicitation goes out on ``interface``.
+    """
     duid = struct.pack("!HH6s", 3, 1, bytes.fromhex("020000000001"))  # DUID-LL, made up
     message = bytes([SOLICIT]) + os.urandom(3)
     message += _dhcp6_option(CLIENT_ID, duid)
@@ -483,7 +529,10 @@ def solicit_prefix(interface: str) -> Seen:
 
 
 def solicit_router(interface: str) -> Seen:
-    """Send a Router Solicitation on ``interface`` (RFC 4861), as a host does when attaching."""
+    """Send a Router Solicitation on ``interface`` (RFC 4861).
+
+    A host does so when it attaches.
+    """
     with socket.socket(socket.AF_INET6, socket.SOCK_RAW, socket.IPPROTO_ICMPV6) as sock:
         sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_MULTICAST_HOPS, 255)
         sock.sendto(
