@@ -5,7 +5,7 @@
 // luci-theme-orbyt's menu (luci-theme-wrt D4; orbyt-theme D2): the mode's first
 // level as the sidebar's groups of text entries, the third level as tabs, the
 // page's place as a breadcrumb above the content and logout in the header; the
-// drawer below 800 pixels, and the light/dark switch, in the header and in the
+// drawer below 1024 pixels, and the light/dark switch, in the header and in the
 // drawer's foot.
 
 return baseclass.extend({
@@ -86,7 +86,7 @@ return baseclass.extend({
 	},
 
 	// Logout is a first-level node of LuCI's menu; where there is none, there is no
-	// button. The header's button shows from 800 pixels up, the drawer's entry below.
+	// button. The header's button shows from 800 pixels up, the drawer's entry on phones.
 	renderLogout(mode) {
 		const node = ui.menu.getChildren(mode).find((child) => child.name === 'logout');
 

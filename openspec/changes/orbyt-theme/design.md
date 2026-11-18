@@ -41,7 +41,7 @@ The bootstrap compatibility variables LuCI's modules read point at these; `--dis
 
 ### D2. The layout
 
-A 64 px header across the page: the lockup (the mark, "Orbyt", the hostname and model below it), LuCI's indicators as tags, the light/dark switch (three text pills, the chosen one in the accent's tint) and logout. Below it the sidebar, TouhouAsia's aside of 256 px on the page's own ground with a hairline at its edge (the system has no colored sidebar), holding the menu as its table of contents: each of the menu's first level an eyebrow (monospace capitals in the accent), its pages as entries hanging from a hairline, the current one in the text color at 600 with the 3 px brand rule on the hairline; no icons, as TouhouAsia has no icon set. The content beside it, at most 1200 px: the breadcrumb (the levels above as links, ` / ` between them, the page in the text color), LuCI's tab menu, the view. The page's title has no rule under it: the brand rule marks only the reader's place, the menu's entry and the tab. Below 800 pixels the sidebar becomes a drawer behind a menu button in the header, closed by the button, a tap beside it or Escape, as before; the switch and logout move into its foot.
+A 64 px header across the page: the lockup (the mark, "Orbyt", the hostname and model below it), LuCI's indicators as tags, the light/dark switch (three text pills, the chosen one in the accent's tint) and logout. Below it the sidebar, TouhouAsia's aside of 256 px on the page's own ground with a hairline at its edge (the system has no colored sidebar), holding the menu as its table of contents: each of the menu's first level an eyebrow (monospace capitals in the accent), its pages as entries hanging from a hairline, the current one in the text color at 600 with the 3 px brand rule on the hairline; no icons, as TouhouAsia has no icon set. The content beside it, at most 1200 px: the breadcrumb (the levels above as links, ` / ` between them, the page in the text color), LuCI's tab menu, the view. The page's title has no rule under it: the brand rule marks only the reader's place, the menu's entry and the tab. Below 1024 pixels, TouhouAsia's medium width, the sidebar becomes a drawer behind a menu button in the header, closed by the button, a tap beside it or Escape, as before: beside the aside's 256 px a narrower window left the page less room than a phone has, and the interfaces table overflowed its panel at 900. Below 800 pixels the switch and logout move into the drawer's foot.
 
 TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page takes the 64 px header, 28 px page titles and 20 px section titles, and keeps its 40 px fields, with 32 px buttons inside tables.
 
@@ -54,6 +54,7 @@ TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page
 - Tables: TouhouAsia's `SpecTable`: heads in the eyebrow's monospace capitals at 12 px (the system's 10 px leaves CJK heads too small), a strong line under them, hairline rows, tabular figures, the first and last columns flush with the panel; no row hover, as a row is not a control.
 - Tabs: `Tabs`: 15/500 text 24 px apart on a hairline, the selected one at 600 with the 3 px brand rule over the hairline, no fill.
 - Alerts: `Callout`: the tone's tint and a border of its ink at 30%, never a colored edge, 16 by 20 px padding; LuCI's message carries the word.
+- LuCI's icons keep their size: under `img`'s `max-width: 100%` a table sized its column as if an icon had no width, and the interface's badge overflowed its frame.
 - Labels and badges: `Tag`, 22 px soft pills in the tone's tint; zones a neutral chip with a dot of the zone's color (replacing luci-theme-wrt D11's tint). LuCI's indicators are tags too.
 - Code and command output (`pre`): `CodeBlock`'s panel, monospace at 13/1.65.
 - Forced colors: the brand rules, the radio's dot, the check and LuCI's icons redrawn in the system's inks; tags and callouts take an edge.
@@ -70,7 +71,7 @@ The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 
 ### D6. Tests and evidence
 
 - `test_web_theme.py`: the mark's scenario: the login page and a page after login both hold the mark and link `/luci-static/orbyt/mark.svg` as their icon, and the icon is served. The coverage, glyph and no-external-resource tests run unchanged.
-- In a browser, against the emulator: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024 and 375 pixels; the browser-verified scenarios re-dated in `tests/verified-elsewhere.toml`.
+- In a browser, against the emulator: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; the browser-verified scenarios re-dated in `tests/verified-elsewhere.toml`.
 
 ## Risks / Trade-offs
 

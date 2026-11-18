@@ -26,7 +26,7 @@
 
 ## 3. In a browser (design D6)
 
-- [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.
+- [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.
 
   Verify: each view holds the canvas's look and LuCI's function in both modes and both widths.
 

@@ -507,7 +507,7 @@ fieldset legend {
 	color: var(--accent);
 }
 
-/* The drawer's button, after .icon-btn so that this display wins; @media 800px shows it. */
+/* The drawer's button, after .icon-btn so that this display wins; below 1024 pixels it shows. */
 .menu-toggle {
 	display: none;
 	margin-left: -8px;
@@ -605,7 +605,7 @@ fieldset legend {
 }
 
 /* Logout and the light/dark switch are the header's from 800 pixels up, the
- * drawer's foot's below. */
+ * drawer's foot's on phones. */
 .menu-logout,
 .sidebar-foot .segmented {
 	display: none;
@@ -2616,6 +2616,10 @@ body.modal-overlay-active #modal_overlay {
  * named nowhere below gets the generic glyph; tests/firmware/test_web_theme.py has
  * every icon LuCI installs named. */
 img:is([src*="/luci-static/resources/icons/"], [src*="/luci-static/resources/cbi/"])[src$=".svg"] {
+	/* A glyph keeps its size: under img's max-width of 100% a table would size its
+	 * column as if the icon had no width, and the badge around it overflowed. */
+	flex: none;
+	max-width: none;
 	object-position: -99999px 0;
 	background-color: var(--glyph-ink, var(--accent));
 	-webkit-mask: var(--glyph, url(icons/generic.svg)) center / contain no-repeat;
@@ -2975,16 +2979,13 @@ form.inline { display: inline; margin-bottom: 0; }
 	width: 100%;
 }
 
-/* Below 800 pixels: the sidebar as a drawer ---------------------------------- */
+/* Below 1024 pixels, TouhouAsia's medium width: the sidebar as a drawer. The aside
+ * takes 256 px; narrower, it would leave the page less room than a phone's
+ * (orbyt-theme D2). ------------------------------------------------------------- */
 
-@media (max-width: 800px) {
+@media (max-width: 1023px) {
 	.shell {
 		grid-template-columns: minmax(0, 1fr);
-	}
-
-	.topbar {
-		gap: 8px;
-		padding: 0 16px;
 	}
 
 	.sidebar {
@@ -3019,7 +3020,18 @@ form.inline { display: inline; margin-bottom: 0; }
 	.menu-toggle {
 		display: inline-grid;
 	}
+}
 
+/* Below 800 pixels: the phone's spacing, labels over their fields ------------ */
+
+@media (max-width: 800px) {
+	.topbar {
+		gap: 8px;
+		padding: 0 16px;
+	}
+
+	/* The header keeps the menu's button, the lockup and the indicators; logout and
+	 * the light/dark switch move into the drawer's foot. */
 	.menu-logout {
 		display: block;
 	}
@@ -3039,7 +3051,6 @@ form.inline { display: inline; margin-bottom: 0; }
 		flex: 1 1 0;
 		overflow: hidden;
 	}
-
 
 	.crumbs {
 		padding: 20px 20px 0;
