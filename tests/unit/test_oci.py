@@ -9,7 +9,15 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests.sandbox.internet import REGISTRY
-from orbyt_tests.sandbox.oci import IMAGE, PROGRAMS, TAG, extract_root, image_layout, needed, push
+from orbyt_tests.sandbox.oci import (
+    IMAGE,
+    PROGRAMS,
+    TAG,
+    extract_root,
+    image_layout,
+    needed,
+    push,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -19,7 +27,9 @@ if TYPE_CHECKING:
 
 @pytest.fixture(scope="module")
 def root(emulation_dir: Path, tmp_path_factory: pytest.TempPathFactory) -> Path:
-    return extract_root(emulation_dir / "disk.raw", tmp_path_factory.mktemp("oci") / "root")
+    return extract_root(
+        emulation_dir / "disk.raw", tmp_path_factory.mktemp("oci") / "root"
+    )
 
 
 @pytest.fixture(scope="module")
@@ -37,8 +47,12 @@ def test_needed_libraries(root: Path) -> None:
 def test_layer_holds_the_programs_and_their_libraries(layout: Path) -> None:
     index = json.loads((layout / "index.json").read_text())
     blobs = layout / "blobs" / "sha256"
-    manifest = json.loads((blobs / index["manifests"][0]["digest"].split(":")[1]).read_bytes())
-    layer = gzip.decompress((blobs / manifest["layers"][0]["digest"].split(":")[1]).read_bytes())
+    manifest = json.loads(
+        (blobs / index["manifests"][0]["digest"].split(":")[1]).read_bytes()
+    )
+    layer = gzip.decompress(
+        (blobs / manifest["layers"][0]["digest"].split(":")[1]).read_bytes()
+    )
     with tarfile.open(fileobj=io.BytesIO(layer)) as tar:
         names = set(tar.getnames())
         assert tar.getmember("lib/ld-musl-aarch64.so.1").linkname == "libc.so"
@@ -47,7 +61,9 @@ def test_layer_holds_the_programs_and_their_libraries(layout: Path) -> None:
 
 
 def test_image_is_arm64(layout: Path, network: Network) -> None:
-    inspected = json.loads(network["inet"].run("skopeo", "inspect", f"oci:{layout}:{TAG}"))
+    inspected = json.loads(
+        network["inet"].run("skopeo", "inspect", f"oci:{layout}:{TAG}")
+    )
     assert (inspected["Architecture"], inspected["Os"]) == ("arm64", "linux")
     assert len(inspected["Layers"]) == 1
 

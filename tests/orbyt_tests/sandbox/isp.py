@@ -75,7 +75,9 @@ class Isp:
     def log(self, lines: int) -> str:
         """Return the last ``lines`` lines of the ISP's pppd log."""
         return "\n".join(
-            self.log_file.read_text(encoding="utf-8", errors="replace").splitlines()[-lines:]
+            self.log_file.read_text(encoding="utf-8", errors="replace").splitlines()[
+                -lines:
+            ]
         )
 
     def sessions(self) -> list[Session]:
@@ -131,7 +133,9 @@ def _tool(name: str) -> str:
 
 def _scripts(workdir: Path) -> dict[str, str]:
     """Return the session scripts; pppd gives them a bare PATH, so tools are absolute."""
-    ip, setsid, pkill, radvd, kea = map(_tool, ("ip", "setsid", "pkill", "radvd", "kea-dhcp6"))
+    ip, setsid, pkill, radvd, kea = map(
+        _tool, ("ip", "setsid", "pkill", "radvd", "kea-dhcp6")
+    )
     registry = workdir / "sessions"
     session = f"{workdir}/${{PPPD_PID}}"
     kea_config = {
@@ -145,7 +149,12 @@ def _scripts(workdir: Path) -> dict[str, str]:
             },
             "lease-database": {"type": "memfile", "persist": False},
             # A fixed server DUID, kept in memory instead of /var/lib/kea.
-            "server-id": {"type": "LL", "htype": 1, "identifier": "020000000001", "persist": False},
+            "server-id": {
+                "type": "LL",
+                "htype": 1,
+                "identifier": "020000000001",
+                "persist": False,
+            },
             "renew-timer": 900,
             "rebind-timer": 1800,
             "preferred-lifetime": 3600,
@@ -166,7 +175,11 @@ def _scripts(workdir: Path) -> dict[str, str]:
                 }
             ],
             "loggers": [
-                {"name": "kea-dhcp6", "output-options": [{"output": "stdout"}], "severity": "INFO"}
+                {
+                    "name": "kea-dhcp6",
+                    "output-options": [{"output": "stdout"}],
+                    "severity": "INFO",
+                }
             ],
         }
     }

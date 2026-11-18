@@ -86,7 +86,9 @@ def _qosify_runs(router: Router, direction: str) -> int:
         for found in tc_programs(router, "pppoe-wan")
         if (found["kind"], found["name"]) == (f"tcx/{direction}", "qosify_classify")
     ]
-    return int(json.loads(router.run(f"bpftool -j prog show id {program}")).get("run_cnt", 0))
+    return int(
+        json.loads(router.run(f"bpftool -j prog show id {program}")).get("run_cnt", 0)
+    )
 
 
 @pytest.fixture
@@ -97,7 +99,9 @@ def without_tcx(proxy: Online, internet_zone: Online) -> Iterator[Online]:
     _set_tcx(router, "0")
     try:
         until(
-            lambda: hooks(router, "pppoe-wan") == FALLBACK, timeout=SETTLE, what="qosify on clsact"
+            lambda: hooks(router, "pppoe-wan") == FALLBACK,
+            timeout=SETTLE,
+            what="qosify on clsact",
         )
         yield proxy
     finally:
@@ -116,7 +120,9 @@ def test_lan_port_runs_only_honk(proxy: Online) -> None:
     assert hooks(proxy.router, "br-lan") == PROXY_HOOKS_L2
 
 
-@spec(CAPABILITY, "Pass-through returns continue the chain", "ICMP reply on WAN ingress")
+@spec(
+    CAPABILITY, "Pass-through returns continue the chain", "ICMP reply on WAN ingress"
+)
 def test_icmp_reply_reaches_qosify_and_the_host(proxy: Online) -> None:
     router = proxy.router
     router.run("sysctl -qw kernel.bpf_stats_enabled=1")
@@ -152,7 +158,11 @@ def test_order_survives_restarts_and_a_redial(proxy: Online) -> None:
     router = proxy.router
     # Each component's daemon: one that is stopping keeps its programs for a
     # moment, so the order counts once the new one runs.
-    for step, process in (("qosify", "qosify"), ("einat", "einat"), ("honk", "honk-core")):
+    for step, process in (
+        ("qosify", "qosify"),
+        ("einat", "einat"),
+        ("honk", "honk-core"),
+    ):
         old = router.run(f"pidof {process} || true")
         router.run(f"/etc/init.d/{step} restart")
         if step == "honk":
@@ -163,7 +173,11 @@ def test_order_survives_restarts_and_a_redial(proxy: Online) -> None:
                 timeout=SETTLE,
                 what=f"{process} running anew",
             )
-        until(lambda: _in_order(router), timeout=SETTLE, what=f"the order after restarting {step}")
+        until(
+            lambda: _in_order(router),
+            timeout=SETTLE,
+            what=f"the order after restarting {step}",
+        )
     proxy.redial()
     until(lambda: _in_order(router), timeout=SETTLE, what="the order after a redial")
 

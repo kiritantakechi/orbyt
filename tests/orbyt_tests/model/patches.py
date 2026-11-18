@@ -45,17 +45,23 @@ def write_ups(doc: str) -> dict[str, str]:
 def unstated(patches: dict[str, str | None]) -> list[str]:
     """Return the patches without a status in the vocabulary."""
     return [
-        path for path, status in patches.items() if status is None or not STATUS.fullmatch(status)
+        path
+        for path, status in patches.items()
+        if status is None or not STATUS.fullmatch(status)
     ]
 
 
-def without_write_up(patches: dict[str, str | None], titles: dict[str, str]) -> list[str]:
+def without_write_up(
+    patches: dict[str, str | None], titles: dict[str, str]
+) -> list[str]:
     """Return the patches meant for upstream that no write-up names."""
     named = set(titles.values())
     return [
         path
         for path, status in patches.items()
-        if status is not None and status.split(" ")[0] in MEANT_FOR_UPSTREAM and path not in named
+        if status is not None
+        and status.split(" ")[0] in MEANT_FOR_UPSTREAM
+        and path not in named
     ]
 
 

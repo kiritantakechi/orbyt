@@ -41,7 +41,8 @@ def test_scrape_from_the_lan(metrics: str) -> None:
     ):
         assert _series(metrics, name), name
     assert any(
-        'device="br-lan"' in line for line in _series(metrics, "node_network_receive_bytes_total")
+        'device="br-lan"' in line
+        for line in _series(metrics, "node_network_receive_bytes_total")
     )
 
 
@@ -51,12 +52,17 @@ def test_temperature_metrics(online: Online, metrics: str) -> None:
         r'^node_scrape_collector_success\{collector="hwmon"\} 1$', metrics, re.MULTILINE
     )
     # The sensor driver of both SoCs is in the kernel; on a board it feeds hwmon.
-    assert online.router.returncode("test -d /sys/bus/platform/drivers/rockchip-thermal") == 0
+    assert (
+        online.router.returncode("test -d /sys/bus/platform/drivers/rockchip-thermal")
+        == 0
+    )
 
 
 @spec(CAPABILITY, "Metrics exported on the LAN", "Access from the WAN")
 def test_wan_is_refused(online: Online) -> None:
-    probe = online.network["inet"].probe("connect", online.wan_address, "--port", str(PORT))
+    probe = online.network["inet"].probe(
+        "connect", online.wan_address, "--port", str(PORT)
+    )
     assert probe == {"connection": "refused"}
 
 

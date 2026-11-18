@@ -55,7 +55,9 @@ def test_image_has_no_credentials(router: Router, board: Board) -> None:
 
 
 @spec(CAPABILITY, "PPPoE dial-up", "Upgrade keeps the pushed configuration")
-def test_upgrade_keeps_the_pushed_configuration(router: Router, upgrade_image: Path) -> None:
+def test_upgrade_keeps_the_pushed_configuration(
+    router: Router, upgrade_image: Path
+) -> None:
     # The defaults apply to a fresh configuration only; one that an upgrade
     # carries over keeps its values, however they differ (uci-defaults, keep.d).
     changes = {
@@ -79,7 +81,9 @@ def test_upgrade_keeps_the_pushed_configuration(router: Router, upgrade_image: P
 def test_dial_after_pushing_credentials(online: Online) -> None:
     shown = online.router.run("ip -4 -o addr show dev pppoe-wan").split()
     address = shown[shown.index("inet") + 1].split("/")[0]
-    offset = int(ipaddress.IPv4Address(address)) - int(ipaddress.IPv4Address(POOL_START))
+    offset = int(ipaddress.IPv4Address(address)) - int(
+        ipaddress.IPv4Address(POOL_START)
+    )
     assert 0 <= offset < POOL_SIZE
     assert address == online.wan_address
 
@@ -97,10 +101,21 @@ def test_mss_fits_the_path(online: Online) -> None:
     assert seen["mss"] <= MSS_MAX
     # The path MTU itself: the largest unfragmented ping fits, one byte more does not.
     payload = PATH_MTU - 28
-    client.run("ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload), DIRECT_TARGET[0])
+    client.run(
+        "ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload), DIRECT_TARGET[0]
+    )
     with pytest.raises(subprocess.CalledProcessError):
         client.run(
-            "ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload + 1), DIRECT_TARGET[0]
+            "ping",
+            "-c",
+            "1",
+            "-W",
+            "2",
+            "-M",
+            "do",
+            "-s",
+            str(payload + 1),
+            DIRECT_TARGET[0],
         )
 
 
@@ -128,19 +143,29 @@ def _lan_state(online: Online, address: str) -> str:
     shown = []
     for namespace, command in commands:
         try:
-            shown.append(f"{namespace.name}$ {' '.join(command)}\n{namespace.run(*command)}")
+            shown.append(
+                f"{namespace.name}$ {' '.join(command)}\n{namespace.run(*command)}"
+            )
         except subprocess.CalledProcessError as error:
             shown.append(f"{namespace.name}$ {' '.join(command)}: {error}")
     return "\n".join(shown)
 
 
-@spec(CAPABILITY, "IPv6 inbound firewall", "External host connects to an internal IPv6 address")
+@spec(
+    CAPABILITY,
+    "IPv6 inbound firewall",
+    "External host connects to an internal IPv6 address",
+)
 def test_inbound_ipv6_is_rejected(online: Online) -> None:
     _, ipv6 = online.addresses()
     client = online.client()
     server = client.spawn(sys.executable, "-m", "orbyt_tests.sandbox.netprobe", "serve")
     try:
-        until(lambda: client.run("ss", "-Hltn", f"sport = :{PORT}"), timeout=10, what="netprobe")
+        until(
+            lambda: client.run("ss", "-Hltn", f"sport = :{PORT}"),
+            timeout=10,
+            what="netprobe",
+        )
         # The LAN reaches the server; the internet's connection is refused (a
         # reset, fw4's REJECT), not left unanswered.
         try:
@@ -149,7 +174,10 @@ def test_inbound_ipv6_is_rejected(online: Online) -> None:
             error.add_note(_lan_state(online, ipv6))
             raise
         refused = {"connection": "refused"}
-        assert online.network["inet"].probe("connect", ipv6, "--port", str(PORT)) == refused
+        assert (
+            online.network["inet"].probe("connect", ipv6, "--port", str(PORT))
+            == refused
+        )
     finally:
         server.terminate()
         server.wait()
@@ -213,7 +241,9 @@ def _received(inet: Netns) -> Counter[str]:
     ss shows each connection on a line of its own, its peer last, and below it,
     indented, its counters.
     """
-    shown = inet.run("ss", "-Htin", "state", "established", f"( sport = :{IPERF_PORTS[0]} )")
+    shown = inet.run(
+        "ss", "-Htin", "state", "established", f"( sport = :{IPERF_PORTS[0]} )"
+    )
     received: Counter[str] = Counter()
     peer = ""
     for line in shown.splitlines():
@@ -257,7 +287,9 @@ def test_offloaded_flows_keep_the_wan_address(
     )
     try:
         flow = until(
-            lambda: _carried(online, inet), timeout=OFFLOAD_TIMEOUT, what="offloaded download"
+            lambda: _carried(online, inet),
+            timeout=OFFLOAD_TIMEOUT,
+            what="offloaded download",
         )
         record_testsuite_property("offloaded flow", flow[0])
         assert set(_received(inet)) == {online.wan_address}

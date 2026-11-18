@@ -31,7 +31,15 @@ def _signed(index: Path, path: Path, keys: Keys) -> Path:
     """Copy ``index`` to ``path``, signed with ``keys``' apk key alone."""
     shutil.copy(index, path)
     subprocess.run(
-        ["apk", "--allow-untrusted", "--sign-key", keys.apk, "adbsign", "--reset-signatures", path],
+        [
+            "apk",
+            "--allow-untrusted",
+            "--sign-key",
+            keys.apk,
+            "adbsign",
+            "--reset-signatures",
+            path,
+        ],
         check=True,
         capture_output=True,
     )
@@ -41,14 +49,28 @@ def _signed(index: Path, path: Path, keys: Keys) -> Path:
 def test_keys_sign_and_their_keyring_verifies(tmp_path: Path, index: Path) -> None:
     keys, other = Keys.make(tmp_path / "keys"), Keys.make(tmp_path / "other", "other")
     index = _signed(index, tmp_path / "packages.adb", keys)
-    assert _returncode("apk", "--keys-dir", keys.keyring / APK_KEYS, "verify", index) == 0
-    assert _returncode("apk", "--keys-dir", other.keyring / APK_KEYS, "verify", index) != 0
+    assert (
+        _returncode("apk", "--keys-dir", keys.keyring / APK_KEYS, "verify", index) == 0
+    )
+    assert (
+        _returncode("apk", "--keys-dir", other.keyring / APK_KEYS, "verify", index) != 0
+    )
 
     message = tmp_path / "message"
     message.write_text("signed")
     subprocess.run(["usign", "-S", "-m", message, "-s", keys.firmware], check=True)
-    assert _returncode("usign", "-V", "-q", "-m", message, "-P", keys.keyring / FIRMWARE_KEYS) == 0
-    assert _returncode("usign", "-V", "-q", "-m", message, "-P", other.keyring / FIRMWARE_KEYS) != 0
+    assert (
+        _returncode(
+            "usign", "-V", "-q", "-m", message, "-P", keys.keyring / FIRMWARE_KEYS
+        )
+        == 0
+    )
+    assert (
+        _returncode(
+            "usign", "-V", "-q", "-m", message, "-P", other.keyring / FIRMWARE_KEYS
+        )
+        != 0
+    )
     assert (keys.keyring / FIRMWARE_KEYS / keys.fingerprint).is_file()
 
 
@@ -57,4 +79,7 @@ def test_keyring_can_trust_two_keys(tmp_path: Path, index: Path) -> None:
     new.trust_also(old)
     for keys in (old, new):
         signed = _signed(index, tmp_path / f"{keys.fingerprint}.adb", keys)
-        assert _returncode("apk", "--keys-dir", new.keyring / APK_KEYS, "verify", signed) == 0
+        assert (
+            _returncode("apk", "--keys-dir", new.keyring / APK_KEYS, "verify", signed)
+            == 0
+        )

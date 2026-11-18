@@ -96,7 +96,9 @@ def _decode(data: bytes | str) -> Seen:
 
 
 def _seen(address: str, port: int | None = None, **extra: int) -> bytes:
-    fields = {"address": address} if port is None else {"address": address, "port": port}
+    fields = (
+        {"address": address} if port is None else {"address": address, "port": port}
+    )
     return json.dumps(fields | extra).encode()
 
 
@@ -148,9 +150,7 @@ async def _http(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> N
     while (await reader.readline()).strip():  # the headers
         pass
     body = _peer(writer)
-    head = (
-        f"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
-    )
+    head = f"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
     # A HEAD response has the GET's head and no body (RFC 9110, 9.3.2): a health
     # check that sends HEAD, then GET on the same connection, reads the GET's.
     writer.write(head.encode() + (b"" if method == b"HEAD" else body))
@@ -163,7 +163,9 @@ def _local(ancillary: list[tuple[int, int, bytes]]) -> str:
     """Return the address a datagram was sent to, from its packet information."""
     for level, kind, data in ancillary:
         if (level, kind) == (socket.IPPROTO_IP, socket.IP_PKTINFO):
-            return socket.inet_ntop(socket.AF_INET, data[8:12])  # ipi_addr, the destination
+            return socket.inet_ntop(
+                socket.AF_INET, data[8:12]
+            )  # ipi_addr, the destination
         if (level, kind) == (socket.IPPROTO_IPV6, socket.IPV6_PKTINFO):
             return socket.inet_ntop(socket.AF_INET6, data[:16])
     msg = "a datagram without packet information"
@@ -195,7 +197,9 @@ def _listening(family: socket.AddressFamily, port: int) -> socket.socket:
     return sock
 
 
-def _answering(family: socket.AddressFamily, kind: socket.SocketKind, port: int) -> socket.socket:
+def _answering(
+    family: socket.AddressFamily, kind: socket.SocketKind, port: int
+) -> socket.socket:
     """Return a socket that learns where each datagram was sent, to answer from there.
 
     A host with several addresses would otherwise answer from its first one, and
@@ -286,7 +290,9 @@ def udp(host: str, port: int, *, source_port: int = 0, big: bool = False) -> See
     return _decode(data) | {"size": len(data), "from": source}
 
 
-def flows(host: str, port: int, *, rate: float, seconds: float, sources: int = 0) -> Seen:
+def flows(
+    host: str, port: int, *, rate: float, seconds: float, sources: int = 0
+) -> Seen:
     """Start ``rate`` new UDP flows a second for ``seconds``: a datagram from a socket each.
 
     Every flow starts on its schedule, the flow after ``n`` of them ``n / rate``
@@ -325,7 +331,9 @@ def esp(host: str, spi: int) -> Seen:
 
 def listen(port: int, *, ipv6: bool = False, timeout: float = TIMEOUT * 6) -> Seen:
     """Wait for one datagram on ``port`` and return its source and payload."""
-    with socket.socket(socket.AF_INET6 if ipv6 else socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    with socket.socket(
+        socket.AF_INET6 if ipv6 else socket.AF_INET, socket.SOCK_DGRAM
+    ) as sock:
         sock.settimeout(timeout)
         sock.bind(("", port))
         data, (host, source_port, *_) = sock.recvfrom(65535)
@@ -353,13 +361,21 @@ def inject(interface: str, mac: str, source: str, destination: str, port: int) -
     addresses = socket.inet_aton(source) + socket.inet_aton(destination)
     payload = b"spoofed"
     udp_header = struct.pack("!HHHH", 40000, port, 8 + len(payload), 0)
-    pseudo = addresses + struct.pack("!BBH", 0, socket.IPPROTO_UDP, len(udp_header) + len(payload))
-    udp_header = udp_header[:6] + struct.pack("!H", _checksum(pseudo + udp_header + payload))
-    header = struct.pack("!BBHHHBBH", 0x45, 0, 20 + len(udp_header) + len(payload), 0, 0, 64, 17, 0)
+    pseudo = addresses + struct.pack(
+        "!BBH", 0, socket.IPPROTO_UDP, len(udp_header) + len(payload)
+    )
+    udp_header = udp_header[:6] + struct.pack(
+        "!H", _checksum(pseudo + udp_header + payload)
+    )
+    header = struct.pack(
+        "!BBHHHBBH", 0x45, 0, 20 + len(udp_header) + len(payload), 0, 0, 64, 17, 0
+    )
     header = header[:10] + struct.pack("!H", _checksum(header + addresses)) + addresses
     with socket.socket(socket.AF_PACKET, socket.SOCK_RAW) as sock:
         sock.bind((interface, 0))
-        frame = bytes.fromhex(mac.replace(":", "")) + sock.getsockname()[4] + b"\x08\x00"
+        frame = (
+            bytes.fromhex(mac.replace(":", "")) + sock.getsockname()[4] + b"\x08\x00"
+        )
         sent = sock.send(frame + header + udp_header + payload)
     return {"size": sent}
 
@@ -391,7 +407,9 @@ def _exchange(sock: socket.socket, query: bytes, address: tuple[str, int]) -> by
 def resolve(name: str, server: str, kind: str, *, port: int = 53) -> Seen:
     """Ask ``server`` for the ``kind`` records of ``name``; return the rcode and answers."""
     ident = os.getpid() & 0xFFFF
-    question = b"".join(bytes([len(label)]) + label.encode() for label in name.split("."))
+    question = b"".join(
+        bytes([len(label)]) + label.encode() for label in name.split(".")
+    )
     query = DNS_HEADER.pack(ident, 0x0100, 1, 0, 0, 0) + question + b"\0"
     query += struct.pack("!HH", DNS_TYPES[kind], 1)
     with socket.socket(_family(server), socket.SOCK_DGRAM) as sock:
@@ -449,7 +467,8 @@ def solicit_prefix(interface: str) -> Seen:
     return {
         "prefix": f"{ipaddress.IPv6Address(prefix[9:25])}/{prefix[8]}",
         "dns": [
-            str(ipaddress.IPv6Address(servers[i : i + 16])) for i in range(0, len(servers), 16)
+            str(ipaddress.IPv6Address(servers[i : i + 16]))
+            for i in range(0, len(servers), 16)
         ],
     }
 
@@ -467,11 +486,15 @@ def solicit_router(interface: str) -> Seen:
 
 def main() -> None:
     """Command line: ``serve``, or one client probe printing JSON."""
-    parser = argparse.ArgumentParser(prog="netprobe", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="netprobe", description=__doc__.splitlines()[0]
+    )
     commands = parser.add_subparsers(required=True)
 
     def command(
-        name: str, run: Callable[[argparse.Namespace], Seen | None], *arguments: Argument
+        name: str,
+        run: Callable[[argparse.Namespace], Seen | None],
+        *arguments: Argument,
     ) -> None:
         sub = commands.add_parser(name)
         for flag, options in arguments:
@@ -504,7 +527,9 @@ def main() -> None:
     )
     command(
         "flows",
-        lambda a: flows(a.host, a.port, rate=a.rate, seconds=a.seconds, sources=a.sources),
+        lambda a: flows(
+            a.host, a.port, rate=a.rate, seconds=a.seconds, sources=a.sources
+        ),
         host,
         port,
         ("--rate", {"type": float, "required": True}),

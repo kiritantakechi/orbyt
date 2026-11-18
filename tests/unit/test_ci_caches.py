@@ -21,7 +21,9 @@ NEWER = "b" * 40
         pytest.param(MAIN, 4 * MIB, "true", id="default branch, full"),
         pytest.param("refs/heads/feature", 1 * MIB, "true", id="branch, room"),
         pytest.param("refs/heads/feature", 7 * MIB // 2, "false", id="branch, no room"),
-        pytest.param("refs/pull/1/merge", 7 * MIB // 2, "false", id="pull request, no room"),
+        pytest.param(
+            "refs/pull/1/merge", 7 * MIB // 2, "false", id="pull request, no room"
+        ),
     ],
 )
 def test_room_for_a_cache(tmp_path: Path, ref: str, used: int, save: str) -> None:
@@ -31,7 +33,12 @@ def test_room_for_a_cache(tmp_path: Path, ref: str, used: int, save: str) -> Non
     repository = Repository()
     repository.cache(MAIN, "dl-main", used)
     result, _ = run_script(
-        tmp_path, repository, "cache-room.sh", str(cache), ref=ref, CACHE_QUOTA=str(4 * MIB)
+        tmp_path,
+        repository,
+        "cache-room.sh",
+        str(cache),
+        ref=ref,
+        CACHE_QUOTA=str(4 * MIB),
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"save={save}\n"
@@ -72,12 +79,17 @@ def test_a_branch_leaves_other_branches_caches(tmp_path: Path) -> None:
         tmp_path, repository, "cache-prune.sh", "toolchain-1", ref="refs/heads/feature"
     )
     assert result.returncode == 0, result.stderr
-    assert sorted(ref for ref, _ in left) == ["refs/heads/deleted", "refs/heads/feature"]
+    assert sorted(ref for ref, _ in left) == [
+        "refs/heads/deleted",
+        "refs/heads/feature",
+    ]
 
 
 def test_a_run_past_documentation_prunes(tmp_path: Path) -> None:
     repository = Repository(
-        branches=["main", "feature"], compare={"feature": "ahead"}, heads={"feature": NEWER}
+        branches=["main", "feature"],
+        compare={"feature": "ahead"},
+        heads={"feature": NEWER},
     )
     repository.compared(HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}])
     for run in ("1", "2"):

@@ -68,9 +68,13 @@ def issue(directory: Path, names: Sequence[str], addresses: Sequence[str]) -> Pk
         "-addext", "basicConstraints=critical,CA:TRUE",
         "-addext", "keyUsage=critical,keyCertSign,cRLSign",
     )  # fmt: skip
-    alternatives = ",".join([*(f"DNS:{n}" for n in names), *(f"IP:{a}" for a in addresses)])
+    alternatives = ",".join(
+        [*(f"DNS:{n}" for n in names), *(f"IP:{a}" for a in addresses)]
+    )
     extensions = directory / "server.ext"
-    extensions.write_text(f"subjectAltName={alternatives}\nextendedKeyUsage=serverAuth\n")
+    extensions.write_text(
+        f"subjectAltName={alternatives}\nextendedKeyUsage=serverAuth\n"
+    )
     _openssl(
         "req", *key, "-keyout", pki.key, "-out", directory / "server.csr",
         "-subj", f"/CN={names[0]}",

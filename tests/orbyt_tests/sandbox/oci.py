@@ -66,7 +66,9 @@ def extract_root(disk: Path, output: Path) -> Path:
             chunk = raw.read(min(remaining, 1 << 20))
             erofs.write(chunk)
             remaining -= len(chunk)
-    subprocess.run(["fsck.erofs", f"--extract={output}", image], check=True, capture_output=True)
+    subprocess.run(
+        ["fsck.erofs", f"--extract={output}", image], check=True, capture_output=True
+    )
     image.unlink()
     return output
 
@@ -115,9 +117,15 @@ def _files(root: Path) -> dict[str, bytes]:
         name = pending.pop()
         if name in files:
             continue
-        files[name] = (root / name).read_bytes()  # a library's link, as the file it names
+        files[name] = (
+            root / name
+        ).read_bytes()  # a library's link, as the file it names
         for library in needed(files[name]):
-            found = [f"{d}/{library}" for d in LIBRARY_DIRECTORIES if (root / d / library).exists()]
+            found = [
+                f"{d}/{library}"
+                for d in LIBRARY_DIRECTORIES
+                if (root / d / library).exists()
+            ]
             if not found:
                 msg = f"{library}, which {name} needs, is not in {root}"
                 raise FileNotFoundError(msg)
@@ -131,7 +139,11 @@ def _layer(root: Path) -> bytes:
     links = {LOADER[0]: LOADER[1], **{f"bin/{applet}": "busybox" for applet in APPLETS}}
     directories = sorted(
         {"www"}
-        | {str(parent) for name in [*files, *links] for parent in PurePosixPath(name).parents}
+        | {
+            str(parent)
+            for name in [*files, *links]
+            for parent in PurePosixPath(name).parents
+        }
         - {"."}
     )
     buffer = io.BytesIO()
@@ -194,7 +206,9 @@ def image_layout(root: Path, layout: Path, tag: str = TAG) -> Path:
         f"{MEDIA}.manifest.v1+json",
     )
     manifest["annotations"] = {"org.opencontainers.image.ref.name": tag}
-    (layout / "index.json").write_bytes(_json({"schemaVersion": 2, "manifests": [manifest]}))
+    (layout / "index.json").write_bytes(
+        _json({"schemaVersion": 2, "manifests": [manifest]})
+    )
     (layout / "oci-layout").write_bytes(_json({"imageLayoutVersion": "1.0.0"}))
     return layout
 

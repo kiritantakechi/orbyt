@@ -28,7 +28,9 @@ def _missing_lines(tmp_path: Path, wanted: str, actual: str) -> list[str]:
     """Return what missing_config_lines finds of ``wanted`` missing from ``actual``."""
     (tmp_path / "wanted").write_text(wanted)
     (tmp_path / "actual").write_text(actual)
-    result = library("tree", 'missing_config_lines "$1" "$2"', "wanted", "actual", cwd=tmp_path)
+    result = library(
+        "tree", 'missing_config_lines "$1" "$2"', "wanted", "actual", cwd=tmp_path
+    )
     assert result.returncode == 0, result.stderr
     return [line.strip() for line in result.stdout.splitlines()]
 
@@ -115,10 +117,14 @@ def _stale(tmp_path: Path, apks: list[str]) -> subprocess.CompletedProcess[str]:
     for apk in apks:
         (tmp_path / "bin" / apk).parent.mkdir(parents=True, exist_ok=True)
         (tmp_path / "bin" / apk).touch()
-    return library("tree", 'stale_packages "$@"', "bin", "config", "packageinfo", cwd=tmp_path)
+    return library(
+        "tree", 'stale_packages "$@"', "bin", "config", "packageinfo", cwd=tmp_path
+    )
 
 
-def test_the_packages_the_configuration_no_longer_builds_are_stale(tmp_path: Path) -> None:
+def test_the_packages_the_configuration_no_longer_builds_are_stale(
+    tmp_path: Path,
+) -> None:
     result = _stale(tmp_path, list(APKS))
     assert result.returncode == 0, result.stderr
     assert result.stdout.splitlines() == sorted(
@@ -132,8 +138,12 @@ def test_an_apk_without_a_version_fails(tmp_path: Path) -> None:
     assert "cannot tell the package of bin/packages/base/odd.apk" in result.stderr
 
 
-def test_an_output_directory_not_made_yet_holds_no_stale_package(tmp_path: Path) -> None:
-    result = library("tree", 'stale_packages "$@"', "bin", "config", "packageinfo", cwd=tmp_path)
+def test_an_output_directory_not_made_yet_holds_no_stale_package(
+    tmp_path: Path,
+) -> None:
+    result = library(
+        "tree", 'stale_packages "$@"', "bin", "config", "packageinfo", cwd=tmp_path
+    )
     assert result.returncode == 0, result.stderr
     assert result.stdout == ""
 
@@ -160,7 +170,12 @@ def test_trim_keeps_what_the_build_used(tmp_path: Path) -> None:
     result = library("cache", 'compiler_cache_trim "$1" "$2"', str(tree), str(start))
     assert result.returncode == 0, result.stderr
     kept = {str(path.relative_to(tree)) for path in tree.rglob("*") if path.is_file()}
-    assert kept == {".config", "tmp/go-build/aa/used", "tmp/go-build/bb/new", ".sccache/a/used"}
+    assert kept == {
+        ".config",
+        "tmp/go-build/aa/used",
+        "tmp/go-build/bb/new",
+        ".sccache/a/used",
+    }
 
 
 def _rust_std(tree: Path) -> str:
@@ -284,7 +299,9 @@ def test_go_cache_counts_what_go_compiled(tmp_path: Path) -> None:
         action_id, output_id = action * 32, output * 32
         entry = cache / action / f"{action_id}-a"
         entry.parent.mkdir(parents=True, exist_ok=True)
-        entry.write_text(f"v1 {action_id} {output_id} {size:20d} {created * 10**9:20d}\n")
+        entry.write_text(
+            f"v1 {action_id} {output_id} {size:20d} {created * 10**9:20d}\n"
+        )
         if data is not None:
             (cache / output).mkdir(exist_ok=True)
             (cache / output / f"{output_id}-d").write_bytes(data)
@@ -303,7 +320,9 @@ def _compose(profile: str, board: str, tmp_path: Path) -> str:
     tree = tmp_path / "openwrt"
     tree.mkdir(exist_ok=True)
     output = tmp_path / f"{profile}-{board or 'neutral'}.config"
-    result = library("seeds", 'compose_seeds "$@"', str(tree), profile, board, str(output))
+    result = library(
+        "seeds", 'compose_seeds "$@"', str(tree), profile, board, str(output)
+    )
     assert result.returncode == 0, result.stderr
     return output.read_text()
 
@@ -313,7 +332,11 @@ def _options(seed: str) -> list[str]:
     return [
         match.group(1) or match.group(2)
         for line in seed.splitlines()
-        if (match := re.fullmatch(r"(CONFIG_[^= ]+)=.*|# (CONFIG_[^ ]+) is not set", line))
+        if (
+            match := re.fullmatch(
+                r"(CONFIG_[^= ]+)=.*|# (CONFIG_[^ ]+) is not set", line
+            )
+        )
     ]
 
 
@@ -325,11 +348,16 @@ def test_a_later_seed_replaces_an_earlier_line(tmp_path: Path) -> None:
     (tmp_path / "b.seed").write_text('# b\nCONFIG_B=y\nCONFIG_C="-O3"\n')
     result = awk_program("merge-seeds.awk", "a.seed", "b.seed", cwd=tmp_path)
     assert result.returncode == 0, result.stderr
-    assert result.stdout == '# a\nCONFIG_A=y\nCONFIG_D=m\n# b\nCONFIG_B=y\nCONFIG_C="-O3"\n'
+    assert (
+        result.stdout
+        == '# a\nCONFIG_A=y\nCONFIG_D=m\n# b\nCONFIG_B=y\nCONFIG_C="-O3"\n'
+    )
 
 
 @pytest.mark.parametrize("profile", PROFILES)
-def test_a_composed_seed_holds_one_line_per_option(profile: str, tmp_path: Path) -> None:
+def test_a_composed_seed_holds_one_line_per_option(
+    profile: str, tmp_path: Path
+) -> None:
     # configure_tree checks every line of it against the configuration, which can
     # hold only one value per option.
     for board in ("", *(board.id for board in load_all())):
@@ -348,10 +376,13 @@ def test_board_only_seeds_build_apart(tmp_path: Path) -> None:
     # comes last, and the build has directories of its own.
     seed = _compose("ubsan", "r4s", tmp_path).splitlines()
     ubsan = (REPO / "config" / "ubsan.seed").read_text().splitlines()
-    assert [line for line in seed if line.startswith("CONFIG_TARGET_OPTIMIZATION=")] == [
-        line for line in ubsan if line.startswith("CONFIG_TARGET_OPTIMIZATION=")
-    ]
-    assert 'CONFIG_EXTRA_OPTIMIZATION="-fno-caller-saves -fno-plt -O3 -mcpu=' in "\n".join(seed)
+    assert [
+        line for line in seed if line.startswith("CONFIG_TARGET_OPTIMIZATION=")
+    ] == [line for line in ubsan if line.startswith("CONFIG_TARGET_OPTIMIZATION=")]
+    assert (
+        'CONFIG_EXTRA_OPTIMIZATION="-fno-caller-saves -fno-plt -O3 -mcpu='
+        in "\n".join(seed)
+    )
     assert 'CONFIG_BUILD_SUFFIX="r4s_ubsan"' in seed
     assert f'CONFIG_BINARY_FOLDER="{tmp_path / "openwrt"}/bin/r4s_ubsan"' in seed
     assert 'CONFIG_BUILD_SUFFIX="r4s"' in _compose("dev", "r4s", tmp_path).splitlines()
@@ -365,7 +396,10 @@ def test_the_ubsan_seed_extends_the_toolchain_seed() -> None:
         assert found
         return str(found[1])
 
-    assert value("ubsan") == f"{value('toolchain')} -fsanitize=undefined -fsanitize-trap=undefined"
+    assert (
+        value("ubsan")
+        == f"{value('toolchain')} -fsanitize=undefined -fsanitize-trap=undefined"
+    )
 
 
 def _paths(event: str) -> list[str]:

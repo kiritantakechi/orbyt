@@ -67,7 +67,9 @@ class Series:
         (found,) = self.patches.glob(f"{number:04}-*.patch")
         return found
 
-    def apply(self, env: Mapping[str, str] | None = None) -> subprocess.CompletedProcess[str]:
+    def apply(
+        self, env: Mapping[str, str] | None = None
+    ) -> subprocess.CompletedProcess[str]:
         """Build the series' commit on the base and move the work tree to it, in ``env``."""
         return library(
             "tree upstream",

@@ -120,7 +120,9 @@ class Board(Description):
     def big_cores(self) -> tuple[int, ...]:
         """The CPUs of the highest capacity."""
         highest = max(self.soc.cores)
-        return tuple(cpu for cpu, capacity in enumerate(self.soc.cores) if capacity == highest)
+        return tuple(
+            cpu for cpu, capacity in enumerate(self.soc.cores) if capacity == highest
+        )
 
 
 def load(board: str, directory: Path = BOARDS_DIR) -> Board:
@@ -136,13 +138,19 @@ def load(board: str, directory: Path = BOARDS_DIR) -> Board:
 
 def load_all(directory: Path = BOARDS_DIR) -> tuple[Board, ...]:
     """Return every board's description, by id."""
-    return tuple(load(path.stem, directory) for path in sorted(directory.glob("*.json")))
+    return tuple(
+        load(path.stem, directory) for path in sorted(directory.glob("*.json"))
+    )
 
 
 def main(argv: list[str] | None = None) -> int:
     """Check every board description; print each problem with its board and field."""
-    parser = argparse.ArgumentParser(prog="board-check", description=__doc__.splitlines()[0])
-    parser.add_argument("--boards", type=Path, default=BOARDS_DIR, help=argparse.SUPPRESS)
+    parser = argparse.ArgumentParser(
+        prog="board-check", description=__doc__.splitlines()[0]
+    )
+    parser.add_argument(
+        "--boards", type=Path, default=BOARDS_DIR, help=argparse.SUPPRESS
+    )
     args = parser.parse_args(argv)
     problems: list[str] = []
     paths = sorted(args.boards.glob("*.json"))

@@ -68,7 +68,9 @@ class Disk:
 def _models(disk: Disk) -> str:
     """Return the command that lists the model files of ``disk``'s block devices on the router."""
     # The SCSI model is padded with spaces.
-    return f"grep -l {shlex.quote(f'^{disk.name} *$')} /sys/block/sd*/device/model || true"
+    return (
+        f"grep -l {shlex.quote(f'^{disk.name} *$')} /sys/block/sd*/device/model || true"
+    )
 
 
 def device(router: Router, disk: Disk) -> str:
@@ -111,13 +113,17 @@ def boot_disk_entries(router: Router) -> list[str]:
 
 def mount_options(router: Router) -> set[str] | None:
     """Return the options of the data disk's mount, or None while it is not mounted."""
-    options = router.run(f'awk \'$2 == "{MOUNT}" && $3 == "btrfs" {{ print $4 }}\' /proc/mounts')
+    options = router.run(
+        f'awk \'$2 == "{MOUNT}" && $3 == "btrfs" {{ print $4 }}\' /proc/mounts'
+    )
     return set(options.split(",")) if options else None
 
 
 def wait_mounted(router: Router) -> set[str]:
     """Wait until the data disk is mounted; return its mount options."""
-    return until(lambda: mount_options(router), timeout=PLUG_TIMEOUT, what=f"{MOUNT} mounted")
+    return until(
+        lambda: mount_options(router), timeout=PLUG_TIMEOUT, what=f"{MOUNT} mounted"
+    )
 
 
 def initialize(router: Router, disk: Disk, answer: str | None = None) -> int:
@@ -127,7 +133,9 @@ def initialize(router: Router, disk: Disk, answer: str | None = None) -> int:
     """
     path = device(router, disk)
     typed = shlex.quote(path if answer is None else answer)
-    return router.returncode(f"echo {typed} | orbyt-data init {path}", timeout=INIT_TIMEOUT)
+    return router.returncode(
+        f"echo {typed} | orbyt-data init {path}", timeout=INIT_TIMEOUT
+    )
 
 
 def subvolumes(router: Router) -> set[str]:

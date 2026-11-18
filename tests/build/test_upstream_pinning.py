@@ -53,13 +53,19 @@ def test_every_write_up_names_its_patch() -> None:
     assert without_patch(repository_patches(), write_ups(DOC.read_text())) == []
 
 
-@spec(CAPABILITY, "Ordered patches, stop on failure", "A git configuration of the user's own")
+@spec(
+    CAPABILITY,
+    "Ordered patches, stop on failure",
+    "A git configuration of the user's own",
+)
 def test_the_series_commit_ignores_the_user_s_git_configuration(tmp_path: Path) -> None:
     series = Series(tmp_path)
     # A third patch, whose line ends in a blank: whitespace that apply would fix.
     (series.repo / "c.txt").write_text("c\none\ntwo, patched \n")
     series.git("commit", "-q", "-a", "-m", "patch c")
-    series.git("format-patch", "-q", "-1", "--start-number", "3", "-o", str(series.patches))
+    series.git(
+        "format-patch", "-q", "-1", "--start-number", "3", "-o", str(series.patches)
+    )
     series.git("checkout", "-q", "--detach", series.base)
     without = series.apply({**os.environ, "GIT_CONFIG_GLOBAL": os.devnull})
     assert without.returncode == 0, without.stderr

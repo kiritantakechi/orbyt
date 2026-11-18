@@ -5,7 +5,12 @@ from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.device.emu import boot_files, extract_fit_image, read_fit, run
-from orbyt_tests.model.image import DEFAULT_HOSTNAME, SECTOR, default_environment, read_mbr
+from orbyt_tests.model.image import (
+    DEFAULT_HOSTNAME,
+    SECTOR,
+    default_environment,
+    read_mbr,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -65,7 +70,11 @@ def test_rom_is_erofs(router: Router) -> None:
     assert options.split(",")[0] == "ro"
 
 
-@spec(CAPABILITY, "Writable layer is zstd-compressed f2fs", "First boot creates the overlay")
+@spec(
+    CAPABILITY,
+    "Writable layer is zstd-compressed f2fs",
+    "First boot creates the overlay",
+)
 def test_overlay_is_compressed_f2fs(router: Router) -> None:
     source, kind, options = _mount(router, "/overlay")
     assert kind == "f2fs"
@@ -92,7 +101,9 @@ def test_factory_reset_only_clears_the_overlay(router: Router) -> None:
 
 
 @spec(CAPABILITY, "Complete boot chain", "Inspect the boot chain")
-def test_boot_chain(board: Board, build_output: Path, emulation_dir: Path, tmp_path: Path) -> None:
+def test_boot_chain(
+    board: Board, build_output: Path, emulation_dir: Path, tmp_path: Path
+) -> None:
     disk = emulation_dir / "disk.raw"
     with disk.open("rb") as raw:
         first = read_mbr(raw.read(SECTOR)).partitions[0].start // SECTOR
@@ -102,7 +113,8 @@ def test_boot_chain(board: Board, build_output: Path, emulation_dir: Path, tmp_p
     run("dumpimage", "-T", "rksd", "-l", str(idbloader))
     header, loader = board.soc.loader, idbloader.read_bytes()
     assert (
-        loader[header.offset : header.offset + len(header.signature)] == header.signature.encode()
+        loader[header.offset : header.offset + len(header.signature)]
+        == header.signature.encode()
     )
 
     itb = _sectors(disk, UBOOT_SECTOR, first, tmp_path / "u-boot.itb")
@@ -111,7 +123,9 @@ def test_boot_chain(board: Board, build_output: Path, emulation_dir: Path, tmp_p
     assert uboot.selected("Firmware")["OS"] == "ARM Trusted Firmware"
     assert "u-boot" in uboot.configuration.properties["Loadables"]
     extract_fit_image(itb, uboot.images["u-boot"], tmp_path / "u-boot.bin")
-    environment = default_environment((tmp_path / "u-boot.bin").read_bytes(), "orbyt_boot")
+    environment = default_environment(
+        (tmp_path / "u-boot.bin").read_bytes(), "orbyt_boot"
+    )
     assert environment["bootcmd"] == "run orbyt_boot"
     # It has what the slot logic runs on the board itself.
     config = (build_output / "u-boot.config").read_text().splitlines()
@@ -129,4 +143,7 @@ def test_boot_chain(board: Board, build_output: Path, emulation_dir: Path, tmp_p
         assert compatible == [board.board_name, board.soc.compatible], partition
         # The board's Ethernet and PCIe controllers.
         for node in board.dt_enabled:
-            assert run("fdtget", str(dtb), node, "status").strip() == "okay", (partition, node)
+            assert run("fdtget", str(dtb), node, "status").strip() == "okay", (
+                partition,
+                node,
+            )

@@ -168,7 +168,10 @@ class Drill:
         deadline = time.monotonic() + DRILL_TIMEOUT
         while not rolled_back.search(console.text(since)):
             status = _status(router)
-            if status.get("slot") not in {None, base} and status.get("state") == "confirmed":
+            if (
+                status.get("slot") not in {None, base}
+                and status.get("state") == "confirmed"
+            ):
                 break
             if time.monotonic() > deadline:
                 msg = (
@@ -181,4 +184,6 @@ class Drill:
         self.online.reconnected()
         status = _status(router)
         running = slot(router)
-        return Outcome(base, running, running != base and status.get("state") == "confirmed")
+        return Outcome(
+            base, running, running != base and status.get("state") == "confirmed"
+        )

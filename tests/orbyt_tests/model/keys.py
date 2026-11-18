@@ -43,7 +43,16 @@ class Keys:
         (directory / "keyring" / FIRMWARE_KEYS).mkdir(parents=True)
         apk = directory / f"{name}.apk.key"
         firmware = directory / f"{name}.fw.key"
-        _run("openssl", "ecparam", "-name", "prime256v1", "-genkey", "-noout", "-out", apk)
+        _run(
+            "openssl",
+            "ecparam",
+            "-name",
+            "prime256v1",
+            "-genkey",
+            "-noout",
+            "-out",
+            apk,
+        )
         _run(
             *("openssl", "ec", "-in", apk, "-pubout"),
             *("-out", directory / "keyring" / APK_KEYS / f"orbyt-{name}.pem"),

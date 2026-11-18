@@ -28,7 +28,9 @@ SERVERS = (REGISTRY, HEADSCALE, RELEASES)
 def configure(workdir: Path) -> pki.Pki:
     """Write the CA, the hosts file and the servers' configuration into the sandbox."""
     certificates = pki.issue(
-        workdir / "pki", [name for name, _ in SERVERS], [address for _, address in SERVERS]
+        workdir / "pki",
+        [name for name, _ in SERVERS],
+        [address for _, address in SERVERS],
     )
     inet = workdir / "inet"
     inet.mkdir(parents=True, exist_ok=True)
@@ -43,12 +45,17 @@ def configure(workdir: Path) -> pki.Pki:
         "storage": {"filesystem": {"rootdirectory": str(inet / "registry")}},
         "http": {
             "addr": f"{REGISTRY[1]}:443",
-            "tls": {"certificate": str(certificates.certificate), "key": str(certificates.key)},
+            "tls": {
+                "certificate": str(certificates.certificate),
+                "key": str(certificates.key),
+            },
         },
     }
     (inet / "registry.yml").write_text(json.dumps(registry, indent=1))
     # skopeo wants a signature policy; the sandbox's own test images are unsigned.
-    (inet / "policy.json").write_text(json.dumps({"default": [{"type": "insecureAcceptAnything"}]}))
+    (inet / "policy.json").write_text(
+        json.dumps({"default": [{"type": "insecureAcceptAnything"}]})
+    )
     headscale = {
         "server_url": f"https://{HEADSCALE[0]}",
         "listen_addr": f"{HEADSCALE[1]}:443",
@@ -72,7 +79,10 @@ def configure(workdir: Path) -> pki.Pki:
             "auto_update_enabled": False,
         },
         "disable_check_updates": True,
-        "database": {"type": "sqlite", "sqlite": {"path": str(inet / "headscale.sqlite")}},
+        "database": {
+            "type": "sqlite",
+            "sqlite": {"path": str(inet / "headscale.sqlite")},
+        },
         "tls_cert_path": str(certificates.certificate),
         "tls_key_path": str(certificates.key),
         "log": {"level": "warn"},

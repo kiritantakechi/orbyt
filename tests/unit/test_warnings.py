@@ -44,7 +44,10 @@ def _warnings(tmp_path: Path, log: str) -> list[tuple[str, ...]]:
     """Return what ub-warnings.awk finds in ``log``: option, file, function and line."""
     (tmp_path / "compile.txt").write_text(log)
     result = awk_program(
-        "ub-warnings.awk", "compile.txt", cwd=tmp_path, env={"UB_WARNINGS": _ub_warnings()}
+        "ub-warnings.awk",
+        "compile.txt",
+        cwd=tmp_path,
+        env={"UB_WARNINGS": _ub_warnings()},
     )
     assert result.returncode == 0, result.stderr
     return [tuple(line.split("\t")) for line in result.stdout.splitlines()]
@@ -159,7 +162,9 @@ main.c:5:3: warning: 'v' may be used uninitialized [-Wmaybe-uninitialized]
 main.c: In function 'main':
 main.c:5:3: warning: 'v' may be used uninitialized [-Wmaybe-uninitialized]
 """
-    assert _warnings(tmp_path, log) == [("-Wmaybe-uninitialized", "main.c", "main", "5")]
+    assert _warnings(tmp_path, log) == [
+        ("-Wmaybe-uninitialized", "main.c", "main", "5")
+    ]
 
 
 def test_a_clone_is_named_after_its_function(tmp_path: Path) -> None:
@@ -354,7 +359,9 @@ def test_a_review_for_other_boards_neither_covers_nor_goes_stale() -> None:
 @pytest.mark.parametrize(
     ("entries", "error"),
     [
-        pytest.param([{"boards": ["r5s"]}], "names unknown boards: r5s", id="unknown board"),
+        pytest.param(
+            [{"boards": ["r5s"]}], "names unknown boards: r5s", id="unknown board"
+        ),
         pytest.param([{}, {"reason": "again"}], "is reviewed twice", id="twice"),
     ],
 )
@@ -371,7 +378,9 @@ def test_the_register_names_known_boards_and_each_warning_once(
             **entry,
         }
         lines = [
-            f"{name} = {value}" if name == "reviewed" else f"{name} = {json.dumps(value)}"
+            f"{name} = {value}"
+            if name == "reviewed"
+            else f"{name} = {json.dumps(value)}"
             for name, value in fields.items()
         ]
         tables.append("[[warning]]\n" + "\n".join(lines) + "\n")

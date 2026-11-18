@@ -47,7 +47,9 @@ def _workflow(path: Path = WORKFLOW) -> dict[str, Any]:
 
 def _triggers(path: Path = WORKFLOW) -> dict[str, Any]:
     """Return a workflow's events, its key ``on``, which YAML 1.1 reads as true."""
-    return cast("dict[str, Any]", yaml.safe_load(path.read_text(encoding="utf-8"))[True])
+    return cast(
+        "dict[str, Any]", yaml.safe_load(path.read_text(encoding="utf-8"))[True]
+    )
 
 
 def _step(job: dict[str, Any], name: str) -> dict[str, Any]:
@@ -82,7 +84,10 @@ def test_the_manifest_describes_the_build(
     vermagic = f"~{manifest.vermagic}-"
     assert vermagic in router.run("apk list -I kernel")
     index = subprocess.run(
-        ["apk", "adbdump", build_output / KMODS], capture_output=True, text=True, check=True
+        ["apk", "adbdump", build_output / KMODS],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     kernels = set(re.findall(r"kernel=([^\s\"']+)", index))
     assert kernels
@@ -91,7 +96,10 @@ def test_the_manifest_describes_the_build(
 
 def _git(repository: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", "-C", str(repository), *args], capture_output=True, text=True, check=True
+        ["git", "-C", str(repository), *args],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout.strip()
 
 
@@ -117,7 +125,14 @@ def test_the_commit_a_build_names(tmp_path: Path, change: str) -> None:
     (repository / "tracked").write_text("committed\n")
     _git(repository, "add", ".")
     _git(
-        repository, "-c", "user.name=test", "-c", "user.email=test@localhost", "commit", "-qm", "1"
+        repository,
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@localhost",
+        "commit",
+        "-qm",
+        "1",
     )
     commit = _git(repository, "rev-parse", "HEAD")
     for name in written:
@@ -137,13 +152,17 @@ def test_main_deletes_merged_branches_caches(tmp_path: Path) -> None:
         "ahead": "ahead",
         "diverged": "diverged",
     }
-    repository = Repository(branches=["main", *compare], compare=compare, pulls={"1": "open"})
+    repository = Repository(
+        branches=["main", *compare], compare=compare, pulls={"1": "open"}
+    )
     for branch in (*compare, "deleted"):
         repository.cache(f"refs/heads/{branch}", f"dl-{branch}")
     repository.cache("refs/pull/1/merge", "dl-pull")
     repository.cache(MAIN, "toolchain-1")
     # The caches job of main's run (scripts/cache-prune.sh).
-    result, left = run_script(tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN)
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN
+    )
     assert result.returncode == 0, result.stderr
     # A branch merged into main, or one deleted, keeps no cache; the others stay.
     assert sorted(ref for ref, _ in left) == [
@@ -160,7 +179,9 @@ def test_main_deletes_closed_pull_requests_caches(tmp_path: Path) -> None:
     for number in repository.pulls:
         repository.cache(f"refs/pull/{number}/merge", f"dl-{number}")
     repository.cache(MAIN, "toolchain-1")
-    result, left = run_script(tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN)
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN
+    )
     assert result.returncode == 0, result.stderr
     assert sorted(ref for ref, _ in left) == [MAIN, "refs/pull/2/merge"]
 
@@ -172,7 +193,9 @@ def test_a_stage_named_with_a_hyphen_keeps_its_newest_cache(tmp_path: Path) -> N
     for run in ("1", "2"):
         for stage in ("r6s", "r6s-plus"):
             repository.cache(MAIN, f"compiler-cache-{stage}-settings-{run}")
-    result, left = run_script(tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN)
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN
+    )
     assert result.returncode == 0, result.stderr
     assert sorted(key for _, key in left) == [
         "compiler-cache-r6s-plus-settings-2",
@@ -199,15 +222,22 @@ def _caches_of_a_rerun(repository: Repository, ref: str) -> None:
 def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
     branch = ref.removeprefix("refs/heads/")
     repository = Repository(
-        branches=["main", "feature"], compare={"feature": "ahead"}, heads={branch: NEWER}
+        branches=["main", "feature"],
+        compare={"feature": "ahead"},
+        heads={branch: NEWER},
     )
     repository.compared(
-        HEAD, NEWER, "ahead", [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}]
+        HEAD,
+        NEWER,
+        "ahead",
+        [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}],
     )
     _caches_of_a_rerun(repository, ref)
     # On main, a deleted branch's caches too, which the newer run deletes.
     repository.cache("refs/heads/deleted", "dl-deleted")
-    result, left = run_script(tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=ref)
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=ref
+    )
     assert result.returncode == 0, result.stderr
     assert f"the newer run of {branch} prunes" in result.stderr
     assert len(left) == len(repository.caches)
@@ -215,7 +245,9 @@ def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
 
 @spec(CAPABILITY, "Main's caches kept whole", "Room for the jobs that save at once")
 @pytest.mark.parametrize(("savers", "save"), [("1", "true"), ("2", "false")])
-def test_room_counts_every_job_that_saves(tmp_path: Path, savers: str, save: str) -> None:
+def test_room_counts_every_job_that_saves(
+    tmp_path: Path, savers: str, save: str
+) -> None:
     # Each board's job asks for its caches together, counted for every board's.
     firmware = _workflow()["jobs"]["firmware"]
     room = _step(firmware, "Room for the caches")
@@ -242,7 +274,9 @@ def test_room_counts_every_job_that_saves(tmp_path: Path, savers: str, save: str
     assert result.stdout == f"save={save}\n"
 
 
-@spec(CAPABILITY, "Main's caches kept whole", "A job that fails before its downloads end")
+@spec(
+    CAPABILITY, "Main's caches kept whole", "A job that fails before its downloads end"
+)
 def test_a_download_cache_follows_every_download() -> None:
     firmware = _workflow()["jobs"]["firmware"]
     steps = firmware["steps"]
@@ -255,14 +289,22 @@ def test_a_download_cache_follows_every_download() -> None:
     assert save["if"].startswith("always() && steps.download.outcome == 'success' && ")
 
 
-@spec(CAPABILITY, "Workflows cancel only their own superseded runs", "Re-run of an older run")
+@spec(
+    CAPABILITY,
+    "Workflows cancel only their own superseded runs",
+    "Re-run of an older run",
+)
 def test_a_rerun_waits_for_the_newer_run() -> None:
     concurrency = _workflow()["concurrency"]
     assert concurrency["group"] == "build-${{ github.ref }}"
     assert concurrency["cancel-in-progress"] == "${{ github.run_attempt == '1' }}"
 
 
-@spec(CAPABILITY, "Workflows cancel only their own superseded runs", "Weekly audit and a push")
+@spec(
+    CAPABILITY,
+    "Workflows cancel only their own superseded runs",
+    "Weekly audit and a push",
+)
 def test_the_weekly_audit_and_a_push_run_apart() -> None:
     check = WORKFLOWS / "check.yml"
     assert {"push", "schedule"} <= _triggers(check).keys()
@@ -295,7 +337,12 @@ def test_other_documentation_does_not_run_the_build(event: str) -> None:
     # GitHub reads the patterns in order, the last that matches deciding: code
     # runs the build, then documentation does not, then the documents tests read
     # do again.
-    assert paths[: paths.index("!**/*.md") + 1] == ["**", "!openspec/**", "!docs/**", "!**/*.md"]
+    assert paths[: paths.index("!**/*.md") + 1] == [
+        "**",
+        "!openspec/**",
+        "!docs/**",
+        "!**/*.md",
+    ]
 
 
 @spec(CAPABILITY, "One pinned Nix in every job", "Installer of every job")
@@ -311,14 +358,18 @@ def test_every_job_installs_the_one_pinned_nix() -> None:
         for name, job in _workflow(path)["jobs"].items():
             steps = job.get("steps", [])
             uses = [step.get("uses", "") for step in steps]
-            assert not any("nix" in use.lower() for use in uses if use != "./.github/actions/nix")
+            assert not any(
+                "nix" in use.lower() for use in uses if use != "./.github/actions/nix"
+            )
             runs_nix = any(re.search(r"\bnix\b", step.get("run", "")) for step in steps)
             assert runs_nix == ("./.github/actions/nix" in uses), f"{path.name}: {name}"
 
 
 def _modules(path: Path) -> list[Path]:
     """Return the test modules a suite's path selects: a directory's, or the module itself."""
-    assert path.exists(), f"a suite names {path.relative_to(TESTS)}, which does not exist"
+    assert path.exists(), (
+        f"a suite names {path.relative_to(TESTS)}, which does not exist"
+    )
     return sorted(path.glob("test_*.py")) if path.is_dir() else [path]
 
 
@@ -332,6 +383,10 @@ def test_every_test_module_runs_in_one_job() -> None:
         for path in suite["paths"].split()
         for module in _modules(TESTS / path)
     )
-    modules = {module.relative_to(TESTS).as_posix() for module in TESTS.glob("*/test_*.py")}
+    modules = {
+        module.relative_to(TESTS).as_posix() for module in TESTS.glob("*/test_*.py")
+    }
     assert sorted(modules - selected.keys()) == [], "test modules no suite runs"
-    assert sorted(name for name, count in selected.items() if count > 1) == [], "run twice"
+    assert sorted(name for name, count in selected.items() if count > 1) == [], (
+        "run twice"
+    )

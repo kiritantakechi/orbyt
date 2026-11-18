@@ -82,7 +82,12 @@ class WireGuard:
         try:
             peer.run(
                 *("wg", "set", "wg0", "private-key", str(key), "peer", router_public),
-                *("endpoint", f"{online.wan_address}:{WG_PORT}", "allowed-ips", "0.0.0.0/0"),
+                *(
+                    "endpoint",
+                    f"{online.wan_address}:{WG_PORT}",
+                    "allowed-ips",
+                    "0.0.0.0/0",
+                ),
                 *("persistent-keepalive", "5"),
             )
             peer.run("ip", "addr", "add", f"{WG_ADDRESSES[1]}/24", "dev", "wg0")
@@ -90,11 +95,17 @@ class WireGuard:
             for route in routes:
                 peer.run("ip", "route", "add", route, "dev", "wg0")
             try:
-                until(tunnel.handshaken, timeout=HANDSHAKE_TIMEOUT, what="a WireGuard handshake")
+                until(
+                    tunnel.handshaken,
+                    timeout=HANDSHAKE_TIMEOUT,
+                    what="a WireGuard handshake",
+                )
             except TimeoutError as error:
                 # Both ends as they stand, their private keys hidden by wg.
                 error.add_note(f"wg-peer:\n{peer.run('wg', 'show', 'wg0')}")
-                error.add_note(f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}")
+                error.add_note(
+                    f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}"
+                )
                 raise
         except BaseException:
             tunnel.disconnect()
@@ -113,7 +124,9 @@ class WireGuard:
 
 def _headscale(network: Network, *args: str) -> Any:  # noqa: ANN401 (JSON)
     config = network.workdir / "inet" / "headscale.yaml"
-    output = network["inet"].run("headscale", f"--config={config}", *args, "--output=json")
+    output = network["inet"].run(
+        "headscale", f"--config={config}", *args, "--output=json"
+    )
     return json.loads(output) if output.strip() else None
 
 
@@ -123,7 +136,9 @@ def _nodes(network: Network) -> list[dict[str, Any]]:
 
 def _node(network: Network, name: str) -> int:
     (node,) = (
-        node for node in _nodes(network) if name in (node.get("given_name"), node.get("name"))
+        node
+        for node in _nodes(network)
+        if name in (node.get("given_name"), node.get("name"))
     )
     return int(node["id"])
 
@@ -149,7 +164,12 @@ def preauth_key(network: Network) -> str:
         users = cast("list[dict[str, Any]]", _headscale(network, "users", "list"))
     (user,) = (user for user in users if user["name"] == TAILNET_USER)
     created = _headscale(
-        network, "preauthkeys", "create", f"--user={user['id']}", "--reusable", "--expiration=1h"
+        network,
+        "preauthkeys",
+        "create",
+        f"--user={user['id']}",
+        "--reusable",
+        "--expiration=1h",
     )
     return str(created["key"])
 
@@ -180,7 +200,11 @@ class Tailnet:
         """
         clear(online.network)
         key = preauth_key(online.network)
-        login = (f"--login-server={HEADSCALE_URL}", f"--auth-key={key}", "--accept-dns=false")
+        login = (
+            f"--login-server={HEADSCALE_URL}",
+            f"--auth-key={key}",
+            "--accept-dns=false",
+        )
         # tailscaled loads the trusted CAs once: after the test CA came.
         online.router.run("/etc/init.d/tailscale restart")
         online.router.run(
@@ -195,10 +219,17 @@ class Tailnet:
         )
         _headscale(
             online.network,
-            *("nodes", "approve-routes", "--identifier", str(_node(online.network, "router"))),
+            *(
+                "nodes",
+                "approve-routes",
+                "--identifier",
+                str(_node(online.network, "router")),
+            ),
             f"--routes={','.join(ROUTER_ROUTES)}",
         )
-        tailnet = cls(online.network, online.router, online.router.run("tailscale ip -4"))
+        tailnet = cls(
+            online.network, online.router, online.router.run("tailscale ip -4")
+        )
         tailnet.peer_tailscale(
             *("up", *login, "--hostname=ts-peer", "--timeout=60s"),
             *("--accept-routes", "--netfilter-mode=off"),
@@ -206,16 +237,24 @@ class Tailnet:
         )
         try:
             until(
-                lambda: LAN_PREFIX in tailnet.peer.run("ip", "route", "show", "table", "52"),
+                lambda: (
+                    LAN_PREFIX in tailnet.peer.run("ip", "route", "show", "table", "52")
+                ),
                 timeout=TAILSCALE_TIMEOUT,
                 what="the LAN route at ts-peer",
             )
         except TimeoutError as error:
             error.add_note(tailnet.peer_tailscale("status"))
-            error.add_note(json.dumps(_headscale(online.network, "nodes", "list-routes")))
+            error.add_note(
+                json.dumps(_headscale(online.network, "nodes", "list-routes"))
+            )
             raise
         # A route is not yet a path: the first packets wait for the tunnel.
-        until(tailnet.reachable, timeout=TAILSCALE_TIMEOUT, what="the router over the tailnet")
+        until(
+            tailnet.reachable,
+            timeout=TAILSCALE_TIMEOUT,
+            what="the router over the tailnet",
+        )
         return tailnet
 
     def reachable(self) -> bool:

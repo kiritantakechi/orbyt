@@ -154,10 +154,14 @@ def stand_in(
     shutil.rmtree(root / REPOSITORY, ignore_errors=True)
 
 
-@spec(CAPABILITY, "Missing data disk does not affect operation", "No data disk attached")
+@spec(
+    CAPABILITY, "Missing data disk does not affect operation", "No data disk attached"
+)
 def test_without_the_data_disk(stand_in: Releases) -> None:
     router = stand_in.router
-    assert router.returncode(f"grep -q ' {MOUNT} ' /proc/mounts") != 0, "a data disk is there"
+    assert router.returncode(f"grep -q ' {MOUNT} ' /proc/mounts") != 0, (
+        "a data disk is there"
+    )
     installed = router.run(f"apk add {KMOD[0]} 2>&1 || true")
     assert f"{LOCAL}/current/" in installed, installed
     assert router.returncode(f"apk info -e {KMOD[0]}") != 0
@@ -172,7 +176,9 @@ def test_without_the_data_disk(stand_in: Releases) -> None:
 
 
 @spec(CAPABILITY, "Sync through the proxy", "Router cannot reach GitHub directly")
-def test_sync_goes_through_the_proxy(stand_in: Releases, data_disk: Disk, isp: Isp) -> None:
+def test_sync_goes_through_the_proxy(
+    stand_in: Releases, data_disk: Disk, isp: Isp
+) -> None:
     del data_disk  # the local repository's place
     router = stand_in.router
     tag = stand_in.publish()
@@ -186,7 +192,9 @@ def test_sync_goes_through_the_proxy(stand_in: Releases, data_disk: Disk, isp: I
 
 
 @spec(CAPABILITY, "Activate only when complete and verified", "Sync interrupted midway")
-def test_an_interrupted_sync_changes_nothing(stand_in: Releases, data_disk: Disk) -> None:
+def test_an_interrupted_sync_changes_nothing(
+    stand_in: Releases, data_disk: Disk
+) -> None:
     del data_disk  # the local repository's place
     router = stand_in.router
     previous = stand_in.synced()
@@ -202,7 +210,9 @@ def test_an_interrupted_sync_changes_nothing(stand_in: Releases, data_disk: Disk
     assert tag not in stand_in.kept()
     # What apk and orbyt-update read is the previous release's.
     for path in ("targets/packages/packages.adb", UPGRADE):
-        assert f"/releases/{previous}/" in router.run(f"readlink -f {LOCAL}/current/{path}")
+        assert f"/releases/{previous}/" in router.run(
+            f"readlink -f {LOCAL}/current/{path}"
+        )
     assert KMOD[0] in router.run(f"apk search {KMOD[0]}")
     # The next sync that gets through makes it current.
     ok, said = stand_in.sync()
@@ -211,7 +221,9 @@ def test_an_interrupted_sync_changes_nothing(stand_in: Releases, data_disk: Disk
 
 
 @spec(
-    CAPABILITY, "Activate only when complete and verified", "File that does not match the manifest"
+    CAPABILITY,
+    "Activate only when complete and verified",
+    "File that does not match the manifest",
 )
 def test_a_file_that_does_not_match_is_refused(
     stand_in: Releases, data_disk: Disk, tmp_path: Path
@@ -242,9 +254,14 @@ def _with_member(archive: Path, name: str, kind: bytes) -> None:
     if kind in {tarfile.SYMTYPE, tarfile.LNKTYPE}:
         added.linkname = OUTSIDE
     whole = io.BytesIO()
-    with tarfile.open(archive) as source, tarfile.open(fileobj=whole, mode="w") as target:
+    with (
+        tarfile.open(archive) as source,
+        tarfile.open(fileobj=whole, mode="w") as target,
+    ):
         for member in source.getmembers():
-            target.addfile(member, source.extractfile(member) if member.isfile() else None)
+            target.addfile(
+                member, source.extractfile(member) if member.isfile() else None
+            )
         target.addfile(added, io.BytesIO(content))
     replace(archive, whole.getvalue())
 
@@ -268,12 +285,18 @@ def test_a_package_archive_with_more_is_refused(
     tag = stand_in.publish(release)
     ok, said = stand_in.sync()
     assert not ok
-    assert f"{tag}: the package repository holds {name}, which is no package" in said, said
+    assert f"{tag}: the package repository holds {name}, which is no package" in said, (
+        said
+    )
     assert stand_in.current() == previous
     assert tag not in stand_in.kept()
 
 
-@spec(CAPABILITY, "Activate only when complete and verified", "Release name that is no file name")
+@spec(
+    CAPABILITY,
+    "Activate only when complete and verified",
+    "Release name that is no file name",
+)
 @pytest.mark.parametrize("name", NOT_FILE_NAMES, ids=("parent", "path", "quote"))
 def test_a_release_name_that_is_no_file_name_is_refused(
     stand_in: Releases, data_disk: Disk, name: str
@@ -348,7 +371,9 @@ def test_a_tampered_image_is_refused(
 
 
 @spec(CAPABILITY, "Upgrade from local files", "Another image beside the release's")
-def test_the_upgrade_takes_the_manifest_s_image(stand_in: Releases, data_disk: Disk) -> None:
+def test_the_upgrade_takes_the_manifest_s_image(
+    stand_in: Releases, data_disk: Disk
+) -> None:
     del data_disk  # the local repository's place
     router = stand_in.router
     stand_in.synced()
@@ -412,7 +437,9 @@ def test_a_release_of_several_boards(
         foreign = release / asset.name.replace(board.device, other.device)
         foreign.write_bytes(b"another board's asset\n")
     info = read_json(release / RELEASE_FILE, Release)
-    assets = tuple(sorted(path.name for path in release.iterdir() if path.name != RELEASE_FILE))
+    assets = tuple(
+        sorted(path.name for path in release.iterdir() if path.name != RELEASE_FILE)
+    )
     write_json(release / RELEASE_FILE, info.model_copy(update={"assets": assets}))
     tag = stand_in.publish(release)
     ok, said = stand_in.sync()
@@ -430,18 +457,26 @@ def test_a_release_of_several_boards(
 
 @spec(CAPABILITY, "Sync the device's own board", "Another board's manifest")
 def test_another_board_s_build_is_refused(
-    stand_in: Releases, data_disk: Disk, board: Board, release_keys: Keys | None, tmp_path: Path
+    stand_in: Releases,
+    data_disk: Disk,
+    board: Board,
+    release_keys: Keys | None,
+    tmp_path: Path,
 ) -> None:
     del data_disk  # the local repository's place
     if release_keys is None:
-        pytest.skip("naming another board in a signed manifest needs the session's release keys")
+        pytest.skip(
+            "naming another board in a signed manifest needs the session's release keys"
+        )
     previous = stand_in.synced()
     # Under the device's name, a validly signed manifest of another board's build.
     other = next(other for other in load_all() if other.id != board.id)
     release = linked_copy(stand_in.assembled, tmp_path / "release")
     manifest = release / f"{board.device}-manifest.json"
     content = read_json(manifest, Manifest)
-    write_json(manifest, content.model_copy(update={"board": other.id, "device": other.device}))
+    write_json(
+        manifest, content.model_copy(update={"board": other.id, "device": other.device})
+    )
     release_keys.sign_file(manifest)
     tag = stand_in.publish(release)
     ok, said = stand_in.sync()
@@ -451,8 +486,14 @@ def test_another_board_s_build_is_refused(
     assert tag not in stand_in.kept()
 
 
-@spec(CAPABILITY, "Activate only when complete and verified", "Power cut right after a sync")
-def test_a_release_survives_a_power_cut(stand_in: Releases, data_disk: Disk, board: Board) -> None:
+@spec(
+    CAPABILITY,
+    "Activate only when complete and verified",
+    "Power cut right after a sync",
+)
+def test_a_release_survives_a_power_cut(
+    stand_in: Releases, data_disk: Disk, board: Board
+) -> None:
     """The module's last test: the router comes back from a power cut."""
     del data_disk  # the local repository's place
     router = stand_in.router

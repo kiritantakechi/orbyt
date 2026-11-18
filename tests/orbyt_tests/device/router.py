@@ -196,7 +196,15 @@ class Router:
         return int(code)
 
     def _ssh(self, *options: str) -> list[str]:
-        return ["ssh", *options, "-o", "BatchMode=yes", "-i", str(self.key), f"root@{self.address}"]
+        return [
+            "ssh",
+            *options,
+            "-o",
+            "BatchMode=yes",
+            "-i",
+            str(self.key),
+            f"root@{self.address}",
+        ]
 
     def reachable(self, timeout: int = REACHABLE_TIMEOUT) -> bool:
         """Return whether the router takes a new SSH connection within ``timeout`` and runs on it.
@@ -236,7 +244,9 @@ class Router:
             # Read while the session runs: a long output would fill the pipe and
             # stall ssh. The thread alone appends; the list is read after it ended.
             output: list[str] = []
-            reader = threading.Thread(target=lambda: output.append(stdout.read()), name="login")
+            reader = threading.Thread(
+                target=lambda: output.append(stdout.read()), name="login"
+            )
             reader.start()
             stdin.write(script)
             stdin.flush()
@@ -270,7 +280,9 @@ class Router:
         def shows(line: str, mark: int, limit: float) -> bool:
             remaining = min(limit, deadline - time.monotonic())
             try:
-                console.wait_for(rf"(?m)^{line}\r?$", since=mark, timeout=max(remaining, 0.0))
+                console.wait_for(
+                    rf"(?m)^{line}\r?$", since=mark, timeout=max(remaining, 0.0)
+                )
             except TimeoutError:
                 return False
             return True
@@ -278,13 +290,17 @@ class Router:
         self.emulator.send_keys("\n")
         while True:
             mark = console.mark()
-            self.emulator.send_keys(f"echo '{CONSOLE_READY[:4]}''{CONSOLE_READY[4:]}'\n")
+            self.emulator.send_keys(
+                f"echo '{CONSOLE_READY[:4]}''{CONSOLE_READY[4:]}'\n"
+            )
             if shows(CONSOLE_READY, mark, CONSOLE_KNOCK):
                 break
             if time.monotonic() >= deadline:
                 return f"{console.text(since)}\n(no shell answered on the console)"
         mark = console.mark()
-        self.emulator.send_keys(f"{script}; echo '{CONSOLE_END[:4]}''{CONSOLE_END[4:]}'\n")
+        self.emulator.send_keys(
+            f"{script}; echo '{CONSOLE_END[:4]}''{CONSOLE_END[4:]}'\n"
+        )
         if not shows(CONSOLE_END, mark, timeout):
             return f"{console.text(since)}\n(the console did not finish the script)"
         return _TERMINAL_CONTROL.sub("", console.text(mark))
@@ -394,7 +410,9 @@ class Router:
         try:
             # Always http://<router address>; no other scheme is ever built.
             with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
-                return int(response.status), str(response.read().decode(errors="replace"))
+                return int(response.status), str(
+                    response.read().decode(errors="replace")
+                )
         except urllib.error.HTTPError as error:
             return int(error.code), str(error.read().decode(errors="replace"))
 
@@ -483,7 +501,9 @@ class Router:
         mark = self.emulator.console.mark()
         self.detach(f"sleep 1; {command}")
         if while_off is not None:
-            self.emulator.console.wait_for(RESTART_MARK, since=mark, timeout=BOOT_TIMEOUT)
+            self.emulator.console.wait_for(
+                RESTART_MARK, since=mark, timeout=BOOT_TIMEOUT
+            )
             while_off()
         self.wait_rebooted(previous_boot)
 

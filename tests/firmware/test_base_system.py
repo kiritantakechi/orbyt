@@ -128,10 +128,14 @@ def test_a_fresh_install_is_named_orbyt(router: Router) -> None:
 def test_luci_in_simplified_chinese(router: Router) -> None:
     # LuCI keeps lang 'auto' and follows the browser; without a session it answers
     # with its login page and 403 (login required).
-    status, page = router.http("/cgi-bin/luci/", headers={"Accept-Language": "zh-CN,zh;q=0.9"})
+    status, page = router.http(
+        "/cgi-bin/luci/", headers={"Accept-Language": "zh-CN,zh;q=0.9"}
+    )
     assert status in {HTTPStatus.OK, HTTPStatus.FORBIDDEN}
     assert "/luci-static/" in page
-    assert re.search(r'<html[^>]*\blang="zh-(cn|hans)"', page, re.IGNORECASE), page[:300]
+    assert re.search(r'<html[^>]*\blang="zh-(cn|hans)"', page, re.IGNORECASE), page[
+        :300
+    ]
     assert "uhttpd" in router.run("ss -Hltnp 'sport = :80'")
 
 
@@ -185,7 +189,9 @@ def test_no_preset_root_password(router: Router) -> None:
 
 
 @spec(CAPABILITY, "Excluded components", "Check installed packages and executables")
-def test_excluded_components(router: Router, emulation_dir: Path, tmp_path: Path) -> None:
+def test_excluded_components(
+    router: Router, emulation_dir: Path, tmp_path: Path
+) -> None:
     assert _installed(router, *EXCLUDED_PACKAGES) == set()
     # Each of LRNG's interfaces on its own; the standard one beside them is there.
     assert router.returncode(f"[ -e {RANDOM_CONTROL} ]") == 0
@@ -208,7 +214,9 @@ def test_excluded_components(router: Router, emulation_dir: Path, tmp_path: Path
     assert not (root / "etc" / "opkg").exists()
 
 
-@spec(CAPABILITY, "The image's ucode programs compile", "Compile the image's ucode files")
+@spec(
+    CAPABILITY, "The image's ucode programs compile", "Compile the image's ucode files"
+)
 def test_every_ucode_file_compiles(router: Router) -> None:
     results = router.run(UCODE_CHECK, timeout=300).splitlines()
     failed = [line for line in results if not line.startswith("ok ")]

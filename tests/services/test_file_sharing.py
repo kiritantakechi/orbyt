@@ -11,7 +11,12 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
-from orbyt_tests.device.storage import announce, boot_disk_entries, mount_options, wait_mounted
+from orbyt_tests.device.storage import (
+    announce,
+    boot_disk_entries,
+    mount_options,
+    wait_mounted,
+)
 from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
@@ -82,7 +87,9 @@ def _sharing_state(router: Router) -> str:
     )
 
 
-def _wait(router: Router, probe: Callable[[], object], *, timeout: float, what: str) -> None:
+def _wait(
+    router: Router, probe: Callable[[], object], *, timeout: float, what: str
+) -> None:
     """Wait for ``probe``; if it never answers, show the state of the SMB service."""
     try:
         until(probe, timeout=timeout, what=what)
@@ -95,7 +102,9 @@ def _wait_stopped(router: Router) -> None:
     """Wait until the SMB service no longer runs."""
     _wait(
         router,
-        lambda: router.returncode("pidof ksmbd.mountd || [ -e /sys/module/ksmbd ]") != 0,
+        lambda: (
+            router.returncode("pidof ksmbd.mountd || [ -e /sys/module/ksmbd ]") != 0
+        ),
         timeout=STOP_TIMEOUT,
         what="the SMB service stopped",
     )
@@ -110,9 +119,13 @@ def _wait_queue_empty(router: Router) -> None:
     )
 
 
-def _list(client: Netns, server: str, user: tuple[str, str], *options: str) -> tuple[int, str]:
+def _list(
+    client: Netns, server: str, user: tuple[str, str], *options: str
+) -> tuple[int, str]:
     """List ``server``'s shares as ``user``."""
-    return _smbclient(client, "--list", f"//{server}", f"--user={user[0]}%{user[1]}", *options)
+    return _smbclient(
+        client, "--list", f"//{server}", f"--user={user[0]}%{user[1]}", *options
+    )
 
 
 @spec(CAPABILITY, "LAN-only service", "Access from the LAN")
@@ -154,7 +167,9 @@ def test_anonymous_access_is_refused(sharing: Online) -> None:
             sharing.client(), f"//{LAN_ADDRESS}/{SHARE}", *options, "--command=ls"
         )
         assert code != 0
-        assert "NT_STATUS_LOGON_FAILURE" in output or "NT_STATUS_ACCESS_DENIED" in output, output
+        assert (
+            "NT_STATUS_LOGON_FAILURE" in output or "NT_STATUS_ACCESS_DENIED" in output
+        ), output
 
 
 @spec(CAPABILITY, "Protocol version", "Connect with an SMB 1 client")
@@ -203,7 +218,9 @@ def test_shares_go_with_the_data_disk(
     announce(router, data_disk, "remove")
     try:
         until(
-            lambda: mount_options(router) is None, timeout=STOP_TIMEOUT, what="the disk unmounted"
+            lambda: mount_options(router) is None,
+            timeout=STOP_TIMEOUT,
+            what="the disk unmounted",
         )
         _wait_stopped(router)
         assert router.run("ss -Htln 'sport = :445'") == ""
@@ -222,7 +239,11 @@ def test_shares_go_with_the_data_disk(
     )
 
 
-@spec(CAPABILITY, "Shares on the data disk", "Data disk removed while an unmount script runs")
+@spec(
+    CAPABILITY,
+    "Shares on the data disk",
+    "Data disk removed while an unmount script runs",
+)
 def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
     sharing: Online, smb_user: tuple[str, str], data_disk: Disk
 ) -> None:
@@ -241,7 +262,9 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
     try:
         announce(router, data_disk, "remove")
         until(
-            lambda: mount_options(router) is None, timeout=STOP_TIMEOUT, what="the disk unmounted"
+            lambda: mount_options(router) is None,
+            timeout=STOP_TIMEOUT,
+            what="the disk unmounted",
         )
         # The reload came while the disk was still mounted; once it is gone, the
         # service must be too, with nothing written where the disk was.
@@ -270,7 +293,9 @@ def test_a_share_within_nested_mount_points_waits_for_both(sharing: Online) -> N
     sections = []
     for target in (OUTER, INNER):
         section = router.run("uci add fstab mount")
-        router.run(f"uci set fstab.{section}.target={target} && uci set fstab.{section}.enabled=0")
+        router.run(
+            f"uci set fstab.{section}.target={target} && uci set fstab.{section}.enabled=0"
+        )
         sections.append(f"fstab.{section}")
     share = router.run("uci add ksmbd share")
     sections.append(f"ksmbd.{share}")

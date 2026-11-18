@@ -19,7 +19,9 @@ if TYPE_CHECKING:
 _SECTION = re.compile(r"^## (?P<kind>ADDED|MODIFIED|REMOVED|RENAMED) Requirements\s*$")
 _REQUIREMENT = re.compile(r"^### Requirement:\s*(?P<name>.+?)\s*$")
 _SCENARIO = re.compile(r"^#### Scenario:\s*(?P<name>.+?)\s*$")
-_RENAME = re.compile(r"^-\s*(?P<end>FROM|TO):\s*`?###\s*Requirement:\s*(?P<name>.+?)`?\s*$")
+_RENAME = re.compile(
+    r"^-\s*(?P<end>FROM|TO):\s*`?###\s*Requirement:\s*(?P<name>.+?)`?\s*$"
+)
 
 
 @dataclass(frozen=True, slots=True, order=True)
@@ -93,7 +95,9 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
     changes = openspec_dir / "changes"
     deltas = [
         (change_dir.name, _capability(spec_file, change_dir / "specs"), spec_file)
-        for change_dir in sorted(p for p in changes.iterdir() if p.is_dir() and p.name != "archive")
+        for change_dir in sorted(
+            p for p in changes.iterdir() if p.is_dir() and p.name != "archive"
+        )
         for spec_file in sorted((change_dir / "specs").glob("*/*/spec.md"))
     ]
     renamed = {
@@ -104,9 +108,15 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
     scenarios: list[Scenario] = []
     archived = openspec_dir / "specs"
     for spec_file in sorted(archived.glob("*/*/spec.md")):
-        for scenario in parse_spec(spec_file, _capability(spec_file, archived), change=None):
-            if (new := renamed.get((scenario.id.capability, scenario.id.requirement))) is not None:
-                scenarios.append(replace(scenario, id=replace(scenario.id, requirement=new)))
+        for scenario in parse_spec(
+            spec_file, _capability(spec_file, archived), change=None
+        ):
+            if (
+                new := renamed.get((scenario.id.capability, scenario.id.requirement))
+            ) is not None:
+                scenarios.append(
+                    replace(scenario, id=replace(scenario.id, requirement=new))
+                )
             else:
                 scenarios.append(scenario)
     for change, capability, spec_file in deltas:
@@ -117,9 +127,9 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
 def capability_of_module(module: Path) -> str | None:
     """Map ``<domain>/test_<name>.py`` to ``<domain>/<name>`` (underscores to hyphens)."""
     match module.parts:
-        case (domain, filename) if filename.startswith("test_") and filename.endswith(".py"):
-            return (
-                f"{domain}/{filename.removeprefix('test_').removesuffix('.py').replace('_', '-')}"
-            )
+        case (domain, filename) if filename.startswith("test_") and filename.endswith(
+            ".py"
+        ):
+            return f"{domain}/{filename.removeprefix('test_').removesuffix('.py').replace('_', '-')}"
         case _:
             return None

@@ -66,18 +66,27 @@ def test_parse_spec_skips_removed_requirements(tmp_path: Path) -> None:
 
 
 def test_capability_of_module() -> None:
-    assert capability_of_module(Path("firmware/test_base_system.py")) == "firmware/base-system"
-    assert capability_of_module(Path("testing/test_emulation.py")) == "testing/emulation"
+    assert (
+        capability_of_module(Path("firmware/test_base_system.py"))
+        == "firmware/base-system"
+    )
+    assert (
+        capability_of_module(Path("testing/test_emulation.py")) == "testing/emulation"
+    )
     assert capability_of_module(Path("firmware/helpers.py")) is None
     assert capability_of_module(Path("firmware/deep/test_x.py")) is None
 
 
 def test_a_renamed_requirement_keeps_its_scenarios(tmp_path: Path) -> None:
     archived = tmp_path / "specs" / "demo" / "widget" / "spec.md"
-    delta = tmp_path / "changes" / "demo-change" / "specs" / "demo" / "widget" / "spec.md"
+    delta = (
+        tmp_path / "changes" / "demo-change" / "specs" / "demo" / "widget" / "spec.md"
+    )
     for path, text in ((archived, ARCHIVED), (delta, DELTA)):
         path.parent.mkdir(parents=True)
         path.write_text(text)
     assert parse_renames(delta) == {"Old name": "New name"}
-    archived_ids = [scenario.id for scenario in load_scenarios(tmp_path) if scenario.change is None]
+    archived_ids = [
+        scenario.id for scenario in load_scenarios(tmp_path) if scenario.change is None
+    ]
     assert archived_ids == [ScenarioId("demo/widget", "New name", "fourth")]

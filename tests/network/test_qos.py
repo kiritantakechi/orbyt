@@ -75,10 +75,14 @@ def _ifbs(router: Router) -> list[str]:
 def _set_wan(router: Router, options: dict[str, str]) -> None:
     """Set (or, given "", delete) options of qosify's wan interface, and reload qosify."""
     commands = [
-        f"uci set qosify.wan.{name}={value}" if value else f"uci -q delete qosify.wan.{name}"
+        f"uci set qosify.wan.{name}={value}"
+        if value
+        else f"uci -q delete qosify.wan.{name}"
         for name, value in options.items()
     ]
-    router.run(" ; ".join([*commands, "uci commit qosify", "/etc/init.d/qosify reload"]))
+    router.run(
+        " ; ".join([*commands, "uci commit qosify", "/etc/init.d/qosify reload"])
+    )
 
 
 @contextmanager
@@ -86,7 +90,8 @@ def _ingress_shaped(router: Router, rate: int) -> Generator[None]:
     """Shape pppoe-wan's ingress with cake at ``rate`` bit/s for the block."""
     options = ("ingress", "bandwidth_down")
     previous = {
-        name: router.run(f"uci -q get qosify.wan.{name} || true").strip() for name in options
+        name: router.run(f"uci -q get qosify.wan.{name} || true").strip()
+        for name in options
     }
     _set_wan(router, {"ingress": "1", "bandwidth_down": f"{rate // 1_000_000}mbit"})
     try:
@@ -105,7 +110,11 @@ def _shape(router: Router, rate: str) -> None:
     router.run(f"uci set qosify.wan.bandwidth_up={rate} && uci commit qosify")
     router.run("/etc/init.d/qosify reload")
     shown = rate.replace("mbit", "Mbit")
-    until(lambda: f"bandwidth {shown}" in _cake(router), timeout=RECOVERY, what=f"cake at {rate}")
+    until(
+        lambda: f"bandwidth {shown}" in _cake(router),
+        timeout=RECOVERY,
+        what=f"cake at {rate}",
+    )
 
 
 @pytest.fixture
@@ -125,7 +134,9 @@ def test_cake_shapes_upload_only(online: Online) -> None:
     assert router.run("tc qdisc show dev pppoe-wan ingress").count("cake") == 0
 
 
-@spec(CAPABILITY, "Fair sharing across internal hosts", "Two hosts upload at full speed")
+@spec(
+    CAPABILITY, "Fair sharing across internal hosts", "Two hosts upload at full speed"
+)
 def test_two_hosts_share_the_upload(fair_rate: Online) -> None:
     uploads = [
         fair_rate.client(name).spawn(
@@ -195,7 +206,11 @@ def test_shaping_returns_after_a_redial(online: Online) -> None:
     assert "qdisc cake" in _cake(online.router)
 
 
-@spec(CAPABILITY, "Ingress shaping when configured", "Ingress shaping on a device with a long name")
+@spec(
+    CAPABILITY,
+    "Ingress shaping when configured",
+    "Ingress shaping on a device with a long name",
+)
 def test_ingress_shaping_names_a_long_device_s_ifb(online: Online) -> None:
     router = online.router
     section = "qosify.long_device"

@@ -21,7 +21,16 @@ SYMMETRIC_VERBS = (("mount", "unmount"), ("pack", "unpack"))
 
 def _files() -> list[str]:
     listing = subprocess.run(
-        ["git", "-C", str(REPO), "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
+        [
+            "git",
+            "-C",
+            str(REPO),
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+        ],
         capture_output=True,
         text=True,
         check=True,
@@ -79,7 +88,11 @@ def test_shellcheck_warning_fails(repo: Path) -> None:
     assert "SC2250" in result.stdout
 
 
-@spec(CAPABILITY, "Device code handles structured data in ucode", "jsonfilter in a device script")
+@spec(
+    CAPABILITY,
+    "Device code handles structured data in ucode",
+    "jsonfilter in a device script",
+)
 def test_jsonfilter_in_device_code_fails(repo: Path) -> None:
     script = repo / "files" / "etc" / "uci-defaults" / "91-orbyt-datapath"
     with script.open("a") as appended:
@@ -95,9 +108,7 @@ def test_jsonfilter_in_device_code_fails(repo: Path) -> None:
 @spec(CAPABILITY, "Common script skeleton", "New script added")
 def test_new_script_without_skeleton_fails(repo: Path) -> None:
     script = repo / "scripts" / "thing-probe.sh"
-    header = (
-        "#!/bin/sh\n# thing-probe: probe the skeleton check.\n# Usage: scripts/thing-probe.sh\n"
-    )
+    header = "#!/bin/sh\n# thing-probe: probe the skeleton check.\n# Usage: scripts/thing-probe.sh\n"
     script.write_text(header + "echo probe\n")
     script.chmod(0o755)
     result = _run(repo, "check.sh", "skeleton")
@@ -106,7 +117,11 @@ def test_new_script_without_skeleton_fails(repo: Path) -> None:
     assert "scripts/thing-probe.sh: no just recipe named thing-probe" in result.stderr
 
 
-@spec(CAPABILITY, "Scripts load what they call", "Script calls a function it does not load")
+@spec(
+    CAPABILITY,
+    "Scripts load what they call",
+    "Script calls a function it does not load",
+)
 def test_a_call_without_its_module_fails(repo: Path) -> None:
     # fetch.sh calls fetch_locked, of the upstream module, which it stops loading.
     script = repo / "scripts" / "fetch.sh"
@@ -116,10 +131,16 @@ def test_a_call_without_its_module_fails(repo: Path) -> None:
     result = _run(repo, "check.sh", "modules")
     assert result.returncode != 0
     assert "FAIL  modules" in result.stdout
-    assert "scripts/fetch.sh: calls fetch_locked without loading upstream" in result.stderr
+    assert (
+        "scripts/fetch.sh: calls fetch_locked without loading upstream" in result.stderr
+    )
 
 
-@spec(CAPABILITY, "No dead code in the host-side code", "Library function that nothing calls")
+@spec(
+    CAPABILITY,
+    "No dead code in the host-side code",
+    "Library function that nothing calls",
+)
 def test_a_library_function_that_nothing_calls_fails(repo: Path) -> None:
     # Named here only as it is put together: a test that names a function calls it.
     word = "spent"
@@ -145,7 +166,11 @@ def test_an_import_from_a_higher_layer_fails(repo: Path) -> None:
     assert "orbyt_tests.device.router" in result.stderr, result.stderr
 
 
-@spec(CAPABILITY, "No dead code in the host-side code", "Harness module that nothing imports")
+@spec(
+    CAPABILITY,
+    "No dead code in the host-side code",
+    "Harness module that nothing imports",
+)
 def test_a_harness_module_that_nothing_imports_fails(repo: Path) -> None:
     orphan = repo / "tests" / "orbyt_tests" / "model" / "orphan.py"
     orphan.write_text('"""A module that nothing imports."""\n')
@@ -153,7 +178,9 @@ def test_a_harness_module_that_nothing_imports_fails(repo: Path) -> None:
     assert result.returncode != 0
     assert "FAIL  spec-coverage" in result.stdout
     output = result.stdout + result.stderr
-    assert "orbyt_tests/model/orphan.py: no harness module or test imports it" in output, output
+    assert (
+        "orbyt_tests/model/orphan.py: no harness module or test imports it" in output
+    ), output
 
 
 @spec(CAPABILITY, "Symmetric naming", "Unpaired operation")
@@ -180,7 +207,9 @@ def test_fmt_then_check_passes(repo: Path) -> None:
     flake = repo / "flake.nix"
     flake.write_text(flake.read_text().replace("  outputs =", "  outputs  =", 1))
     module = repo / "tests" / "orbyt_tests" / "model" / "data.py"
-    module.write_text(module.read_text().replace("import tomllib\n", "import   tomllib\n", 1))
+    module.write_text(
+        module.read_text().replace("import tomllib\n", "import   tomllib\n", 1)
+    )
     formatting = ("shfmt", "nixfmt", "ruff-format")
     assert _run(repo, "check.sh", *formatting).returncode != 0
     assert _run(repo, "fmt.sh", *formatting).returncode == 0
@@ -191,7 +220,11 @@ def test_fmt_then_check_passes(repo: Path) -> None:
 # Every module of the harness, and through them every dependency the tests use:
 # a free-threaded build of a dependency can still turn the GIL back on, for the
 # whole process, when it is imported (python-style D1).
-@spec(CAPABILITY, "Python on the free-threaded interpreter", "A dependency turns the GIL back on")
+@spec(
+    CAPABILITY,
+    "Python on the free-threaded interpreter",
+    "A dependency turns the GIL back on",
+)
 def test_the_harness_leaves_the_gil_off() -> None:
     prefix = f"{orbyt_tests.__name__}."
     for module in pkgutil.walk_packages(orbyt_tests.__path__, prefix):

@@ -107,9 +107,13 @@ class Repository:
 
     def cache(self, ref: str, key: str, size: int = 0) -> None:
         """Add a cache of ``ref`` under ``key``, newer than every cache before it."""
-        self.caches.append({"id": len(self.caches) + 1, "ref": ref, "key": key, "size": size})
+        self.caches.append(
+            {"id": len(self.caches) + 1, "ref": ref, "key": key, "size": size}
+        )
 
-    def compared(self, base: str, head: str, status: str, files: list[dict[str, str]]) -> None:
+    def compared(
+        self, base: str, head: str, status: str, files: list[dict[str, str]]
+    ) -> None:
         """Have the compare API find ``head`` ``status`` of ``base``, ``files`` between them."""
         path = f"repos/{REPOSITORY}/compare/{base}...{head}"
         self.changes[path] = {"status": status, "files": files}

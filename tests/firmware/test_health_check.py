@@ -49,7 +49,9 @@ def _check(router: Router, broken: str | None = None) -> dict[str, object]:
 
 def _register(router: Router, name: str, body: str) -> None:
     """Install a registered check."""
-    router.run(f"printf '#!/bin/sh\\n%s\\n' '{body}' > {CHECKS}/{name} && chmod +x {CHECKS}/{name}")
+    router.run(
+        f"printf '#!/bin/sh\\n%s\\n' '{body}' > {CHECKS}/{name} && chmod +x {CHECKS}/{name}"
+    )
 
 
 @spec(CAPABILITY, "Built-in checks", "WAN down, everything else healthy")
@@ -81,17 +83,24 @@ def test_slow_registered_check(router: Router) -> None:
     assert (result["result"], result["failed"]) == ("fail", ["slow"])
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Check passes during trial boot")
+@spec(
+    CAPABILITY, "Result handling by trial boot state", "Check passes during trial boot"
+)
 def test_pass_confirms_the_slot(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=2)
     assert _check(router)["result"] == "pass"
-    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == ("0", "0")
+    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == (
+        "0",
+        "0",
+    )
     router.reboot()
     assert slot(router) == running
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Check fails during trial boot")
+@spec(
+    CAPABILITY, "Result handling by trial boot state", "Check fails during trial boot"
+)
 def test_trial_failure_reboots(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
@@ -103,11 +112,14 @@ def test_trial_failure_reboots(router: Router) -> None:
     router.wait_rebooted(previous_boot)
     confirmed = f"slot {running} passed its trial boot and is confirmed"
     router.run(
-        f"until logread -e orbyt-healthcheck | grep -q '{confirmed}'; do sleep 2; done", timeout=300
+        f"until logread -e orbyt-healthcheck | grep -q '{confirmed}'; do sleep 2; done",
+        timeout=300,
     )
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Clock set during a trial boot")
+@spec(
+    CAPABILITY, "Result handling by trial boot state", "Clock set during a trial boot"
+)
 def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
@@ -119,7 +131,9 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     previous_boot = router.boot_id()
     router.detach(f"{limits} && orbyt-healthcheck")
     until(
-        lambda: router.returncode("pgrep -f /usr/sbin/orbyt-healthcheck >/dev/null") == 0,
+        lambda: (
+            router.returncode("pgrep -f /usr/sbin/orbyt-healthcheck >/dev/null") == 0
+        ),
         timeout=30,
         what="the health check running",
     )
@@ -135,7 +149,11 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     assert router.boot_id() == previous_boot
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "A switch written during the checks")
+@spec(
+    CAPABILITY,
+    "Result handling by trial boot state",
+    "A switch written during the checks",
+)
 def test_a_switch_written_during_the_checks_stays(router: Router) -> None:
     running = slot(router)
     other = "b" if running == "a" else "a"
@@ -148,7 +166,9 @@ def test_a_switch_written_during_the_checks_stays(router: Router) -> None:
     previous_boot = router.boot_id()
     router.detach(f"{limits} && orbyt-healthcheck")
     until(
-        lambda: router.returncode("pgrep -f /usr/sbin/orbyt-healthcheck >/dev/null") == 0,
+        lambda: (
+            router.returncode("pgrep -f /usr/sbin/orbyt-healthcheck >/dev/null") == 0
+        ),
         timeout=30,
         what="the health check running",
     )
@@ -161,22 +181,36 @@ def test_a_switch_written_during_the_checks_stays(router: Router) -> None:
         f"until logread -e orbyt-healthcheck | grep -q '{left}'; do sleep 1; done",
         timeout=SLOW["total"],
     )
-    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (other, "1")
-    assert router.returncode("logread -e orbyt-healthcheck | grep -q 'is confirmed'") != 0
+    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (
+        other,
+        "1",
+    )
+    assert (
+        router.returncode("logread -e orbyt-healthcheck | grep -q 'is confirmed'") != 0
+    )
     assert router.boot_id() == previous_boot
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Check fails on a confirmed system")
+@spec(
+    CAPABILITY,
+    "Result handling by trial boot state",
+    "Check fails on a confirmed system",
+)
 def test_confirmed_failure_only_records(router: Router) -> None:
     assert getenv(router, "upgrade_available") in {None, "0"}
     _register(router, "demo", "exit 1")
     previous_boot = router.boot_id()
     assert _check(router)["result"] == "fail"
     assert router.boot_id() == previous_boot
-    assert router.returncode("logread -e orbyt-healthcheck | grep -q 'is unhealthy: demo'") == 0
+    assert (
+        router.returncode("logread -e orbyt-healthcheck | grep -q 'is unhealthy: demo'")
+        == 0
+    )
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Environment that cannot be read")
+@spec(
+    CAPABILITY, "Result handling by trial boot state", "Environment that cannot be read"
+)
 def test_an_environment_that_cannot_be_read_is_a_failure(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
@@ -184,10 +218,17 @@ def test_an_environment_that_cannot_be_read_is_a_failure(router: Router) -> None
     result = _check(router, broken="fw_printenv")
     assert (result["result"], result["failed"]) == ("fail", ["environment"])
     assert router.boot_id() == previous_boot
-    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == ("1", "0")
+    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == (
+        "1",
+        "0",
+    )
 
 
-@spec(CAPABILITY, "Result handling by trial boot state", "Confirmation that cannot be written")
+@spec(
+    CAPABILITY,
+    "Result handling by trial boot state",
+    "Confirmation that cannot be written",
+)
 def test_a_confirmation_that_cannot_be_written_is_a_failure(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
@@ -196,14 +237,18 @@ def test_a_confirmation_that_cannot_be_written_is_a_failure(router: Router) -> N
     assert (result["result"], result["failed"]) == ("fail", ["confirm"])
     assert router.boot_id() == previous_boot
     assert getenv(router, "upgrade_available") == "1"
-    assert router.returncode("logread -e orbyt-healthcheck | grep -q 'is confirmed'") != 0
+    assert (
+        router.returncode("logread -e orbyt-healthcheck | grep -q 'is confirmed'") != 0
+    )
 
 
 @spec(CAPABILITY, "Slot status query", "Query status")
 def test_slot_status(router: Router) -> None:
     _register(router, "demo", "exit 1")
     _check(router)
-    status = dict(line.split(": ", 1) for line in router.run("orbyt-slot status").splitlines())
+    status = dict(
+        line.split(": ", 1) for line in router.run("orbyt-slot status").splitlines()
+    )
     assert status["slot"] == slot(router)
     assert status["state"] == "confirmed"
     assert re.fullmatch(

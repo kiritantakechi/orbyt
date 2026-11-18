@@ -9,7 +9,12 @@ from pathlib import Path
 
 from orbyt_tests.model.boards import load
 from orbyt_tests.model.data import read_json, write_json
-from orbyt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
+from orbyt_tests.model.outputs import (
+    EmulationSource,
+    Manifest,
+    Release,
+    ToolchainRecord,
+)
 from orbyt_tests.model.undefined_behavior import Diagnostic
 
 FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"

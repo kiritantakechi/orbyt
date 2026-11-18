@@ -60,13 +60,21 @@ def test_a_json_list_reads_as_a_list_of_its_model(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     ("document", "problem"),
     [
-        ({"name": "router", "part": {**PART, "colour": "red"}}, "part.colour: Extra inputs"),
-        ({"name": "router", "part": {**PART, "size": "8"}}, "part.size: Input should be"),
+        (
+            {"name": "router", "part": {**PART, "colour": "red"}},
+            "part.colour: Extra inputs",
+        ),
+        (
+            {"name": "router", "part": {**PART, "size": "8"}},
+            "part.size: Input should be",
+        ),
         ({"name": "router", "part": {"name": "disk"}}, "part.size: Field required"),
     ],
     ids=["unknown field", "wrong type", "missing field"],
 )
-def test_a_json_document_names_the_field(tmp_path: Path, document: object, problem: str) -> None:
+def test_a_json_document_names_the_field(
+    tmp_path: Path, document: object, problem: str
+) -> None:
     path = _json(tmp_path, document)
     with pytest.raises(DataError) as error:
         read_json(path, _Assembly)
@@ -95,7 +103,8 @@ def test_a_json_list_names_the_entry_and_the_field(
 
 def test_a_toml_table_reads_as_a_list_of_its_model(tmp_path: Path) -> None:
     path = _toml(
-        tmp_path, '[[part]]\nname = "disk"\nsize = 8\n\n[[part]]\nname = "fan"\nsize = 1\n'
+        tmp_path,
+        '[[part]]\nname = "disk"\nsize = 8\n\n[[part]]\nname = "fan"\nsize = 1\n',
     )
     assert read_toml(path, "part", _Part) == [DISK, FAN]
 
@@ -124,7 +133,9 @@ def test_a_toml_table_names_the_entry_and_the_field(
 
 
 def test_a_toml_file_with_another_table_names_it(tmp_path: Path) -> None:
-    path = _toml(tmp_path, '[[part]]\nname = "disk"\nsize = 8\n\n[[parts]]\nname = "fan"\n')
+    path = _toml(
+        tmp_path, '[[part]]\nname = "disk"\nsize = 8\n\n[[parts]]\nname = "fan"\n'
+    )
     with pytest.raises(DataError) as error:
         read_toml(path, "part", _Part)
     assert _problems(error) == (f"{path}: parts: not an entry of [[part]]",)

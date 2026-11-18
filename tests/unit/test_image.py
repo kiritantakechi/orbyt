@@ -26,19 +26,26 @@ def _mbr(signature: int, partitions: list[tuple[int, int]]) -> bytes:
 
 
 def test_gunzip_keeps_the_trailer_apart() -> None:
-    source, target = (io.BytesIO(gzip.compress(b"disk" * 1000) + b"FWx0metadata"), io.BytesIO())
+    source, target = (
+        io.BytesIO(gzip.compress(b"disk" * 1000) + b"FWx0metadata"),
+        io.BytesIO(),
+    )
     trailer = gunzip_first_member(source, target, chunk=64)
     assert (target.getvalue(), trailer) == (b"disk" * 1000, b"FWx0metadata")
 
 
 def test_gunzip_rejects_a_truncated_stream() -> None:
     with pytest.raises(ValueError, match="truncated"):
-        gunzip_first_member(io.BytesIO(gzip.compress(b"disk" * 100)[:-12]), io.BytesIO())
+        gunzip_first_member(
+            io.BytesIO(gzip.compress(b"disk" * 100)[:-12]), io.BytesIO()
+        )
 
 
 def test_read_mbr_lists_partitions_and_partuuids() -> None:
     disk = read_mbr(_mbr(0x5452574F, [(65536, 32768), (131072, 2097152)]))
-    assert [(p.number, p.start // SECTOR, p.size // SECTOR) for p in disk.partitions] == [
+    assert [
+        (p.number, p.start // SECTOR, p.size // SECTOR) for p in disk.partitions
+    ] == [
         (1, 65536, 32768),
         (2, 131072, 2097152),
     ]
@@ -110,7 +117,10 @@ def test_parse_fit_selects_images_by_the_default_configuration() -> None:
 
 def test_parse_fit_reads_list_properties() -> None:
     fit = parse_fit(UBOOT_FIT)
-    assert fit.configuration.properties["Compatible"] == ["example,board", "example,soc"]
+    assert fit.configuration.properties["Compatible"] == [
+        "example,board",
+        "example,soc",
+    ]
     assert fit.configuration.properties["Loadables"] == ["u-boot", "atf-2"]
     assert fit.selected("Firmware")["OS"] == "ARM Trusted Firmware"
 

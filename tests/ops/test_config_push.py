@@ -49,7 +49,9 @@ ADDED_SHARE_USER = {"name": "added", "password": "added-secret-2"}
 BAD_LAN_ADDRESS = "10.0.0.300/24"
 # The requirement on honk's settings that the firmware sets, and config-push's refusal.
 FIRMWARE_SETTINGS = "Proxy user config cannot set the firmware's settings"
-FIRMWARE_SETTINGS_REFUSAL = "lan_interface, wan_interface and data_dir are the firmware's"
+FIRMWARE_SETTINGS_REFUSAL = (
+    "lan_interface, wan_interface and data_dir are the firmware's"
+)
 SERVICES = ("honk", "network", "smb", "tailscale")
 # The processes the services' reloads restart: honk's, the WAN's pppd, the SMB
 # server's and tailscaled.
@@ -122,7 +124,9 @@ def _state(router: Router) -> dict[str, str]:
 
 
 def _secrets(
-    pushed: Pushed, auth_key: str, share_users: tuple[dict[str, str], ...] = (SHARE_USER,)
+    pushed: Pushed,
+    auth_key: str,
+    share_users: tuple[dict[str, str], ...] = (SHARE_USER,),
 ) -> dict[str, object]:
     """Return the module's secrets with another Tailscale auth key and ``share_users``."""
     user, password = LOGIN
@@ -168,7 +172,9 @@ def _pwddb_entry(router: Router, database: str, user: str) -> str:
 def _assert_put_back(result: subprocess.CompletedProcess[str], name: str) -> None:
     """Assert that the push failed, and says that ``name``'s previous configuration is back."""
     assert result.returncode != 0, result.stderr
-    assert f"{name} did not come back with the new configuration" in result.stderr, result.stderr
+    assert f"{name} did not come back with the new configuration" in result.stderr, (
+        result.stderr
+    )
     assert "the previous one is back" in result.stderr, result.stderr
 
 
@@ -207,7 +213,10 @@ def pushed(
         {
             "pppoe": {"username": user, "password": password},
             "wireguard": {"private_key": private},
-            "tailscale": {"auth_key": preauth_key(network), "login_server": HEADSCALE_URL},
+            "tailscale": {
+                "auth_key": preauth_key(network),
+                "login_server": HEADSCALE_URL,
+            },
             "smb": {"users": [SHARE_USER]},
         }
     )
@@ -237,8 +246,12 @@ def test_no_secret_in_the_history(pushed: Pushed, tmp_path: Path) -> None:
     assert leaks(repository.directory) is None
     # The scanner does find a secret that went in plain.
     plain = ConfigRepository(tmp_path / "plain", repository.age_key)
-    subprocess.run(["git", "clone", "-q", repository.directory, plain.directory], check=True)
-    (plain.directory / "secrets" / "pppoe.yaml").write_text(f"password: '{PLAIN_SECRET}'\n")
+    subprocess.run(
+        ["git", "clone", "-q", repository.directory, plain.directory], check=True
+    )
+    (plain.directory / "secrets" / "pppoe.yaml").write_text(
+        f"password: '{PLAIN_SECRET}'\n"
+    )
     plain.commit("a secret in plain text")
     assert leaks(plain.directory) is not None
 
@@ -296,7 +309,9 @@ def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
     # The WireGuard key, changed on the router since the push: the network batch
     # changes it again, though the push's files are as they were. uci records no
     # change for a value an option already holds.
-    router.run("uci set network.wg0.private_key=changed-on-the-router && uci commit network")
+    router.run(
+        "uci set network.wg0.private_key=changed-on-the-router && uci commit network"
+    )
     try:
         result = pushed.push()
         assert result.returncode == 0, result.stderr
@@ -309,8 +324,14 @@ def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
         router.run(f"uci set network.wg0.private_key={key} && uci commit network")
 
 
-@spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to a pushed package")
-def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: Pushed) -> None:
+@spec(
+    CAPABILITY,
+    "A push commits only its own changes",
+    "Uncommitted change to a pushed package",
+)
+def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(
+    pushed: Pushed,
+) -> None:
     router = pushed.router
     key = shlex.quote(pushed.wireguard_key)
     # The WireGuard key, changed on the router since the push, for the network
@@ -334,7 +355,11 @@ def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(pushed: P
         )
 
 
-@spec(CAPABILITY, "A push commits only its own changes", "Uncommitted change to another package")
+@spec(
+    CAPABILITY,
+    "A push commits only its own changes",
+    "Uncommitted change to another package",
+)
 def test_an_uncommitted_change_to_another_package_stays(pushed: Pushed) -> None:
     router = pushed.router
     committed = router.run("sha256sum /etc/config/system")
@@ -360,11 +385,16 @@ def test_an_uncommitted_change_to_another_package_stays(pushed: Pushed) -> None:
 @spec(CAPABILITY, "Roll back on service failure", "Service reload fails")
 def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
     router = pushed.router
-    before = (router.run("uci get network.lan.ipaddr"), router.run("cat /etc/orbyt-config/network"))
+    before = (
+        router.run("uci get network.lan.ipaddr"),
+        router.run("cat /etc/orbyt-config/network"),
+    )
     # A batch uci takes but the LAN cannot come up with: without the rollback,
     # the router would be out of reach from the LAN.
     template = pushed.repository.directory / "uci" / "network.uci.tmpl"
-    template.write_text(f"{template.read_text()}set network.lan.ipaddr='{BAD_LAN_ADDRESS}'\n")
+    template.write_text(
+        f"{template.read_text()}set network.lan.ipaddr='{BAD_LAN_ADDRESS}'\n"
+    )
     try:
         result = pushed.push()
     finally:
@@ -376,7 +406,9 @@ def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
         router.run("uci get network.lan.ipaddr"),
         router.run("cat /etc/orbyt-config/network"),
     ) == before
-    assert json.loads(router.run("ubus call network.interface.lan status"))["up"] is True
+    assert (
+        json.loads(router.run("ubus call network.interface.lan status"))["up"] is True
+    )
 
 
 @spec(CAPABILITY, "Secrets stored encrypted", "Secrets on the device")
@@ -384,7 +416,9 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     router = pushed.router
     auth_key = preauth_key(pushed.online.network)
     # Another share user too: the push writes the SMB users again.
-    pushed.repository.write_secrets(_secrets(pushed, auth_key, (SHARE_USER, ADDED_SHARE_USER)))
+    pushed.repository.write_secrets(
+        _secrets(pushed, auth_key, (SHARE_USER, ADDED_SHARE_USER))
+    )
     router.detach(WATCH)
     try:
         with (
@@ -426,22 +460,40 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
 @spec(CAPABILITY, "Roll back on service failure", "Tailscale login fails")
 def test_a_refused_tailscale_login_is_put_back(pushed: Pushed) -> None:
     router = pushed.router
-    until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale up")
-    before = (router.run("tailscale ip -4"), router.run("cat /etc/orbyt-config/tailscale"))
+    until(
+        lambda: _tailscale_running(router),
+        timeout=TAILSCALE_TIMEOUT,
+        what="tailscale up",
+    )
+    before = (
+        router.run("tailscale ip -4"),
+        router.run("cat /etc/orbyt-config/tailscale"),
+    )
     pushed.repository.write_secrets(_secrets(pushed, REFUSED_KEY))
     try:
         result = pushed.push()
     finally:
         pushed.repository.discard()
     _assert_put_back(result, "tailscale")
-    until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale back")
-    assert (router.run("tailscale ip -4"), router.run("cat /etc/orbyt-config/tailscale")) == before
+    until(
+        lambda: _tailscale_running(router),
+        timeout=TAILSCALE_TIMEOUT,
+        what="tailscale back",
+    )
+    assert (
+        router.run("tailscale ip -4"),
+        router.run("cat /etc/orbyt-config/tailscale"),
+    ) == before
 
 
 @contextmanager
 def _command_ahead_of_reloads(router: Router, package: str) -> Generator[None]:
     """Have procd run a slow command, ahead of the reloads, on a change to ``package``."""
-    condition = ["if", ["eq", "package", package], ["run_script", "/bin/sleep", str(AHEAD_SECONDS)]]
+    condition = [
+        "if",
+        ["eq", "package", package],
+        ["run_script", "/bin/sleep", str(AHEAD_SECONDS)],
+    ]
     service = {"name": AHEAD, "triggers": [["config.change", condition, 0]]}
     router.run(f"ubus call service set {shlex.quote(json.dumps(service))}")
     try:
@@ -450,7 +502,11 @@ def _command_ahead_of_reloads(router: Router, package: str) -> Generator[None]:
         router.run(f'ubus call service delete \'{{"name": "{AHEAD}"}}\'')
 
 
-@spec(CAPABILITY, "Roll back on service failure", "A service that stops with its new configuration")
+@spec(
+    CAPABILITY,
+    "Roll back on service failure",
+    "A service that stops with its new configuration",
+)
 def test_a_service_that_stops_is_put_back(pushed: Pushed) -> None:
     router = pushed.router
     before = router.run("uci get uhttpd.main.home")
@@ -487,7 +543,9 @@ def test_a_honk_that_was_off_is_put_back_off(pushed: Pushed) -> None:
         _assert_put_back(result, "honk")
         assert router.returncode("/etc/init.d/honk enabled") != 0
         assert router.run("pidof honk-core || true") == ""
-        assert _proxy_sha256(router) == hashlib.sha256(PROXY_CONFIG.encode()).hexdigest()
+        assert (
+            _proxy_sha256(router) == hashlib.sha256(PROXY_CONFIG.encode()).hexdigest()
+        )
     finally:
         pushed.repository.discard()
         router.run(
@@ -500,7 +558,8 @@ def test_a_honk_that_was_off_is_put_back_off(pushed: Pushed) -> None:
 @spec(CAPABILITY, FIRMWARE_SETTINGS, "User config sets lan_interface")
 def test_lan_interface_is_the_firmware_s(pushed: Pushed) -> None:
     result = _refused(
-        pushed, PROXY_CONFIG.replace("global {\n", "global {\n    lan_interface: br-lan\n", 1)
+        pushed,
+        PROXY_CONFIG.replace("global {\n", "global {\n    lan_interface: br-lan\n", 1),
     )
     assert FIRMWARE_SETTINGS_REFUSAL in result.stderr
 
@@ -508,7 +567,8 @@ def test_lan_interface_is_the_firmware_s(pushed: Pushed) -> None:
 @spec(CAPABILITY, FIRMWARE_SETTINGS, "User config sets data_dir")
 def test_data_dir_is_the_firmware_s(pushed: Pushed) -> None:
     result = _refused(
-        pushed, PROXY_CONFIG.replace("global {\n", "global {\n    data_dir: '/etc/honk'\n", 1)
+        pushed,
+        PROXY_CONFIG.replace("global {\n", "global {\n    data_dir: '/etc/honk'\n", 1),
     )
     assert FIRMWARE_SETTINGS_REFUSAL in result.stderr
 
@@ -517,16 +577,24 @@ def test_data_dir_is_the_firmware_s(pushed: Pushed) -> None:
 TRUE_SPELLINGS = ("true", "Yes", "ON", "1")
 
 
-@spec(CAPABILITY, "The proxy's native API only with a token", "Native API with password login")
+@spec(
+    CAPABILITY,
+    "The proxy's native API only with a token",
+    "Native API with password login",
+)
 @pytest.mark.parametrize("spelling", TRUE_SPELLINGS)
 def test_the_native_api_takes_no_password_login(pushed: Pushed, spelling: str) -> None:
-    api = NATIVE_API.replace(f"secret: '{NATIVE_API_TOKEN}'", f"password_auth: {spelling}")
+    api = NATIVE_API.replace(
+        f"secret: '{NATIVE_API_TOKEN}'", f"password_auth: {spelling}"
+    )
     result = _refused(pushed, PROXY_CONFIG + api)
     assert "native API needs a token" in result.stderr
 
 
 @spec(
-    CAPABILITY, "The proxy's native API only with a token", "Native API with configuration writes"
+    CAPABILITY,
+    "The proxy's native API only with a token",
+    "Native API with configuration writes",
 )
 @pytest.mark.parametrize("spelling", TRUE_SPELLINGS)
 def test_the_native_api_writes_no_configuration(pushed: Pushed, spelling: str) -> None:
@@ -537,11 +605,16 @@ def test_the_native_api_writes_no_configuration(pushed: Pushed, spelling: str) -
     assert "configuration writes stay off" in result.stderr
 
 
-@spec(CAPABILITY, "The proxy's native API only with a token", "Native API with a blank token")
+@spec(
+    CAPABILITY,
+    "The proxy's native API only with a token",
+    "Native API with a blank token",
+)
 def test_the_native_api_takes_no_blank_token(pushed: Pushed) -> None:
     # A real token, then a blank one: honk would take the last.
     api = NATIVE_API.replace(
-        f"secret: '{NATIVE_API_TOKEN}'", f"secret: '{NATIVE_API_TOKEN}'\n        secret: ' '"
+        f"secret: '{NATIVE_API_TOKEN}'",
+        f"secret: '{NATIVE_API_TOKEN}'\n        secret: ' '",
     )
     result = _refused(pushed, PROXY_CONFIG + api)
     assert "its secret is blank" in result.stderr
@@ -552,8 +625,12 @@ def test_no_password_login(pushed: Pushed, tmp_path: Path) -> None:
     router = pushed.router
     # A key the router does not know; root has a password it could log in with.
     unknown = tmp_path / "unknown"
-    subprocess.run(["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", unknown], check=True)
-    router.run(f"printf '%s\\n%s\\n' {ROOT_PASSWORD} {ROOT_PASSWORD} | passwd root >/dev/null")
+    subprocess.run(
+        ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", unknown], check=True
+    )
+    router.run(
+        f"printf '%s\\n%s\\n' {ROOT_PASSWORD} {ROOT_PASSWORD} | passwd root >/dev/null"
+    )
     passwords = "logread -e 'Bad password' | wc -l"
     before = (_state(router), router.run(passwords))
     try:
@@ -572,10 +649,20 @@ def _tailscale_running(router: Router) -> bool:
     return state == "Running"
 
 
-@spec(CAPABILITY, "Configuration persists across A/B upgrades", "Upgrade to the other slot")
-def test_the_configuration_survives_an_upgrade(pushed: Pushed, upgrade_image: Path) -> None:
+@spec(
+    CAPABILITY,
+    "Configuration persists across A/B upgrades",
+    "Upgrade to the other slot",
+)
+def test_the_configuration_survives_an_upgrade(
+    pushed: Pushed, upgrade_image: Path
+) -> None:
     router = pushed.router
-    until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale up")
+    until(
+        lambda: _tailscale_running(router),
+        timeout=TAILSCALE_TIMEOUT,
+        what="tailscale up",
+    )
     tailnet_address = router.run("tailscale ip -4")
     router.put(upgrade_image, UPGRADE_IMAGE)
     router.reboot(f"sysupgrade {UPGRADE_IMAGE}")
@@ -591,9 +678,16 @@ def test_the_configuration_survives_an_upgrade(pushed: Pushed, upgrade_image: Pa
     assert _proxy_sha256(router) == hashlib.sha256(PROXY_CONFIG.encode()).hexdigest()
     assert router.returncode("/etc/init.d/honk enabled") == 0
     wait_proxy(router)
-    until(lambda: _tailscale_running(router), timeout=TAILSCALE_TIMEOUT, what="tailscale up")
+    until(
+        lambda: _tailscale_running(router),
+        timeout=TAILSCALE_TIMEOUT,
+        what="tailscale up",
+    )
     assert router.run("tailscale ip -4") == tailnet_address
-    assert router.returncode(f"grep -q '^{SHARE_USER['name']}:' /etc/ksmbd/ksmbdpwd.db") == 0
+    assert (
+        router.returncode(f"grep -q '^{SHARE_USER['name']}:' /etc/ksmbd/ksmbdpwd.db")
+        == 0
+    )
     # The new slot knows what was pushed: pushing again changes nothing.
     again = pushed.push()
     assert again.returncode == 0, again.stderr

@@ -20,7 +20,12 @@ from orbyt_tests import spec
 from orbyt_tests.device.emu import sha256
 from orbyt_tests.model.boards import BOARDS_DIR, Board, Description, load_all
 from orbyt_tests.model.data import read_json, write_json
-from orbyt_tests.model.outputs import MANIFEST_FILE, TOOLCHAIN_FILE, Manifest, ToolchainRecord
+from orbyt_tests.model.outputs import (
+    MANIFEST_FILE,
+    TOOLCHAIN_FILE,
+    Manifest,
+    ToolchainRecord,
+)
 
 CAPABILITY = "build/boards"
 REPO = Path(__file__).resolve().parents[2]
@@ -28,7 +33,16 @@ FIXTURES = REPO / "tests" / "fixtures"
 WORKFLOW = REPO / ".github" / "workflows" / "build.yml"
 # What the board facts must stay out of, and the places they belong instead:
 # the descriptions and each board's own U-Boot fragments.
-SEARCHED = ("scripts", "config", "feed", "files", "patches", "tests", "uboot", ".github")
+SEARCHED = (
+    "scripts",
+    "config",
+    "feed",
+    "files",
+    "patches",
+    "tests",
+    "uboot",
+    ".github",
+)
 SEARCHED_FILES = ("justfile", "flake.nix")
 BOARD_CHECK = Path(sys.executable).with_name("board-check")
 BOARD_RECIPES = ("build", "config", "test", "drill-base")
@@ -113,12 +127,24 @@ def test_no_board_is_named_outside_its_description() -> None:
             board.soc.compatible.split(",")[-1],
         )
     }
-    fragments = {f"uboot/board-{board.id}.{kind}" for board in boards for kind in ("env", "config")}
+    fragments = {
+        f"uboot/board-{board.id}.{kind}"
+        for board in boards
+        for kind in ("env", "config")
+    }
     # The files the tests keep as a build and a release wrote them name the board.
     recorded = f"{FIXTURES.relative_to(REPO).as_posix()}/"
     listed = subprocess.run(
         [
-            *("git", "-C", REPO, "ls-files", "--cached", "--others", "--exclude-standard"),
+            *(
+                "git",
+                "-C",
+                REPO,
+                "ls-files",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+            ),
             *("--", *SEARCHED, *SEARCHED_FILES),
         ],
         capture_output=True,
@@ -166,13 +192,17 @@ def test_every_board_goes_through_the_pipeline() -> None:
     # One sign job takes every board's build, and publish every signed one,
     # once every board's drill passed.
     (upload,) = [
-        step for step in jobs["firmware"]["steps"] if step.get("name") == "Upload unsigned firmware"
+        step
+        for step in jobs["firmware"]["steps"]
+        if step.get("name") == "Upload unsigned firmware"
     ]
     assert upload["with"]["name"] == "firmware-unsigned-${{ matrix.board }}"
     assert downloads("sign") == [
         {"pattern": "firmware-unsigned-*", "path": "${{ runner.temp }}/unsigned"}
     ]
-    assert [download["name"] for download in downloads("publish")] == ["firmware-signed"]
+    assert [download["name"] for download in downloads("publish")] == [
+        "firmware-signed"
+    ]
     assert "drill" in jobs["publish"]["needs"]
 
 
@@ -198,7 +228,9 @@ def test_boards_build_apart(build_output: Path) -> None:
     # A build whose directories were deleted since, as a ubsan build's may be,
     # is no longer in the tree.
     builds = [
-        (board, build) for board, build in _builds_beside(build_output) if _build_dirs(tree, build)
+        (board, build)
+        for board, build in _builds_beside(build_output)
+        if _build_dirs(tree, build)
     ]
     if all(build == build_output for _, build in builds):
         pytest.skip("no other board's build beside this one")
@@ -219,7 +251,11 @@ def test_boards_build_apart(build_output: Path) -> None:
         )
         # ...which hold its build objects alone: its own U-Boot, no other board's...
         (build_dir,) = _build_dirs(tree, build)
-        built = {variant for variant in variants if (build_dir / f"u-boot-{variant}").is_dir()}
+        built = {
+            variant
+            for variant in variants
+            if (build_dir / f"u-boot-{variant}").is_dir()
+        }
         assert built == {board.uboot.variant}
         # ...and its own images alone, still the ones of its manifest while the
         # tree's last build of the board was of this profile.
@@ -227,7 +263,9 @@ def test_boards_build_apart(build_output: Path) -> None:
         images = {path.name for pattern in IMAGES for path in targets.glob(pattern)}
         assert len(images) == len(IMAGES)
         assert all(f"-{board.device}-" in name for name in images), images
-        if (targets / "config.buildinfo").read_text() == (build / "diffconfig").read_text():
+        if (targets / "config.buildinfo").read_text() == (
+            build / "diffconfig"
+        ).read_text():
             assert {name: sha256(targets / name) for name in images} == {
                 name: manifest.files[f"targets/{name}"] for name in images
             }
@@ -243,7 +281,9 @@ def test_the_toolchain_carries_no_board_flags(build_output: Path) -> None:
     assert not {f"-mcpu={board.cpu}" for board in load_all()} & flags
 
 
-def _tree_with_toolchain(workdir: Path, board: Board, record: ToolchainRecord | None) -> Path:
+def _tree_with_toolchain(
+    workdir: Path, board: Board, record: ToolchainRecord | None
+) -> Path:
     """Write a stand-in tree configured for ``board`` whose toolchain has ``record``.
 
     Its Makefile answers build.sh's val.* queries and marks any build it is asked for.
@@ -296,7 +336,9 @@ def _board_toolchains() -> list[tuple[str, ToolchainRecord | None, str | None]]:
         *(
             (
                 f"{board.id}-mcpu",
-                neutral.model_copy(update={"cflags": (*neutral.cflags, f"-mcpu={board.cpu}")}),
+                neutral.model_copy(
+                    update={"cflags": (*neutral.cflags, f"-mcpu={board.cpu}")}
+                ),
                 f"built with {board.id}'s -mcpu={board.cpu}",
             )
             for board in load_all()
@@ -333,7 +375,9 @@ def _toolchain_check() -> str:
             if rule := TOOLCHAIN_CHECK.search(patched):
                 check = rule.group()
     if check is None:
-        pytest.fail("no patch in patches/openwrt carries the toolchain check of toolchain/Makefile")
+        pytest.fail(
+            "no patch in patches/openwrt carries the toolchain check of toolchain/Makefile"
+        )
     return check
 
 
@@ -371,7 +415,13 @@ def _check_make(
     variable of the environment, such as CI's BOARD, can stand in for it.
     """
     return [
-        *("make", "-s", "-C", tree, tree / "staging_dir" / toolchain / "stamp" / ".ver_check"),
+        *(
+            "make",
+            "-s",
+            "-C",
+            tree,
+            tree / "staging_dir" / toolchain / "stamp" / ".ver_check",
+        ),
         *(f"{name}={value}" for name, value in variables.items()),
         *(f"BOARD={board}", f"TOOLCHAIN_DIR_NAME={toolchain}"),
     ]
@@ -406,7 +456,8 @@ def _build_target(tree: Path, board: str) -> None:
 def _target_built(tree: Path, board: str) -> bool:
     """Return whether ``board``'s build and staging directories hold what its build made."""
     return all(
-        (tree / top / f"target_{board}" / "built").exists() for top in ("build_dir", "staging_dir")
+        (tree / top / f"target_{board}" / "built").exists()
+        for top in ("build_dir", "staging_dir")
     )
 
 
@@ -496,7 +547,11 @@ class Found:
     [
         pytest.param(Found(), id="as recorded"),
         pytest.param(
-            Found(libc=b"a C library built with a board's -mcpu", rebuilt=True, rust_rebuilt=True),
+            Found(
+                libc=b"a C library built with a board's -mcpu",
+                rebuilt=True,
+                rust_rebuilt=True,
+            ),
             id="changed",
         ),
         pytest.param(Found(libc=None, rebuilt=True, rust_rebuilt=True), id="none"),
@@ -505,7 +560,9 @@ class Found:
             id="other flags",
         ),
         pytest.param(
-            Found(rust_std=b"a Rust library built with a board's -mcpu", rust_rebuilt=True),
+            Found(
+                rust_std=b"a Rust library built with a board's -mcpu", rust_rebuilt=True
+            ),
             id="other Rust library",
         ),
     ],
@@ -523,7 +580,11 @@ def test_a_changed_toolchain_is_built_anew(found: Found, tmp_path: Path) -> None
     assert read_json(toolchain / TOOLCHAIN_FILE, ToolchainRecord) == _neutral_record()
 
 
-@spec(CAPABILITY, "One toolchain for every board", "Keep the cross toolchain when Go or Rust fails")
+@spec(
+    CAPABILITY,
+    "One toolchain for every board",
+    "Keep the cross toolchain when Go or Rust fails",
+)
 def test_a_failed_rust_build_keeps_the_cross_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_build_toolchain(tmp_path, None, None)
     record = tree / "staging_dir" / "toolchain" / TOOLCHAIN_FILE
@@ -541,7 +602,9 @@ def test_a_failed_rust_build_keeps_the_cross_toolchain(tmp_path: Path) -> None:
     assert read_json(record, ToolchainRecord) == _neutral_record()
 
 
-@spec(CAPABILITY, "One toolchain for every board", "Keep the toolchain in buildbot mode")
+@spec(
+    CAPABILITY, "One toolchain for every board", "Keep the toolchain in buildbot mode"
+)
 def test_buildbot_mode_keeps_the_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_check_toolchain(tmp_path)
     # The toolchain as toolchain-build leaves it in the dev profile: its compiler,
@@ -560,7 +623,11 @@ def test_buildbot_mode_keeps_the_toolchain(tmp_path: Path) -> None:
     assert _target_built(tree, board)
 
 
-@spec(CAPABILITY, "One toolchain for every board", "Keep each board's build with its toolchain")
+@spec(
+    CAPABILITY,
+    "One toolchain for every board",
+    "Keep each board's build with its toolchain",
+)
 def test_each_board_keeps_its_build_with_its_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_check_toolchain(tmp_path)
     first, *others = [board.id for board in load_all()]
@@ -613,7 +680,9 @@ def _recorded_toolchain(tree: Path, inputs: str) -> tuple[Path, Path]:
     return compiler, record
 
 
-@spec(CAPABILITY, "One toolchain for every board", "Check the version from parallel makes")
+@spec(
+    CAPABILITY, "One toolchain for every board", "Check the version from parallel makes"
+)
 def test_parallel_makes_check_the_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_check_toolchain(tmp_path)
     # The first make records the target's toolchain before world starts the others.
@@ -646,7 +715,10 @@ def test_parallel_makes_check_the_toolchain(tmp_path: Path) -> None:
 @spec(CAPABILITY, "One toolchain for every board", "A toolchain built for a board")
 @pytest.mark.parametrize(
     ("record", "refusal"),
-    [pytest.param(record, refusal, id=name) for name, record, refusal in _board_toolchains()],
+    [
+        pytest.param(record, refusal, id=name)
+        for name, record, refusal in _board_toolchains()
+    ],
 )
 def test_a_board_toolchain_is_refused(
     record: ToolchainRecord | None, refusal: str | None, tmp_path: Path
@@ -715,7 +787,11 @@ def _configure(source: Path, *targets: str) -> dict[str, str]:
     return dict(line.split("=", 1) for line in lines if line.startswith("CONFIG_"))
 
 
-@spec(CAPABILITY, "U-Boot configured without asking", "A fragment leaves a question for the next")
+@spec(
+    CAPABILITY,
+    "U-Boot configured without asking",
+    "A fragment leaves a question for the next",
+)
 def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) -> None:
     tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
     sources = [
@@ -727,9 +803,14 @@ def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) ->
         pytest.skip("no build tree with the emulator's U-Boot")
     source = tmp_path / "u-boot"
     shutil.copytree(
-        sources[0], source, symlinks=True, ignore=shutil.ignore_patterns("*.o", "*.a", ".*.cmd")
+        sources[0],
+        source,
+        symlinks=True,
+        ignore=shutil.ignore_patterns("*.o", "*.a", ".*.cmd"),
     )
-    (source / "board" / QUESTION_FRAGMENT).write_text("CONFIG_ENV_REDUNDANT=y\n", encoding="utf-8")
+    (source / "board" / QUESTION_FRAGMENT).write_text(
+        "CONFIG_ENV_REDUNDANT=y\n", encoding="utf-8"
+    )
     (source / "board" / ANSWER_FRAGMENT).write_text(
         f"CONFIG_ENV_ADDR_REDUND={ANSWER}\n", encoding="utf-8"
     )
@@ -740,5 +821,7 @@ def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) ->
     assert values["CONFIG_ENV_ADDR_REDUND"] == "0x0"
     assert _configure(source, "oldconfig") == values
     # A later fragment sets it.
-    values = _configure(source, "qemu_arm64_defconfig", QUESTION_FRAGMENT, ANSWER_FRAGMENT)
+    values = _configure(
+        source, "qemu_arm64_defconfig", QUESTION_FRAGMENT, ANSWER_FRAGMENT
+    )
     assert values["CONFIG_ENV_ADDR_REDUND"] == ANSWER

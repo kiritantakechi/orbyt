@@ -53,7 +53,9 @@ def setenv(router: Router, **variables: str | int) -> None:
 
     Each value is one word for the helper, whatever spaces it holds.
     """
-    pairs = " ".join(f"{name} {shlex.quote(str(value))}" for name, value in variables.items())
+    pairs = " ".join(
+        f"{name} {shlex.quote(str(value))}" for name, value in variables.items()
+    )
     router.run(f". /lib/functions/orbyt-ab.sh && orbyt_ab_setenv {pairs}")
 
 
@@ -100,10 +102,14 @@ def partition(number: int) -> str:
 def erofs_size(router: Router, device: str) -> int:
     """Return the size of the EROFS image a partition starts with (superblock at 1 KiB)."""
     bits = int(
-        router.run(f"dd if={device} bs=1 skip=1036 count=1 2>/dev/null | hexdump -e '1/1 \"%u\"'")
+        router.run(
+            f"dd if={device} bs=1 skip=1036 count=1 2>/dev/null | hexdump -e '1/1 \"%u\"'"
+        )
     )
     blocks = int(
-        router.run(f"dd if={device} bs=4 skip=265 count=1 2>/dev/null | hexdump -e '1/4 \"%u\"'")
+        router.run(
+            f"dd if={device} bs=4 skip=265 count=1 2>/dev/null | hexdump -e '1/4 \"%u\"'"
+        )
     )
     return blocks << bits
 
@@ -111,7 +117,9 @@ def erofs_size(router: Router, device: str) -> int:
 def slot_sha256(router: Router, which: str) -> dict[str, str]:
     """Checksums of what an upgrade must not touch in a slot: its boot partition and system."""
     boot, root = (partition(number) for number in PARTITIONS[which])
-    size = int(router.run(f"cat /sys/class/block/{boot.removeprefix('/dev/')}/size")) * 512
+    size = (
+        int(router.run(f"cat /sys/class/block/{boot.removeprefix('/dev/')}/size")) * 512
+    )
     return {
         "boot": region_sha256(router, boot, 0, size),
         "system": region_sha256(router, root, 0, erofs_size(router, root)),
@@ -120,4 +128,6 @@ def slot_sha256(router: Router, which: str) -> dict[str, str]:
 
 def boot_area_sha256(router: Router) -> str:
     """Checksum of the partition table, loader and U-Boot, without the environment."""
-    return ",".join(region_sha256(router, BOOT_DISK, start, end) for start, end in BOOT_AREA)
+    return ",".join(
+        region_sha256(router, BOOT_DISK, start, end) for start, end in BOOT_AREA
+    )

@@ -95,7 +95,9 @@ def load_register(path: Path = REGISTER) -> list[Review]:
     return reviews
 
 
-def unreviewed(report: list[Diagnostic], register: list[Review], board: str) -> list[Diagnostic]:
+def unreviewed(
+    report: list[Diagnostic], register: list[Review], board: str
+) -> list[Diagnostic]:
     """Return the warnings of ``board``'s build that no review covers."""
     reviewed = {review.key for review in register if review.covers(board)}
     return [warning for warning in report if warning.key not in reviewed]
@@ -104,4 +106,8 @@ def unreviewed(report: list[Diagnostic], register: list[Review], board: str) -> 
 def stale(register: list[Review], report: list[Diagnostic], board: str) -> list[Review]:
     """Return the reviews for ``board`` that match no warning of its build."""
     found = {warning.key for warning in report}
-    return [review for review in register if review.covers(board) and review.key not in found]
+    return [
+        review
+        for review in register
+        if review.covers(board) and review.key not in found
+    ]

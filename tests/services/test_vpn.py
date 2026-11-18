@@ -55,22 +55,34 @@ def test_wireguard_reaches_the_lan(remote: Online, wireguard: WireGuard) -> None
     assert remote.router.returncode("grep -rqs private_key /rom/etc") != 0
 
 
-@spec(CAPABILITY, "Relation to the transparent proxy", "WireGuard device reaches the internet")
+@spec(
+    CAPABILITY,
+    "Relation to the transparent proxy",
+    "WireGuard device reaches the internet",
+)
 def test_wireguard_goes_direct(remote: Online, wireguard: WireGuard) -> None:
     # The proxied target is one honk would proxy for the LAN.
-    assert wireguard.peer.probe("tcp", PROXIED_TARGET[0])["address"] == remote.wan_address
+    assert (
+        wireguard.peer.probe("tcp", PROXIED_TARGET[0])["address"] == remote.wan_address
+    )
 
 
 @spec(CAPABILITY, "Tailscale networking", "Reach the LAN via subnet route")
 def test_tailnet_reaches_the_lan(remote: Online, tailnet: Tailnet) -> None:
     host = remote.addresses("client-a")[0]
     assert tailnet.peer.probe("tcp", host)["address"]
-    assert "10.0.0.0/24 dev tailscale0" in tailnet.peer.run("ip", "route", "show", "table", "52")
+    assert "10.0.0.0/24 dev tailscale0" in tailnet.peer.run(
+        "ip", "route", "show", "table", "52"
+    )
     # The image (/rom) holds no tailnet state: the test logged the router in.
     assert remote.router.returncode("test -e /rom/etc/tailscale/tailscaled.state") != 0
 
 
-@spec(CAPABILITY, "Relation to the transparent proxy", "Tailnet device reaches a proxied target")
+@spec(
+    CAPABILITY,
+    "Relation to the transparent proxy",
+    "Tailnet device reaches a proxied target",
+)
 def test_tailnet_is_split_by_honk(remote: Online, tailnet: Tailnet) -> None:
     until(
         lambda: hooks(remote.router, "tailscale0") == PROXY_HOOKS_L3,
@@ -107,7 +119,11 @@ def test_tailscale_marks_are_registered(remote: Online, tailnet: Tailnet) -> Non
     # tables hold their own marks.
     ruleset = remote.router.run("nft list ruleset")
     tables = re.split(r"^table ", ruleset, flags=re.MULTILINE)
-    theirs = [table for table in tables if re.search(r"^\tchain ts-", table, flags=re.MULTILINE)]
+    theirs = [
+        table
+        for table in tables
+        if re.search(r"^\tchain ts-", table, flags=re.MULTILINE)
+    ]
     marks = {
         int(value, 16)
         for table in theirs

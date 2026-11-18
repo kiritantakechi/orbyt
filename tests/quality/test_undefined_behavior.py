@@ -7,7 +7,12 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.device.ubsan import PROBE, PROFILE, Traps, report
 from orbyt_tests.model.shell import library
-from orbyt_tests.model.undefined_behavior import load_register, load_report, stale, unreviewed
+from orbyt_tests.model.undefined_behavior import (
+    load_register,
+    load_report,
+    stale,
+    unreviewed,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -36,19 +41,27 @@ MASKING = frozenset(
 
 
 @spec(CAPABILITY, REVIEWED, "Unreviewed warning")
-def test_every_warning_is_fixed_or_reviewed(board: Board, build_output: Path, profile: str) -> None:
+def test_every_warning_is_fixed_or_reviewed(
+    board: Board, build_output: Path, profile: str
+) -> None:
     if profile == PROFILE:
         pytest.skip(NOT_SHIPPED)
     found = unreviewed(load_report(build_output), load_register(), board.id)
-    assert not found, "UB-indicative warnings no review covers:\n" + "\n".join(map(str, found))
+    assert not found, "UB-indicative warnings no review covers:\n" + "\n".join(
+        map(str, found)
+    )
 
 
 @spec(CAPABILITY, REVIEWED, "Stale review")
-def test_every_review_matches_a_warning(board: Board, build_output: Path, profile: str) -> None:
+def test_every_review_matches_a_warning(
+    board: Board, build_output: Path, profile: str
+) -> None:
     if profile == PROFILE:
         pytest.skip(NOT_SHIPPED)
     found = stale(load_register(), load_report(build_output), board.id)
-    assert not found, "reviews that match no warning of the build:\n" + "\n".join(map(str, found))
+    assert not found, "reviews that match no warning of the build:\n" + "\n".join(
+        map(str, found)
+    )
 
 
 @spec(CAPABILITY, REVIEWED, "Package packed again without a compile")
@@ -78,7 +91,12 @@ def test_a_package_packed_again_keeps_its_warnings(tmp_path: Path) -> None:
     )
 
     result = library(
-        "warnings", 'warnings_harvest "$@"', str(logs), str(records), "time.tsv", cwd=tmp_path
+        "warnings",
+        'warnings_harvest "$@"',
+        str(logs),
+        str(records),
+        "time.tsv",
+        cwd=tmp_path,
     )
 
     assert result.returncode == 0, result.stderr
@@ -106,16 +124,22 @@ def test_a_trap_fails_the_test_and_names_the_process(
     # Run alone, the probe would be the session itself, whose death by a signal
     # the SSH client reports as 255; the shell reports 128 + the signal instead.
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
-    with pytest.raises(pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"):
+    with pytest.raises(
+        pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"
+    ):
         report(ubsan_traps.new(), "during the test")
 
 
 @spec(CAPABILITY, "Undefined behavior traps under UBSan", "A trap before a reboot")
-def test_a_trap_before_a_reboot_fails_the_test(router: Router, ubsan_traps: Traps | None) -> None:
+def test_a_trap_before_a_reboot_fails_the_test(
+    router: Router, ubsan_traps: Traps | None
+) -> None:
     # The reboot starts the kernel log anew; the console's record keeps the report.
     if ubsan_traps is None:
         pytest.skip("only a ubsan build traps")
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
     router.reboot()
-    with pytest.raises(pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"):
+    with pytest.raises(
+        pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"
+    ):
         report(ubsan_traps.new(), "during the test")

@@ -50,7 +50,9 @@ def pair(tmp_path_factory: pytest.TempPathFactory) -> Iterator[Pair]:
             netns.run("ip", "addr", "add", f"{addresses[0]}/24", "dev", "eth0")
             netns.run("ip", "addr", "add", f"{addresses[1]}/64", "dev", "eth0", "nodad")
         for address, length in zip(SECOND, (24, 64), strict=True):
-            server.run("ip", "addr", "add", f"{address}/{length}", "dev", "eth0", "nodad")
+            server.run(
+                "ip", "addr", "add", f"{address}/{length}", "dev", "eth0", "nodad"
+            )
         daemons = [
             server.spawn(sys.executable, "-m", "orbyt_tests.sandbox.netprobe", "serve"),
             server.spawn(
@@ -101,11 +103,15 @@ def test_connect_tells_accepted_from_refused(client: Netns, family: int) -> None
     assert client.probe("connect", SERVER[family], "--port", str(PORT)) == {
         "connection": "accepted"
     }
-    assert client.probe("connect", SERVER[family], "--port", "9") == {"connection": "refused"}
+    assert client.probe("connect", SERVER[family], "--port", "9") == {
+        "connection": "refused"
+    }
 
 
 @pytest.mark.parametrize("family", [0, 1], ids=["ipv4", "ipv6"])
-def test_greeting_returns_what_the_server_says_first(client: Netns, family: int) -> None:
+def test_greeting_returns_what_the_server_says_first(
+    client: Netns, family: int
+) -> None:
     # netprobe's TCP server speaks first: it sends what it saw of the client.
     seen = client.probe("greeting", SERVER[family], "--port", str(PORT))
     assert json.loads(cast("str", seen["greeting"]))["address"] == CLIENT[family]
@@ -140,7 +146,9 @@ def test_flows_start_at_their_rate(client: Netns, sources: tuple[str, ...]) -> N
     # Every flow, the last (rate - 1) / rate s after the first: never earlier, whatever the load.
     start = time.monotonic()
     rate = str(FLOW_RATE)
-    sent = client.probe("flows", SERVER[0], "--rate", rate, "--seconds", "1", *sources)["sent"]
+    sent = client.probe("flows", SERVER[0], "--rate", rate, "--seconds", "1", *sources)[
+        "sent"
+    ]
     assert sent == FLOW_RATE
     assert time.monotonic() - start >= (FLOW_RATE - 1) / FLOW_RATE
 
@@ -151,26 +159,41 @@ def test_big_reply_arrives_whole(client: Netns) -> None:
 
 @pytest.mark.parametrize("family", [0, 1], ids=["ipv4", "ipv6"])
 def test_esp_is_answered_with_the_source(client: Netns, family: int) -> None:
-    assert client.probe("esp", SERVER[family], "--spi", "0x1234") == {"address": CLIENT[family]}
+    assert client.probe("esp", SERVER[family], "--spi", "0x1234") == {
+        "address": CLIENT[family]
+    }
 
 
 def test_listen_receives_what_send_sends(pair: Pair) -> None:
-    command = (sys.executable, "-m", "orbyt_tests.sandbox.netprobe", "listen", "--port", "40001")
-    with subprocess.Popen(pair.client.argv(*command), stdout=subprocess.PIPE) as listener:
+    command = (
+        sys.executable,
+        "-m",
+        "orbyt_tests.sandbox.netprobe",
+        "listen",
+        "--port",
+        "40001",
+    )
+    with subprocess.Popen(
+        pair.client.argv(*command), stdout=subprocess.PIPE
+    ) as listener:
         until(
             lambda: pair.client.run("ss", "-Hlun", "sport = :40001"),
             timeout=LISTEN_TIMEOUT,
             what="the listener",
             every=0.1,
         )
-        sent = pair.server.probe("send", CLIENT[0], "--port", "40001", "--payload", "ping")
+        sent = pair.server.probe(
+            "send", CLIENT[0], "--port", "40001", "--payload", "ping"
+        )
         seen = json.loads(listener.communicate(timeout=10)[0])
     assert seen == {"address": SERVER[0], "port": sent["port"], "payload": "ping"}
 
 
 @pytest.mark.parametrize(("kind", "family"), [("A", 0), ("AAAA", 1)])
 def test_resolve_returns_the_records(client: Netns, kind: str, family: int) -> None:
-    seen = client.probe("resolve", "probe.example.net", "--server", SERVER[0], "--type", kind)
+    seen = client.probe(
+        "resolve", "probe.example.net", "--server", SERVER[0], "--type", kind
+    )
     assert seen == {"rcode": 0, "answers": [SERVER[family]]}
 
 

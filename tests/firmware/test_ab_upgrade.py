@@ -54,7 +54,8 @@ def _confirmed(router: Router, which: str) -> None:
     """Wait until the health check has confirmed the trial slot ``which``."""
     message = f"slot {which} passed its trial boot and is confirmed"
     router.run(
-        f"until logread -e orbyt-healthcheck | grep -q '{message}'; do sleep 2; done", timeout=400
+        f"until logread -e orbyt-healthcheck | grep -q '{message}'; do sleep 2; done",
+        timeout=400,
     )
 
 
@@ -67,7 +68,9 @@ def test_upgrade_writes_only_slot_b(router: Router, upgrade_image: Path) -> None
 
 
 @spec(CAPABILITY, "Write only the inactive slot", "Upgrade during a trial boot")
-def test_no_upgrade_while_the_running_slot_is_on_trial(router: Router, upgrade_image: Path) -> None:
+def test_no_upgrade_while_the_running_slot_is_on_trial(
+    router: Router, upgrade_image: Path
+) -> None:
     running = slot(router)
     other = "b" if running == "a" else "a"
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
@@ -96,7 +99,11 @@ def test_power_loss_keeps_slot_a(router: Router, upgrade_image: Path) -> None:
     assert slot(router) == "a"
 
 
-@spec(CAPABILITY, "New slot starts with a fresh overlay", "Leftover file in the old overlay")
+@spec(
+    CAPABILITY,
+    "New slot starts with a fresh overlay",
+    "Leftover file in the old overlay",
+)
 def test_new_slot_starts_fresh(router: Router, upgrade_image: Path) -> None:
     setenv(router, boot_slot="b")
     router.reboot()
@@ -125,14 +132,18 @@ def test_upgrade_without_the_configuration(router: Router, upgrade_image: Path) 
 
 
 @spec(CAPABILITY, "Trial boot after writing", "Reboot after upgrade")
-def test_upgrade_boots_the_new_slot_on_trial(router: Router, upgrade_image: Path) -> None:
+def test_upgrade_boots_the_new_slot_on_trial(
+    router: Router, upgrade_image: Path
+) -> None:
     _upgrade(router, upgrade_image)
     assert slot(router) == "b"
     _confirmed(router, "b")
 
 
 @spec(CAPABILITY, "Trial boot after writing", "Write that fails")
-def test_a_write_that_fails_keeps_the_running_slot(router: Router, upgrade_image: Path) -> None:
+def test_a_write_that_fails_keeps_the_running_slot(
+    router: Router, upgrade_image: Path
+) -> None:
     running = slot(router)
     router.put(upgrade_image, UPGRADE_IMAGE)
     # The image unpacked and cut a tenth short, as it streams (/tmp is memory):
@@ -150,7 +161,8 @@ def test_a_write_that_fails_keeps_the_running_slot(router: Router, upgrade_image
     assert router.returncode(f"tar -xOf {BROKEN_IMAGE} {root} >/dev/null 2>&1") != 0
     before = _switch(router)
     output = router.run(
-        f"{HOOK} && platform_do_upgrade {BROKEN_IMAGE} 2>&1; echo exit=$?", timeout=WRITE_LIMIT
+        f"{HOOK} && platform_do_upgrade {BROKEN_IMAGE} 2>&1; echo exit=$?",
+        timeout=WRITE_LIMIT,
     )
     assert output.endswith("exit=1"), output
     assert _switch(router) == before
@@ -160,7 +172,9 @@ def test_a_write_that_fails_keeps_the_running_slot(router: Router, upgrade_image
     assert slot(router) == running
 
 
-@spec(CAPABILITY, "Trial boot after writing", "Configuration in place before the switch")
+@spec(
+    CAPABILITY, "Trial boot after writing", "Configuration in place before the switch"
+)
 def test_the_configuration_is_in_place_before_the_switch(
     router: Router, upgrade_image: Path
 ) -> None:

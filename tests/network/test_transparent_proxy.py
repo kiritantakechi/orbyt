@@ -143,13 +143,21 @@ def test_honk_binds_only_the_lan(proxy: Online) -> None:
 @spec(CAPABILITY, "Router-originated traffic goes direct", "Check the cgroup programs")
 def test_honk_s_cgroup_programs_leave_the_router_s_sockets_alone(proxy: Online) -> None:
     tree = proxy.router.run("bpftool cgroup tree /sys/fs/cgroup")
-    attached = set(re.findall(r"^\d+\s+(\S+)\s+\S+\s+(\S+)\s*$", tree, flags=re.MULTILINE))
+    attached = set(
+        re.findall(r"^\d+\s+(\S+)\s+\S+\s+(\S+)\s*$", tree, flags=re.MULTILINE)
+    )
     assert attached == CGROUP_PROGRAMS, tree
-    body = proxy.router.run(f"uclient-fetch -qO- http://{PROXIED_TARGET[0]}:{HTTP_PORT}/")
+    body = proxy.router.run(
+        f"uclient-fetch -qO- http://{PROXIED_TARGET[0]}:{HTTP_PORT}/"
+    )
     assert json.loads(body)["address"] == proxy.wan_address
 
 
-@spec(CAPABILITY, "Bind LAN-side interfaces only", "Container bridge appears after the proxy")
+@spec(
+    CAPABILITY,
+    "Bind LAN-side interfaces only",
+    "Container bridge appears after the proxy",
+)
 def test_container_bridge_is_bound_when_it_appears(proxy: Online) -> None:
     router = proxy.router
     pid = proxy_pid(router)
@@ -168,7 +176,9 @@ def test_container_bridge_is_bound_when_it_appears(proxy: Online) -> None:
 
 
 @spec(
-    CAPABILITY, "Bind LAN-side interfaces only", "Container bridge appears while the proxy starts"
+    CAPABILITY,
+    "Bind LAN-side interfaces only",
+    "Container bridge appears while the proxy starts",
 )
 def test_container_bridge_is_bound_when_it_appears_as_honk_starts(
     proxy_restored: Online,
@@ -202,9 +212,15 @@ def test_proxied_target_over_ipv6(proxy: Online) -> None:
     assert proxy.client().probe("tcp", PROXIED_TARGET[1])["address"] == PROXY[1]
 
 
-@spec(CAPABILITY, "Router-originated traffic goes direct", "Router accesses an external address")
+@spec(
+    CAPABILITY,
+    "Router-originated traffic goes direct",
+    "Router accesses an external address",
+)
 def test_router_traffic_goes_direct(proxy: Online) -> None:
-    body = proxy.router.run(f"uclient-fetch -qO- http://{PROXIED_TARGET[0]}:{HTTP_PORT}/")
+    body = proxy.router.run(
+        f"uclient-fetch -qO- http://{PROXIED_TARGET[0]}:{HTTP_PORT}/"
+    )
     assert json.loads(body)["address"] == proxy.wan_address
 
 
@@ -213,8 +229,12 @@ def test_router_traffic_goes_direct(proxy: Online) -> None:
     "The router stays reachable from bound interfaces",
     "Connect to the router from the LAN",
 )
-@pytest.mark.parametrize("domains", [(), (PROXIED_DOMAIN,)], ids=["by-address", "by-domain"])
-def test_the_router_answers_the_lan(proxy_restored: Online, domains: tuple[str, ...]) -> None:
+@pytest.mark.parametrize(
+    "domains", [(), (PROXIED_DOMAIN,)], ids=["by-address", "by-domain"]
+)
+def test_the_router_answers_the_lan(
+    proxy_restored: Online, domains: tuple[str, ...]
+) -> None:
     # Each second a connection to the router's web server (LuCI) and one to its
     # SSH server, at each of its LAN addresses. Routed by address alone, honk's
     # programs leave them to the kernel; with a domain rule honk takes each into
@@ -228,7 +248,9 @@ def test_the_router_answers_the_lan(proxy_restored: Online, domains: tuple[str, 
     for _ in range(ROUTER_CONNECTIONS):
         for address in addresses:
             url = f"http://[{address}]/" if ":" in address else f"http://{address}/"
-            web = client.run("curl", "-gso", "/dev/null", "-m", "5", "-w", "%{http_code}", url)
+            web = client.run(
+                "curl", "-gso", "/dev/null", "-m", "5", "-w", "%{http_code}", url
+            )
             ssh = client.probe("greeting", address, "--port", str(SSH_PORT))["greeting"]
             answers.append((address, web, cast("str", ssh).startswith(SSH_BANNER)))
         time.sleep(1)
@@ -253,7 +275,9 @@ def test_luci_save_hot_reloads(proxy_restored: Online) -> None:
     )
     try:
         # The edit LuCI makes, then its save: the proxied target now goes direct as well.
-        config = proxy_config([address for address in PROXIED if address not in PROXIED_TARGET])
+        config = proxy_config(
+            [address for address in PROXIED if address not in PROXIED_TARGET]
+        )
         _ubus(
             router,
             session,
@@ -264,7 +288,8 @@ def test_luci_save_hot_reloads(proxy_restored: Online) -> None:
         _init(router, session, "reload")
         until(
             lambda: (
-                online.client().probe("tcp", PROXIED_TARGET[0])["address"] == online.wan_address
+                online.client().probe("tcp", PROXIED_TARGET[0])["address"]
+                == online.wan_address
             ),
             timeout=PROXY_TIMEOUT,
             what="the saved configuration in effect",
@@ -299,7 +324,11 @@ def test_turning_honk_off_stops_it(proxy_restored: Online) -> None:
     _init(router, session, "stop")
     _init(router, session, "disable")
     until(lambda: not proxy_pid(router), timeout=PROXY_TIMEOUT, what="honk stopped")
-    until(lambda: not hooks(router, "br-lan"), timeout=PROXY_TIMEOUT, what="honk's programs gone")
+    until(
+        lambda: not hooks(router, "br-lan"),
+        timeout=PROXY_TIMEOUT,
+        what="honk's programs gone",
+    )
     assert router.returncode("/etc/init.d/honk enabled") != 0
 
 
@@ -329,7 +358,9 @@ def test_health_check_fails_without_honk(proxy_restored: Online) -> None:
     assert router.returncode(PROXY_HEALTHCHECK) != 0
 
 
-@spec(CAPABILITY, "honk's netfilter hook outlives firewall reloads", "Reload the firewall")
+@spec(
+    CAPABILITY, "honk's netfilter hook outlives firewall reloads", "Reload the firewall"
+)
 def test_the_nfqueue_table_outlives_a_firewall_reload(proxy: Online) -> None:
     router = proxy.router
     # With its handles: a table made anew with the same rules gets other ones.
@@ -349,14 +380,18 @@ def _udp_answer(online: Online) -> str | None:
 def _goes_direct_again(online: Online) -> None:
     """Retry a new UDP flow, as a client does, until one is answered; it must go direct."""
     address = until(
-        lambda: _udp_answer(online), timeout=DRAIN_TIMEOUT, what="answer to a new UDP flow"
+        lambda: _udp_answer(online),
+        timeout=DRAIN_TIMEOUT,
+        what="answer to a new UDP flow",
     )
     assert address == online.wan_address
 
 
 def _queued(router: Router) -> int:
     """Return how many packets honk's queue has taken (its id sequence)."""
-    taken = router.run("awk '$1 == 320 { print $8 }' /proc/net/netfilter/nfnetlink_queue")
+    taken = router.run(
+        "awk '$1 == 320 { print $8 }' /proc/net/netfilter/nfnetlink_queue"
+    )
     assert taken, "honk's queue is not bound"
     return int(taken)
 
@@ -380,7 +415,14 @@ def test_honk_decides_on_through_firewall_reloads(proxy_restored: Online) -> Non
             "orbyt_tests.sandbox.netprobe",
             "flows",
             DIRECT_TARGET[0],
-            *("--rate", str(NEW_FLOWS), "--seconds", seconds, "--sources", str(FLOW_SOURCES)),
+            *(
+                "--rate",
+                str(NEW_FLOWS),
+                "--seconds",
+                seconds,
+                "--sources",
+                str(FLOW_SOURCES),
+            ),
         ),
         stdout=subprocess.DEVNULL,
     )
@@ -407,7 +449,14 @@ def test_honk_withstands_a_stream_of_new_flows(proxy_restored: Online) -> None:
     running = proxy_pid(router)
     queued = _queued(router)
     online.client().probe(
-        *("flows", DIRECT_TARGET[0], "--rate", str(NEW_FLOWS), "--seconds", str(STREAM_SECONDS)),
+        *(
+            "flows",
+            DIRECT_TARGET[0],
+            "--rate",
+            str(NEW_FLOWS),
+            "--seconds",
+            str(STREAM_SECONDS),
+        ),
         *("--sources", str(FLOW_SOURCES)),
         timeout=STREAM_SECONDS + 60,
     )
@@ -417,7 +466,9 @@ def test_honk_withstands_a_stream_of_new_flows(proxy_restored: Online) -> None:
 
 
 @spec(
-    CAPABILITY, "honk's netfilter hook outlives firewall reloads", "Stop the proxy after a reload"
+    CAPABILITY,
+    "honk's netfilter hook outlives firewall reloads",
+    "Stop the proxy after a reload",
 )
 def test_the_nfqueue_table_goes_with_honk(proxy_restored: Online) -> None:
     router = proxy_restored.router
@@ -486,7 +537,9 @@ def test_every_restart_keeps_honk_pinned(proxy_restored: Online, board: Board) -
             router.run("/etc/init.d/honk restart")
             wait_proxy(router, replacing=running)
             affinities.append(_affinity(router))
-        assert affinities == [big] * PINNED_RESTARTS, [f"{mask:x}" for mask in affinities]
+        assert affinities == [big] * PINNED_RESTARTS, [
+            f"{mask:x}" for mask in affinities
+        ]
 
 
 @contextmanager
@@ -511,20 +564,30 @@ def native_api_on(proxy_restored: Online) -> Online:
     return proxy_restored
 
 
-@spec(CAPABILITY, "Web UI through the native API in token mode", "Native API enabled with a token")
+@spec(
+    CAPABILITY,
+    "Web UI through the native API in token mode",
+    "Native API enabled with a token",
+)
 def test_the_native_api_answers_the_lan_with_its_token(native_api_on: Online) -> None:
     lan = (native_api_on.client(), native_api_on.router.address)
     status, page = native_api(*lan, "/ui/")
     assert status == HTTPStatus.OK, page
     assert page.lower().startswith("<!doctype html>"), page[:200]
     assert native_api(*lan, NATIVE_API_REQUEST)[0] == HTTPStatus.OK
-    assert native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
+    assert (
+        native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
+    )
 
 
 @spec(
-    CAPABILITY, "Web UI through the native API in token mode", "Password login in the configuration"
+    CAPABILITY,
+    "Web UI through the native API in token mode",
+    "Password login in the configuration",
 )
-def test_the_firmware_keeps_the_native_api_in_token_mode(proxy_restored: Online) -> None:
+def test_the_firmware_keeps_the_native_api_in_token_mode(
+    proxy_restored: Online,
+) -> None:
     router = proxy_restored.router
     # Written on the router, as LuCI's editor writes it: password login, anonymous
     # loopback and configuration writes beside the token. honk refuses password
@@ -541,21 +604,29 @@ def test_the_firmware_keeps_the_native_api_in_token_mode(proxy_restored: Online)
     proxy_start(router, PROXY_CONFIG + api)
     lan = (proxy_restored.client(), router.address)
     assert native_api(*lan, NATIVE_API_REQUEST)[0] == HTTPStatus.OK
-    assert native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
+    assert (
+        native_api(*lan, NATIVE_API_REQUEST, token=None)[0] == HTTPStatus.UNAUTHORIZED
+    )
     status, body = native_api(*lan, "/api/v1/capabilities")
     assert status == HTTPStatus.OK, body
     assert json.loads(body)["resources"]["config"]["writable"] is False
 
 
 # The last test: its Pod and data disk stay for the rest of the module.
-@spec(CAPABILITY, "Web UI through the native API in token mode", "Native API from outside the LAN")
+@spec(
+    CAPABILITY,
+    "Web UI through the native API in token mode",
+    "Native API from outside the LAN",
+)
 def test_the_native_api_answers_nothing_outside_the_lan(
     native_api_on: Online, app_pod: Online
 ) -> None:
     del app_pod  # a container on the container bridge
     online = native_api_on
     # The LAN gets an answer: the native API listens.
-    assert native_api(online.client(), online.router.address, "/api")[0] == HTTPStatus.OK
+    assert (
+        native_api(online.client(), online.router.address, "/api")[0] == HTTPStatus.OK
+    )
     # The internet reaches the router's WAN address, but not the API there.
     online.network["inet"].run("ping", "-c", "1", "-W", "5", online.wan_address)
     assert native_api(online.network["inet"], online.wan_address, "/api")[0] == 0
@@ -563,5 +634,13 @@ def test_the_native_api_answers_nothing_outside_the_lan(
     # answers as it connects), but not the API on it. The firmware's busybox,
     # the container's, has an nc without -w: the router bounds each try.
     container = f"timeout 20 podman exec {app.CONTAINER} nc"
-    assert online.router.returncode(f"{container} {DIRECT_TARGET[0]} {PORT} </dev/null") == 0
-    assert online.router.returncode(f"{container} {app.GATEWAY} {NATIVE_API_PORT} </dev/null") != 0
+    assert (
+        online.router.returncode(f"{container} {DIRECT_TARGET[0]} {PORT} </dev/null")
+        == 0
+    )
+    assert (
+        online.router.returncode(
+            f"{container} {app.GATEWAY} {NATIVE_API_PORT} </dev/null"
+        )
+        != 0
+    )

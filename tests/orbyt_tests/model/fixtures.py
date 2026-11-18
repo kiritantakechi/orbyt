@@ -18,7 +18,12 @@ import pytest
 from orbyt_tests.model import boards
 from orbyt_tests.model.data import read_json
 from orbyt_tests.model.keys import Keys, sign
-from orbyt_tests.model.outputs import MANIFEST_FILE, SOURCE_FILE, EmulationSource, Manifest
+from orbyt_tests.model.outputs import (
+    MANIFEST_FILE,
+    SOURCE_FILE,
+    EmulationSource,
+    Manifest,
+)
 
 UPGRADE_IMAGE = "targets/*-sysupgrade.tar.gz"
 SIGNED_ENV = "ORBYT_SIGNED"
@@ -70,7 +75,9 @@ def release_keys(tmp_path_factory: pytest.TempPathFactory) -> Keys | None:
 
 @pytest.fixture(scope="session")
 def signed_repo(
-    build_output: Path, release_keys: Keys | None, tmp_path_factory: pytest.TempPathFactory
+    build_output: Path,
+    release_keys: Keys | None,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> Path:
     """Return the build under test signed with the session's keys (or $ORBYT_SIGNED)."""
     if release_keys is None:

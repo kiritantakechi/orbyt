@@ -32,8 +32,20 @@ from pexpect import TIMEOUT
 
 from orbyt_tests.model.boards import Board, load
 from orbyt_tests.model.data import DataError, read_json, write_json
-from orbyt_tests.model.image import SECTOR, Fit, FitNode, gunzip_first_member, parse_fit, read_mbr
-from orbyt_tests.model.outputs import MANIFEST_FILE, SOURCE_FILE, EmulationSource, Manifest
+from orbyt_tests.model.image import (
+    SECTOR,
+    Fit,
+    FitNode,
+    gunzip_first_member,
+    parse_fit,
+    read_mbr,
+)
+from orbyt_tests.model.outputs import (
+    MANIFEST_FILE,
+    SOURCE_FILE,
+    EmulationSource,
+    Manifest,
+)
 from orbyt_tests.sandbox.net import segments, taps
 
 if TYPE_CHECKING:
@@ -141,7 +153,10 @@ class Machine:
             "targets": {
                 "main": {
                     "resources": {
-                        "NetworkService": {"address": ROUTER_ADDRESS, "username": "root"},
+                        "NetworkService": {
+                            "address": ROUTER_ADDRESS,
+                            "username": "root",
+                        },
                     },
                     "drivers": {
                         "QEMUDriver": {
@@ -182,7 +197,9 @@ def run(*command: str) -> str:
     return subprocess.run(command, check=True, capture_output=True, text=True).stdout
 
 
-def boot_files(disk: Path, partition: int, names: tuple[str, ...], output: Path) -> None:
+def boot_files(
+    disk: Path, partition: int, names: tuple[str, ...], output: Path
+) -> None:
     """Copy files of a boot partition (ext4) of a raw disk into ``output``."""
     with disk.open("rb") as raw:
         boot = read_mbr(raw.read(SECTOR)).partition(partition)
@@ -206,7 +223,16 @@ def read_fit(path: Path) -> Fit:
 
 def extract_fit_image(path: Path, image: FitNode, output: Path) -> None:
     """Write one image of a FIT file to ``output``, as stored (still compressed)."""
-    run("dumpimage", "-T", "flat_dt", "-p", str(image.index), "-o", str(output), str(path))
+    run(
+        "dumpimage",
+        "-T",
+        "flat_dt",
+        "-p",
+        str(image.index),
+        "-o",
+        str(output),
+        str(path),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -259,11 +285,23 @@ def prepare(build: Build, root: Path) -> Path:
         run("fdtput", "-t", "s", str(dtb), "/", "model", build.board.model)
         # Each core's capacity as on the SoC, so that the kernel knows the big cores.
         cpus = sorted(
-            (node for node in run("fdtget", "-l", str(dtb), "/cpus").split() if "@" in node),
+            (
+                node
+                for node in run("fdtget", "-l", str(dtb), "/cpus").split()
+                if "@" in node
+            ),
             key=lambda node: int(node.partition("@")[2], 16),
         )
         for node, capacity in zip(cpus, build.board.soc.cores, strict=True):
-            run("fdtput", "-t", "u", str(dtb), f"/cpus/{node}", "capacity-dmips-mhz", str(capacity))
+            run(
+                "fdtput",
+                "-t",
+                "u",
+                str(dtb),
+                f"/cpus/{node}",
+                "capacity-dmips-mhz",
+                str(capacity),
+            )
 
         source = EmulationSource(
             build=build.directory,
@@ -311,7 +349,9 @@ def main(argv: list[str] | None = None) -> int:
     """emu-prepare: print the emulator directory prepared for the outputs of a build."""
     parser = argparse.ArgumentParser(prog="emu-prepare", description=main.__doc__)
     parser.add_argument("build", type=Path, help="the output directory of a build")
-    parser.add_argument("root", type=Path, help="directory that holds prepared emulators")
+    parser.add_argument(
+        "root", type=Path, help="directory that holds prepared emulators"
+    )
     args = parser.parse_args(argv)
     prune(args.root)
     directory = prepare(Build.read(args.build), args.root)
@@ -490,13 +530,17 @@ class Emulator:
     def logged(self) -> str:
         """Return what QEMU logged in this session, the running machine's included."""
         return "".join(
-            path.read_text(encoding="utf-8") for path in (self.log, self.run_log) if path.exists()
+            path.read_text(encoding="utf-8")
+            for path in (self.log, self.run_log)
+            if path.exists()
         )
 
     def _monitor(self, command_line: str) -> None:
         # HMP reports failures as output text, not as a QMP error.
         output = str(
-            self.qemu.monitor_command("human-monitor-command", {"command-line": command_line})
+            self.qemu.monitor_command(
+                "human-monitor-command", {"command-line": command_line}
+            )
         )
         if output.strip():
             msg = f"{command_line}: {output.strip()}"
@@ -535,7 +579,11 @@ class Emulator:
         """Return the boot disk's limit of written bytes per second, 0 for none."""
         blocks = cast("list[dict[str, Any]]", self.qemu.monitor_command("query-block"))
         # A device's qdev is its id, or its QOM path, which holds the id.
-        (disk,) = (block for block in blocks if BOOT_DISK_ID in block.get("qdev", "").split("/"))
+        (disk,) = (
+            block
+            for block in blocks
+            if BOOT_DISK_ID in block.get("qdev", "").split("/")
+        )
         return int(disk["inserted"]["bps_wr"])
 
     def send_keys(self, text: str) -> None:
@@ -559,7 +607,12 @@ class Emulator:
         self.qemu.monitor_command(
             "blockdev-add", {"driver": "raw", "node-name": name, "file": file}
         )
-        uas = {"driver": "usb-uas", "id": f"{name}-uas", "bus": "xhci.0", "port": str(disk.port)}
+        uas = {
+            "driver": "usb-uas",
+            "id": f"{name}-uas",
+            "bus": "xhci.0",
+            "port": str(disk.port),
+        }
         self.qemu.monitor_command("device_add", uas)
         scsi = {
             "driver": "scsi-hd",
@@ -572,7 +625,11 @@ class Emulator:
         # A hot-plugged usb-uas waits for its disk: only now it appears on the port.
         self.qemu.monitor_command(
             "qom-set",
-            {"path": f"/machine/peripheral/{name}-uas", "property": "attached", "value": True},
+            {
+                "path": f"/machine/peripheral/{name}-uas",
+                "property": "attached",
+                "value": True,
+            },
         )
 
     def unplug_disk(self, name: str) -> None:
@@ -592,7 +649,9 @@ class Emulator:
     def _drive_in_use(self, name: str) -> bool:
         """Return whether a device's block backend still holds the drive ``name``."""
         blocks = self.qemu.monitor_command("query-block")
-        return any(block.get("inserted", {}).get("node-name") == name for block in blocks)
+        return any(
+            block.get("inserted", {}).get("node-name") == name for block in blocks
+        )
 
 
 if __name__ == "__main__":

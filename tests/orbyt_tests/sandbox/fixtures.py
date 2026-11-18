@@ -31,7 +31,9 @@ class _QuietHandler(SimpleHTTPRequestHandler):
 
 
 @pytest.fixture(scope="session")
-def network(board: Board, tmp_path_factory: pytest.TempPathFactory) -> Iterator[Network]:
+def network(
+    board: Board, tmp_path_factory: pytest.TempPathFactory
+) -> Iterator[Network]:
     """Build the sandbox topology around the emulated board."""
     with Network(topology(board), tmp_path_factory.mktemp("net")) as sandbox:
         yield sandbox
@@ -49,7 +51,9 @@ def app_image(
 ) -> str:
     """Push the test app image to the emulated internet's registry; return its reference."""
     work = tmp_path_factory.mktemp("oci")
-    layout = image_layout(extract_root(emulation_dir / "disk.raw", work / "root"), work / "layout")
+    layout = image_layout(
+        extract_root(emulation_dir / "disk.raw", work / "root"), work / "layout"
+    )
     reference = f"{REGISTRY[0]}/{IMAGE}:{TAG}"
     push(network["inet"], layout, TAG, reference, network.workdir)
     return reference

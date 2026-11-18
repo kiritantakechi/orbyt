@@ -79,7 +79,9 @@ def started(router: Router) -> str:
 def wait_running(router: Router) -> str:
     """Wait until the app container runs; return its ID (or fail with orbyt-containers' log)."""
     try:
-        return until(lambda: running(router), timeout=START_TIMEOUT, what=f"{CONTAINER} running")
+        return until(
+            lambda: running(router), timeout=START_TIMEOUT, what=f"{CONTAINER} running"
+        )
     except TimeoutError as error:
         error.add_note(router.run("logread -e orbyt-containers | tail -n 20"))
         raise

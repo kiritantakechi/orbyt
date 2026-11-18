@@ -31,7 +31,10 @@ def _options(driver: dict[str, Any], name: str) -> list[dict[str, str]]:
 def test_the_machine_follows_the_board(board: Board, tmp_path: Path) -> None:
     description = Machine(board).description(tmp_path)
     driver = description["targets"]["main"]["drivers"]["QEMUDriver"]
-    assert (driver["cpu"], driver["memory"]) == (board.emulator.cpu, board.emulator.memory)
+    assert (driver["cpu"], driver["memory"]) == (
+        board.emulator.cpu,
+        board.emulator.memory,
+    )
     assert _options(driver, "-smp") == [{"type": str(len(board.soc.cores))}]
     devices = _options(driver, "-device")
     assert BOOT_DISKS[board.boot_disk].device in [device["type"] for device in devices]

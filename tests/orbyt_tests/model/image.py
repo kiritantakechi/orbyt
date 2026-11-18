@@ -53,7 +53,9 @@ class Disk:
         raise LookupError(msg)
 
 
-def gunzip_first_member(source: BinaryIO, target: BinaryIO, chunk: int = 1 << 20) -> bytes:
+def gunzip_first_member(
+    source: BinaryIO, target: BinaryIO, chunk: int = 1 << 20
+) -> bytes:
     """Stream the first gzip member of ``source`` into ``target``; return what follows it.
 
     sysupgrade images carry fwtool metadata after the gzip stream, which gzip(1)
@@ -77,14 +79,18 @@ def read_mbr(disk: bytes) -> Disk:
     (signature,) = struct.unpack_from("<I", disk, _MBR_SIGNATURE)
     partitions = []
     for index in range(4):
-        start, sectors = struct.unpack_from("<II", disk, _MBR_ENTRIES + index * _MBR_ENTRY_SIZE + 8)
+        start, sectors = struct.unpack_from(
+            "<II", disk, _MBR_ENTRIES + index * _MBR_ENTRY_SIZE + 8
+        )
         if sectors:
             partitions.append(Partition(index + 1, start * SECTOR, sectors * SECTOR))
     return Disk(signature, tuple(partitions))
 
 
 _ENVIRONMENT_BLOCK = re.compile(rb"(?:[\x20-\x7e\t]+\0)+\0")
-_ENVIRONMENT_ENTRY = re.compile(r"^(?P<name>[A-Za-z_][\w.#+-]*)=(?P<value>.*)$", re.DOTALL)
+_ENVIRONMENT_ENTRY = re.compile(
+    r"^(?P<name>[A-Za-z_][\w.#+-]*)=(?P<value>.*)$", re.DOTALL
+)
 
 
 def default_environment(binary: bytes, marker: str) -> dict[str, str]:
@@ -106,7 +112,9 @@ def default_environment(binary: bytes, marker: str) -> dict[str, str]:
     raise LookupError(msg)
 
 
-_FIT_NODE = re.compile(r"^ (?P<kind>Image|Configuration) (?P<index>\d+) \((?P<name>[^)]+)\)$")
+_FIT_NODE = re.compile(
+    r"^ (?P<kind>Image|Configuration) (?P<index>\d+) \((?P<name>[^)]+)\)$"
+)
 _FIT_DEFAULT = re.compile(r"^ Default Configuration: '(?P<name>[^']+)'$")
 _FIT_PROPERTY = re.compile(r"^  (?P<key>\S[^:]*):\s+(?P<value>.*?)\s*$")
 _FIT_CONTINUATION = re.compile(r"^ {3,}(?P<value>\S.*?)\s*$")

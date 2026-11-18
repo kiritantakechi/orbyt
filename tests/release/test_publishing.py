@@ -82,7 +82,9 @@ def _publish(
     environment names it, not CI's own.
     """
     environment = {
-        name: value for name, value in os.environ.items() if not name.startswith("GITHUB_")
+        name: value
+        for name, value in os.environ.items()
+        if not name.startswith("GITHUB_")
     }
     if gh is not None:
         repository = Repository(heads={BRANCH.removeprefix("refs/heads/"): branch.head})
@@ -132,12 +134,18 @@ def test_release_contents(board: Board, signed_boards: Path, tmp_path: Path) -> 
     # Each board's set is named after its device.
     device = board.device
     assets = set(info.assets)
-    named = {f"{device}-{name}" for name in ("repo.tar", "manifest.json", "manifest.json.sig")}
+    named = {
+        f"{device}-{name}"
+        for name in ("repo.tar", "manifest.json", "manifest.json.sig")
+    }
     assert {*named, "SHA256SUMS"} <= assets
     assert any(f"-{device}-" in name and name.endswith(FACTORY) for name in assets)
     assert any(f"-{device}-" in name and name.endswith(UPGRADE) for name in assets)
     sums = subprocess.run(
-        ["sha256sum", "--check", "SHA256SUMS"], cwd=release, capture_output=True, check=False
+        ["sha256sum", "--check", "SHA256SUMS"],
+        cwd=release,
+        capture_output=True,
+        check=False,
     )
     assert sums.returncode == 0
     # The kmods in the repository depend on the kernel the manifest names.
@@ -145,7 +153,10 @@ def test_release_contents(board: Board, signed_boards: Path, tmp_path: Path) -> 
     with tarfile.open(release / f"{device}-repo.tar") as repo:
         repo.extract(KMODS, tmp_path / "repo", filter="data")
     index = subprocess.run(
-        ["apk", "adbdump", tmp_path / "repo" / KMODS], capture_output=True, text=True, check=True
+        ["apk", "adbdump", tmp_path / "repo" / KMODS],
+        capture_output=True,
+        text=True,
+        check=True,
     ).stdout
     kernels = set(re.findall(r"kernel=([^\s\"']+)", index))
     assert kernels
@@ -185,7 +196,11 @@ def test_nothing_is_published_without_the_drill(
     assert set(names) <= set(step["env"])
     result = subprocess.run(
         ["bash", "-eo", "pipefail", "-c", step["run"]],
-        env={**os.environ, **dict(zip(names, results, strict=True)), "BUMP_PULL_REQUEST": "false"},
+        env={
+            **os.environ,
+            **dict(zip(names, results, strict=True)),
+            "BUMP_PULL_REQUEST": "false",
+        },
         capture_output=True,
         check=False,
     )
@@ -233,11 +248,14 @@ def test_a_release_carries_every_board(
     # The session has this board's build alone, and boards/ describes more.
     others = sorted(other.id for other in load_all() if other.id != board.id)
     assert others
-    result = _publish(signed_boards, tmp_path / "release", "--upload", gh=gh, every_board=True)
+    result = _publish(
+        signed_boards, tmp_path / "release", "--upload", gh=gh, every_board=True
+    )
     assert result.returncode != 0
     asked = " ".join(sorted(other.id for other in load_all()))
-    assert f"the release is of {asked}, but {signed_boards} holds the builds of {board.id}" in (
-        result.stderr
+    assert (
+        f"the release is of {asked}, but {signed_boards} holds the builds of {board.id}"
+        in (result.stderr)
     )
     assert not (tmp_path / "release").exists()
     assert not (gh / "gh.args").exists()
@@ -271,8 +289,12 @@ def test_release_notes_name_the_sources(
     assert read_json(signed_repo / MANIFEST_FILE, Manifest).patches_sha256 in notes
 
 
-@spec(CAPABILITY, "Artifacts come from one build", "Boards built from different sources")
-@pytest.mark.parametrize("field", ["upstream_lock_sha256", "patches_sha256", "openwrt_head"])
+@spec(
+    CAPABILITY, "Artifacts come from one build", "Boards built from different sources"
+)
+@pytest.mark.parametrize(
+    "field", ["upstream_lock_sha256", "patches_sha256", "openwrt_head"]
+)
 def test_boards_from_different_sources_are_not_mixed(
     board: Board, signed_repo: Path, tmp_path: Path, gh: Path, field: str
 ) -> None:
@@ -326,7 +348,10 @@ def test_a_lock_that_is_not_the_builds_is_refused(
     signed = _built(signed_boards, tmp_path / "signed", upstream_lock_sha256="0" * 64)
     result = _publish(signed, tmp_path / "release", "--upload", gh=gh)
     assert result.returncode != 0
-    assert "the checkout's upstream.lock is not the one the builds were made from" in result.stderr
+    assert (
+        "the checkout's upstream.lock is not the one the builds were made from"
+        in result.stderr
+    )
     assert not (tmp_path / "release").exists()
     assert not (gh / "gh.args").exists()
 
@@ -335,36 +360,56 @@ def test_a_lock_that_is_not_the_builds_is_refused(
 @pytest.mark.parametrize(
     ("status", "files"),
     [
-        pytest.param("ahead", [*DOCUMENTATION, {"filename": "scripts/build.sh"}], id="a script"),
+        pytest.param(
+            "ahead", [*DOCUMENTATION, {"filename": "scripts/build.sh"}], id="a script"
+        ),
         pytest.param(
             "ahead",
             [{"filename": "docs/build.md", "previous_filename": "scripts/build.sh"}],
             id="a script renamed into the documentation",
         ),
         # GitHub lists 300 files at most: the rest may hold code.
-        pytest.param("ahead", [{"filename": f"docs/{n}.md"} for n in range(300)], id="300 files"),
-        pytest.param("diverged", DOCUMENTATION, id="a head that does not descend from it"),
+        pytest.param(
+            "ahead", [{"filename": f"docs/{n}.md"} for n in range(300)], id="300 files"
+        ),
+        pytest.param(
+            "diverged", DOCUMENTATION, id="a head that does not descend from it"
+        ),
     ],
 )
 def test_a_run_its_branch_moved_past_does_not_publish(
-    signed_boards: Path, tmp_path: Path, gh: Path, status: str, files: list[dict[str, str]]
+    signed_boards: Path,
+    tmp_path: Path,
+    gh: Path,
+    status: str,
+    files: list[dict[str, str]],
 ) -> None:
     signed = _built(signed_boards, tmp_path / "signed")
     result = _publish(
-        signed, tmp_path / "release", "--upload", gh=gh, branch=Branch(NEWER, status, tuple(files))
+        signed,
+        tmp_path / "release",
+        "--upload",
+        gh=gh,
+        branch=Branch(NEWER, status, tuple(files)),
     )
     assert result.returncode != 0
     assert f"main has moved from {BUILT} to {NEWER}" in result.stderr
     assert not (gh / "gh.args").exists()
 
 
-@spec(CAPABILITY, "Candidates and stable releases", "A branch moved by documentation only")
+@spec(
+    CAPABILITY, "Candidates and stable releases", "A branch moved by documentation only"
+)
 def test_a_branch_moved_by_documentation_only_publishes(
     signed_boards: Path, tmp_path: Path, gh: Path
 ) -> None:
     signed = _built(signed_boards, tmp_path / "signed")
     result = _publish(
-        signed, tmp_path / "release", "--upload", gh=gh, branch=Branch(NEWER, files=DOCUMENTATION)
+        signed,
+        tmp_path / "release",
+        "--upload",
+        gh=gh,
+        branch=Branch(NEWER, files=DOCUMENTATION),
     )
     assert result.returncode == 0, result.stderr
     args = _gh_args(gh)

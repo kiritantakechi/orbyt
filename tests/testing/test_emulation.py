@@ -61,7 +61,9 @@ def test_boots_the_shipped_artifacts(
     # U-Boot started the kernel of slot A's FIT, with the slot's command line.
     boot_files(emulation_dir / "disk.raw", 1, ("kernel.img",), tmp_path)
     kernel = tmp_path / "kernel.img"
-    extract_fit_image(kernel, read_fit(kernel).selected("Kernel"), tmp_path / "Image.lzma")
+    extract_fit_image(
+        kernel, read_fit(kernel).selected("Kernel"), tmp_path / "Image.lzma"
+    )
     image = lzma.decompress((tmp_path / "Image.lzma").read_bytes())
     banner = re.search(rb"Linux version [^\n]+", image)
     assert banner is not None
@@ -90,7 +92,12 @@ def test_userspace_runs(router: Router) -> None:
         "dropbearkey -t ed25519 -f /tmp/emulation-test.key",
     ):
         assert router.returncode(f"{program} >/dev/null") == 0, program
-    assert router.returncode("dmesg | grep -qi 'illegal instruction\\|undefined instruction'") != 0
+    assert (
+        router.returncode(
+            "dmesg | grep -qi 'illegal instruction\\|undefined instruction'"
+        )
+        != 0
+    )
 
 
 @spec(CAPABILITY, "The board's cores", "Read core capacities")
@@ -102,7 +109,9 @@ def test_the_cores_are_the_board_s(router: Router, board: Board) -> None:
         for cpu, capacity in re.findall(r"/cpu(\d+)/cpu_capacity:(\d+)", listing)
     }
     highest = max(board.soc.cores)
-    scaled = {cpu: capacity * 1024 // highest for cpu, capacity in enumerate(board.soc.cores)}
+    scaled = {
+        cpu: capacity * 1024 // highest for cpu, capacity in enumerate(board.soc.cores)
+    }
     assert reported == scaled
 
 
@@ -124,8 +133,12 @@ def test_lan_client_gets_an_address(router: Router, network: Network) -> None:
     network["client-a"].run("ping", "-c", "1", "-W", "2", router.address)
 
 
-@spec(CAPABILITY, "Repeatable network topology", "Clients on both LAN ports share one LAN")
-def test_lan_ports_share_one_lan(router: Router, board: Board, network: Network) -> None:
+@spec(
+    CAPABILITY, "Repeatable network topology", "Clients on both LAN ports share one LAN"
+)
+def test_lan_ports_share_one_lan(
+    router: Router, board: Board, network: Network
+) -> None:
     del router  # requested for the booted router, whose LAN bridges the ports
     if len(board.lan) < 2:  # noqa: PLR2004
         pytest.skip(f"the {board.model} has one LAN port")
@@ -223,7 +236,11 @@ def test_a_power_cut_leaves_a_disk_plugged_in(router: Router, tmp_path: Path) ->
         disk.unplug()
 
 
-@spec(CAPABILITY, "The console's end is known", "QEMU exits while a test waits for the console")
+@spec(
+    CAPABILITY,
+    "The console's end is known",
+    "QEMU exits while a test waits for the console",
+)
 def test_a_wait_on_an_ended_console_fails_at_once(tmp_path: Path) -> None:
     # The console as the emulator reads it: labgrid's QEMU console read, on a
     # socket whose other end is QEMU's, which closes as QEMU exits.

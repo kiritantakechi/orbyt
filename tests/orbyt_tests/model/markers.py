@@ -17,8 +17,10 @@ def spec(capability: str, requirement: str, scenario: str) -> pytest.MarkDecorat
 def pytest_configure(config: pytest.Config) -> None:
     """Register the markers so that --strict-markers accepts them."""
     config.addinivalue_line(
-        "markers", "spec(capability, requirement, scenario): the scenario this test verifies"
+        "markers",
+        "spec(capability, requirement, scenario): the scenario this test verifies",
     )
     config.addinivalue_line(
-        "markers", "drill: the upgrade drill, CI's upgrade-drill job (r4s-release-pipeline D5)"
+        "markers",
+        "drill: the upgrade drill, CI's upgrade-drill job (r4s-release-pipeline D5)",
     )

@@ -40,7 +40,10 @@ EINAT = {"tcx/ingress": ["ingress_rev_snat"], "tcx/egress": ["egress_snat"]}
 QOSIFY = {"tcx/ingress": ["qosify_classify"], "tcx/egress": ["qosify_classify"]}
 # qosify without tcx (its option tcx set to 0): cls_bpf filters under clsact,
 # which bpftool shows by the filters' names.
-QOSIFY_CLSACT = {"clsact/ingress": ["qosify_ingress_ip"], "clsact/egress": ["qosify_egress_ip"]}
+QOSIFY_CLSACT = {
+    "clsact/ingress": ["qosify_ingress_ip"],
+    "clsact/egress": ["qosify_egress_ip"],
+}
 # pppoe-wan's programs in run order: einat's first, then qosify's.
 WAN = {hook: [*EINAT[hook], *QOSIFY[hook]] for hook in EINAT}
 # honk's LAN programs on a bridge (br-lan, podman0), and on a device without
@@ -62,7 +65,11 @@ LAN_CLIENTS = ("client-a", "client-b")
 # its debug lines (the test configuration turns them on, and they bury the rest),
 # the kernel's storage messages (a full or failing overlay shows there), the
 # ISP's log.
-CLIENT_STATE = (("ip", "addr", "show", "dev", "eth0"), ("ip", "-4", "route"), ("ip", "-6", "route"))
+CLIENT_STATE = (
+    ("ip", "addr", "show", "dev", "eth0"),
+    ("ip", "-4", "route"),
+    ("ip", "-6", "route"),
+)
 ROUTER_STATE = (
     "ifstatus wan",
     "ifstatus wan6",
@@ -109,7 +116,9 @@ def proxy_config(proxied: Sequence[str] = PROXIED, domains: Sequence[str] = ()) 
     leaves the route of a new direct UDP flow open until honk has seen its first
     packet, which waits in honk's queue (NFQUEUE) for honk's decision.
     """
-    addresses = ", ".join(f"'{address}'" if ":" in address else address for address in proxied)
+    addresses = ", ".join(
+        f"'{address}'" if ":" in address else address for address in proxied
+    )
     rule = "".join(f"domain(suffix: {domain}) -> proxy\n    " for domain in domains)
     rule += f"dip({addresses}) -> proxy\n    " if proxied else ""
     return f"""\
@@ -220,9 +229,15 @@ def _usable_addresses(shown: str) -> tuple[str, str] | None:
     (no longer tentative); before, no connection can take it as its source.
     """
     lines = shown.splitlines()
-    addresses = [line.split()[3].split("/")[0] for line in lines if " tentative " not in line]
+    addresses = [
+        line.split()[3].split("/")[0] for line in lines if " tentative " not in line
+    ]
     ipv4 = [a for a in addresses if ":" not in a]
-    ipv6 = [a for a in addresses if ":" in a and ipaddress.IPv6Address(a) in DELEGATED_PREFIX]
+    ipv6 = [
+        a
+        for a in addresses
+        if ":" in a and ipaddress.IPv6Address(a) in DELEGATED_PREFIX
+    ]
     return (ipv4[0], ipv6[0]) if ipv4 and ipv6 else None
 
 
@@ -261,7 +276,9 @@ def _session(router: Router, isp: Isp, other_than: Session | None) -> Session | 
 
 def _wait_session(router: Router, isp: Isp, other_than: Session | None) -> Session:
     return until(
-        lambda: _session(router, isp, other_than), timeout=ONLINE_TIMEOUT, what="PPP session"
+        lambda: _session(router, isp, other_than),
+        timeout=ONLINE_TIMEOUT,
+        what="PPP session",
     )
 
 
@@ -368,7 +385,10 @@ class Online:
             raise
         self.recovery = time.monotonic() - start
         until(
-            lambda: set(EINAT_RULE.findall(self.router.run("nft list ruleset"))) == {"nat", "rule"},
+            lambda: (
+                set(EINAT_RULE.findall(self.router.run("nft list ruleset")))
+                == {"nat", "rule"}
+            ),
             timeout=ONLINE_TIMEOUT,
             what="einat's firewall rules",
         )
@@ -417,7 +437,9 @@ class Online:
         (test-fidelity D10).
         """
         parts = [
-            _part(f"{name}$ {' '.join(command)}", partial(self.client(name).run, *command))
+            _part(
+                f"{name}$ {' '.join(command)}", partial(self.client(name).run, *command)
+            )
             for name in LAN_CLIENTS
             for command in CLIENT_STATE
         ]
@@ -427,7 +449,9 @@ class Online:
                 for command in ROUTER_STATE
             ]
         else:
-            parts.append(f"--- router\n(no new connection within {REACHABLE_TIMEOUT} s)")
+            parts.append(
+                f"--- router\n(no new connection within {REACHABLE_TIMEOUT} s)"
+            )
         parts += [
             _part("ISP sessions", lambda: "\n".join(map(str, self.isp.sessions()))),
             _part("ISP pppd log", partial(self.isp.log, ISP_LOG_LINES)),
@@ -475,7 +499,8 @@ def wait_proxy(router: Router, *, replacing: str = "") -> None:
             pid not in {"", replacing}
             and " " not in pid
             and hooks(router, "br-lan") == PROXY_HOOKS_L2
-            and router.returncode(f"nft list table {PROXY_NFQUEUE_TABLE} >/dev/null") == 0
+            and router.returncode(f"nft list table {PROXY_NFQUEUE_TABLE} >/dev/null")
+            == 0
             and router.returncode(f"pid={pid}; {QUEUE_OWNED}") == 0
         )
 

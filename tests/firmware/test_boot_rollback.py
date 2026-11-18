@@ -60,19 +60,24 @@ def _trial(router: Router) -> None:
 def _env_sha256(router: Router) -> str:
     """Return the checksums of both copies of the environment."""
     return ",".join(
-        region_sha256(router, BOOT_DISK, offset, offset + ENV_SIZE) for offset in ENV_COPIES
+        region_sha256(router, BOOT_DISK, offset, offset + ENV_SIZE)
+        for offset in ENV_COPIES
     )
 
 
 def _corrupt(router: Router, offset: int) -> None:
     """Overwrite the CRC and the first variables of the environment's copy at ``offset``."""
-    router.run(f"dd if=/dev/urandom of={BOOT_DISK} bs=64 seek={offset // 64} count=1 conv=fsync")
+    router.run(
+        f"dd if=/dev/urandom of={BOOT_DISK} bs=64 seek={offset // 64} count=1 conv=fsync"
+    )
 
 
 def _config(path: Path) -> dict[str, str]:
     """Return the options a Kconfig configuration sets."""
     return dict(
-        line.split("=", 1) for line in path.read_text().splitlines() if line.startswith("CONFIG_")
+        line.split("=", 1)
+        for line in path.read_text().splitlines()
+        if line.startswith("CONFIG_")
     )
 
 
@@ -96,7 +101,9 @@ def test_boot_slot_b(router: Router) -> None:
     setenv(router, boot_slot="b")
     router.reboot()
     assert slot(router) == "b"
-    root = router.run("sed -n 's/.*root=PARTUUID=\\([0-9a-f-]*\\).*/\\1/p' /proc/cmdline")
+    root = router.run(
+        "sed -n 's/.*root=PARTUUID=\\([0-9a-f-]*\\).*/\\1/p' /proc/cmdline"
+    )
     assert root.endswith("-04")
     assert router.run("awk '$2 == \"/rom\" { print $1 }' /proc/mounts") in {
         "/dev/root",
@@ -118,7 +125,11 @@ def test_corrupted_environment_boots_slot_a(router: Router) -> None:
     assert slot(router) == "a"
 
 
-@spec(CAPABILITY, "Slot selection from a persistent variable", "Environment write cut short")
+@spec(
+    CAPABILITY,
+    "Slot selection from a persistent variable",
+    "Environment write cut short",
+)
 def test_cut_short_write_keeps_the_previous_state(router: Router) -> None:
     running = slot(router)
     _trial(router)
@@ -129,7 +140,10 @@ def test_cut_short_write_keeps_the_previous_state(router: Router) -> None:
     router.reboot()
     # The trial as it was before: counted on, on the same slot.
     assert slot(router) == running
-    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == ("1", "1")
+    assert (getenv(router, "upgrade_available"), getenv(router, "bootcount")) == (
+        "1",
+        "1",
+    )
 
 
 @spec(
@@ -140,7 +154,9 @@ def test_cut_short_write_keeps_the_previous_state(router: Router) -> None:
 def test_the_environment_is_where_the_bootloader_names_it(router: Router) -> None:
     named = re.search(r"(?:^| )orbyt\.env=(\S+)", router.run("cat /proc/cmdline"))
     assert named is not None
-    copies = [tuple(int(part, 16) for part in copy.split("@")) for copy in named[1].split(",")]
+    copies = [
+        tuple(int(part, 16) for part in copy.split("@")) for copy in named[1].split(",")
+    ]
     assert copies == [(ENV_SIZE, offset) for offset in ENV_COPIES]
     configured = [
         (device, int(offset, 16), int(size, 16))
@@ -185,7 +201,9 @@ def test_no_upgrade_without_the_bootloader_s_environment(
     "The system writes the environment where the bootloader reads it",
     "The environment at the first boot script",
 )
-def test_the_first_boot_script_reads_the_environment(router: Router, upgrade_image: Path) -> None:
+def test_the_first_boot_script_reads_the_environment(
+    router: Router, upgrade_image: Path
+) -> None:
     other = "b" if slot(router) == "a" else "a"
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
@@ -213,8 +231,14 @@ def test_stored_boot_command_is_ignored(router: Router) -> None:
     assert "orbyt-hijacked" not in console.text(since)
 
 
-@spec(CAPABILITY, "Trial boot counting and automatic rollback", "New slot fails repeatedly")
-def test_rollback_after_three_unconfirmed_boots(router: Router, upgrade_image: Path) -> None:
+@spec(
+    CAPABILITY,
+    "Trial boot counting and automatic rollback",
+    "New slot fails repeatedly",
+)
+def test_rollback_after_three_unconfirmed_boots(
+    router: Router, upgrade_image: Path
+) -> None:
     # The new slot inherits a configuration that keeps its web server off the LAN,
     # so its health check fails every time, quickly.
     router.run(
@@ -230,13 +254,20 @@ def test_rollback_after_three_unconfirmed_boots(router: Router, upgrade_image: P
     router.wait_ssh()
     router.wait_ready()
     assert slot(router) == "a"
-    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == ("a", "0")
+    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (
+        "a",
+        "0",
+    )
     assert getenv(router, "bootcount") == "0"
     # The failed slot booted exactly bootlimit times after the upgrade.
     assert len(re.findall(r"orbyt\.slot=b", console.text(since))) == BOOT_LIMIT
 
 
-@spec(CAPABILITY, "Hangs and panics become reboots", "A boot script hangs during a trial boot")
+@spec(
+    CAPABILITY,
+    "Hangs and panics become reboots",
+    "A boot script hangs during a trial boot",
+)
 def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> None:
     running = slot(router)
     other = "b" if running == "a" else "a"
@@ -262,7 +293,10 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
     router.wait_ssh()
     router.wait_ready()
     assert slot(router) == running
-    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (running, "0")
+    assert (getenv(router, "boot_slot"), getenv(router, "upgrade_available")) == (
+        running,
+        "0",
+    )
     text = console.text(since)
     assert len(re.findall(rf"orbyt\.slot={other}", text)) == BOOT_LIMIT
     reboots = re.findall(rf"orbyt-trial: slot {other}: .*; rebooting", text)
@@ -270,7 +304,9 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
 
 
 @spec(
-    CAPABILITY, "Trial boot counting and automatic rollback", "No counting during normal operation"
+    CAPABILITY,
+    "Trial boot counting and automatic rollback",
+    "No counting during normal operation",
 )
 def test_confirmed_boot_writes_nothing(router: Router) -> None:
     assert getenv(router, "upgrade_available") in {None, "0"}
@@ -279,7 +315,11 @@ def test_confirmed_boot_writes_nothing(router: Router) -> None:
     assert (_env_sha256(router), getenv(router, "bootcount")) == before
 
 
-@spec(CAPABILITY, "Trial boot counting and automatic rollback", "Current slot fails to load")
+@spec(
+    CAPABILITY,
+    "Trial boot counting and automatic rollback",
+    "Current slot fails to load",
+)
 def test_fallback_within_one_power_cycle(router: Router) -> None:
     emulator = router.emulator
     router.run(f"mount {partition(3)} /mnt && rm /mnt/kernel.img && umount /mnt")
@@ -288,7 +328,9 @@ def test_fallback_within_one_power_cycle(router: Router) -> None:
     assert slot(router) == "a"
     assert getenv(router, "boot_slot") == "b"
     # With neither slot loadable U-Boot gives up at its prompt, and stays there.
-    router.run(f"mount {partition(1)} /mnt && rm /mnt/kernel.img && umount /mnt && sync")
+    router.run(
+        f"mount {partition(1)} /mnt && rm /mnt/kernel.img && umount /mnt && sync"
+    )
     since = emulator.console.mark()
     router.detach("sleep 1; reboot")
     emulator.console.wait_for(
@@ -314,7 +356,11 @@ def test_panic_reboots_and_counts(router: Router) -> None:
     assert getenv(router, "bootcount") == "1"
 
 
-@spec(CAPABILITY, "Hangs and panics become reboots", "Userspace stops feeding the watchdog")
+@spec(
+    CAPABILITY,
+    "Hangs and panics become reboots",
+    "Userspace stops feeding the watchdog",
+)
 def test_watchdog_resets_a_hung_userspace(router: Router) -> None:
     _trial(router)
     previous_boot = router.boot_id()
@@ -347,25 +393,33 @@ def test_watchdog_chain_configuration(
 
 
 @spec(
-    CAPABILITY, "Same slot logic on the device and in the emulator", "Compare the two bootloaders"
+    CAPABILITY,
+    "Same slot logic on the device and in the emulator",
+    "Compare the two bootloaders",
 )
 def test_same_logic_in_both_bootloaders(
     board: Board, build_output: Path, emulation_dir: Path, tmp_path: Path
 ) -> None:
     binary, dtb = _board_uboot(emulation_dir, tmp_path)
     shipped = default_environment(binary.read_bytes(), "orbyt_boot")
-    qemu = default_environment((build_output / "u-boot-qemu.bin").read_bytes(), "orbyt_boot")
+    qemu = default_environment(
+        (build_output / "u-boot-qemu.bin").read_bytes(), "orbyt_boot"
+    )
     shared = _names(UBOOT_DIR / "orbyt-ab.env") | set(LOGIC)
     constants = _names(UBOOT_DIR / f"board-{board.id}.env")
     assert constants == _names(UBOOT_DIR / "board-qemu.env")
-    assert {name: shipped[name] for name in shared} == {name: qemu[name] for name in shared}
+    assert {name: shipped[name] for name in shared} == {
+        name: qemu[name] for name in shared
+    }
     assert constants <= shipped.keys() & qemu.keys()
     # Each keeps both copies of its environment at the shared offsets of the MMC
     # device its constants boot from...
     for name, environment in (("u-boot.config", shipped), ("u-boot-qemu.config", qemu)):
         config = _config(build_output / name)
         assert config.get("CONFIG_ENV_IS_IN_MMC") == "y", name
-        assert int(config["CONFIG_ENV_MMC_DEVICE_INDEX"]) == int(environment["orbyt_mmc"]), name
+        assert int(config["CONFIG_ENV_MMC_DEVICE_INDEX"]) == int(
+            environment["orbyt_mmc"]
+        ), name
         assert config.get("CONFIG_ENV_REDUNDANT") == "y", name
         offsets = (config["CONFIG_ENV_OFFSET"], config["CONFIG_ENV_OFFSET_REDUND"])
         assert tuple(int(offset, 16) for offset in offsets) == ENV_COPIES, name
@@ -376,6 +430,8 @@ def test_same_logic_in_both_bootloaders(
     # ...which the board's device tree makes its boot disk's controller: an eMMC
     # is soldered on, an SD card is not.
     assert run("fdtget", str(dtb), "/", "compatible").split()[0] == board.board_name
-    controller = run("fdtget", str(dtb), "/aliases", f"mmc{shipped['orbyt_mmc']}").strip()
+    controller = run(
+        "fdtget", str(dtb), "/aliases", f"mmc{shipped['orbyt_mmc']}"
+    ).strip()
     properties = run("fdtget", "-p", str(dtb), controller).split()
     assert ("non-removable" in properties) == (board.boot_disk == "emmc"), controller

@@ -56,8 +56,13 @@ def test_slot_b_boots(router: Router) -> None:
 @spec(CAPABILITY, "Single-slot upgrade image", "Inspect upgrade image contents")
 def test_upgrade_image_holds_one_slot(upgrade_image: Path) -> None:
     # gzip stops at the end of its stream; the fwtool metadata after it is ignored.
-    with gzip.open(upgrade_image) as stream, tarfile.open(fileobj=stream, mode="r|") as archive:
-        members = {member.name.split("/", 1)[-1] for member in archive if member.isfile()}
+    with (
+        gzip.open(upgrade_image) as stream,
+        tarfile.open(fileobj=stream, mode="r|") as archive,
+    ):
+        members = {
+            member.name.split("/", 1)[-1] for member in archive if member.isfile()
+        }
     assert members == {"CONTROL", "kernel", "root"}
 
 

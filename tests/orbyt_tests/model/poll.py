@@ -7,7 +7,9 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 
-def until[T](probe: Callable[[], T | None], *, timeout: float, what: str, every: float = 1) -> T:
+def until[T](
+    probe: Callable[[], T | None], *, timeout: float, what: str, every: float = 1
+) -> T:
     """Call ``probe`` until it answers with content; return that answer.
 
     An empty answer is no answer yet, as Python's truth testing reads it: None,

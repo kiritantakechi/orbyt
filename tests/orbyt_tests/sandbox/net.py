@@ -187,13 +187,21 @@ UPSTREAM = (
                 f"--address=/any.example.net/{DIRECT_TARGET[0]}",
                 f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
                 "--host-record=proxied.example.net,{},{}".format(*PROXIED_TARGET),
-                *(f"--host-record={name},{address}" for name, address in internet.SERVERS),
+                *(
+                    f"--host-record={name},{address}"
+                    for name, address in internet.SERVERS
+                ),
             ),
             *(("iperf3", "--server", "--port", str(port)) for port in IPERF_PORTS),
             ("registry", "serve", "{workdir}/registry.yml"),
             ("headscale", "serve", "--config", "{workdir}/headscale.yaml"),
             (
-                *(sys.executable, "-m", "orbyt_tests.sandbox.releases", "{workdir}/releases"),
+                *(
+                    sys.executable,
+                    "-m",
+                    "orbyt_tests.sandbox.releases",
+                    "{workdir}/releases",
+                ),
                 *("--address", internet.RELEASES[1], "--name", internet.RELEASES[0]),
                 "--certificate={workdir}/../pki/server.crt",
                 "--key={workdir}/../pki/server.key",
@@ -206,7 +214,8 @@ UPSTREAM = (
             Port(
                 "br-inet",
                 addresses=tuple(
-                    f"{address}/{length}" for address, length in zip(PROXY, (24, 64), strict=True)
+                    f"{address}/{length}"
+                    for address, length in zip(PROXY, (24, 64), strict=True)
                 ),
             ),
         ),
@@ -303,7 +312,9 @@ def topology(board: Board) -> Topology:
 
 def ip(*args: str) -> str:
     """Run ``ip`` in the sandbox's own namespace and return its output."""
-    return subprocess.run(["ip", *args], check=True, capture_output=True, text=True).stdout
+    return subprocess.run(
+        ["ip", *args], check=True, capture_output=True, text=True
+    ).stdout
 
 
 class Netns(AbstractContextManager["Netns"]):
@@ -339,16 +350,24 @@ class Netns(AbstractContextManager["Netns"]):
         """Run a command inside the namespace and return its output; errors show stderr."""
         try:
             result = subprocess.run(
-                self.argv(*command), check=True, capture_output=True, text=True, timeout=timeout
+                self.argv(*command),
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=timeout,
             )
         except subprocess.CalledProcessError as error:
             error.add_note(f"{self.name}: {error.stderr.strip()}")
             raise
         return result.stdout
 
-    def spawn(self, *command: str, stdout: int | None = None) -> subprocess.Popen[bytes]:
+    def spawn(
+        self, *command: str, stdout: int | None = None
+    ) -> subprocess.Popen[bytes]:
         """Start a long-running command inside the namespace (``stdout``: e.g. PIPE)."""
-        return subprocess.Popen(self.argv(*command), stdin=subprocess.DEVNULL, stdout=stdout)
+        return subprocess.Popen(
+            self.argv(*command), stdin=subprocess.DEVNULL, stdout=stdout
+        )
 
     def probe(self, *args: str, timeout: float = 30) -> netprobe.Seen:
         """Run a netprobe client inside the namespace and return what it printed."""
@@ -424,7 +443,9 @@ class Network(AbstractContextManager["Network"]):
         for name in ("passwd", "group", "ppp", "hosts"):
             subprocess.run(["mount", "--bind", etc / name, f"/etc/{name}"], check=True)
         if Path("/var/run/nscd/socket").exists():
-            subprocess.run(["mount", "-t", "tmpfs", "tmpfs", "/var/run/nscd"], check=True)
+            subprocess.run(
+                ["mount", "-t", "tmpfs", "tmpfs", "/var/run/nscd"], check=True
+            )
 
     def add(self, namespace: Namespace) -> Netns:
         """Add a namespace to the running sandbox; it lives as long as the sandbox."""
@@ -445,20 +466,46 @@ class Network(AbstractContextManager["Network"]):
 
     def _connect(self, netns: Netns, device: str, port: Port) -> None:
         outside = f"v{device[-1]}-{netns.name}"
-        ip("link", "add", outside, "type", "veth", "peer", "name", device, "netns", str(netns.pid))
+        ip(
+            "link",
+            "add",
+            outside,
+            "type",
+            "veth",
+            "peer",
+            "name",
+            device,
+            "netns",
+            str(netns.pid),
+        )
         ip("link", "set", outside, "master", port.bridge, "up")
         netns.run("ip", "link", "set", device, "up")
         for address in port.addresses:
             # Static IPv6 addresses skip duplicate address detection: nothing else
             # in the sandbox claims them, and the tests need them at once.
             netns.run(
-                "ip", "addr", "add", address, "dev", device, *(("nodad",) if ":" in address else ())
+                "ip",
+                "addr",
+                "add",
+                address,
+                "dev",
+                device,
+                *(("nodad",) if ":" in address else ()),
             )
         if port.dhcp:
             self._dhcp[netns.name] = self._daemon(
                 netns,
                 (
-                    *("udhcpc", "-f", "-i", device, "-s", str(UDHCPC_SCRIPT), "-A", "3"),
+                    *(
+                        "udhcpc",
+                        "-f",
+                        "-i",
+                        device,
+                        "-s",
+                        str(UDHCPC_SCRIPT),
+                        "-A",
+                        "3",
+                    ),
                     *("-x", f"hostname:{netns.name}"),
                 ),
             )

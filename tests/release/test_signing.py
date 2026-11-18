@@ -65,7 +65,9 @@ def _jobs() -> dict[str, tuple[str, dict[str, Any]]]:
 @spec(CAPABILITY, "Build and signing are isolated", "Check build job permissions")
 def test_only_the_sign_job_sees_the_keys() -> None:
     jobs = _jobs()
-    holders = {name for name, (text, _) in jobs.items() if any(s in text for s in SECRETS)}
+    holders = {
+        name for name, (text, _) in jobs.items() if any(s in text for s in SECRETS)
+    }
     assert holders == {"build/sign"}
     environments = {name for name, (_, job) in jobs.items() if job.get("environment")}
     assert environments == {"build/sign"}
@@ -159,7 +161,9 @@ def test_each_build_is_signed_as_its_artifact_s_board(
 
 
 @spec(CAPABILITY, "Signing targets", "Manifest that names a path outside the build")
-@pytest.mark.parametrize("name", ["../outside/packages.adb", "targets/../../outside/packages.adb"])
+@pytest.mark.parametrize(
+    "name", ["../outside/packages.adb", "targets/../../outside/packages.adb"]
+)
 def test_a_file_out_of_the_build_is_not_signed(
     build_output: Path, release_keys: Keys, tmp_path: Path, name: str
 ) -> None:
@@ -187,7 +191,11 @@ def test_only_the_files_the_manifest_lists_are_signed(
     (build / "targets" / "unlisted-factory.img.gz").write_bytes(b"unlisted")
     signed = sign(build, tmp_path / "signed", release_keys)
     listed = read_json(build_output / MANIFEST_FILE, Manifest).files
-    held = {path.relative_to(signed).as_posix() for path in signed.rglob("*") if path.is_file()}
+    held = {
+        path.relative_to(signed).as_posix()
+        for path in signed.rglob("*")
+        if path.is_file()
+    }
     assert held == listed.keys() | SIGNING
 
 
@@ -195,7 +203,15 @@ def _resigned(index: Path, path: Path, keys: Keys) -> Path:
     """Copy a package index to ``path``, signed with ``keys``' apk key alone."""
     shutil.copy(index, path)
     subprocess.run(
-        ["apk", "--allow-untrusted", "--sign-key", keys.apk, "adbsign", "--reset-signatures", path],
+        [
+            "apk",
+            "--allow-untrusted",
+            "--sign-key",
+            keys.apk,
+            "adbsign",
+            "--reset-signatures",
+            path,
+        ],
         check=True,
         capture_output=True,
     )
@@ -212,7 +228,9 @@ def _verified(router: Router, index: Path) -> bool:
 def test_the_router_reads_the_signed_index(router: Router, signed_repo: Path) -> None:
     # The router trusts the session's release keys alone (conftest).
     assert _verified(router, signed_repo / INDEX)
-    listed = router.run(f"apk --repositories-file /dev/null --repository {ON_ROUTER} search kmod-")
+    listed = router.run(
+        f"apk --repositories-file /dev/null --repository {ON_ROUTER} search kmod-"
+    )
     assert "kmod-" in listed
 
 
@@ -221,7 +239,9 @@ def test_the_image_trusts_only_the_release_keys(
     emulation_dir: Path, emulation_source: EmulationSource, tmp_path: Path
 ) -> None:
     if emulation_source.build.name != "ci":
-        pytest.skip("only the release build (ci profile) carries the release keys (design D1)")
+        pytest.skip(
+            "only the release build (ci profile) carries the release keys (design D1)"
+        )
     root = extract_root(emulation_dir / "disk.raw", tmp_path / "root")
     for anchors in (APK_KEYS, FIRMWARE_KEYS):
         present = sorted(key.name for key in (root / anchors).iterdir())
@@ -234,7 +254,9 @@ def test_an_index_of_another_key_is_refused(
     router: Router, signed_repo: Path, tmp_path: Path
 ) -> None:
     other = Keys.make(tmp_path / "other", "other")
-    assert not _verified(router, _resigned(signed_repo / INDEX, tmp_path / "other.adb", other))
+    assert not _verified(
+        router, _resigned(signed_repo / INDEX, tmp_path / "other.adb", other)
+    )
     refused = router.run(
         f"apk --repositories-file /dev/null --repository {ON_ROUTER} search kmod- 2>&1 || true"
     )

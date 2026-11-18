@@ -39,7 +39,9 @@ def pytest_runtest_makereport(
     report = yield
     if report.when in {"call", "teardown"} and report.failed:
         funcargs = getattr(item, "funcargs", {})
-        online = next((value for value in funcargs.values() if isinstance(value, Online)), None)
+        online = next(
+            (value for value in funcargs.values() if isinstance(value, Online)), None
+        )
         if online is not None:
             report.sections.append(("datapath", online.state()))
     return report

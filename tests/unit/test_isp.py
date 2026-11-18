@@ -24,7 +24,9 @@ UP_TIMEOUT = 30
 
 
 def _in_pool(address: str) -> bool:
-    offset = int(ipaddress.IPv4Address(address)) - int(ipaddress.IPv4Address(POOL_START))
+    offset = int(ipaddress.IPv4Address(address)) - int(
+        ipaddress.IPv4Address(POOL_START)
+    )
     return 0 <= offset < POOL_SIZE
 
 
@@ -47,7 +49,9 @@ class Dial:
 
     def _address(self) -> str | None:
         try:
-            shown = self.dialer.run("ip", "-4", "-o", "addr", "show", "dev", "ppp0").split()
+            shown = self.dialer.run(
+                "ip", "-4", "-o", "addr", "show", "dev", "ppp0"
+            ).split()
         except subprocess.CalledProcessError:  # no ppp0 yet
             return None
         return shown[3].split("/")[0] if "inet" in shown else None
@@ -82,7 +86,9 @@ def dial(dialer: Netns) -> Iterator[Callable[[], Dial]]:
         session.pppd.wait()
 
 
-def test_dial_gets_a_pool_address_and_a_prefix(dial: Callable[[], Dial], isp: Isp) -> None:
+def test_dial_gets_a_pool_address_and_a_prefix(
+    dial: Callable[[], Dial], isp: Isp
+) -> None:
     session = dial()
     assert _in_pool(session.address)
     assert isp.session(session.address).interface.startswith("ppp")

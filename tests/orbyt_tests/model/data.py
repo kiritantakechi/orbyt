@@ -64,7 +64,9 @@ def write_json(path: Path, record: BaseModel) -> None:
     the one it replaces keeps what that one held.
     """
     staged = path.with_name(f".{path.name}.new")
-    staged.write_text(record.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8")
+    staged.write_text(
+        record.model_dump_json(indent=2, exclude_none=True) + "\n", encoding="utf-8"
+    )
     staged.replace(path)
 
 
@@ -78,7 +80,9 @@ def read_toml[M: BaseModel](path: Path, table: str, model: type[M]) -> list[M]:
     except tomllib.TOMLDecodeError as error:
         raise DataError([f"{path}: {error}"]) from None
     if others := sorted(set(document) - {table}):
-        raise DataError([f"{path}: {key}: not an entry of [[{table}]]" for key in others])
+        raise DataError(
+            [f"{path}: {key}: not an entry of [[{table}]]" for key in others]
+        )
     entries = document.get(table, [])
     if not isinstance(entries, list):
         raise DataError([f"{path}: {table}: not an array of tables ([[{table}]])"])

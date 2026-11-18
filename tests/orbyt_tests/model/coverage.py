@@ -33,7 +33,12 @@ from pydantic import BaseModel, ConfigDict
 
 from orbyt_tests.model.data import read_toml
 from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
-from orbyt_tests.model.specs import Scenario, ScenarioId, capability_of_module, load_scenarios
+from orbyt_tests.model.specs import (
+    Scenario,
+    ScenarioId,
+    capability_of_module,
+    load_scenarios,
+)
 
 OPENSPEC_DIR = REPO_DIR / "openspec"
 ELSEWHERE_FILE = "verified-elsewhere.toml"
@@ -118,7 +123,9 @@ def load_elsewhere(tests_dir: Path = TESTS_DIR) -> dict[ScenarioId, str]:
     path = tests_dir / ELSEWHERE_FILE
     if not path.exists():
         return {}
-    return {entry.id: entry.by for entry in read_toml(path, "scenario", VerifiedElsewhere)}
+    return {
+        entry.id: entry.by for entry in read_toml(path, "scenario", VerifiedElsewhere)
+    }
 
 
 def structure_errors(tests: list[TestRef]) -> list[str]:
@@ -135,7 +142,9 @@ def structure_errors(tests: list[TestRef]) -> list[str]:
         elif len(test.specs) != 1:
             errors.append(f"{test}: needs exactly one @spec, has {len(test.specs)}")
         elif test.specs[0].capability != capability:
-            errors.append(f"{test}: @spec names {test.specs[0].capability}, module is {capability}")
+            errors.append(
+                f"{test}: @spec names {test.specs[0].capability}, module is {capability}"
+            )
     return errors
 
 
@@ -144,7 +153,9 @@ def _sources(tests_dir: Path, suffix: str) -> list[Path]:
     return [
         path
         for path in sorted(tests_dir.rglob(f"*{suffix}"))
-        if not any(part.startswith(".venv") or part == "__pycache__" for part in path.parts)
+        if not any(
+            part.startswith(".venv") or part == "__pycache__" for part in path.parts
+        )
     ]
 
 
@@ -227,7 +238,9 @@ def coverage_errors(
                 errors.append(f"{test}: @spec names no scenario: {scenario_id}")
     for scenario_id, found in sorted(by_scenario.items()):
         if len(found) > 1:
-            errors.append(f"{scenario_id}: {len(found)} tests: {', '.join(map(str, found))}")
+            errors.append(
+                f"{scenario_id}: {len(found)} tests: {', '.join(map(str, found))}"
+            )
     for scenario_id, by in sorted(elsewhere.items()):
         if scenario_id not in known:
             errors.append(f"verified-elsewhere.toml names no scenario: {scenario_id}")
@@ -238,7 +251,9 @@ def coverage_errors(
 
 def main(argv: list[str] | None = None) -> int:
     """Print the coverage report; exit 1 on structural errors or uncovered required scenarios."""
-    parser = argparse.ArgumentParser(prog="spec-coverage", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="spec-coverage", description=__doc__.splitlines()[0]
+    )
     parser.add_argument(
         "--change",
         action="append",
@@ -247,19 +262,27 @@ def main(argv: list[str] | None = None) -> int:
         help="require every scenario of this change to be covered (repeatable)",
     )
     parser.add_argument(
-        "--summary", action="store_true", help="print the totals instead of every scenario"
+        "--summary",
+        action="store_true",
+        help="print the totals instead of every scenario",
     )
-    parser.add_argument("--openspec", type=Path, default=OPENSPEC_DIR, help=argparse.SUPPRESS)
+    parser.add_argument(
+        "--openspec", type=Path, default=OPENSPEC_DIR, help=argparse.SUPPRESS
+    )
     parser.add_argument("--tests", type=Path, default=TESTS_DIR, help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
 
     scenarios = load_scenarios(args.openspec)
-    unknown = sorted(set(args.change) - {s.change for s in scenarios if s.change is not None})
+    unknown = sorted(
+        set(args.change) - {s.change for s in scenarios if s.change is not None}
+    )
     if unknown:
         parser.error(f"no such change with specs: {', '.join(unknown)}")
     tests = collect_tests(args.tests.resolve())
     elsewhere = load_elsewhere(args.tests)
-    errors = structure_errors(tests) + unused_modules(args.tests) + root_fixtures(args.tests)
+    errors = (
+        structure_errors(tests) + unused_modules(args.tests) + root_fixtures(args.tests)
+    )
     duplicate_errors, by_scenario = coverage_errors(scenarios, tests, elsewhere)
     errors += duplicate_errors
 
@@ -280,7 +303,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.summary:
         print(
             ", ".join(
-                f"{totals[status]} {status}" for status in ("covered", "elsewhere", "MISSING")
+                f"{totals[status]} {status}"
+                for status in ("covered", "elsewhere", "MISSING")
             )
         )
 

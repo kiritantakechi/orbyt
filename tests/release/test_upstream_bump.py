@@ -52,7 +52,9 @@ BRANCH = f"bump/{DAY}"
 PUSH_CREDENTIAL = "secrets.BUMP_PUSH_TOKEN"
 # The condition that tells a bump pull request's run in build.yml, the same in
 # every place that tests it (bump-branch-runs D3).
-BUMP_PULL_REQUEST = "github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/')"
+BUMP_PULL_REQUEST = (
+    "github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/')"
+)
 # Stand-ins for the bump's step: a date of DAY, and a gh that records its calls
 # in gh.calls, lists the pull requests that pulls holds, and creates none while
 # refuse exists.
@@ -170,7 +172,9 @@ def test_updates_make_a_pull_request(tmp_path: Path) -> None:
         assert f"| {name} | `{first[name]}` | `{head}` |" in text
         assert f"{head[:7]} {name} 3" in text
         entry = next(
-            line.split() for line in lock.read_text().splitlines() if line.startswith(name)
+            line.split()
+            for line in lock.read_text().splitlines()
+            if line.startswith(name)
         )
         assert entry[2:] == [head, _git(tmp_path / name, "log", "-1", "--format=%ct")]
 
@@ -216,9 +220,9 @@ def _github(tmp_path: Path, *, branch_commits: int = 0) -> tuple[Path, Path]:
 def _bump_steps() -> list[dict[str, Any]]:
     return cast(
         "list[dict[str, Any]]",
-        yaml.safe_load((WORKFLOWS / "bump.yml").read_text(encoding="utf-8"))["jobs"]["bump"][
-            "steps"
-        ],
+        yaml.safe_load((WORKFLOWS / "bump.yml").read_text(encoding="utf-8"))["jobs"][
+            "bump"
+        ]["steps"],
     )
 
 
@@ -236,7 +240,9 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
     ``has_token`` says whether the secret BUMP_PUSH_TOKEN is set; ``moved``
     whether upstream moved, so that there is a description.
     """
-    (step,) = [step for step in _bump_steps() if step.get("name") == "Open the pull request"]
+    (step,) = [
+        step for step in _bump_steps() if step.get("name") == "Open the pull request"
+    ]
     runner = tmp_path / "runner"
     runner.mkdir()
     (runner / "pull-request.md").write_text(
@@ -289,10 +295,16 @@ def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
     # The bot's checkout, so its push, and its gh take the secret; checkout falls
     # back on the workflow's token, which is enough when there is nothing to push.
     steps = _bump_steps()
-    (checkout,) = [step for step in steps if step.get("uses", "").startswith("actions/checkout@")]
+    (checkout,) = [
+        step for step in steps if step.get("uses", "").startswith("actions/checkout@")
+    ]
     assert checkout["with"]["token"] == f"${{{{ {PUSH_CREDENTIAL} || github.token }}}}"
     (step,) = [step for step in steps if step.get("name") == "Open the pull request"]
-    assert step["env"]["PUSH_TOKEN"] == step["env"]["GH_TOKEN"] == f"${{{{ {PUSH_CREDENTIAL} }}}}"
+    assert (
+        step["env"]["PUSH_TOKEN"]
+        == step["env"]["GH_TOKEN"]
+        == f"${{{{ {PUSH_CREDENTIAL} }}}}"
+    )
     origin, clone = _github(tmp_path)
     result, calls = _open_pull_request(tmp_path, clone, has_token=False)
     assert result.returncode != 0
@@ -308,7 +320,9 @@ def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
 
 
 @spec(CAPABILITY, "Weekly automated PR", "Bump run again")
-@pytest.mark.parametrize("pulls", ["", "7\n"], ids=["without its pull request", "with it"])
+@pytest.mark.parametrize(
+    "pulls", ["", "7\n"], ids=["without its pull request", "with it"]
+)
 def test_a_bump_run_again_keeps_the_branch(tmp_path: Path, pulls: str) -> None:
     origin, clone = _github(tmp_path, branch_commits=2)
     before = _git(origin, "rev-parse", BRANCH)
@@ -332,15 +346,25 @@ def _needs(job: dict[str, Any]) -> list[str]:
     return [needs] if isinstance(needs, str) else list(needs)
 
 
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "A commit pushed to a bump branch")
+@spec(
+    CAPABILITY,
+    "Merge only after the upgrade drill passes",
+    "A commit pushed to a bump branch",
+)
 def test_a_push_to_a_bump_branch_runs_its_build() -> None:
-    triggers = yaml.safe_load((WORKFLOWS / "build.yml").read_text(encoding="utf-8"))[True]
+    triggers = yaml.safe_load((WORKFLOWS / "build.yml").read_text(encoding="utf-8"))[
+        True
+    ]
     assert triggers["push"]["branches"] == ["main", "bump/**"]
     # The same commits run it as on a pull request.
     assert triggers["push"]["paths"] == triggers["pull_request"]["paths"]
 
 
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "The PR's own run of a bump")
+@spec(
+    CAPABILITY,
+    "Merge only after the upgrade drill passes",
+    "The PR's own run of a bump",
+)
 def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -> None:
     jobs = _build_jobs()
     # The host stage is skipped, and every job but the drill check needs it,
@@ -379,7 +403,12 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
     for bump in ("true", "false"):
         result = subprocess.run(
             ["bash", "-eo", "pipefail", "-c", step["run"]],
-            env={**os.environ, **results, "BUMP_PULL_REQUEST": bump, "HEAD_REF": BRANCH},
+            env={
+                **os.environ,
+                **results,
+                "BUMP_PULL_REQUEST": bump,
+                "HEAD_REF": BRANCH,
+            },
             capture_output=True,
             text=True,
             check=False,
@@ -439,15 +468,23 @@ def test_a_patch_that_does_not_apply_is_named(tmp_path: Path) -> None:
     assert "upstream has its change" not in result.stderr
 
 
-@spec(CAPABILITY, "Fail clearly when patches do not apply", "Upstream made a patch's change")
+@spec(
+    CAPABILITY,
+    "Fail clearly when patches do not apply",
+    "Upstream made a patch's change",
+)
 def test_a_patch_upstream_made_is_named_as_such(tmp_path: Path) -> None:
     # openwrt took our BBR patch as it is.
     result = _patch_step(
         tmp_path,
-        lambda openwrt: _git(openwrt, "apply", "--whitespace=nowarn", str(REPO / BBR_PATCH)),
+        lambda openwrt: _git(
+            openwrt, "apply", "--whitespace=nowarn", str(REPO / BBR_PATCH)
+        ),
     )
     assert result.returncode != 0
-    assert f"patch does not apply: {BBR_PATCH}: upstream has its change" in result.stderr
+    assert (
+        f"patch does not apply: {BBR_PATCH}: upstream has its change" in result.stderr
+    )
 
 
 def _factory(board: Board, *, suffix: str = "") -> str:
@@ -499,7 +536,9 @@ def _drill_base(
         (gh / "latest.error").write_text(error)
     else:
         assets = [{"name": path.name} for path in sorted((gh / "assets").iterdir())]
-        (gh / "latest.json").write_text(json.dumps({"tag_name": latest, "assets": assets}))
+        (gh / "latest.json").write_text(
+            json.dumps({"tag_name": latest, "assets": assets})
+        )
     return subprocess.run(
         [DRILL_BASE, board.id],
         capture_output=True,
@@ -513,7 +552,9 @@ def _drill_base(
     )
 
 
-def _release(root: Path, board: Board, image: bytes, *, listed: bytes | None = None) -> None:
+def _release(
+    root: Path, board: Board, image: bytes, *, listed: bytes | None = None
+) -> None:
     """Put the board's set in the stand-in's release: its manifest and factory image.
 
     The manifest lists ``listed`` (``image`` unless given) as the factory image. A
@@ -522,10 +563,14 @@ def _release(root: Path, board: Board, image: bytes, *, listed: bytes | None = N
     assets = root / "gh" / "assets"
     assets.mkdir(parents=True, exist_ok=True)
     (assets / _factory(board)).write_bytes(image)
-    (assets / _factory(board, suffix="-enterprise")).write_bytes(b"another device's image")
+    (assets / _factory(board, suffix="-enterprise")).write_bytes(
+        b"another device's image"
+    )
     digest = hashlib.sha256(image if listed is None else listed).hexdigest()
     files = {f"targets/{_factory(board)}": digest}
-    write_json(assets / f"{board.device}-{MANIFEST_FILE}", _manifest(board, RELEASED, files))
+    write_json(
+        assets / f"{board.device}-{MANIFEST_FILE}", _manifest(board, RELEASED, files)
+    )
 
 
 def _base(root: Path, board: Board) -> tuple[str, bytes]:
@@ -541,12 +586,16 @@ def _base(root: Path, board: Board) -> tuple[str, bytes]:
     assert manifest.profile == "drill-base"
     assert manifest.files == {
         f"targets/{image.name}": hashlib.sha256(image.read_bytes()).hexdigest(),
-        "u-boot-qemu.bin": hashlib.sha256(b"this build's emulator firmware").hexdigest(),
+        "u-boot-qemu.bin": hashlib.sha256(
+            b"this build's emulator firmware"
+        ).hexdigest(),
     }
     return manifest.run, image.read_bytes()
 
 
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "Drill base of each board")
+@spec(
+    CAPABILITY, "Merge only after the upgrade drill passes", "Drill base of each board"
+)
 def test_each_drill_starts_from_the_board_s_latest_release(tmp_path: Path) -> None:
     board, other = load_all()[:2]
     _release(tmp_path, board, b"the released factory image")
@@ -567,20 +616,28 @@ def test_each_drill_starts_from_the_board_s_latest_release(tmp_path: Path) -> No
     assert _base(first, board) == (THIS_BUILD, b"this build's factory image")
 
 
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "Drill base cannot be had")
+@spec(
+    CAPABILITY, "Merge only after the upgrade drill passes", "Drill base cannot be had"
+)
 @pytest.mark.parametrize("failure", ["lookup", "image"])
-def test_a_drill_base_that_cannot_be_had_stops_the_drill(failure: str, tmp_path: Path) -> None:
+def test_a_drill_base_that_cannot_be_had_stops_the_drill(
+    failure: str, tmp_path: Path
+) -> None:
     board = load_all()[0]
     if failure == "lookup":
         result = _drill_base(tmp_path, board, None, error="gh: Server Error (HTTP 502)")
         refusal = "cannot look up the latest release"
     else:
-        _release(tmp_path, board, b"a changed factory image", listed=b"the released one")
+        _release(
+            tmp_path, board, b"a changed factory image", listed=b"the released one"
+        )
         result = _drill_base(tmp_path, board, TAG)
         refusal = f"of {TAG} does not match {board.device}-manifest.json"
     assert result.returncode != 0
     assert refusal in result.stderr, result.stderr
-    assert not (tmp_path / "work" / "out" / board.id / "drill-base" / MANIFEST_FILE).exists()
+    assert not (
+        tmp_path / "work" / "out" / board.id / "drill-base" / MANIFEST_FILE
+    ).exists()
 
 
 @pytest.mark.drill
@@ -593,7 +650,11 @@ def test_the_drill_passes(drill: Drill) -> None:
 
 
 @pytest.mark.drill
-@spec(CAPABILITY, "Merge only after the upgrade drill passes", "Candidate fails the health check")
+@spec(
+    CAPABILITY,
+    "Merge only after the upgrade drill passes",
+    "Candidate fails the health check",
+)
 def test_a_failing_candidate_fails_the_drill(drill: Drill, online: Online) -> None:
     del online  # the router the drill runs on
     drill.register_failing_check()

@@ -55,7 +55,9 @@ def _cached(online: Online, name: str) -> bool:
 
 def _resolve(online: Online, name: str, **options: str) -> dict[str, object]:
     arguments = [f"--{key}={value}" for key, value in options.items()]
-    return online.client().probe("resolve", name, "--server", online.router.address, *arguments)
+    return online.client().probe(
+        "resolve", name, "--server", online.router.address, *arguments
+    )
 
 
 pytestmark = pytest.mark.usefixtures("internet_zone")
@@ -101,12 +103,21 @@ def test_the_router_answers_its_own_names(proxy: Online) -> None:
     assert not _cached(proxy, "client-b.lan")
 
 
-@spec(CAPABILITY, "Fall back to upstream DNS without the proxy", "Resolve after the proxy stops")
+@spec(
+    CAPABILITY,
+    "Fall back to upstream DNS without the proxy",
+    "Resolve after the proxy stops",
+)
 def test_resolving_goes_on_without_honk(proxy_restored: Online) -> None:
     router = proxy_restored.router
     router.run("/etc/init.d/honk stop")
-    until(lambda: router.returncode("pidof honk-core") != 0, timeout=60, what="honk gone")
-    assert _resolve(proxy_restored, _fresh()) == {"rcode": 0, "answers": [DIRECT_TARGET[0]]}
+    until(
+        lambda: router.returncode("pidof honk-core") != 0, timeout=60, what="honk gone"
+    )
+    assert _resolve(proxy_restored, _fresh()) == {
+        "rcode": 0,
+        "answers": [DIRECT_TARGET[0]],
+    }
 
 
 @spec(CAPABILITY, "Proxy DNS port not exposed", "Query the proxy's DNS port from LAN")
@@ -117,10 +128,18 @@ def test_honk_dns_port_is_closed_to_the_lan(proxy: Online) -> None:
 
 
 # The last test: its Pod and data disk stay for the rest of the module.
-@spec(CAPABILITY, "DNS to private addresses reaches its server", "Resolve a container's name")
+@spec(
+    CAPABILITY,
+    "DNS to private addresses reaches its server",
+    "Resolve a container's name",
+)
 def test_containers_resolve_through_their_network(app_pod: Online) -> None:
     router = app_pod.router
     # honk binds the container bridge, and passes its DNS to a private address.
-    until(lambda: hooks(router, "podman0") == PROXY_HOOKS_L2, timeout=60, what="honk on podman0")
+    until(
+        lambda: hooks(router, "podman0") == PROXY_HOOKS_L2,
+        timeout=60,
+        what="honk on podman0",
+    )
     answer = router.run(f"podman exec {app.CONTAINER} nslookup {app.POD} {app.GATEWAY}")
     assert app.ADDRESS in answer, answer

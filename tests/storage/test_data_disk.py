@@ -114,7 +114,9 @@ def _services(router: Router) -> dict[str, bool]:
 def _proxy_state(router: Router) -> str | None:
     """Return where the running honk keeps its state, by the database it holds open."""
     files = router.run('pid=$(pidof honk-core) && ls -l "/proc/${pid}/fd" || true')
-    return next((place for place, path in PROXY_STATE.items() if f"-> {path}" in files), None)
+    return next(
+        (place for place, path in PROXY_STATE.items() if f"-> {path}" in files), None
+    )
 
 
 def _proxy_on(router: Router, place: str) -> None:
@@ -152,12 +154,18 @@ def test_mounts(rebooted: str, pod: Online, spare: Disk) -> None:
     assert {"compress=zstd:3", "noatime", "space_cache=v2"} <= options
     assert {*SUBVOLUMES, ".snapshots"} <= subvolumes(router)
     for subvolume in SUBVOLUMES:
-        assert router.returncode(f"btrfs subvolume show {MOUNT}/{subvolume} >/dev/null") == 0
+        assert (
+            router.returncode(f"btrfs subvolume show {MOUNT}/{subvolume} >/dev/null")
+            == 0
+        )
 
     # orbyt-data init erases nothing that was not confirmed.
     spare.plug(3)
     assert initialize(router, spare, answer="no") != 0
-    assert initialize(router, spare, answer=device(router, spare).removeprefix("/dev/")) != 0
+    assert (
+        initialize(router, spare, answer=device(router, spare).removeprefix("/dev/"))
+        != 0
+    )
     assert spare.blank_still
 
 
@@ -176,7 +184,9 @@ def test_manual_snapshot(pod: Online) -> None:
     after = int(router.run("date +%s"))
     assert [path.split("/")[-2] for path in taken] == list(SNAPSHOTTED)
     for path in taken:
-        at = datetime.strptime(path.rsplit("/", 1)[1], "%Y%m%dT%H%M%SZ").replace(tzinfo=UTC)
+        at = datetime.strptime(path.rsplit("/", 1)[1], "%Y%m%dT%H%M%SZ").replace(
+            tzinfo=UTC
+        )
         assert before <= at.timestamp() <= after
         assert router.run(f"btrfs property get -ts {path} ro") == "ro=true"
     assert set(router.run("orbyt-snap list").splitlines()) >= set(taken)
@@ -189,7 +199,9 @@ def test_restore_a_file(pod: Online) -> None:
     (file,) = re.findall(r"^file=(\S+)$", commands, re.MULTILINE)
     content = f"{time.time_ns()}"
     path = f"{MOUNT}/shares/{file}"
-    router.run(f"mkdir -p {path.rsplit('/', 1)[0]} && echo {content} >{path} && orbyt-snap now")
+    router.run(
+        f"mkdir -p {path.rsplit('/', 1)[0]} && echo {content} >{path} && orbyt-snap now"
+    )
     router.run(f"rm {path}")
     router.run(commands)
     assert router.run(f"cat {path}") == content
@@ -215,14 +227,18 @@ def test_expired_snapshots_are_pruned(pod: Online) -> None:
             # Half a minute before the daily job (03:17). cron starts afresh at the
             # new time and runs a job only when its minute begins, never late: a
             # restart still running at 03:17:00 on a busy emulator would miss it.
-            router.run(f"date -u -s '{date} 03:16:30' >/dev/null && /etc/init.d/cron restart")
+            router.run(
+                f"date -u -s '{date} 03:16:30' >/dev/null && /etc/init.d/cron restart"
+            )
             until(
                 lambda d=day: d in _kept(router).get("shares", []),
                 timeout=CRON_TIMEOUT,
                 what=f"the daily job of {date}",
             )
     finally:
-        router.run(f"date -u -s @{int(time.time())} >/dev/null && /etc/init.d/cron restart")
+        router.run(
+            f"date -u -s @{int(time.time())} >/dev/null && /etc/init.d/cron restart"
+        )
     assert _kept(router) == dict.fromkeys(SNAPSHOTTED, days[-KEEP_DAYS:])
 
 
@@ -237,7 +253,11 @@ def test_moves_to_another_port(pod: Online, data_disk: Disk) -> None:
     assert {*SUBVOLUMES, ".snapshots"} <= subvolumes(pod.router)
 
 
-@spec(CAPABILITY, "Dependent services wait for the mount", "Data disk removed while in use")
+@spec(
+    CAPABILITY,
+    "Dependent services wait for the mount",
+    "Data disk removed while in use",
+)
 def test_nothing_written_without_the_disk_reaches_the_boot_disk(
     pod: Online, data_disk: Disk
 ) -> None:
@@ -245,16 +265,23 @@ def test_nothing_written_without_the_disk_reaches_the_boot_disk(
     announce(router, data_disk, "remove")
     try:
         until(
-            lambda: mount_options(router) is None, timeout=PLUG_TIMEOUT, what=f"{MOUNT} unmounted"
+            lambda: mount_options(router) is None,
+            timeout=PLUG_TIMEOUT,
+            what=f"{MOUNT} unmounted",
         )
         # As a podman command that outlived the disk recreates its graph root.
-        router.run(f"mkdir -p {MOUNT}/containers/storage && touch {MOUNT}/containers/storage/file")
+        router.run(
+            f"mkdir -p {MOUNT}/containers/storage && touch {MOUNT}/containers/storage/file"
+        )
         assert boot_disk_entries(router) == []
     finally:
         announce(router, data_disk, "add")
         wait_mounted(router)
     for subvolume in SUBVOLUMES:
-        assert router.returncode(f"btrfs subvolume show {MOUNT}/{subvolume} >/dev/null") == 0
+        assert (
+            router.returncode(f"btrfs subvolume show {MOUNT}/{subvolume} >/dev/null")
+            == 0
+        )
 
 
 @pytest.fixture(scope="module")
@@ -288,8 +315,12 @@ def test_boot_without_the_data_disk(without_disk: Online) -> None:
     assert json.loads(router.run(f"cat {HEALTH}"))["result"] == "pass"
 
 
-@spec(CAPABILITY, "The proxy's state follows the data disk", "Boot without the data disk")
-def test_the_proxy_keeps_its_state_in_ram_without_the_data_disk(without_disk: Online) -> None:
+@spec(
+    CAPABILITY, "The proxy's state follows the data disk", "Boot without the data disk"
+)
+def test_the_proxy_keeps_its_state_in_ram_without_the_data_disk(
+    without_disk: Online,
+) -> None:
     router = without_disk.router
     _proxy_on(router, "RAM")
     assert without_disk.client().probe("tcp", PROXIED_TARGET[0])["address"] == PROXY[0]
@@ -306,7 +337,11 @@ def test_other_disk_is_not_mounted(without_disk: Online, spare: Disk) -> None:
     removed(router, spare)
     spare.plug(3)
     path = device(router, spare)
-    until(lambda: path in router.run("block info"), timeout=PLUG_TIMEOUT, what=f"{path} probed")
+    until(
+        lambda: path in router.run("block info"),
+        timeout=PLUG_TIMEOUT,
+        what=f"{path} probed",
+    )
     router.run("block mount")
     assert mount_options(router) is None
     assert router.returncode(f"grep -q '^{path} ' /proc/mounts") != 0
@@ -328,8 +363,14 @@ def test_data_disk_mounts_late(without_disk: Online, data_disk: Disk) -> None:
     assert boot_disk_entries(router) == []
 
 
-@spec(CAPABILITY, "The proxy's state follows the data disk", "Data disk mounted and unmounted")
-def test_the_proxy_s_state_follows_the_data_disk(without_disk: Online, data_disk: Disk) -> None:
+@spec(
+    CAPABILITY,
+    "The proxy's state follows the data disk",
+    "Data disk mounted and unmounted",
+)
+def test_the_proxy_s_state_follows_the_data_disk(
+    without_disk: Online, data_disk: Disk
+) -> None:
     router = without_disk.router
     if data_disk.port is None:
         data_disk.plug(1)
@@ -338,7 +379,9 @@ def test_the_proxy_s_state_follows_the_data_disk(without_disk: Online, data_disk
     announce(router, data_disk, "remove")
     try:
         until(
-            lambda: mount_options(router) is None, timeout=PLUG_TIMEOUT, what=f"{MOUNT} unmounted"
+            lambda: mount_options(router) is None,
+            timeout=PLUG_TIMEOUT,
+            what=f"{MOUNT} unmounted",
         )
         _proxy_on(router, "RAM")
         assert boot_disk_entries(router) == []

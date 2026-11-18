@@ -24,7 +24,10 @@ if [ "${3:-}" = --jq ]; then jq -r "$4" "${file}"; else cat "${file}"; fi
 
 
 def _settings(
-    *, reviewers: int = 1, branches: tuple[str, ...] = ("main", "bump/*"), has_push: bool = True
+    *,
+    reviewers: int = 1,
+    branches: tuple[str, ...] = ("main", "bump/*"),
+    has_push: bool = True,
 ) -> Any:  # noqa: ANN401 (JSON)
     """Return the API's answers for a repository set up as the release pipeline needs.
 
@@ -41,7 +44,10 @@ def _settings(
         },
         f"{base}/environments/release-signing": {
             "protection_rules": [
-                {"type": "required_reviewers", "reviewers": [{"type": "User"}] * reviewers}
+                {
+                    "type": "required_reviewers",
+                    "reviewers": [{"type": "User"}] * reviewers,
+                }
             ]
         },
         f"{base}/environments/release-signing/deployment-branch-policies": {
@@ -51,7 +57,10 @@ def _settings(
             {
                 "type": "required_status_checks",
                 "parameters": {
-                    "required_status_checks": [{"context": "check"}, {"context": "upgrade-drill"}]
+                    "required_status_checks": [
+                        {"context": "check"},
+                        {"context": "upgrade-drill"},
+                    ]
                 },
             }
         ],

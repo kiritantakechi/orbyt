@@ -1,6 +1,11 @@
 """The patch checks of tests/orbyt_tests/model/patches.py, on made-up patches and write-ups."""
 
-from orbyt_tests.model.patches import unstated, upstream_status, without_patch, without_write_up
+from orbyt_tests.model.patches import (
+    unstated,
+    upstream_status,
+    without_patch,
+    without_write_up,
+)
 
 
 def test_the_trailer_is_read_from_either_kind_of_patch() -> None:
@@ -24,7 +29,11 @@ def test_the_checks_name_what_is_wrong() -> None:
         "submitted.patch": "Submitted [https://example.org/pull/1]",
         "local.patch": "Inappropriate [this project only]",
     }
-    titles = {"Submitted": "submitted.patch", "Stray": "gone.patch", "Local": "local.patch"}
+    titles = {
+        "Submitted": "submitted.patch",
+        "Stray": "gone.patch",
+        "Local": "local.patch",
+    }
     assert unstated(patches) == ["no-trailer.patch", "unknown.patch"]
     assert without_write_up(patches, titles) == ["pending.patch"]
     assert without_patch(patches, titles) == ["Stray", "Local"]

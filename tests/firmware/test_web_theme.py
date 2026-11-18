@@ -63,8 +63,14 @@ def _uncommented(css: str) -> str:
 def _classes(css: str) -> set[str]:
     """Return the class names in the selectors of a stylesheet."""
     text = _uncommented(css)
-    selectors = (sel for sel in re.findall(r"([^{}]+)\{", text) if not sel.lstrip().startswith("@"))
-    return {name for sel in selectors for name in re.findall(r"\.(-?[_a-zA-Z][\w-]*)", sel)}
+    selectors = (
+        sel
+        for sel in re.findall(r"([^{}]+)\{", text)
+        if not sel.lstrip().startswith("@")
+    )
+    return {
+        name for sel in selectors for name in re.findall(r"\.(-?[_a-zA-Z][\w-]*)", sel)
+    }
 
 
 def _glyphs(css: str) -> dict[str, str]:
@@ -113,7 +119,9 @@ def test_a_fresh_install_uses_the_theme(router: Router) -> None:
     assert f"{THEME}/cascade.css" in page, page[:400]
 
 
-@spec(CAPABILITY, "The image's own theme by default", "An upgrade that brings the theme")
+@spec(
+    CAPABILITY, "The image's own theme by default", "An upgrade that brings the theme"
+)
 def test_an_upgrade_that_brings_the_theme_makes_it_the_default(router: Router) -> None:
     # A configuration kept from an image without the theme: the stock theme chosen,
     # the image's unknown. The first boot of the new image runs its uci-defaults.
@@ -124,8 +132,14 @@ def test_an_upgrade_that_brings_the_theme_makes_it_the_default(router: Router) -
     assert router.run("uci get luci.main.mediaurlbase") == THEME
 
 
-@spec(CAPABILITY, "The image's own theme by default", "An administrator's choice across an upgrade")
-def test_an_administrators_theme_survives_an_upgrade(router: Router, upgrade_image: Path) -> None:
+@spec(
+    CAPABILITY,
+    "The image's own theme by default",
+    "An administrator's choice across an upgrade",
+)
+def test_an_administrators_theme_survives_an_upgrade(
+    router: Router, upgrade_image: Path
+) -> None:
     router.run(f"uci set luci.main.mediaurlbase={STOCK} && uci commit luci")
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
@@ -146,7 +160,11 @@ def test_every_class_of_the_stock_theme_is_styled(router: Router) -> None:
     assert sorted(name for name in reviewed if name in ours or name not in stock) == []
 
 
-@spec(CAPABILITY, "LuCI's icons and colors in the theme's style", "Every icon has its glyph")
+@spec(
+    CAPABILITY,
+    "LuCI's icons and colors in the theme's style",
+    "Every icon has its glyph",
+)
 def test_every_icon_of_luci_has_a_glyph(router: Router) -> None:
     shipped = set(router.run(LUCI_ICONS).split())
     glyphs = _glyphs(_get(router, f"{THEME}/cascade.css"))
@@ -155,7 +173,11 @@ def test_every_icon_of_luci_has_a_glyph(router: Router) -> None:
     # A glyph is stale once LuCI no longer ships its icon.
     assert sorted(glyphs.keys() - shipped) == []
     glyph_paths = {*glyphs.values(), GENERIC_GLYPH}
-    unserved = [path for path in glyph_paths if router.http(f"{THEME}/{path}")[0] != HTTPStatus.OK]
+    unserved = [
+        path
+        for path in glyph_paths
+        if router.http(f"{THEME}/{path}")[0] != HTTPStatus.OK
+    ]
     assert sorted(unserved) == []
 
 

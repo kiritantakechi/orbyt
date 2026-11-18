@@ -132,7 +132,9 @@ class _Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def _listed(self, owner: str, name: str) -> list[dict[str, Any]]:
-        return _releases(self.root / owner / name, f"{self.base}/{owner}/{name}/releases")
+        return _releases(
+            self.root / owner / name, f"{self.base}/{owner}/{name}/releases"
+        )
 
     def do_GET(self) -> None:
         """Answer the API's requests and the downloads."""
@@ -193,7 +195,9 @@ def serve(root: Path, address: str, name: str, certificate: Path, key: Path) -> 
 
 def main() -> None:
     """Command line: serve the releases of a directory."""
-    parser = argparse.ArgumentParser(prog="releases", description=__doc__.splitlines()[0])
+    parser = argparse.ArgumentParser(
+        prog="releases", description=__doc__.splitlines()[0]
+    )
     parser.add_argument("root", type=Path)
     parser.add_argument("--address", required=True)
     parser.add_argument("--name", required=True)

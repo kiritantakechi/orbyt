@@ -62,7 +62,9 @@ def test_packages_compile_for_the_board(board: Board, manifest: Manifest) -> Non
     assert size < cpu
 
 
-@spec(CAPABILITY, "Kernel at its supported optimization level", "Check the kernel's flags")
+@spec(
+    CAPABILITY, "Kernel at its supported optimization level", "Check the kernel's flags"
+)
 def test_the_kernel_compiles_for_the_board(board: Board, manifest: Manifest) -> None:
     # Kbuild appends the flags the build adds (KCFLAGS) after its own.
     flags = manifest.kernel_cflags
@@ -70,7 +72,11 @@ def test_the_kernel_compiles_for_the_board(board: Board, manifest: Manifest) -> 
     assert flags[_last(flags, MCPU)] == f"-mcpu={board.cpu}"
 
 
-@spec(CAPABILITY, "No relaxed floating-point semantics", "Check for relaxed floating point")
+@spec(
+    CAPABILITY,
+    "No relaxed floating-point semantics",
+    "Check for relaxed floating point",
+)
 @pytest.mark.parametrize("key", ["cflags", "kernel_cflags"])
 def test_no_flag_relaxes_floating_point(key: str, manifest: Manifest) -> None:
     assert not RELAXING & set(getattr(manifest, key))

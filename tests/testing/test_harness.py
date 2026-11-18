@@ -25,7 +25,12 @@ from orbyt_tests.device.router import SSH_PORT
 from orbyt_tests.model.boards import BOARDS_DIR, Description
 from orbyt_tests.model.coverage import VerifiedElsewhere
 from orbyt_tests.model.data import DataError, read_json, read_toml
-from orbyt_tests.model.outputs import EmulationSource, Manifest, Release, ToolchainRecord
+from orbyt_tests.model.outputs import (
+    EmulationSource,
+    Manifest,
+    Release,
+    ToolchainRecord,
+)
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
 from orbyt_tests.services.fixtures import pytest_runtest_makereport
@@ -79,7 +84,9 @@ def demo(tmp_path: Path) -> tuple[Path, Path]:
     """Return an OpenSpec tree with one change and a tests tree covering half of it."""
     openspec = tmp_path / "openspec"
     (openspec / "specs").mkdir(parents=True)
-    spec_file = openspec / "changes" / "demo-change" / "specs" / "demo" / "widget" / "spec.md"
+    spec_file = (
+        openspec / "changes" / "demo-change" / "specs" / "demo" / "widget" / "spec.md"
+    )
     spec_file.parent.mkdir(parents=True)
     spec_file.write_text(DEMO_SPEC)
     tests = tmp_path / "tests"
@@ -88,7 +95,9 @@ def demo(tmp_path: Path) -> tuple[Path, Path]:
     return openspec, tests
 
 
-def _coverage(openspec: Path, tests: Path, *args: str) -> subprocess.CompletedProcess[str]:
+def _coverage(
+    openspec: Path, tests: Path, *args: str
+) -> subprocess.CompletedProcess[str]:
     return _python(
         *("-m", "orbyt_tests.model.coverage"),
         *("--openspec", str(openspec), "--tests", str(tests)),
@@ -101,8 +110,9 @@ def _coverage(openspec: Path, tests: Path, *args: str) -> subprocess.CompletedPr
 def test_coverage_report(demo: tuple[Path, Path]) -> None:
     openspec, tests = demo
     result = _coverage(openspec, tests, "--change", "demo-change")
-    assert "covered    demo/widget / Demo / covered one  demo/test_widget.py::test_covered" in (
-        result.stdout
+    assert (
+        "covered    demo/widget / Demo / covered one  demo/test_widget.py::test_covered"
+        in (result.stdout)
     )
     assert "MISSING    demo/widget / Demo / missing one" in result.stdout
     assert "demo-change: no test for demo/widget / Demo / missing one" in result.stderr
@@ -176,12 +186,18 @@ def test_stale_lock_is_rejected(tmp_path: Path) -> None:
     project = tmp_path / "project"
     project.mkdir()
     pyproject = project / "pyproject.toml"
-    pyproject.write_text('[project]\nname = "probe-project"\nversion = "0"\ndependencies = []\n')
+    pyproject.write_text(
+        '[project]\nname = "probe-project"\nversion = "0"\ndependencies = []\n'
+    )
     uv = ("uv", "--offline", "--directory", str(project))
     subprocess.run([*uv, "lock"], check=True, capture_output=True)
     wheel = _wheel(tmp_path, "probe")
-    pyproject.write_text(pyproject.read_text().replace("[]", f'["probe @ {wheel.as_uri()}"]'))
-    result = subprocess.run([*uv, "sync", "--locked"], capture_output=True, text=True, check=False)
+    pyproject.write_text(
+        pyproject.read_text().replace("[]", f'["probe @ {wheel.as_uri()}"]')
+    )
+    result = subprocess.run(
+        [*uv, "sync", "--locked"], capture_output=True, text=True, check=False
+    )
     assert result.returncode != 0
     assert "needs to be updated" in result.stderr
 
@@ -263,11 +279,15 @@ class _TomlFile:
 
 # Every data file the tests read (module-boundaries D7), a real one of each.
 DATA_FILES = {
-    "board description": _JsonFile(BOARDS_DIR / "r4s.json", lambda p: read_json(p, Description)),
+    "board description": _JsonFile(
+        BOARDS_DIR / "r4s.json", lambda p: read_json(p, Description)
+    ),
     "verified elsewhere": _TomlFile(
         TESTS_DIR / "verified-elsewhere.toml", "scenario", VerifiedElsewhere
     ),
-    "reviewed warnings": _TomlFile(TESTS_DIR / "reviewed-warnings.toml", "warning", Review),
+    "reviewed warnings": _TomlFile(
+        TESTS_DIR / "reviewed-warnings.toml", "warning", Review
+    ),
     "manifest": _JsonFile(FIXTURES / "manifest.json", lambda p: read_json(p, Manifest)),
     "warnings report": _JsonFile(
         FIXTURES / "warnings.json", lambda p: list(read_json(p, list[Diagnostic]))
@@ -285,14 +305,18 @@ DATA_FILES = {
 @spec(CAPABILITY, "One schema per data file", "Malformed data file")
 @pytest.mark.parametrize("breakage", ["unknown field", "wrong type"])
 @pytest.mark.parametrize("name", DATA_FILES)
-def test_a_malformed_data_file_names_the_field(name: str, breakage: str, tmp_path: Path) -> None:
+def test_a_malformed_data_file_names_the_field(
+    name: str, breakage: str, tmp_path: Path
+) -> None:
     data = DATA_FILES[name]
     copy = tmp_path / data.path.name
     where = data.break_into(copy, breakage)
     with pytest.raises(DataError) as error:
         data.read(copy)
     problems = error.value.problems
-    assert any(problem.startswith(f"{copy}: {where}: ") for problem in problems), problems
+    assert any(problem.startswith(f"{copy}: {where}: ") for problem in problems), (
+        problems
+    )
 
 
 # Every kind of empty answer a probe may give while its condition does not hold.
@@ -307,7 +331,10 @@ def _answers(*answers: object) -> Callable[[], object]:
 
 @spec(CAPABILITY, "Waiting for a condition", "A probe answers empty first")
 def test_a_wait_goes_on_through_empty_answers() -> None:
-    assert until(_answers("", [], "listening"), timeout=5, what="an answer", every=0) == "listening"
+    assert (
+        until(_answers("", [], "listening"), timeout=5, what="an answer", every=0)
+        == "listening"
+    )
 
 
 @spec(CAPABILITY, "Waiting for a condition", "No answer within the time limit")
@@ -383,7 +410,11 @@ def _fail_while_slowed(emulator: Emulator) -> None:
         raise RuntimeError(msg)
 
 
-@spec(CAPABILITY, "What a test sets up, it takes down", "A test that fails while writes are slowed")
+@spec(
+    CAPABILITY,
+    "What a test sets up, it takes down",
+    "A test that fails while writes are slowed",
+)
 def test_writes_are_unlimited_after_a_failure(router: Router) -> None:
     with pytest.raises(RuntimeError, match=f"limited to {SLOWED_WRITES} B/s"):
         _fail_while_slowed(router.emulator)
@@ -394,7 +425,9 @@ def test_writes_are_unlimited_after_a_failure(router: Router) -> None:
 # router online, which a reset would take away (claim, test-fidelity D16).
 
 
-def _call_report(item: object, outcome: Literal["passed", "failed"]) -> pytest.TestReport:
+def _call_report(
+    item: object, outcome: Literal["passed", "failed"]
+) -> pytest.TestReport:
     """Return what the services layer's report hook makes of a call's report on ``item``."""
     report = pytest.TestReport("demo", ("demo", 0, "demo"), {}, outcome, None, "call")
     call = pytest.CallInfo.from_call(lambda: None, "call")
@@ -408,7 +441,11 @@ def _call_report(item: object, outcome: Literal["passed", "failed"]) -> pytest.T
     raise AssertionError(msg)
 
 
-@spec(CAPABILITY, "Failures name the router's state", "A failing test with the router online")
+@spec(
+    CAPABILITY,
+    "Failures name the router's state",
+    "A failing test with the router online",
+)
 def test_a_failing_online_test_names_the_datapath(online: Online) -> None:
     item = SimpleNamespace(funcargs={"online": online})
     sections = dict(_call_report(item, "failed").sections)
@@ -426,7 +463,11 @@ NO_NEW_SSH = "orbyt_test_no_new_ssh"
 REPORT_SECONDS = 20.0
 
 
-@spec(CAPABILITY, "Failures name the router's state", "A failing test with the router unreachable")
+@spec(
+    CAPABILITY,
+    "Failures name the router's state",
+    "A failing test with the router unreachable",
+)
 def test_a_report_of_an_unreachable_router_is_quick(online: Online) -> None:
     router = online.router
     hook = "{ type filter hook input priority -10; }"

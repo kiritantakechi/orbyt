@@ -18,7 +18,14 @@ from orbyt_tests import spec
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
 from orbyt_tests.sandbox.netprobe import HTTP_PORT
-from orbyt_tests.services.datapath import EINAT, NAT_RELEASE, QOSIFY, WAN, hooks, tc_programs
+from orbyt_tests.services.datapath import (
+    EINAT,
+    NAT_RELEASE,
+    QOSIFY,
+    WAN,
+    hooks,
+    tc_programs,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Iterator
@@ -33,7 +40,9 @@ CAPABILITY = "network/nat"
 EINAT_PORTS = range(20000, 30000)
 LOCAL_PORTS = range(32768, 61000)
 INBOUND_MARK = "0x20000000"
-NEVER_CONTACTED = "203.0.113.53"  # an address of the internet host no test sends to first
+NEVER_CONTACTED = (
+    "203.0.113.53"  # an address of the internet host no test sends to first
+)
 RECOVERY = 60
 HEALTHCHECK = "/etc/healthcheck.d/50-einat"
 # A table of the test's own on the router, which counts the IPv4 packets that
@@ -54,7 +63,11 @@ class Listener:
             client.argv(sys.executable, "-m", "orbyt_tests.sandbox.netprobe", *command),
             stdout=subprocess.PIPE,
         )
-        until(lambda: client.run("ss", "-Hlun", f"sport = :{port}"), timeout=10, what="listener")
+        until(
+            lambda: client.run("ss", "-Hlun", f"sport = :{port}"),
+            timeout=10,
+            what="listener",
+        )
 
     def receives(self, send: Callable[[], object]) -> bool:
         """Return whether what ``send`` sends arrives before the listener gives up.
@@ -174,11 +187,15 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     # (OpenWrt's default accepts of ESP and ISAKMP are gone).
     accepts = [
         line
-        for line in online.router.run("nft list chain inet fw4 forward_wan").splitlines()
+        for line in online.router.run(
+            "nft list chain inet fw4 forward_wan"
+        ).splitlines()
         if "accept" in line and "icmpv6" not in line
     ]
     assert accepts, "no accept rule at all"
-    assert all(f"meta mark & {INBOUND_MARK} == {INBOUND_MARK}" in line for line in accepts), accepts
+    assert all(
+        f"meta mark & {INBOUND_MARK} == {INBOUND_MARK}" in line for line in accepts
+    ), accepts
     ipv4, _ = online.addresses()
     isp = online.network["isp"]
     wan = board.wan.device
@@ -188,7 +205,9 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     try:
         listener = Listener(online.client(), 41002)
         with _packets_at(online.router, PPP_DEVICE) as packets:
-            assert not listener.receives(lambda: isp.probe("send", ipv4, "--port", "41002"))
+            assert not listener.receives(
+                lambda: isp.probe("send", ipv4, "--port", "41002")
+            )
             assert packets() > 0, f"no packet reached {PPP_DEVICE}"
     finally:
         isp.run("ip", "route", "del", "10.0.0.0/24")
@@ -218,7 +237,9 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     "Accept only einat-translated inbound connections",
     "Inbound packet to a mapped port",
 )
-def test_inbound_to_a_mapped_port_is_accepted(online: Online, einat_restored: Online) -> None:
+def test_inbound_to_a_mapped_port_is_accepted(
+    online: Online, einat_restored: Online
+) -> None:
     del einat_restored
     # The einat our mark patch applies to: it prints its version first,
     # "version: <version> features: ...".
@@ -229,10 +250,16 @@ def test_inbound_to_a_mapped_port_is_accepted(online: Online, einat_restored: On
     # The patch's mark is what let it in (design D2, D3): without --inbound-mark
     # einat marks nothing, and the same packet stays out (task 1.5).
     assert _inbound_accepted(online) > before >= 0
-    online.router.run("uci set einat.config.inbound_mark=0 && /etc/init.d/einat restart")
+    online.router.run(
+        "uci set einat.config.inbound_mark=0 && /etc/init.d/einat restart"
+    )
     try:
         _einat_attached(online)
-        until(lambda: _inbound_accepted(online) == -1, timeout=RECOVERY, what="no mark rule")
+        until(
+            lambda: _inbound_accepted(online) == -1,
+            timeout=RECOVERY,
+            what="no mark rule",
+        )
         public = _map(online, 41005)
         listener = Listener(online.client(), 41005, timeout=5)
         assert not listener.receives(_unasked(online, public))
@@ -242,11 +269,15 @@ def test_inbound_to_a_mapped_port_is_accepted(online: Online, einat_restored: On
 
 @spec(CAPABILITY, "Other protocols still use masquerade", "IPsec ESP traffic")
 def test_esp_is_masqueraded(online: Online) -> None:
-    assert online.client().probe("esp", DIRECT_TARGET[0]) == {"address": online.wan_address}
+    assert online.client().probe("esp", DIRECT_TARGET[0]) == {
+        "address": online.wan_address
+    }
 
 
 @spec(CAPABILITY, "Fall back to masquerade when einat stops", "Stop einat")
-def test_stopping_einat_falls_back_to_masquerade(online: Online, einat_restored: Online) -> None:
+def test_stopping_einat_falls_back_to_masquerade(
+    online: Online, einat_restored: Online
+) -> None:
     del einat_restored
     online.router.run("/etc/init.d/einat stop")
     # procd only signals einat: its programs go with it as it exits, which can
@@ -257,20 +288,32 @@ def test_stopping_einat_falls_back_to_masquerade(online: Online, einat_restored:
         what="einat's programs detached",
     )
     # fw4 reloads without einat's rules a moment later; masquerade then applies.
-    until(lambda: not _einat_rules(online), timeout=RECOVERY, what="einat's rules withdrawn")
+    until(
+        lambda: not _einat_rules(online),
+        timeout=RECOVERY,
+        what="einat's rules withdrawn",
+    )
     seen = online.client().probe("udp", DIRECT_TARGET[0], "--source-port", "41006")
     # Masquerade keeps a free source port; einat would have picked one of its own.
     assert (seen["address"], seen["port"]) == (online.wan_address, 41006)
-    assert online.client().probe("tcp", DIRECT_TARGET[0])["address"] == online.wan_address
+    assert (
+        online.client().probe("tcp", DIRECT_TARGET[0])["address"] == online.wan_address
+    )
     # The accept-by-mark rule went with einat: nothing unasked comes in.
     assert _inbound_accepted(online) == -1
     listener = Listener(online.client(), 41006, timeout=5)
     assert not listener.receives(_unasked(online, 41006))
 
 
-@spec(CAPABILITY, "Port range isolated from local ports", "Local connections not rewritten")
+@spec(
+    CAPABILITY,
+    "Port range isolated from local ports",
+    "Local connections not rewritten",
+)
 def test_local_connections_keep_their_port(online: Online) -> None:
-    body = online.router.run(f"uclient-fetch -qO- http://{DIRECT_TARGET[0]}:{HTTP_PORT}/")
+    body = online.router.run(
+        f"uclient-fetch -qO- http://{DIRECT_TARGET[0]}:{HTTP_PORT}/"
+    )
     seen = json.loads(body)
     assert seen["address"] == online.wan_address
     assert seen["port"] in LOCAL_PORTS
@@ -280,7 +323,8 @@ def test_local_connections_keep_their_port(online: Online) -> None:
     # The ranges cannot meet (design D6): einat's ports lie below the kernel's.
     assert online.router.run("uci get einat.config.ports") == "20000-29999"
     assert (
-        int(online.router.run("cut -f1 /proc/sys/net/ipv4/ip_local_port_range")) > EINAT_PORTS.stop
+        int(online.router.run("cut -f1 /proc/sys/net/ipv4/ip_local_port_range"))
+        > EINAT_PORTS.stop
     )
 
 
@@ -325,7 +369,11 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     router.run("/etc/init.d/einat stop")
     assert router.returncode(HEALTHCHECK) != 0
     router.run("/etc/init.d/einat start")
-    until(lambda: router.returncode(HEALTHCHECK) == 0, timeout=RECOVERY, what="einat attached")
+    until(
+        lambda: router.returncode(HEALTHCHECK) == 0,
+        timeout=RECOVERY,
+        what="einat attached",
+    )
     # einat's links alone: qosify's are on the same hooks.
     einat = {name for names in EINAT.values() for name in names}
     for program in tc_programs(router, PPP_DEVICE):

@@ -133,7 +133,9 @@ def test_pull_goes_to_the_data_disk(registry: tuple[Online, str]) -> None:
     # The boot disk's overlay took no part of it: what little came there since came
     # from elsewhere (ksmbd starting on the same mount writes a few bytes).
     image = int(router.run(f"podman image inspect --format '{{{{.Size}}}}' {image}"))
-    written = router.run(f"find /overlay/upper -newer {mark} -type f -exec cat {{}} + | wc -c")
+    written = router.run(
+        f"find /overlay/upper -newer {mark} -type f -exec cat {{}} + | wc -c"
+    )
     assert int(written) < image // 100
 
 
@@ -154,7 +156,9 @@ def test_ruleset_is_fw4_only(pod: Online, lan_host: Netns) -> None:
     # The same nc of the container connects where it may, the internet's probe
     # server, and not to the LAN host.
     assert _from_container(pod, DIRECT_TARGET[0])["address"] == pod.wan_address
-    refused = router.returncode(f"podman exec {app.CONTAINER} nc {lan} {PORT} </dev/null")
+    refused = router.returncode(
+        f"podman exec {app.CONTAINER} nc {lan} {PORT} </dev/null"
+    )
     assert refused != 0
 
 
@@ -184,17 +188,23 @@ def test_exposed_port(pod: Online) -> None:
     )
     try:
         page = until(
-            lambda: _fetch(pod.network["inet"], f"http://{pod.wan_address}:{EXPOSED_PORT}/"),
+            lambda: _fetch(
+                pod.network["inet"], f"http://{pod.wan_address}:{EXPOSED_PORT}/"
+            ),
             timeout=FIREWALL_TIMEOUT,
             what="the forwarded port",
         )
         assert page == f"{app.POD}\n"
     finally:
-        router.run("uci delete firewall.web && uci commit firewall && /etc/init.d/firewall reload")
+        router.run(
+            "uci delete firewall.web && uci commit firewall && /etc/init.d/firewall reload"
+        )
 
 
 @spec(
-    CAPABILITY, "Container traffic uses the transparent proxy", "Container reaches a proxied target"
+    CAPABILITY,
+    "Container traffic uses the transparent proxy",
+    "Container reaches a proxied target",
 )
 def test_container_reaches_a_proxied_target(pod: Online) -> None:
     assert hooks(pod.router, "podman0") == PROXY_HOOKS_L2
@@ -202,7 +212,11 @@ def test_container_reaches_a_proxied_target(pod: Online) -> None:
     assert _from_container(pod, DIRECT_TARGET[0])["address"] == pod.wan_address
 
 
-@spec(CAPABILITY, "Container traffic uses the transparent proxy", "honk restarts beside the Pods")
+@spec(
+    CAPABILITY,
+    "Container traffic uses the transparent proxy",
+    "honk restarts beside the Pods",
+)
 def test_honk_restarts_beside_the_pods(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
@@ -218,7 +232,9 @@ def test_honk_restarts_beside_the_pods(pod: Online) -> None:
     assert router.returncode(f"test -e {during}") == 0, router.run("ls -la /run/netns")
 
 
-@spec(CAPABILITY, "Declarative definition and autostart on boot", "Declaration unchanged")
+@spec(
+    CAPABILITY, "Declarative definition and autostart on boot", "Declaration unchanged"
+)
 def test_unchanged_declaration_is_not_rebuilt(pod: Online) -> None:
     router = pod.router
     before = app.wait_running(router)
@@ -236,7 +252,11 @@ def test_unchanged_declaration_is_not_rebuilt(pod: Online) -> None:
     assert app.running(router) == before
 
 
-@spec(CAPABILITY, "Declarative definition and autostart on boot", "A declaration that cannot start")
+@spec(
+    CAPABILITY,
+    "Declarative definition and autostart on boot",
+    "A declaration that cannot start",
+)
 def test_a_declaration_that_cannot_start_keeps_no_other_down(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
@@ -260,12 +280,18 @@ def test_a_declaration_that_cannot_start_keeps_no_other_down(pod: Online) -> Non
 
 def _service_running(router: Router, name: str) -> bool:
     """Return whether a procd instance of the service ``name`` runs."""
-    services = json.loads(router.run(f'ubus call service list \'{{"name": "{name}"}}\''))
+    services = json.loads(
+        router.run(f'ubus call service list \'{{"name": "{name}"}}\'')
+    )
     instances = services.get(name, {}).get("instances", {})
     return any(instance["running"] for instance in instances.values())
 
 
-@spec(CAPABILITY, "Declarative definition and autostart on boot", "A service's container ended")
+@spec(
+    CAPABILITY,
+    "Declarative definition and autostart on boot",
+    "A service's container ended",
+)
 def test_the_network_s_dns_outlives_a_service_s_container(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
@@ -302,7 +328,11 @@ def test_no_native_apps(pod: Online) -> None:
     assert not [name for name in installed if name.startswith(NATIVE_APPS)]
 
 
-@spec(CAPABILITY, "Container storage on the data disk", "Runtime commands at the same time")
+@spec(
+    CAPABILITY,
+    "Container storage on the data disk",
+    "Runtime commands at the same time",
+)
 def test_runtime_commands_at_the_same_time(online: Online, data_disk: Disk) -> None:
     del data_disk  # the scratch storage's place
     root = f"{STORAGE}-concurrency"
@@ -334,7 +364,9 @@ def test_runtime_commands_at_the_same_time(online: Online, data_disk: Disk) -> N
     finally:
         online.router.returncode(cleanup)
     failed = [report for report in reports if not report.endswith("failed=0")]
-    assert not failed, f"{len(failed)} of {ROUNDS} rounds had commands fail; the first: {failed[0]}"
+    assert not failed, (
+        f"{len(failed)} of {ROUNDS} rounds had commands fail; the first: {failed[0]}"
+    )
     leaked = [report for report in reports if "left mounted: " in report]
     assert not leaked, (
         f"{len(leaked)} of {ROUNDS} rounds left mounts behind; the first: {leaked[0]}"
