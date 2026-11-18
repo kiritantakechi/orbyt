@@ -358,8 +358,32 @@ jobs:
           nix develop -c just env-report | tee env-report.txt
           { echo '### Host environment'; echo '```'; cat env-report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      # uv's cache of the tests' environment: the interpreter, and the
+      # distributions built from source for it, once per lock (python-style D1).
+      - name: Restore uv cache
+        id: uv-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv/python
+          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
+
       - name: System tests
         run: nix develop -c just test "$BOARD" ci ${{ matrix.suite.paths }} -rs
+
+      # Only what was built from source stays: the rest downloads again.
+      - name: Save uv cache
+        if: always() && steps.uv-cache.outputs.cache-hit != 'true'
+        run: |
+          nix develop -c uv cache prune --ci
+      - if: always() && steps.uv-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv/python
+          key: ${{ steps.uv-cache.outputs.cache-primary-key }}
 
       - name: Test report
         if: always()
