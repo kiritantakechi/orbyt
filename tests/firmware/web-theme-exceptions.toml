@@ -1,5 +1,5 @@
 # Classes LuCI's stock theme (bootstrap) styles and luci-theme-orbyt does not, each
-# with its reason (luci-theme-wrt D6). tests/firmware/test_web_theme.py fails on a
+# with its reason (orbyt-theme D8). tests/firmware/test_web_theme.py fails on a
 # class missing from both the theme and this list, and on an entry the theme now
 # styles or bootstrap no longer does.
 

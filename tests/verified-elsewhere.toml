@@ -193,7 +193,7 @@ by = "docs/optimization.md lists every no-lto opt-out with its patch in patches/
 
 # firmware/web-theme: looked at in a browser against the emulator's LuCI, reached
 # from the Mac through a port forwarded into the test's network namespace
-# (luci-theme-wrt D9), on the R4S image of luci-theme-orbyt.
+# (orbyt-theme D6), on the R4S image of the theme's first design.
 
 [[scenario]]
 capability = "firmware/web-theme"

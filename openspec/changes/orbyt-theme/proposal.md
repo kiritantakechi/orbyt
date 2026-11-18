@@ -28,3 +28,4 @@ None.
 - `tests/firmware/test_web_theme.py`: the mark's scenario; the coverage and no-external-resource tests apply unchanged.
 - `tests/verified-elsewhere.toml`: the browser-verified scenarios re-dated after the new look's check.
 - `docs/services.md`: the web interface's description.
+- `openspec/changes/archive/2026-11-18-luci-theme-orbyt`, the theme's first design: removed at the maintainer's word (2026-11-19), with the rest of the old name's leftovers; its decisions that hold are this change's design D7 to D10, which the theme's code now cites.

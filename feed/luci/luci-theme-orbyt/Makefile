@@ -1,4 +1,4 @@
-# luci-theme-orbyt: the image's own LuCI theme (luci-theme-wrt D1; orbyt-theme): a
+# luci-theme-orbyt: the image's own LuCI theme (orbyt-theme D7): a
 # header with the lockup, LuCI's indicators and a light/dark switch, a sidebar of
 # LuCI's menu, and the page's sections as flat panels; light and dark by LuCI's
 # data-darkmode.

@@ -1,5 +1,5 @@
 {#
-	luci-theme-orbyt: the page's shell (luci-theme-wrt D2, D3; orbyt-theme D2): the
+	luci-theme-orbyt: the page's shell (orbyt-theme D2): the
 	header with the lockup, LuCI's indicators and the light/dark switch, the sidebar,
 	filled by menu-orbyt.js, the page's place, and #maincontent. A blank page (the
 	login) gets none of it. Licensed under the Apache License 2.0, as LuCI.

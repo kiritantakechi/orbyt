@@ -2,9 +2,10 @@
 
 ## Context
 
-- The theme (luci-theme-wrt, renamed luci-theme-orbyt) is one stylesheet of about 3,300 lines over LuCI's markup: tokens, the shell, the menu, then LuCI's widgets by class, the functional rules bootstrap needs (dropdowns, tooltips, the modal, tab panes, the file browser, tables stacked on phones) among them. Its tests check the stylesheet's coverage of bootstrap's classes, LuCI's icons against its glyphs, the default theme and that nothing loads from outside.
+- The theme, `luci-theme-orbyt`, is one stylesheet of about 3,300 lines over LuCI's markup: tokens, the shell, the menu, then LuCI's widgets by class, the functional rules bootstrap needs (dropdowns, tooltips, the modal, tab panes, the file browser, tables stacked on phones) among them. Its tests check the stylesheet's coverage of bootstrap's classes, LuCI's icons against its glyphs, the default theme and that nothing loads from outside.
 - The approved canvas holds the look: a desktop page (sidebar, overview, ports, interfaces, an edit form), a phone page (drawer, breadcrumb) and the mark. Its tokens are TouhouAsia's semantic layer (`project/tokens.css` of the design system).
 - On 2026-11-19 the maintainer updated TouhouAsia (version 1795018428-c32c) and asked for the theme to follow it, and to drop what it carries without use. The update defines the interface: an aside of 256 px (`Sidebar`), a table of contents with the brand rule on its hairline, the breadcrumb, tabs, fields, choices, tags and callouts with their states (`components/bundle.css`, `docs/06-interface.md`, `docs/07-states.md`), and two tokens, the selection and the link's hover. It still defines no modal, dropdown, toast, density mode, icon set or CJK fonts; a router's admin pages need all of them but the icon set, which the theme has already (glyphs for LuCI's icons).
+- The theme's first design, an archived change of 2026-11-18, holds the decisions the theme's code cites for its package, its default, its coverage test, LuCI's icons and LuCI's own colors. The maintainer had it removed on 2026-11-19 with the rest of the old name's leftovers; the decisions that hold are this design's D7 to D10, and the code cites them here.
 - Of the 182 classes the stylesheet styled, 14 are named by no view, script or template of LuCI's feed or this repository's: bootstrap's legacy (`cbi-select`, `tab-pane`, `pull-left` and others) and four column widths no view uses.
 
 ## Goals / Non-Goals
@@ -43,6 +44,8 @@ The bootstrap compatibility variables LuCI's modules read point at these; `--dis
 
 A 64 px header across the page: the lockup (the mark, "Orbyt", the hostname and model below it), LuCI's indicators as tags, the light/dark switch (three text pills, the chosen one in the accent's tint) and logout. Below it the sidebar, TouhouAsia's aside of 256 px on the page's own ground with a hairline at its edge (the system has no colored sidebar), holding the menu as its table of contents: each of the menu's first level an eyebrow (monospace capitals in the accent), its pages as entries hanging from a hairline, the current one in the text color at 600 with the 3 px brand rule on the hairline; no icons, as TouhouAsia has no icon set. The content beside it, at most 1200 px: the breadcrumb (the levels above as links, ` / ` between them, the page in the text color), LuCI's tab menu, the view. The page's title has no rule under it: the brand rule marks only the reader's place, the menu's entry and the tab. Below 1024 pixels, TouhouAsia's medium width, the sidebar becomes a drawer behind a menu button in the header, closed by the button, a tap beside it or Escape, as before: beside the aside's 256 px a narrower window left the page less room than a phone has, and the interfaces table overflowed its panel at 900. Below 800 pixels the switch and logout move into the drawer's foot.
 
+Dark mode is LuCI's own attribute: an inline script at the top of `<head>`, before the stylesheet, sets `data-darkmode` on `:root` from the choice pinned in this browser (`localStorage`, key `luci-theme-orbyt`), else from `prefers-color-scheme`, which it follows while nothing is pinned; the switch writes the key, or removes it for automatic. The theme and LuCI's modules turn dark together, from one attribute, and a browser without storage stays automatic. The login keeps LuCI's form (`luci_username`, `luci_password`, the authentication plugins' fields) as a card under the lockup; its view focuses the password and shows LuCI's spinner while it logs in. A `blank_page` (the login) gets neither the header nor the sidebar.
+
 TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page takes the 64 px header, 28 px page titles and 20 px section titles, and keeps its 40 px fields, with 32 px buttons inside tables.
 
 ### D3. LuCI's widgets by role
@@ -55,7 +58,7 @@ TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page
 - Tabs: `Tabs`: 15/500 text 24 px apart on a hairline, the selected one at 600 with the 3 px brand rule over the hairline, no fill.
 - Alerts: `Callout`: the tone's tint and a border of its ink at 30%, never a colored edge, 16 by 20 px padding; LuCI's message carries the word.
 - LuCI's icons keep their size: under `img`'s `max-width: 100%` a table sized its column as if an icon had no width, and the interface's badge overflowed its frame.
-- Labels and badges: `Tag`, 22 px soft pills in the tone's tint; zones a neutral chip with a dot of the zone's color (replacing luci-theme-wrt D11's tint). LuCI's indicators are tags too.
+- Labels and badges: `Tag`, 22 px soft pills in the tone's tint; zones a neutral chip with a dot of the zone's color (D10). LuCI's indicators are tags too.
 - Code and command output (`pre`): `CodeBlock`'s panel, monospace at 13/1.65.
 - Forced colors: the brand rules, the radio's dot, the check and LuCI's icons redrawn in the system's inks; tags and callouts take an edge.
 - What nothing draws goes: a rule for a class no view, script or template of LuCI's feed or this repository's names is dropped, and where bootstrap styles the class, `tests/firmware/web-theme-exceptions.toml` records why the theme does not.
@@ -70,8 +73,27 @@ The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 
 
 ### D6. Tests and evidence
 
-- `test_web_theme.py`: the mark's scenario: the login page and a page after login both hold the mark and link `/luci-static/orbyt/mark.svg` as their icon, and the icon is served. The coverage, glyph and no-external-resource tests run unchanged.
-- In a browser, against the emulator: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; the browser-verified scenarios re-dated in `tests/verified-elsewhere.toml`.
+- `test_web_theme.py` on the emulator: a fresh install's page uses `/luci-static/orbyt/`; with `themes.Orbyt` removed and bootstrap set, the uci-defaults script makes the theme the default; with bootstrap chosen, an upgrade that keeps the configuration keeps it; the login page loads nothing from another host; every icon LuCI installs has its glyph (D9); the login page and a page after login hold the mark and link `/luci-static/orbyt/mark.svg` as their icon, which is served. Without the emulator: the coverage of D8 and the theme's files loading nothing from outside.
+- In a browser, against the emulator's LuCI, reached from the Mac through a port forwarded into the test's network namespace: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; the browser-verified scenarios re-dated in `tests/verified-elsewhere.toml`.
+
+### D7. The package and its default
+
+`feed/luci/luci-theme-orbyt` builds on the luci feed's `luci.mk` and depends on `luci-base`; `config/system.seed` selects it beside LuCI. Its files: the templates under `ucode/template/themes/orbyt/` (header, footer, login, mark), `htdocs/luci-static/orbyt/` (the stylesheet, `mark.svg`, the icons' glyphs), `menu-orbyt.js`, the login's view `view/orbyt/sysauth.js`, and `root/etc/uci-defaults/31_luci-theme-orbyt`. That script, after bootstrap's in name order, sets `luci.themes.Orbyt` and makes `/luci-static/orbyt` LuCI's `mediaurlbase` when `themes.Orbyt` is not set: on a fresh install, and once on the first boot of an upgrade that brings the theme; later upgrades keep whatever theme the administrator chose.
+
+### D8. Coverage against bootstrap, and nothing from outside
+
+A test reads the class names in the selectors of bootstrap's stylesheet and of the theme's, as the router serves them, and requires each of bootstrap's in the theme's or in `tests/firmware/web-theme-exceptions.toml` with its reason (bootstrap's own chrome, which the header and the sidebar replace, and the classes no LuCI source names, D3); an entry the theme now styles, or bootstrap no longer does, fails it too. The theme uses the system's fonts, its own mark and its own glyphs; a test searches its files for resources from another host (`src`, `href` of stylesheets and icons, CSS `url()`, imports), and on the emulator the login page it serves. The footer's links to LuCI and OpenWrt are links, not resources.
+
+### D9. LuCI's icons in glyphs of the theme's own
+
+LuCI's views draw luci-base's icons as `<img>` of `/luci-static/resources/icons/<name>.svg` (a device's type, `_disabled` when it is down, ports with and without link, signal strength, loading) and the file browser's `cbi/{file,folder,link}.svg`. The theme redraws them in CSS alone: the image's own picture moves out of its box (`object-position`), and its background, in a token's color, shows through a glyph of the theme's as a mask. The glyphs are line icons on a 24-pixel grid under `/luci-static/orbyt/icons/`, each named after LuCI's icon; a device's `_disabled` icon shares its glyph, and the color tells the state: the accent when up, the off ink when down. An icon named nowhere gets the generic glyph, and a glyph keeps its size (D3). Files at LuCI's paths would replace bootstrap's icons too; a script swapping each `src` would flash the stock pictures.
+
+### D10. LuCI's own colors in the theme's palette
+
+Three kinds of color come from LuCI's views rather than a stylesheet, and the theme maps each to its tokens over the inline style:
+- The realtime graphs draw an SVG in a white box with a black border, blue, green and red lines (the load's in three reds) with legends underlined alike. The box, grid and labels take the mode's ground, line and muted ink, and the series three colors of the theme's (`--chart-1` to `--chart-3`: blue, orange, aqua, each mode's set validated against its ground), keyed by the color LuCI writes on a line and its legend alike. Red stays the color of errors.
+- A firewall zone's color (`--zone-color-rgb`, inline) is a pastel for light pages: a zone's badge is a neutral chip with a dot of its color (D3), and a zone's bar and an empty badge keep the color whole, their text in the dark ink in both modes.
+- States set as inline colors (the port status's power over Ethernet, the password's strength) take the ink, faint, danger, warning and accent tokens, which turn dark with the mode.
 
 ## Risks / Trade-offs
 

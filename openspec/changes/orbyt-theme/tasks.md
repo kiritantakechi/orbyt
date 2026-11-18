@@ -24,6 +24,10 @@
 
   Verify: `just check` passes; the coverage test holds with the new exceptions on the emulator.
 
+- [x] 2.5 Fold the first design's lasting decisions into D7 to D10 (the package and its default, the coverage and nothing from outside, LuCI's icons, LuCI's own colors), point the theme's citations at them, and remove the archived change.
+
+  Verify: no file names the archived change or its decisions; `just check` passes.
+
 ## 3. In a browser (design D6)
 
 - [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.

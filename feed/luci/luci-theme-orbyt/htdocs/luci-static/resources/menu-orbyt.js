@@ -2,7 +2,7 @@
 'require baseclass';
 'require ui';
 
-// luci-theme-orbyt's menu (luci-theme-wrt D4; orbyt-theme D2): the mode's first
+// luci-theme-orbyt's menu (orbyt-theme D2): the mode's first
 // level as the sidebar's groups of text entries, the third level as tabs, the
 // page's place as a breadcrumb above the content and logout in the header; the
 // drawer below 1024 pixels, and the light/dark switch, in the header and in the
