@@ -50,7 +50,7 @@ A review of honk-datapath after its merge, each finding checked against the code
   - 002's tests pin the geodata lookup to their own data directory.
 - **Packaging:**
   - No core dumps; `check` creates nothing and takes an absolute path; a failed pinning is logged.
-  - `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for wrt-sync.
+  - `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for orbyt-sync.
   - The bindgen includes expand at compile time and fail loudly when empty.
   - honk is rebuilt when bpf-linker or doona changes (`PKG_FILE_DEPENDS`).
 - **The tests:**
@@ -76,7 +76,7 @@ A review of honk-datapath after its merge, each finding checked against the code
 
 ## Impact
 
-- **Router side:** `feed/net/honk` (`init`, `Makefile`, patches 002, 005, 006 and 007), `feed/net/einat`, `feed/utils/wrt-sync`, `config/datapath.seed`, `patches/daeuniverse/0001`, `patches/packages/0014`.
+- **Router side:** `feed/net/honk` (`init`, `Makefile`, patches 002, 005, 006 and 007), `feed/net/einat`, `feed/utils/orbyt-sync`, `config/datapath.seed`, `patches/daeuniverse/0001`, `patches/packages/0014`.
 - **Host side:** `scripts/config-push.sh`, `scripts/config-push.d/device.uc`, `scripts/upstream-bump.sh`, `scripts/toolchain-key.sh`.
-- **Tests:** network (`transparent_proxy`, `tc_hook_order`, `nat`), ops (`config_push`), unit (`netprobe`), and `wrt_tests` (`repository`, `datapath`, `netprobe`).
+- **Tests:** network (`transparent_proxy`, `tc_hook_order`, `nat`), ops (`config_push`), unit (`netprobe`), and `orbyt_tests` (`repository`, `datapath`, `netprobe`).
 - **Docs:** `docs/patches.md` (the amended and new patches' write-ups and logs), `docs/ops.md`, `docs/ci.md`.

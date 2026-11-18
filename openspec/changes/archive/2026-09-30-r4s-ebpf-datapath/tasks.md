@@ -17,9 +17,9 @@
 ## 3. Emulated ISP and internet (design D11)
 
 - [x] 3.1 Add rp-pppoe, ppp, kea, radvd, dnsmasq, microsocks, iperf3, and iputils to the flake's test tool group; `prepare-runner.sh` and `docs/dev-setup.md` take care of loading `ppp_generic` and `ppp_async` and opening up the permissions of `/dev/ppp`; `env-report` checks both. Verification: `just env-report` prints the tool versions and the ppp check results; without ppp support, it reports an error and gives the fix.
-- [x] 3.2 Add the `client-b`, `inet`, and `proxy` namespaces and the `br-inet` bridge to the topology declaration in `wrt_tests/net.py`. Verification: `tests/unit/test_net.py` builds the topology without starting the emulator and confirms that the addresses and routes of each namespace match design D11.
+- [x] 3.2 Add the `client-b`, `inet`, and `proxy` namespaces and the `br-inet` bridge to the topology declaration in `orbyt_tests/net.py`. Verification: `tests/unit/test_net.py` builds the topology without starting the emulator and confirms that the addresses and routes of each namespace match design D11.
 - [x] 3.3 Implement the `isp` side: a user-mode pppoe-server, radvd and kea-dhcp6 started per session, and an address pool that hands out a different address on each redial. Verification: `tests/unit/test_isp.py` dials with pppd in the sandbox as the client and gets an address from the pool and a /56 prefix; after the session is ended and redialed, it gets a different address.
-- [x] 3.4 Implement `wrt_tests/netprobe.py`: UDP/TCP whoami (returns the peer's address, port, and MSS), "big" mode (returns a 3000-byte UDP reply), and sending and receiving raw ESP packets. Also run an authoritative dnsmasq for example.net and iperf3 in `inet`, and microsocks in `proxy`. Verification: `tests/unit/test_netprobe.py` covers every netprobe mode between two plain network namespaces.
+- [x] 3.4 Implement `orbyt_tests/netprobe.py`: UDP/TCP whoami (returns the peer's address, port, and MSS), "big" mode (returns a 3000-byte UDP reply), and sending and receiving raw ESP packets. Also run an authoritative dnsmasq for example.net and iperf3 in `inet`, and microsocks in `proxy`. Verification: `tests/unit/test_netprobe.py` covers every netprobe mode between two plain network namespaces.
 
 ## 4. WAN, firewall, and einat integration
 

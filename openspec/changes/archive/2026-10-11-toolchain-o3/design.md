@@ -32,7 +32,7 @@ See proposal.md for why. The facts the approach rests on:
 - `patches/openwrt` holds ten patches, `patches/packages` one and `patches/qemu` one. einat carries one of its own, and `docs/upstream` holds two prepared for upstream and not carried.
 - `docs/upstream-contributions.md` lists only those meant for upstream.
 - 0001 (BBRv3) is the 6.18 port from sbwml/r4s_build_script.
-- 0002 edits `target/linux/rockchip/image/default.bootscript`. The A/B images never run that script: their U-Boot boots through `uboot/wrt-ab.env`, which already passes `fstools_overlay_compression_type=zstd`.
+- 0002 edits `target/linux/rockchip/image/default.bootscript`. The A/B images never run that script: their U-Boot boots through `uboot/orbyt-ab.env`, which already passes `fstools_overlay_compression_type=zstd`.
 
 ## Goals / Non-Goals
 
@@ -71,7 +71,7 @@ BPF               clang -O2
 - Filtering `-O3` out of the kernel's flags would have needed a patch to `include/kernel.mk`.
 
 **The toolchain:**
-- Its record (`wrt-toolchain.json`) holds the new flags, and its cache key changes.
+- Its record (`orbyt-toolchain.json`) holds the new flags, and its cache key changes.
 - GCC's runtime libraries follow `-O3` as every other target library does.
 
 **An existing tree.** `build-acceleration` names every package's prepared stamp after these flags, and rebuilds the toolchains whose recorded flags differ from the configuration's. The new flags therefore rebuild the toolchains and every package in a tree built at `-O2`, with no clean. The kernel follows through Kbuild, which compares each object's command line.
@@ -102,7 +102,7 @@ A package whose upstream code is correct but cannot be fixed reasonably opts out
 **Collection.**
 - `build.sh` takes the packages of the board's image from the image's package list, and maps each to its source package through OpenWrt's package metadata (`tmp/.packageinfo`).
 - From each source package's build log it parses GCC's `file:line:col: warning: ... [-Woption]` lines, with the function each falls in.
-- OpenWrt rewrites the logs of every package whose compile step it runs, also of one it finds up to date, which then holds only make's time line. So after every make, a failed one included, `build.sh` records the warnings of each log that make wrote with more than that line. The records sit in the board's build directory (`wrt-warnings/`), which lives as long as the objects they describe, and keep each package's warnings from its last real compile.
+- OpenWrt rewrites the logs of every package whose compile step it runs, also of one it finds up to date, which then holds only make's time line. So after every make, a failed one included, `build.sh` records the warnings of each log that make wrote with more than that line. The records sit in the board's build directory (`orbyt-warnings/`), which lives as long as the objects they describe, and keep each package's warnings from its last real compile.
 - It writes `out/<board>/<profile>/warnings.json` from the records of the image's packages, one entry per warning: package, option, file, function, line.
 - The warnings travel with the build's outputs, so CI's system tests see them as well.
 
@@ -153,7 +153,7 @@ config/profiles
 - A trap fails the test that was running, with the process name and address; a trap while booting fails every test that uses the router.
 
 **The probe.**
-- A feed package, `wrt-ubsan-probe`, which only `ubsan.seed` selects, overflows a signed integer on purpose, and turns on the kernel's report of unhandled signals.
+- A feed package, `orbyt-ubsan-probe`, which only `ubsan.seed` selects, overflows a signed integer on purpose, and turns on the kernel's report of unhandled signals.
 - The scenario's test runs it on the router and expects the harness to report its trap.
 - This proves the instrumentation, trap mode and detection together. Otherwise a clean run could just mean the instrumentation never happened.
 
@@ -179,7 +179,7 @@ config/profiles
 - **Status**: an `Upstream-Status` trailer.
 
 **Known actions.**
-- Drop 0002: the A/B images pass the option through `wrt-ab.env`, and `test_overlay_is_compressed_f2fs` guards the result.
+- Drop 0002: the A/B images pass the option through `orbyt-ab.env`, and `test_overlay_is_compressed_f2fs` guards the result.
 - Re-derive BBRv3 from its primary source: the google/bbr v3 branch, as Oleksandr Natalenko rebases it onto 6.18. The current series is then compared against it, and the differences are explained or removed. Its trailer names the source, `Backport [google/bbr v3, rebased for 6.18]`, and its message the comparison.
 - Review every other carried patch against the current pins: the series from 0003 on (`build-acceleration`'s 0011 and 0012 included), the packages patches, einat's patch, QEMU's patch, and the two prepared upstream patches.
 

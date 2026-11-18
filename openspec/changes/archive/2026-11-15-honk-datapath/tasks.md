@@ -19,7 +19,7 @@
   Verify: `make package/bpf-linker/host/compile` installs `bpf-linker` under the host staging directory, and 2.1's object builds with it.
 - [x] 2.4 Add Node and brotli to `flake.nix`, and doona as a host package of our feed: its source and the pnpm its `packageManager` names, hash-verified, built and packaged as doona's release is (D3).
 
-  Verify: `node --version` in the build environment (`nix develop path:. -c wrt-test-fhs -c 'node --version'`) is within doona's `engines`; `make package/doona/host/compile` installs both editions, each with its notices (`LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.txt`), under the host staging directory.
+  Verify: `node --version` in the build environment (`nix develop path:. -c orbyt-test-fhs -c 'node --version'`) is within doona's `engines`; `make package/doona/host/compile` installs both editions, each with its notices (`LICENSE`, `NOTICE`, `THIRD-PARTY-NOTICES.txt`), under the host staging directory.
 
 ## 3. The honk package (design D1, D3, D5, D6, D8, D10)
 
@@ -85,7 +85,7 @@
 - [x] 8.1 `scripts/config-push.sh` and `device.uc`: `honk/*.dae.enc`, the rejections of the firmware's settings and of the native API's, honk's check in a scratch directory set up as the service runs it, `/etc/honk` written root-only, honk enabled and restarted, its health check. `scripts/config-init.sh` and its skeleton.
 
   Verify: the ops/config-push tests pass on the R4S, the new native API rejections among them.
-- [x] 8.2 The rest that names dae: `wrt-sync`, `wrt-containers`, `files/etc/uci-defaults/91-wrt-datapath`, the release tests' drill configuration, `tests/wrt_tests/services/datapath.py`; `docs/ops.md`, `docs/services.md`, `docs/release-flow.md` with the moving of the private configuration and D11's dialect list.
+- [x] 8.2 The rest that names dae: `orbyt-sync`, `orbyt-containers`, `files/etc/uci-defaults/91-orbyt-datapath`, the release tests' drill configuration, `tests/orbyt_tests/services/datapath.py`; `docs/ops.md`, `docs/services.md`, `docs/release-flow.md` with the moving of the private configuration and D11's dialect list.
 
   Verify: `git grep -i -w dae` finds only honk's own uses (`dae0`, `daens`, the `.dae` format, honk's `so_mark_from_dae`) and the archive; the release and services tests pass on the R4S.
 

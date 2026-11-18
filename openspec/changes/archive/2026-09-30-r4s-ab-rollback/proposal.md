@@ -52,7 +52,7 @@ This project tracks upstream main weekly, so a "new build won't boot" failure is
 ### Modified Capabilities
 
 - `firmware/rootfs`: the boot chain requirement moves from a boot script to the slot logic in U-Boot, with a kernel FIT in each slot.
-- `testing/emulation`: the emulator boots the factory image through `uboot-wrt-qemu` instead of passing the kernel and its command line to QEMU.
+- `testing/emulation`: the emulator boots the factory image through `uboot-orbyt-qemu` instead of passing the kernel and its command line to QEMU.
 - `firmware/kernel`: the emulator's disk becomes an SD card on sdhci-pci, which replaces virtio-blk among the emulation drivers.
 
 ## Impact
@@ -64,7 +64,7 @@ This project tracks upstream main weekly, so a "new build won't boot" failure is
   - the rockchip config in uboot-envtools.
 - **New in-house content**:
   - shared logic and two sets of board constants under `uboot/`;
-  - `uboot-wrt-qemu` (a test artifact only), `wrt-slot`, and `wrt-healthcheck` in the in-house feed;
+  - `uboot-orbyt-qemu` (a test artifact only), `orbyt-slot`, and `orbyt-healthcheck` in the in-house feed;
   - one `MMC_SDHCI_PCI` entry added to the virt driver group in `config/kernel.config`;
   - four test modules under `tests/firmware/`, one per spec.
 - **Dependencies**: `r4s-build-foundation`, including the EROFS root filesystem, the patch workflow, the test framework, and the emulation environment. The datapath checks in the health check are registered by `r4s-ebpf-datapath`.

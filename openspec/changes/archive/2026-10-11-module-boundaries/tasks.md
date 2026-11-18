@@ -2,7 +2,7 @@
 
 ## 1. Baseline
 
-- [x] 1.1 Record, from the state `toolchain-o3` merged, what the change must leave alone, for both boards, in `$WRT_WORKDIR/module-boundaries-baseline/` (outside the repository):
+- [x] 1.1 Record, from the state `toolchain-o3` merged, what the change must leave alone, for both boards, in `$ORBYT_WORKDIR/module-boundaries-baseline/` (outside the repository):
   - the composed seeds of the dev and ci profiles (`out/<board>/seed-<profile>.config`) and the board-neutral composition (`compose_seeds <profile> ""`);
   - the `.config` that `just config <board> dev` leaves;
   - each image's package list (`targets/*.manifest`).
@@ -11,10 +11,10 @@
 
 ## 2. One schema per data file (design D7)
 
-- [x] 2.1 Add `wrt_tests/data.py` (still in the flat package): `read_json(path, Model)`, `read_toml(path, table, Model)`, and `DataError`, which names the file, the entry and the field.
+- [x] 2.1 Add `orbyt_tests/data.py` (still in the flat package): `read_json(path, Model)`, `read_toml(path, table, Model)`, and `DataError`, which names the file, the entry and the field.
 
   Verify: unit tests (`tests/unit/test_data.py`) for an unknown field, a value of the wrong type and a missing field, each naming file, entry and field, for both readers.
-- [x] 2.2 Add the models of D7: `Manifest`, `EmulationSource`, `ToolchainRecord` and `Release` (`wrt_tests/outputs.py`), and `VerifiedElsewhere` (`coverage`). Move `Board`, `Review` and `Diagnostic` onto the readers. emu-prepare writes `source.json` through `EmulationSource` and `write_json`, `emu.manifest_flags` becomes `Manifest.cflags` and `Manifest.kernel_cflags`, and the drill base's manifest becomes a `Manifest`.
+- [x] 2.2 Add the models of D7: `Manifest`, `EmulationSource`, `ToolchainRecord` and `Release` (`orbyt_tests/outputs.py`), and `VerifiedElsewhere` (`coverage`). Move `Board`, `Review` and `Diagnostic` onto the readers. emu-prepare writes `source.json` through `EmulationSource` and `write_json`, `emu.manifest_flags` becomes `Manifest.cflags` and `Manifest.kernel_cflags`, and the drill base's manifest becomes a `Manifest`.
 
   Verify: `git grep -n 'json.loads\|tomllib' tests` finds no read of these files left, only of router output and HTTP bodies. Each model reads a real file of a build or a release in the unit tests' fixtures.
 - [x] 2.3 Add the test of the testing/harness scenario "Malformed data file" (`tests/testing/test_harness.py`): for each file of D7, a copy with an unknown field and a copy with a wrong type fail to read, naming the file, the entry and the field.
@@ -83,7 +83,7 @@
   Verify: `just test r4s dev` and `just test r6s dev` pass, and `spec-coverage --change module-boundaries` reports no uncovered scenario.
 - [x] 6.3 Point `device-modernization`'s proposal and tasks to the new paths of the trust anchors' code (`model/keys.py`, `device/trust.py`).
 
-  Verify: `git grep -n 'wrt_tests/keys.py' openspec/changes/device-modernization` finds nothing.
+  Verify: `git grep -n 'orbyt_tests/keys.py' openspec/changes/device-modernization` finds nothing.
 - [x] 6.4 Get a green CI run for both boards.
 
   Verify: its host stage rebuilt once under the new toolchain key, from its compiler cache. Record the run in `docs/ci.md`.

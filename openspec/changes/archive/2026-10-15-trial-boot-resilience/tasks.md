@@ -2,19 +2,19 @@
 
 ## 1. Two copies of the environment, named by the bootloader (design D1, D2, D3)
 
-- [x] 1.1 Set `CONFIG_ENV_REDUNDANT` and `CONFIG_ENV_OFFSET_REDUND=0x400000` in `uboot/wrt-ab.config` (D1), and add `wrt.env=` to `wrt_boot`'s `bootargs` in `uboot/wrt-ab.env` from the configuration's values (D2).
+- [x] 1.1 Set `CONFIG_ENV_REDUNDANT` and `CONFIG_ENV_OFFSET_REDUND=0x400000` in `uboot/orbyt-ab.config` (D1), and add `orbyt.env=` to `orbyt_boot`'s `bootargs` in `uboot/orbyt-ab.env` from the configuration's values (D2).
 
-  Verify: both boards' U-Boot and the emulator's build; their configurations hold both offsets; the kernel command line in the emulator reads `wrt.env=0x8000@0x3F8000,0x8000@0x400000` (case as U-Boot prints it).
-- [x] 1.2 Add `environment(cmdline)` to the ucode module `wrt.ab`; configure `ubootenv` from it in `31-wrt-ab`, without the written-in offset; refuse an upgrade in `platform_check_image` while the environment cannot be read (D3). Bump `wrt-ab`'s `PKG_RELEASE`.
+  Verify: both boards' U-Boot and the emulator's build; their configurations hold both offsets; the kernel command line in the emulator reads `orbyt.env=0x8000@0x3F8000,0x8000@0x400000` (case as U-Boot prints it).
+- [x] 1.2 Add `environment(cmdline)` to the ucode module `orbyt.ab`; configure `ubootenv` from it in `31-orbyt-ab`, without the written-in offset; refuse an upgrade in `platform_check_image` while the environment cannot be read (D3). Bump `orbyt-ab`'s `PKG_RELEASE`.
 
   Verify: `just check`; on the emulator, `fw_env.config` holds the two copies, and `fw_setenv` then `fw_printenv` round-trip.
-- [x] 1.3 Update `wrt_tests.device.ab` (both offsets, the boot area) and the `firmware/boot-rollback` tests (D6): "Persistent variable missing or corrupted", "Environment write cut short", "Compare the two bootloaders", "The environment where the bootloader names it", "A bootloader that names no environment". Update `docs/ab-layout.md` (the layout, the two copies, the command line).
+- [x] 1.3 Update `orbyt_tests.device.ab` (both offsets, the boot area) and the `firmware/boot-rollback` tests (D6): "Persistent variable missing or corrupted", "Environment write cut short", "Compare the two bootloaders", "The environment where the bootloader names it", "A bootloader that names no environment". Update `docs/ab-layout.md` (the layout, the two copies, the command line).
 
   Verify: the `firmware/boot-rollback`, `firmware/ab-upgrade` and `firmware/ab-layout` tests pass on both boards; "Environment write cut short" fails with the old single copy, as checked once by building with `CONFIG_ENV_REDUNDANT` off.
 
 ## 2. The health check's clock (design D4)
 
-- [x] 2.1 Measure `wrt-healthcheck`'s time limits on `clock(true)` (D4), and add the `firmware/health-check` test "Clock set during a trial boot" (D6).
+- [x] 2.1 Measure `orbyt-healthcheck`'s time limits on `clock(true)` (D4), and add the `firmware/health-check` test "Clock set during a trial boot" (D6).
 
   Verify: the test fails with `time()` and passes with `clock(true)`; the `firmware/health-check` tests pass on both boards.
 

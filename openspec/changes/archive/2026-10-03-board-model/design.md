@@ -24,8 +24,8 @@ For motivation, see proposal.md. This design rests on the following, checked aga
 **The R4S is named in:**
 - `config/target.seed` and `config/toolchain.seed`;
 - patches 0003, 0004 and 0006, and `uboot/board-r4s.*`;
-- `tests/wrt_tests/emu.py` and `tests/targets/emulation.yaml`, and the constants of about ten test modules;
-- `files/etc/uci-defaults/91-wrt-datapath` (WAN on `eth0`) and dae's init (`taskset -c 4,5`);
+- `tests/orbyt_tests/emu.py` and `tests/targets/emulation.yaml`, and the constants of about ten test modules;
+- `files/etc/uci-defaults/91-orbyt-datapath` (WAN on `eth0`) and dae's init (`taskset -c 4,5`);
 - `scripts/build.sh`, whose globs such as `build_dir/target-*/u-boot-…` assume a single build.
 
 **QEMU 11.1.1 (pinned)** has an `emmc` device for the SD bus, and the `cortex-a76` and `cortex-a55` models.
@@ -74,7 +74,7 @@ boards/r4s.json, boards/r6s.json   (ids: the file names, r4s and r6s)
 
 TOML would need a parser in the shell scripts. YAML has no `jq`.
 
-**Validation:** a pydantic model, `wrt_tests.boards.Board`, is the schema. It is strict: unknown fields are rejected and types are checked. `just check` gains a `boards` check that loads every description with it. A second schema file (JSON Schema plus a validator) would say the same thing twice. This is the one place where this change takes a dependency the `python-tooling` change otherwise brings.
+**Validation:** a pydantic model, `orbyt_tests.boards.Board`, is the schema. It is strict: unknown fields are rejected and types are checked. `just check` gains a `boards` check that loads every description with it. A second schema file (JSON Schema plus a validator) would say the same thing twice. This is the one place where this change takes a dependency the `python-tooling` change otherwise brings.
 
 **Where facts live:**
 - The U-Boot facts written in U-Boot's own syntax stay in `uboot/board-<id>.{env,config}`: the boot disk's MMC number, the console arguments, the kernel start command, the environment location and the watchdog. The description names their board by its id.
@@ -86,7 +86,7 @@ TOML would need a parser in the shell scripts. YAML has no `jq`.
             toolchain-build (board-neutral config)          just build <board> <profile>
                      |                                                |
    staging_dir/toolchain-aarch64_generic_gcc-15_musl   <- shared --+  board seed (generated):
-   (+ wrt-toolchain.json: its flags, its C library's hash)          |    DEVICE_<device>=y
+   (+ orbyt-toolchain.json: its flags, its C library's hash)          |    DEVICE_<device>=y
                                                                    |    EXTRA_OPTIMIZATION += -mcpu=<cpu>
    build_dir/target-aarch64_generic_musl_r4s   staging_dir/..._r4s |    BUILD_SUFFIX=<id>
    build_dir/target-aarch64_generic_musl_r6s   staging_dir/..._r6s |    BINARY_FOLDER=$TREE/bin/<id>
@@ -96,7 +96,7 @@ TOML would need a parser in the shell scripts. YAML has no `jq`.
 **Configuration:** `scripts/config.sh <board> <profile>` composes the profile's seeds, then a board seed generated from the description. `config/target.seed` keeps only the target and subtarget. `config/toolchain.seed` keeps only the board-neutral flags. The recipes become `just config|build|test <board> [profile]` and `just drill-base <board>`. `just boards` prints the board ids as JSON, for CI; given boards, it checks them first, and `just build` checks its board this way before any other step. An unknown board fails before anything is configured, naming the known ones.
 
 **Toolchain:**
-- `toolchain-build` configures the tree for every board's device at once and for none of their CPU tuning, so musl, libgcc and libstdc++ carry no board's `-mcpu`, and the host tools are the ones every board's build needs. The devices are named explicitly: the ci profile's buildbot mode would otherwise enable every device of the target. It records `TARGET_CFLAGS` and the hash of the C library in `wrt-toolchain.json` in the toolchain directory, which travels in the cached archive. A toolchain without that record, or whose C library is not the one it names, is built anew: a board's build may have rebuilt musl with the board's flags, and recording that C library again would hide it.
+- `toolchain-build` configures the tree for every board's device at once and for none of their CPU tuning, so musl, libgcc and libstdc++ carry no board's `-mcpu`, and the host tools are the ones every board's build needs. The devices are named explicitly: the ci profile's buildbot mode would otherwise enable every device of the target. It records `TARGET_CFLAGS` and the hash of the C library in `orbyt-toolchain.json` in the toolchain directory, which travels in the cached archive. A toolchain without that record, or whose C library is not the one it names, is built anew: a board's build may have rebuilt musl with the board's flags, and recording that C library again would hide it.
 - `build.sh` refuses a toolchain which has no record, whose recorded flags hold a board's `-mcpu`, or whose C library is not the one the record names. It checks the C library again after the build: OpenWrt builds musl with the target's flags, so a board's build that rebuilt the toolchain would leave the board's `-mcpu` in it.
 - A local `just build` runs `toolchain-build` first, which builds nothing when the toolchain is current, so the first board built can never shape the toolchain.
 - `toolchain-build` also writes the toolchain's version stamp (`stamp/.ver_check`) as buildbot mode would. In the release profile's buildbot mode, every make in the tree deletes a toolchain whose stamp does not name the last commit of `toolchain/`, and the board's build and staging directories with it. A toolchain built for the dev profile has no stamp, so without this a local switch to the ci profile would wipe it.
@@ -115,21 +115,21 @@ TOML would need a parser in the shell scripts. YAML has no `jq`.
 ### D3. Bootloader: per-board fragments and a generic hook
 
 `uboot/board-r6s.env` sets:
-- `wrt_mmc=1`, the eMMC;
-- `wrt_console=console=ttyS2,1500000 earlycon=uart8250,mmio32,0xfeb50000`;
-- `wrt_bootos=bootm ${kernel_addr_r}`.
+- `orbyt_mmc=1`, the eMMC;
+- `orbyt_console=console=ttyS2,1500000 earlycon=uart8250,mmio32,0xfeb50000`;
+- `orbyt_bootos=bootm ${kernel_addr_r}`.
 
-`uboot/board-r6s.config` places the environment on the eMMC (`ENV_MMC_DEVICE_INDEX=1`; U-Boot 2026.07 renamed `SYS_MMC_ENV_DEV`, and Rockchip's U-Boot uses the index only when it cannot tell the MMC device it booted from) and starts the DesignWare watchdog with a 60-second timeout, as `board-r4s.config` does. The environment location (offset `0x3F8000`, 32 KiB) is one project constant, in `wrt-ab.config`. The R4S's defconfig already has it, and every board and the device side share it.
+`uboot/board-r6s.config` places the environment on the eMMC (`ENV_MMC_DEVICE_INDEX=1`; U-Boot 2026.07 renamed `SYS_MMC_ENV_DEV`, and Rockchip's U-Boot uses the index only when it cannot tell the MMC device it booted from) and starts the DesignWare watchdog with a 60-second timeout, as `board-r4s.config` does. The environment location (offset `0x3F8000`, 32 KiB) is one project constant, in `orbyt-ab.config`. The R4S's defconfig already has it, and every board and the device side share it.
 
-**Patch 0003** shrinks to one generic line in uboot-rockchip's Makefile: the include of `env/uboot/wrt-ab.mk`, after the variants' definitions and before the package is built. The hook itself lives in `wrt-ab.mk` and is evaluated for `$(BUILD_VARIANT)`: a board's variant gets `wrt-ab board-<id>` appended to its `UBOOT_CONFIG`, on a line of its own after its definition's last. The scripts that prepare the tree (`fetch`, `toolchain-build` and `config`) generate the board table `env/wrt-boards.mk` from the descriptions: each board's variant, id and environment directory, and each board's device. It sits beside the `env/uboot` link to `uboot/`, never in the repository. `wrt-ab.mk` looks the building variant up in it. A known variant gets the fragments, the writeable-list flags and the `Build/Prepare` step. Any other variant is untouched. No board is named in the patch.
+**Patch 0003** shrinks to one generic line in uboot-rockchip's Makefile: the include of `env/uboot/orbyt-ab.mk`, after the variants' definitions and before the package is built. The hook itself lives in `orbyt-ab.mk` and is evaluated for `$(BUILD_VARIANT)`: a board's variant gets `orbyt-ab board-<id>` appended to its `UBOOT_CONFIG`, on a line of its own after its definition's last. The scripts that prepare the tree (`fetch`, `toolchain-build` and `config`) generate the board table `env/orbyt-boards.mk` from the descriptions: each board's variant, id and environment directory, and each board's device. It sits beside the `env/uboot` link to `uboot/`, never in the repository. `orbyt-ab.mk` looks the building variant up in it. A known variant gets the fragments, the writeable-list flags and the `Build/Prepare` step. Any other variant is untouched. No board is named in the patch.
 
-**`uboot-wrt-qemu`** stays one package with `board-qemu`, which every board's emulator boots.
+**`uboot-orbyt-qemu`** stays one package with `board-qemu`, which every board's emulator boots.
 
 ### D4. Images and the environment tool without board names
 
-**Patch 0004** keeps `gen_image_ab.sh`, `ab-boot`, `ab-disk` and `Device/wrt-ab`. Instead of adding `$(Device/wrt-ab)` to device definitions, `Device/Default` applies it to the devices in `WRT_AB_DEVICES`, which comes from `env/wrt-boards.mk`. Neither board's upstream definition sets `IMAGES`, so the A/B images stand.
+**Patch 0004** keeps `gen_image_ab.sh`, `ab-boot`, `ab-disk` and `Device/orbyt-ab`. Instead of adding `$(Device/orbyt-ab)` to device definitions, `Device/Default` applies it to the devices in `ORBYT_AB_DEVICES`, which comes from `env/orbyt-boards.mk`. Neither board's upstream definition sets `IMAGES`, so the A/B images stand.
 
-**Patch 0006 is dropped.** wrt-ab installs a uci-defaults script that runs after uboot-envtools' own. It writes `/etc/config/ubootenv` for the boot disk (`export_bootdevice`) at the shared offset whenever the system booted from a slot, meaning `wrt.slot` is on the command line. This works for any A/B board and is our own package, not an upstream patch.
+**Patch 0006 is dropped.** orbyt-ab installs a uci-defaults script that runs after uboot-envtools' own. It writes `/etc/config/ubootenv` for the boot disk (`export_bootdevice`) at the shared offset whenever the system booted from a slot, meaning `orbyt.slot` is on the command line. This works for any A/B board and is our own package, not an upstream patch.
 
 ### D5. move_config reads the partition number from sysfs (patch 0005)
 
@@ -139,7 +139,7 @@ This handles MBR and GPT disks, and a `root=/dev/...` command line. It never run
 
 ### D6. Device code without board facts
 
-- **`91-wrt-datapath`** sets the WAN's protocol to PPPoE and leaves its device as upstream's board script created it: `eth0` on the R4S, `eth1` on the R6S.
+- **`91-orbyt-datapath`** sets the WAN's protocol to PPPoE and leaves its device as upstream's board script created it: `eth0` on the R4S, `eth1` on the R6S.
 - **dae's init** pins to the CPUs whose `/sys/devices/system/cpu/cpu*/cpu_capacity` is highest, which are the big cores on both SoCs. Without capacities, where all cores are equal, it uses all CPUs. The rule needs no board data. The emulator can check it because it gives each core its capacity from the description (D7).
 
 Alternative: bake the big-core list into each board's image from the description. That needs a per-board file in the shared rootfs overlay, for a fact the kernel already knows.
@@ -154,7 +154,7 @@ Alternative: bake the big-core list into each board's image from the description
 
 The device tree QEMU generates is stamped with the board's name and model, as it is today for the R4S. The emulator directory is keyed by the image, the firmware and the board description. `emu-prepare` removes the directories of builds that have changed since, so that two boards' emulators fit beside their builds.
 
-**The sandbox** (`wrt_tests.net`) takes the port list:
+**The sandbox** (`orbyt_tests.net`) takes the port list:
 - the WAN port joins `br-wan`;
 - the first LAN port joins `br-lan`, with the runner and `client-a`/`client-b`;
 - a second LAN port joins a segment of its own, `br-lan2`, with `client-c`. The router bridges both LAN ports into one LAN, which the new emulation scenario checks.
@@ -193,9 +193,9 @@ host-toolchain --(boards: ["r4s","r6s"])--> firmware (matrix board) --> system-t
 - it names `repo.tar`, `manifest.json` and `manifest.json.sig` `<device>-…` (the images already carry the device name);
 - one `SHA256SUMS` covers every asset, and `release.json` lists the boards.
 
-**`wrt-sync`** derives its device from `board_name` by replacing `,` with `_`, which is upstream's naming for both boards. A test asserts it for every description. `fetch` takes only that device's assets, and each set is verified on its own.
+**`orbyt-sync`** derives its device from `board_name` by replacing `,` with `_`, which is upstream's naming for both boards. A test asserts it for every description. `fetch` takes only that device's assets, and each set is verified on its own.
 
-Both read the manifest with one ucode helper, `/usr/libexec/wrt-sync/manifest`: `fetch` takes the upgrade image's name from it, and `wrt-sync` the checksums of the image and the indexes. The helper fails unless the manifest names the router's device and lists one upgrade image and an index. Every board's manifest is signed with the same key, and apk cannot tell the boards' packages apart (they share the package architecture), so only the manifest keeps a router from activating another board's set published under its name. `wrt-sync` checks the files in its own shell, not at the end of a pipe. The check this replaces read the manifest with a ucode call that could not run (`readfile` lives in the `fs` module), and its pipe hid the failure, so nothing was checked.
+Both read the manifest with one ucode helper, `/usr/libexec/orbyt-sync/manifest`: `fetch` takes the upgrade image's name from it, and `orbyt-sync` the checksums of the image and the indexes. The helper fails unless the manifest names the router's device and lists one upgrade image and an index. Every board's manifest is signed with the same key, and apk cannot tell the boards' packages apart (they share the package architecture), so only the manifest keeps a router from activating another board's set published under its name. `orbyt-sync` checks the files in its own shell, not at the end of a pipe. The check this replaces read the manifest with a ucode call that could not run (`readfile` lives in the `fs` module), and its pipe hid the failure, so nothing was checked.
 
 **`drill-base <board>`** takes its board's factory image from the latest stable release: the one the board's manifest there names, checked against it. While no stable release carries the board, before the first release or when the board is new, the drill starts from the candidate's own image. Only GitHub's answer that there is no release counts as none: any other failure to look it up fails the drill, which would otherwise upgrade the candidate onto itself.
 

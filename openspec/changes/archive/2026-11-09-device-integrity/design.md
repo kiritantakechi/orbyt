@@ -9,7 +9,7 @@ See proposal.md for why. Each defect below was read against the code; the mechan
 - `rc.common` passes a command's arguments on: `reload` without a `reload_service` runs `start_service "$@"`.
 - `config_foreach` (`/lib/functions.sh`) splits the list of sections on `IFS`: run with `IFS` a newline, it takes the whole list for one section and finds none.
 - procd 2026.10.18: a trigger's action runs after the trigger's delay (procd.sh's `PROCD_RELOAD_DELAY`, 1000 ms), and an instance restarts once the old one has stopped, within its `term_timeout` (twice that for a jailed one); `service list` reports each instance's `incarnation`, counted up whenever procd starts one. procd runs its triggers' commands one at a time, so a change's own can wait behind those of every other: `reload_config` queues those of every configuration changed since its last run, and under CI's load uhttpd's reload began 41 s after `reload_config` had returned. Nothing reports the commands still to come.
-- procd 2026.10.18 (39b5aac8c1) kills what an instance leaves in its cgroup once the instance's main process exits. podman moves conmon and the containers into `libpod_parent`; netavark starts aardvark-dns, the DNS of podman's network, in the cgroup of whatever ran it, so the first service that ran a container and ended (wrt-sync, `wrt-containers apply`) took it along, its pid file staying. Stopping the network's last container then started aardvark-dns on an empty configuration, which exits at once, and failed. The sync's packages patch 0009 has netavark run aardvark-dns in a cgroup of its own.
+- procd 2026.10.18 (39b5aac8c1) kills what an instance leaves in its cgroup once the instance's main process exits. podman moves conmon and the containers into `libpod_parent`; netavark starts aardvark-dns, the DNS of podman's network, in the cgroup of whatever ran it, so the first service that ran a container and ended (orbyt-sync, `orbyt-containers apply`) took it along, its pid file staying. Stopping the network's last container then started aardvark-dns on an empty configuration, which exits at once, and failed. The sync's packages patch 0009 has netavark run aardvark-dns in a cgroup of its own.
 - `tailscale up` takes an auth key only to log in anew: a node that is logged in keeps its login, unless `--force-reauth` is given.
 - A shell's exit trap runs where `exit` was called: in a function such as `die`, `"$@"` is that function's arguments.
 - BusyBox 1.38: `tar -tv` lists a symbolic link as type `l` and a hard link as a regular file (`-`), each followed by ` -> <target>`; `tar -t` lists the names alone. `ln -sf` removes the old link before it makes the new one; `mv -T` renames over a link.
@@ -29,30 +29,30 @@ See proposal.md for why. Each defect below was read against the code; the mechan
 
 ### D1. The health check reads the environment once, and knows when it cannot
 
-`wrt.ab` gets `variables()`: the U-Boot environment as an object of its variables, from one `fw_printenv`, or `null` when the tool fails. `getenv()` goes; `wrt-healthcheck` and `wrt-slot` read `variables()` once.
+`orbyt.ab` gets `variables()`: the U-Boot environment as an object of its variables, from one `fw_printenv`, or `null` when the tool fails. `getenv()` goes; `orbyt-healthcheck` and `orbyt-slot` read `variables()` once.
 - An environment that cannot be read is the failed check `environment` in every round; the trial state is unknown, so the health check never reboots for it.
 - A pass in the trial state records `pass` only once `setenv()` wrote the confirmation; otherwise it records `fail` with `confirm`, logs an error, and does not reboot: the slot stays on trial, and U-Boot decides at the next boots.
-- `wrt-slot status` says the state is unknown when the environment cannot be read.
+- `orbyt-slot status` says the state is unknown when the environment cannot be read.
 
 ### D2. An upgrade switches only after everything it wrote
 
-In `lib/upgrade/wrt-ab.sh`:
+In `lib/upgrade/orbyt-ab.sh`:
 - The members are listed whole. The check accepts exactly `<dir>/CONTROL`, `<dir>/kernel` and `<dir>/root` of one directory, and the write extracts `<dir>/<name>`: the check and the write read the same names.
 - Each write runs with `pipefail` in a subshell, so a failing `tar` fails it as a failing `dd` does; the overlay's clearing is checked too.
 - The configuration goes into the new slot's boot partition inside `platform_do_upgrade`, before the environment changes, when `UPGRADE_BACKUP` is set (stage 2 exports it). `platform_copy_config` is a no-op that says so: it still has to replace the platform's whole-disk one.
-- Any failure returns before `wrt_ab_setenv`; stage 2 reboots into the running slot.
+- Any failure returns before `orbyt_ab_setenv`; stage 2 reboots into the running slot.
 
 ### D3. The sync keeps what it verified, and nothing else
 
-- `fetch` refuses a tag that is not `^[A-Za-z0-9][A-Za-z0-9._-]*$` (no `.` or `..`, no slash or quote) before it uses it; `wrt-sync` checks the container's answer the same way. The names `fetch` passes to the manifest helper are quoted.
-- After `manifest.json` verifies, `wrt-sync` lists `repo.tar` and refuses it unless every member is a regular file or a directory under `packages/` or `targets/packages/`, with no `..` component and no link. The names come from `tar -t`, as a name may hold spaces; the types, line for line, from `tar -tv`, where a link of either kind shows its target. Then it builds the release in a directory of its own from the verified parts only: the manifest and its signature, the upgrade image the manifest names, and the package repository. The checks of D3's existing loop run there.
+- `fetch` refuses a tag that is not `^[A-Za-z0-9][A-Za-z0-9._-]*$` (no `.` or `..`, no slash or quote) before it uses it; `orbyt-sync` checks the container's answer the same way. The names `fetch` passes to the manifest helper are quoted.
+- After `manifest.json` verifies, `orbyt-sync` lists `repo.tar` and refuses it unless every member is a regular file or a directory under `packages/` or `targets/packages/`, with no `..` component and no link. The names come from `tar -t`, as a name may hold spaces; the types, line for line, from `tar -tv`, where a link of either kind shows its target. Then it builds the release in a directory of its own from the verified parts only: the manifest and its signature, the upgrade image the manifest names, and the package repository. The checks of D3's existing loop run there.
 - What a sync downloads and builds goes when it ends, however it ends: `.incoming` and the release in the making are removed on exit, once the sync holds its lock. `fetch` downloads afresh every time, so a refused release's files serve no later sync.
-- `sync` flushes the release before `mv` makes it a release. `current` then changes by one rename over the link, a new link made beside it and moved with `mv -T`, and `sync` flushes that before `wrt-sync` says the release is current: a power cut leaves one release current or the other, never none.
-- `wrt-update` installs the image the current release's manifest names (`manifest image`), and prints it.
+- `sync` flushes the release before `mv` makes it a release. `current` then changes by one rename over the link, a new link made beside it and moved with `mv -T`, and `sync` flushes that before `orbyt-sync` says the release is current: a power cut leaves one release current or the other, never none.
+- `orbyt-update` installs the image the current release's manifest names (`manifest image`), and prints it.
 
 ### D4. Every Pod gets its turn
 
-`wrt-containers apply` runs each declaration's step in a subshell of its own; a step that fails is logged with its name and the loop goes on. The command fails at the end, naming the Pods that did not come up.
+`orbyt-containers apply` runs each declaration's step in a subshell of its own; a step that fails is logged with its name and the loop goes on. The command fails at the end, naming the Pods that did not come up.
 
 ### D5. dae's entry: locked, replaced whole, and taken
 
@@ -63,7 +63,7 @@ In `lib/upgrade/wrt-ab.sh`:
 
 ### D6. Snapshots by their most recent days
 
-`wrt-snap prune` keeps, for each subvolume, the snapshots whose day (UTC, from the name) is among its 7 most recent snapshot days, and deletes the rest. A clock set ahead, or a long time off, then costs at most one day's worth.
+`orbyt-snap prune` keeps, for each subvolume, the snapshots whose day (UTC, from the name) is among its 7 most recent snapshot days, and deletes the rest. A clock set ahead, or a long time off, then costs at most one day's worth.
 
 ### D7. `mount.remove` follows the unmount; mount points count all
 
@@ -79,8 +79,8 @@ ksmbd's init (packages 0001) and the log service (patch 0008) leave out what `pr
 
 ### D8. config-push: root's files, a cleaned upload, and a full rollback
 
-- `config-push.sh` runs under `umask 077`, so the archive's files are 0600 and its directories 0700; the router side creates `/tmp/wrt-push` under `umask 077` before anything else, and a trap removes it on any exit after the upload. Every command on the router goes through one function, `router`, which builds ssh's arguments itself: the trap runs inside `die` as well.
-- Tailscale's login is two files, `auth_key` and `options`; the router keeps them as `/etc/wrt-config/tailscale.key` (0600) and `tailscale.options`, and logs in with `tailscale up --reset --force-reauth --auth-key=file:<key> <options>`: without `--force-reauth`, a node logged in already would ignore the pushed key, and a refused key would go unnoticed. A previous `tailscale.login` goes with the first such push.
+- `config-push.sh` runs under `umask 077`, so the archive's files are 0600 and its directories 0700; the router side creates `/tmp/orbyt-push` under `umask 077` before anything else, and a trap removes it on any exit after the upload. Every command on the router goes through one function, `router`, which builds ssh's arguments itself: the trap runs inside `die` as well.
+- Tailscale's login is two files, `auth_key` and `options`; the router keeps them as `/etc/orbyt-config/tailscale.key` (0600) and `tailscale.options`, and logs in with `tailscale up --reset --force-reauth --auth-key=file:<key> <options>`: without `--force-reauth`, a node logged in already would ignore the pushed key, and a refused key would go unnoticed. A previous `tailscale.login` goes with the first such push.
 - `device.uc` saves and restores, for each service, every path its write changes, an absent path included (restoring removes it): dae, `/etc/dae` and `/etc/config/dae`; pods, the Pods' directory; smb, `/etc/passwd`, `/etc/group` and `/etc/ksmbd/ksmbdpwd.db`; tailscale, its two files and tailscaled's state file (`tailscale.settings.state_file`); the uci services, `/etc/config`. A restored Tailscale restarts tailscaled on its old state instead of logging in again.
 - The command that reloads a service must succeed: `tailscale up` fails on a key control refuses, while tailscaled keeps its earlier login and `tailscale status` reports it running. Putting a service back reloads it the same way, its command's failure counted alike.
 - `back()` keeps the network's, dae's and Tailscale's own checks, and every service adds the general one: no procd instance that ran before the push and is respawned when it ends (a daemon) has stopped (`service list`, read before the write). smb also needs ksmbd running while its configuration offers a share; pods, every declared Pod running. A service is back once procd has run every command its triggers queued (`ubus call service trigger_commands`, which patch 0043 adds; within 300 s, as a command that hangs holds up the rest), and the checks, 2 s apart, then pass with every such daemon in one incarnation for as long as a restart takes: twice the longest `term_timeout` among the daemons, and one more check. A restart under way and a daemon that fails and is respawned, which runs for a moment at a time, each break that run. The queue counts once, before the checks: other services' commands keep coming, `sysntpd`'s and `packet_steering`'s on interface events every few seconds under load, and asking for an empty queue throughout failed pushes that were fine (run 42527830422, R4S; reproduced twice in three runs under CI-like load). A service that does not come back has the push say what held it: its own check, or the daemons stopped or restarted. Counting from `reload_config` instead, with the trigger delay for the wait, accepted a configuration that stopped uhttpd before procd had applied it (run 40364478458, R6S; reproduced twice under CI-like load).
@@ -100,9 +100,9 @@ firewall4's `mangle-rule.uc` came with commit 39e8c70957 by accident, beside `ru
 
 On both boards, in the suites that hold their capabilities:
 - firmware/health-check: "Environment that cannot be read" and "Confirmation that cannot be written" run the health check with `PATH` led through a directory whose `fw_printenv` or `fw_setenv` fails.
-- firmware/ab-upgrade: "Write that fails" runs `platform_do_upgrade` on an image cut short inside its root member; "Configuration in place before the switch" runs it with `UPGRADE_BACKUP` and a `wrt_ab_setenv` that records whether the target's boot partition holds the backup.
-- release/device-sync: the Releases stand-in serves a package archive with a manifest, an image, a symbolic link and a hard link; a release named `..`; a power cut right after a sync; and `wrt-update -T` with an older signed image beside the release's.
-- services/containers: two declarations, the first naming an image no registry has; wrt-sync restarted and ended, its container with it, then the app Pod stopped and started, its own name looked up inside it.
+- firmware/ab-upgrade: "Write that fails" runs `platform_do_upgrade` on an image cut short inside its root member; "Configuration in place before the switch" runs it with `UPGRADE_BACKUP` and a `orbyt_ab_setenv` that records whether the target's boot partition holds the backup.
+- release/device-sync: the Releases stand-in serves a package archive with a manifest, an image, a symbolic link and a hard link; a release named `..`; a power cut right after a sync; and `orbyt-update -T` with an older signed image beside the release's.
+- services/containers: two declarations, the first naming an image no registry has; orbyt-sync restarted and ended, its container with it, then the app Pod stopped and started, its own name looked up inside it.
 - services/file-sharing: a removal with a mount script that asks for a reload of the service and sleeps 3 s on `remove`, as long as `block` waits for the scripts; a share under nested fstab mount points of which only the outer is mounted (tmpfs). Each removal test starts once procd has run what the disk's earlier return set off: under CI's load its restarts of the services on the disk held ksmbd's reload up past the test's 30 s (run 40364478458, R6S).
 - network/transparent-proxy: `enabled` set to 0 and applied as LuCI applies it, through rpcd's `uci apply`, which announces the change to procd (`reload_config` compares with the configuration it saw last, and the tests' dae was enabled by a commit of its own); podman0 created right after dae's restart.
 - storage/data-disk: the daily job on 7 days, then once 10 days later.

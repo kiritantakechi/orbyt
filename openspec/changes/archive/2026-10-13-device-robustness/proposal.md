@@ -7,7 +7,7 @@ Three faults of the device side, each found in passing by an earlier change, bre
   - procd's init-script helpers know mount triggers only for `mount.add`.
   - On a hot unplug, `block` makes blockd forget the device before it unmounts it, so blockd's `mount.remove` event names no mount point, or a stale one, and no trigger on `/mnt/data` could fire.
   - ksmbd's script returns early when nothing is left to share, before it unloads the server, so port 445 stays open.
-- **podman refuses its own storage now and then.** CI run 37324813891 failed a device sync with `database run root "/run/containers/storage" does not match our run root "/tmp/run/containers/storage"`. podman resolves the symlinks of the recorded run root and of its own, which is the same string, in two calls, and each call resolves a path only if it exists. When a second podman process creates the run root between the two calls, the same path compares unequal. That happens with two podman commands at the start of a fresh `/tmp/run`, as wrt-containers and wrt-sync run them after a boot or a disk mount.
+- **podman refuses its own storage now and then.** CI run 37324813891 failed a device sync with `database run root "/run/containers/storage" does not match our run root "/tmp/run/containers/storage"`. podman resolves the symlinks of the recorded run root and of its own, which is the same string, in two calls, and each call resolves a path only if it exists. When a second podman process creates the run root between the two calls, the same path compares unequal. That happens with two podman commands at the start of a fresh `/tmp/run`, as orbyt-containers and orbyt-sync run them after a boot or a disk mount.
 - **A service that outlives the data disk writes to the boot disk.** `block` removes the mount point after it unmounts the disk, so a path on the disk that a running process uses again, as a podman command's graph root, is created anew on the flash. Found by this change's own file-sharing test, it breaks storage/data-disk's "MUST NOT write data to the boot disk while a mount point is absent" for every service on the disk.
 - **qosify names a long device's ifb from outside the name.** For a device name of 12 to 15 characters, `interface_ifb_name()` takes the name's tail from a negative offset: undefined behavior, and an ifb named after whatever precedes the name in memory. `qosify-status` derives the ifb's name in a way of its own, which disagrees with the daemon's for those lengths.
 
@@ -20,7 +20,7 @@ Three faults of the device side, each found in passing by an earlier change, bre
   - The existing `mount.add` helpers keep their meaning for every package that uses them.
 - **blockd names the unmounted mount point** (an openwrt patch to fstools): `block` unmounts a removed device before blockd forgets it, and blockd never reports another device's old mount point.
 - **ksmbd withdraws its shares when their disk goes** (packages patch 0001, revised): the service reloads, which starts it anew, on the mount and the unmount of a share's mount point, and a start with nothing to share stops the server, port 445 included.
-- **Nothing written in the data disk's place reaches the flash** (wrt-data): its mount point lies on a small filesystem in RAM, mounted early in boot, so that what a process writes there without the disk lands in RAM, bounded.
+- **Nothing written in the data disk's place reaches the flash** (orbyt-data): its mount point lies on a small filesystem in RAM, mounted early in boot, so that what a process writes there without the disk lands in RAM, bounded.
 - **podman accepts its own storage at any concurrency** (a packages patch to podman): a recorded path equal to podman's own matches without resolving either, and resolution is left to paths that differ as strings.
 - **qosify's ifb names fit the device name** (an openwrt patch adding a qosify patch):
   - A long name keeps its first two characters and its last nine.
@@ -43,7 +43,7 @@ None.
 
 - `patches/openwrt/`: new patches for procd (`procd.sh`), fstools (`block.c`, `blockd.c`) and qosify (`interface.c`, `qosify-status`).
 - `patches/packages/`: patch 0001 (ksmbd-tools) revised; a new patch for podman (`libpod`).
-- `feed/utils/wrt-data`: a preinit hook that puts the mount point on a small filesystem in RAM.
+- `feed/utils/orbyt-data`: a preinit hook that puts the mount point on a small filesystem in RAM.
 - `tests/services/test_file_sharing.py`, `tests/services/test_containers.py`, `tests/network/test_qos.py`, `tests/storage/test_data_disk.py`: a scenario each.
 - `docs/patches.md`: the write-ups, including 0001's.
 - Hot-unplugging the data disk stays unsupported for the services that keep files open on it (`docs/services.md`). This change makes the SMB service stop offering a disk that has gone, whatever the reason; it does not make the disk safe to pull.

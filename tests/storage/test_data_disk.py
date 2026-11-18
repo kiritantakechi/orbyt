@@ -301,7 +301,7 @@ def test_other_disk_is_not_mounted(without_disk: Online, spare: Disk) -> None:
     router = without_disk.router
     # The same label as the data disk, and a filesystem of its own (another UUID).
     spare.plug(3)
-    router.run(f"mkfs.btrfs -q -f -L wrtdata {device(router, spare)}", timeout=120)
+    router.run(f"mkfs.btrfs -q -f -L orbytdata {device(router, spare)}", timeout=120)
     spare.unplug()
     removed(router, spare)
     spare.plug(3)

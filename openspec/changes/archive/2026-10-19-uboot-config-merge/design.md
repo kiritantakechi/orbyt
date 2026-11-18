@@ -3,12 +3,12 @@
 ## Context
 
 See proposal.md for why. The current state:
-- OpenWrt's `include/u-boot.mk` configures a U-Boot variant with `make <defconfig>_config <fragment>.config...` (`UBOOT_CONFIG`), then, when the package sets `UBOOT_CUSTOMIZE_CONFIG`, changes `.config` with `scripts/config` and runs `make oldconfig`. The boards' variants (uboot-rockchip) and the emulator's (uboot-wrt-qemu, in this repository's feed) add `wrt-ab.config` and `board-<id>.config` (`uboot/wrt-ab.mk`), and both packages set `UBOOT_CUSTOMIZE_CONFIG`.
+- OpenWrt's `include/u-boot.mk` configures a U-Boot variant with `make <defconfig>_config <fragment>.config...` (`UBOOT_CONFIG`), then, when the package sets `UBOOT_CUSTOMIZE_CONFIG`, changes `.config` with `scripts/config` and runs `make oldconfig`. The boards' variants (uboot-rockchip) and the emulator's (uboot-orbyt-qemu, in this repository's feed) add `orbyt-ab.config` and `board-<id>.config` (`uboot/orbyt-ab.mk`), and both packages set `UBOOT_CUSTOMIZE_CONFIG`.
 - U-Boot 2026.07's `scripts/kconfig/Makefile` merges each fragment with `merge_config.sh -m .config <fragment>`, then `yes "" | $(MAKE) -f $(srctree)/Makefile oldconfig`. `oldconfig` asks each new symbol; an empty answer takes the default. Upstream U-Boot's master has the same rule.
 - U-Boot's Kconfig gives an int or hex symbol without a default an empty value, which is not a valid one: `oldconfig` and `syncconfig` ask it, and an empty answer, or the end of the input, leaves it empty, so they ask again, for ever. Measured on the VM with the merge fixed: `make oldconfig </dev/null` after a merge that left `ENV_ADDR_REDUND` empty wrote 1.1 GB of prompts in 20 s.
 - Linux fixed both: the merge runs `olddefconfig` since 3266c806dc86 (v5.3, 2019), and such a symbol is zero since 6262afa10ef7 (v6.8). Each is a small change, and U-Boot's Kconfig, synchronized with an older Linux, has neither.
-- uboot-wrt-qemu takes `PKG_VERSION` and `PKG_HASH` from uboot-rockchip's Makefile, but no patches: today it builds unpatched U-Boot, while uboot-rockchip carries eleven patches (rockchip boards and mkimage) and the A/B logic's glue.
-- The hang that showed it, on 2026-10-15: `ENV_ADDR_REDUND` asked after `wrt-ab.config`, before `board-qemu.config` turned the flash environment off; trial-boot-resilience moved that line into `wrt-ab.config`.
+- uboot-orbyt-qemu takes `PKG_VERSION` and `PKG_HASH` from uboot-rockchip's Makefile, but no patches: today it builds unpatched U-Boot, while uboot-rockchip carries eleven patches (rockchip boards and mkimage) and the A/B logic's glue.
+- The hang that showed it, on 2026-10-15: `ENV_ADDR_REDUND` asked after `orbyt-ab.config`, before `board-qemu.config` turned the flash environment off; trial-boot-resilience moved that line into `orbyt-ab.config`.
 
 ## Goals / Non-Goals
 
@@ -38,13 +38,13 @@ Alternatives considered:
 
 ### D2. The patches' place, and the emulator's U-Boot
 
-The openwrt series' next patch adds the U-Boot patches to `package/boot/uboot-rockchip/patches/` and raises uboot-rockchip's `PKG_RELEASE`. uboot-wrt-qemu sets `PATCH_DIR` to that directory, as it takes the version and hash from that package, counts it among its file dependencies (`PKG_FILE_DEPENDS`), so a changed patch prepares its source again, and raises its `PKG_RELEASE`. The emulator's U-Boot then carries all of the boards' patches: rockchip board additions and mkimage changes, which do not touch `qemu_arm64`, and every patch to come.
+The openwrt series' next patch adds the U-Boot patches to `package/boot/uboot-rockchip/patches/` and raises uboot-rockchip's `PKG_RELEASE`. uboot-orbyt-qemu sets `PATCH_DIR` to that directory, as it takes the version and hash from that package, counts it among its file dependencies (`PKG_FILE_DEPENDS`), so a changed patch prepares its source again, and raises its `PKG_RELEASE`. The emulator's U-Boot then carries all of the boards' patches: rockchip board additions and mkimage changes, which do not touch `qemu_arm64`, and every patch to come.
 
 ### D3. The test
 
 `build/boards` "A fragment leaves a question for the next", in `tests/build/`:
-- Where the build tree holds the emulator's prepared U-Boot source (`build_dir/target-*_<board>/u-boot-wrt-qemu/u-boot-*`), the test copies it and puts two fragments in its `board/` directory: one with `CONFIG_ENV_REDUNDANT=y`, one with a `CONFIG_ENV_ADDR_REDUND` value.
-- In the build environment (`wrt-test-fhs`), without input and each within a minute: `make qemu_arm64_defconfig <first>.config` gives `CONFIG_ENV_REDUNDANT=y` and `CONFIG_ENV_ADDR_REDUND=0x0`; `make oldconfig` after it ends with the same values, as `include/u-boot.mk`'s does; `make qemu_arm64_defconfig <first>.config <second>.config` gives the second fragment's address.
+- Where the build tree holds the emulator's prepared U-Boot source (`build_dir/target-*_<board>/u-boot-orbyt-qemu/u-boot-*`), the test copies it and puts two fragments in its `board/` directory: one with `CONFIG_ENV_REDUNDANT=y`, one with a `CONFIG_ENV_ADDR_REDUND` value.
+- In the build environment (`orbyt-test-fhs`), without input and each within a minute: `make qemu_arm64_defconfig <first>.config` gives `CONFIG_ENV_REDUNDANT=y` and `CONFIG_ENV_ADDR_REDUND=0x0`; `make oldconfig` after it ends with the same values, as `include/u-boot.mk`'s does; `make qemu_arm64_defconfig <first>.config <second>.config` gives the second fragment's address.
 - Without a build tree it skips, as the other tests of the build tree do; CI's test jobs have only the build's outputs.
 
 ### D4. Verification

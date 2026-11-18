@@ -7,7 +7,7 @@
   - Values for the R6S come from the upstream tree: device and board name (`armv8.mk`, `02_network`), U-Boot variant and board directory, and port controllers from `rk3588s-nanopi-r6.dtsi`. The loader's signature is confirmed by task 3.6.
 
   Verify: both files are valid JSON, and every field of design D1 is present.
-- [x] 1.2 Add the strict pydantic model `tests/wrt_tests/boards.py` (`Board`, loading by id and all boards), and add pydantic to `tests/pyproject.toml` and `uv.lock`.
+- [x] 1.2 Add the strict pydantic model `tests/orbyt_tests/boards.py` (`Board`, loading by id and all boards), and add pydantic to `tests/pyproject.toml` and `uv.lock`.
 
   Verify: `tests/unit/test_boards.py` loads both descriptions, and rejects copies with a missing field and with a wrongly typed field, naming the board and the field.
 - [x] 1.3 Board helpers:
@@ -26,7 +26,7 @@
 
   Verify: `just config r6s ci` yields a `.config` with the R6S device, its `-mcpu`, `BUILD_SUFFIX="r6s"` and `BINARY_FOLDER` under `bin/r6s`. `tests/build/test_boards.py` covers "Build an unknown board": `just build nope`, and `config`, `test` and `drill-base` with it, fail before touching the work directory, naming `r4s` and `r6s`.
 - [x] 2.2 Make the toolchain board-neutral:
-  - `scripts/toolchain-build.sh` configures the tree for every board's device and none of their `-mcpu`, and records `TARGET_CFLAGS` and the C library's hash in `wrt-toolchain.json` in the toolchain directory;
+  - `scripts/toolchain-build.sh` configures the tree for every board's device and none of their `-mcpu`, and records `TARGET_CFLAGS` and the C library's hash in `orbyt-toolchain.json` in the toolchain directory;
   - `scripts/build.sh` refuses a toolchain with no record, one holding a board's `-mcpu`, or one whose C library is not the recorded one, before and after the build;
   - a local `just build` runs `toolchain-build` first.
 
@@ -37,7 +37,7 @@
   - record `board` and `toolchain_cflags` in `manifest.json`.
 
   Verify: `tests/build/test_boards.py` covers "Two boards in one tree": each build's outputs sit in `out/<board>/<profile>`, and each diffconfig carries its own `BUILD_SUFFIX` and `BINARY_FOLDER`. The build/ci scenario "Complete manifest" gets a test in place of its manual verification (`tests/build/test_ci.py`): the manifest names the board the images were built for, and its vermagic is the image kernel's and the kmods'.
-- [x] 2.4 Make the `justfile` recipes `config`, `build` and `test` take `<board> [profile]`, `drill-base` take `<board>`, and add `boards`; `scripts/test.sh` takes the board. Update `docs/dev-setup.md`: the commands, and the roughly 45 GB a second board adds to `$WRT_WORKDIR`.
+- [x] 2.4 Make the `justfile` recipes `config`, `build` and `test` take `<board> [profile]`, `drill-base` take `<board>`, and add `boards`; `scripts/test.sh` takes the board. Update `docs/dev-setup.md`: the commands, and the roughly 45 GB a second board adds to `$ORBYT_WORKDIR`.
 
   Verify: `just --list` shows the new signatures, the skeleton check passes, and the documented commands run as written.
 - [x] 2.5 Replace the manual verification of the firmware/toolchain scenario "Check compile command" (`tests/verified-elsewhere.toml`) with a test. `build.sh` records in the manifest the flags every target package compiles with (`TARGET_CFLAGS`), and `tests/firmware/test_toolchain.py` checks that `-O2` and the board's `-mcpu` come after `-Os`.
@@ -52,16 +52,16 @@
 
 ## 3. Bootloader, images and the R6S (design D3–D5)
 
-- [x] 3.1 Move the environment location (`ENV_IS_IN_MMC`, offset `0x3F8000`, size `0x8000`) into `uboot/wrt-ab.config`, with `ENV_MMC_DEVICE_INDEX` in each `board-*.config`. Add `uboot/board-r6s.env` (eMMC `mmc1`, console `ttyS2` at `0xfeb50000`, `bootm`) and `uboot/board-r6s.config` (DesignWare watchdog, 60 s).
+- [x] 3.1 Move the environment location (`ENV_IS_IN_MMC`, offset `0x3F8000`, size `0x8000`) into `uboot/orbyt-ab.config`, with `ENV_MMC_DEVICE_INDEX` in each `board-*.config`. Add `uboot/board-r6s.env` (eMMC `mmc1`, console `ttyS2` at `0xfeb50000`, `bootm`) and `uboot/board-r6s.config` (DesignWare watchdog, 60 s).
 
   Verify: the firmware/boot-rollback test for "Compare the two bootloaders" passes for the board under test: identical logic, and the environment on the MMC device of the constants at the shared offset.
-- [x] 3.2 Reduce patch 0003 to one include of `wrt-ab.mk` after the variants' definitions, whose hook, evaluated for `$(BUILD_VARIANT)`, extends the variant of a board. The tree scripts write `env/wrt-boards.mk` (variant, id and environment directory, and the devices) from the descriptions, and `uboot/wrt-ab.mk` looks the variant up in it.
+- [x] 3.2 Reduce patch 0003 to one include of `orbyt-ab.mk` after the variants' definitions, whose hook, evaluated for `$(BUILD_VARIANT)`, extends the variant of a board. The tree scripts write `env/orbyt-boards.mk` (variant, id and environment directory, and the devices) from the descriptions, and `uboot/orbyt-ab.mk` looks the variant up in it.
 
-  Verify: `make -C "$TREE" -s val.UBOOT_CONFIG` (or the variant's configure step) shows the fragments for `nanopi-r4s-rk3399` and `nanopi-r6s-rk3588s`, and none for another variant. Both boards' U-Boot builds carry `wrt.env`. The patch names no board.
-- [x] 3.3 Rework patch 0004: `Device/Default` applies `Device/wrt-ab` to the devices of `WRT_AB_DEVICES` from `env/wrt-boards.mk`, instead of per-device lines. The R4S Enterprise edition drops out.
+  Verify: `make -C "$TREE" -s val.UBOOT_CONFIG` (or the variant's configure step) shows the fragments for `nanopi-r4s-rk3399` and `nanopi-r6s-rk3588s`, and none for another variant. Both boards' U-Boot builds carry `orbyt.env`. The patch names no board.
+- [x] 3.3 Rework patch 0004: `Device/Default` applies `Device/orbyt-ab` to the devices of `ORBYT_AB_DEVICES` from `env/orbyt-boards.mk`, instead of per-device lines. The R4S Enterprise edition drops out.
 
   Verify: both boards' builds produce `*-factory.img.gz` and `*-sysupgrade.tar.gz`, and the firmware/ab-layout tests pass on the R4S build.
-- [x] 3.4 Drop patch 0006. wrt-ab installs a uci-defaults script that configures `/etc/config/ubootenv` for the boot disk at the shared offset whenever `wrt.slot` is on the command line.
+- [x] 3.4 Drop patch 0006. orbyt-ab installs a uci-defaults script that configures `/etc/config/ubootenv` for the boot disk at the shared offset whenever `orbyt.slot` is on the command line.
 
   Verify: `fw_printenv` reads the slot variables in the emulator, and the firmware/ab-upgrade and boot-rollback tests that read and write the environment pass.
 - [x] 3.5 Rewrite patch 0005: the root partition's number comes from its sysfs `partition` attribute, the device resolved from `PARTUUID` through sysfs uevents, with no arithmetic on parsed text.
@@ -86,10 +86,10 @@
 - [x] 4.1 `emu-prepare` writes the labgrid target description from the board (CPU, cores, memory, `sd-card` or `emmc` on `sdhci-pci` with its size, one NIC per port in order on its segment's tap, watchdog, xHCI) and stamps the device tree with the board's name and model. `tests/targets/emulation.yaml` goes away, and `scripts/test.sh` uses the generated description.
 
   Verify: the testing/emulation tests "Verify artifact provenance", "Read board name" (renamed marker) and "Run userspace programs" pass on both boards.
-- [x] 4.2 Build the sandbox topology in `wrt_tests.net` from the board's ports: WAN on `br-wan`, the first LAN port on `br-lan`, and a second LAN port on `br-lan2` with `client-c`.
+- [x] 4.2 Build the sandbox topology in `orbyt_tests.net` from the board's ports: WAN on `br-wan`, the first LAN port on `br-lan`, and a second LAN port on `br-lan2` with `client-c`.
 
   Verify: "LAN client gets an address" passes on both boards, and the new "Clients on both LAN ports share one LAN" test passes on the R6S and skips on the R4S.
-- [x] 4.3 Add a session fixture `board`, from the build manifest. Replace the R4S constants of the tests and helpers with the description's facts: `test_boot_rollback`, `test_emulation`, `test_ab_upgrade` (board check), `test_monitoring`, `wrt_tests.ab`, `wrt_tests.emu`. Move the FIT unit test's sample to a neutral board name.
+- [x] 4.3 Add a session fixture `board`, from the build manifest. Replace the R4S constants of the tests and helpers with the description's facts: `test_boot_rollback`, `test_emulation`, `test_ab_upgrade` (board check), `test_monitoring`, `orbyt_tests.ab`, `orbyt_tests.emu`. Move the FIT unit test's sample to a neutral board name.
 
   Verify: `just test r4s dev` passes as it did before the change, and `spec-coverage` reports no dangling markers.
 - [x] 4.4 Give the emulated cores the SoC's capacities: the descriptions hold each core's `capacity-dmips-mhz` from the upstream device trees (`soc.cores`, in place of `emulator.cores`), and `emu-prepare` stamps them into the machine's device tree.
@@ -98,13 +98,13 @@
 
 ## 5. Device code without board facts (design D6)
 
-- [x] 5.1 `files/etc/uci-defaults/91-wrt-datapath` sets PPPoE on the WAN interface and leaves its device to upstream's board script.
+- [x] 5.1 `files/etc/uci-defaults/91-orbyt-datapath` sets PPPoE on the WAN interface and leaves its device to upstream's board script.
 
   Verify: the network/wan test "Image contains no credentials" checks PPPoE on the board's WAN port from the description, and "Dial after pushing credentials" passes on both boards (`eth1` on the R6S).
 - [x] 5.2 dae's init pins to the CPUs of highest `cpu_capacity`, or to all CPUs without capacities, and its uci comment says so.
 
   Verify: the network/transparent-proxy test "Enable CPU pinning" expects exactly the highest-capacity CPUs the router reports, and passes on both boards.
-- [x] 5.3 Replace "SD card" with "boot disk" in the comments and docs of wrt-data, containers and monitoring, and make the monitoring test's thermal check board-neutral.
+- [x] 5.3 Replace "SD card" with "boot disk" in the comments and docs of orbyt-data, containers and monitoring, and make the monitoring test's thermal check board-neutral.
 
   Verify: the services/monitoring, services/containers and storage/data-disk tests pass on both boards.
 - [x] 5.4 Keep qosify configured and on pppoe-wan however slowly the router comes up or redials: its init script configures the daemon whenever it comes up, waiting for as long as procd runs it (`patches/openwrt/0006`), and the daemon sets an interface up anew on a device replaced under the same name, as pppoe-wan is when a PPP session ends and another starts before the hotplug events are handled (`patches/openwrt/0010`).
@@ -131,13 +131,13 @@
   - it writes one `SHA256SUMS`, and `release.json` lists the boards.
 
   Verify: the release/publishing tests pass, including the new "Boards built from different sources".
-- [x] 6.5 `wrt-sync`'s fetch takes only the assets of the device derived from `board_name`.
+- [x] 6.5 `orbyt-sync`'s fetch takes only the assets of the device derived from `board_name`.
 
   Verify: the new release/device-sync test "Release with several boards" (a release carrying this build under two device names) passes. The existing device-sync tests pass on both boards, and a description test checks that `board_name` with `,` replaced by `_` equals `device` for every board.
 - [x] 6.6 Update `docs/release-flow.md` (per-board asset sets, drills and the aggregate check) and `docs/ops.md` where it names the R4S.
 
   Verify: the pages match the workflow.
-- [x] 6.7 Read the release manifest on the device with one ucode helper, `/usr/libexec/wrt-sync/manifest`: fetch takes the upgrade image's name from it, and wrt-sync the checksums of the image and the indexes. The helper fails unless the manifest lists one upgrade image and an index. wrt-sync checks the files in its own shell rather than at the end of a pipe, so neither an unreadable manifest nor a failed check can go unnoticed. The package depends on `ucode-mod-fs`.
+- [x] 6.7 Read the release manifest on the device with one ucode helper, `/usr/libexec/orbyt-sync/manifest`: fetch takes the upgrade image's name from it, and orbyt-sync the checksums of the image and the indexes. The helper fails unless the manifest lists one upgrade image and an index. orbyt-sync checks the files in its own shell rather than at the end of a pipe, so neither an unreadable manifest nor a failed check can go unnoticed. The package depends on `ucode-mod-fs`.
 
   Verify: the new release/device-sync test "File that does not match the manifest" passes on both boards: a release whose upgrade image differs from its signed manifest is refused, and the previous release stays current.
 - [x] 6.8 `drill-base` takes the factory image that the board's manifest in the latest stable release names, and checks it against the manifest. A board that no stable release carries yet starts from the candidate's own image. Any failure to look the release up, other than GitHub's answer that there is none, fails.
@@ -147,15 +147,15 @@
 
   Verify: on both boards, the release/publishing test "A board missing" passes, and so does the release/device-sync test "Another board's manifest". The build/ci test "Complete manifest" checks the device.
 - [x] 6.10 Keep the emulator responsive and the harness patient, on the slow work disk:
-  - the emulator's and the tests' files go to `$WRT_TESTDIR`, on a disk that flushes fast (by default the work directory), and the work volume's loop device uses direct I/O;
-  - the release tests derive variants of the signed build and of the release as linked copies (`wrt_tests.trees`), and `release-publish` links images into a release;
+  - the emulator's and the tests' files go to `$ORBYT_TESTDIR`, on a disk that flushes fast (by default the work directory), and the work volume's loop device uses direct I/O;
+  - the release tests derive variants of the signed build and of the release as linked copies (`orbyt_tests.trees`), and `release-publish` links images into a release;
   - the router harness reopens an SSH connection the stalled emulator dropped, and retries a refused copy;
   - `Online.dial` waits until the LAN clients renewed their leases, and spaces the renewals;
   - the NAT tests send an unasked datagram again each second while the client listens, so that one lost on the emulated path fails no test (a datagram the NAT lets in or keeps out, it lets in or keeps out every time).
   - the snapshot test sets the clock half a minute before the daily job, as cron runs a job only when its minute begins and a slow restart would miss it.
 
   Verify: the release suites and `network/test_nat.py` pass on both boards.
-- [x] 6.11 Keep the Actions caches within the 10 GB quota: a `caches` job after the firmware jobs keeps, of its ref's caches, the current toolchain and the newest download cache and compiler cache of each board. Each board's compiler cache holds what its build used (`WRT_CCACHE_TRIM`), and the firmware jobs restore the toolchain last, so that eviction takes a superseded cache before it.
+- [x] 6.11 Keep the Actions caches within the 10 GB quota: a `caches` job after the firmware jobs keeps, of its ref's caches, the current toolchain and the newest download cache and compiler cache of each board. Each board's compiler cache holds what its build used (`ORBYT_CCACHE_TRIM`), and the firmware jobs restore the toolchain last, so that eviction takes a superseded cache before it.
 
   Verify: actionlint passes; after a CI run the ref holds one such set, each board's compiler cache about one build's worth, and a re-run of a firmware job still restores its toolchain.
 - [x] 6.12 Keep buildbot mode's attended sysupgrade clients (owut, luci-app-attendedsysupgrade) out of the release build: they upgrade from OpenWrt's build servers, and attendedsysupgrade-common puts their CA key among the image's trust anchors (`config/ci.seed`).

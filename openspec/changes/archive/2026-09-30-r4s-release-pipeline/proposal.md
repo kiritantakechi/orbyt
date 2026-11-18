@@ -17,7 +17,7 @@ This release pipeline addresses five problems:
   - CI gets a separate signing job that only signs build artifacts and executes no third-party code.
   - The signing keys for the apk repository and the firmware are kept in a GitHub protected environment, and every signing requires manual approval.
   - The signing tools (apk-tools, usign, ucert, fwtool) are built separately by Nix from pinned sources, not taken from binaries produced by the build job.
-  - Following the official approach: enable `CONFIG_BUILDBOT` so the key generated temporarily at build time stays out of the image, then provide the release public key through the project's own `wrt-keyring` package, which does not include the official OpenWrt public keys.
+  - Following the official approach: enable `CONFIG_BUILDBOT` so the key generated temporarily at build time stays out of the image, then provide the release public key through the project's own `orbyt-keyring` package, which does not include the official OpenWrt public keys.
   - The signing logic lives in a single script; CI uses the production keys and tests use ephemeral keys.
 - **Publishing**: The signed single-slot upgrade image, the factory image, and the apk repository containing all kmods are published together to GitHub Releases.
 - **Device-side sync**

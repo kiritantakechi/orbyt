@@ -30,7 +30,7 @@ orbyt-data init /dev/sda    # then type /dev/sda to confirm
 orbyt-data status           # the mount and the subvolumes
 ```
 
-It creates the filesystem (label `wrtdata`) and the subvolumes, names the disk by UUID in the fstab entry `wrtdata`, and mounts it. The image holds that entry from its first boot, disabled and without a disk, so that the services below know from the start where their data will be. An existing data disk on a new or reset router is not initialized again: set its UUID (from `block info`) in that entry instead, with `uci set fstab.wrtdata.uuid=<UUID>`, `uci set fstab.wrtdata.enabled=1` and `uci commit fstab`, then reboot.
+It creates the filesystem (label `orbytdata`) and the subvolumes, names the disk by UUID in the fstab entry `orbytdata`, and mounts it. The image holds that entry from its first boot, disabled and without a disk, so that the services below know from the start where their data will be. An existing data disk on a new or reset router is not initialized again: set its UUID (from `block info`) in that entry instead, with `uci set fstab.orbytdata.uuid=<UUID>`, `uci set fstab.orbytdata.enabled=1` and `uci commit fstab`, then reboot.
 
 ### What waits for it
 

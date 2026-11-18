@@ -5,7 +5,7 @@
 # shellcheck shell=sh disable=SC2034 # for the scripts that source this
 
 ORBYT_DATA=/mnt/data
-ORBYT_DATA_LABEL=wrtdata
+ORBYT_DATA_LABEL=orbytdata
 ORBYT_DATA_SUBVOLUMES="containers downloads shares logs"
 ORBYT_DATA_OPTIONS=compress=zstd:3,noatime,space_cache=v2
 # The data disk's line in /proc/mounts.

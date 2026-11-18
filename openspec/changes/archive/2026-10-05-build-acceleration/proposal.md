@@ -37,7 +37,7 @@ Four rules, applied the same way to CI and local builds, to every board and to e
   - `fetch` no longer resets an existing tree.
   - The other steps keep times too: links, generated files and a configuration the same as before are left as they are.
   - A second patch to OpenWrt keeps the kernel's modules pass up to date past its image pass, so that OpenWrt's own skip of Kbuild holds when nothing changed.
-- **Keep a compiler cache for every language**: ccache for C and C++, Go's build cache, and sccache for Rust packages. They live together in `$WRT_WORKDIR/compiler-cache`, beside the tree, so they outlive it.
+- **Keep a compiler cache for every language**: ccache for C and C++, Go's build cache, and sccache for Rust packages. They live together in `$ORBYT_WORKDIR/compiler-cache`, beside the tree, so they outlive it.
   - In CI, each stage keeps one compiler cache per run: one for the host stage, and one for each board. Each is trimmed to what its build used.
   - The `caches` job keeps the newest of each.
 
@@ -95,7 +95,7 @@ None.
   - `patches/packages/0002`: Rust under `staging_dir/hostpkg`, LLVM for the host and the target only, through ccache (`Inappropriate`: every board here shares one architecture).
 - **Configuration**:
   - `config/toolchain.seed`: sccache for Rust packages;
-  - `flake.nix`: sccache in the build environment, which changes `WRT_BUILD_INPUTS` and so the toolchain key.
+  - `flake.nix`: sccache in the build environment, which changes `ORBYT_BUILD_INPUTS` and so the toolchain key.
 - **CI**, in `.github/workflows/build.yml`:
   - the host stage restores the download cache and its own compiler cache;
   - the compiler cache keys become `compiler-cache-<stage>-…`;

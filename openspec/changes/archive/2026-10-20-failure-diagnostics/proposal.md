@@ -26,7 +26,7 @@ None.
 
 ## Impact
 
-- `tests/wrt_tests/device/router.py`: `detach()` and `wait_rebooted()`.
-- `tests/wrt_tests/services/datapath.py`, `services/fixtures.py`: the datapath's state, and the hook that adds it to a failing test's report; `sandbox/isp.py`: the ISP's log.
+- `tests/orbyt_tests/device/router.py`: `detach()` and `wait_rebooted()`.
+- `tests/orbyt_tests/services/datapath.py`, `services/fixtures.py`: the datapath's state, and the hook that adds it to a failing test's report; `sandbox/isp.py`: the ISP's log.
 - `tests/testing/test_harness.py`: the tests.
 - No change to the firmware, the build or a test's outcome; only failure reports grow.

@@ -26,7 +26,7 @@
 
 ## 3. Main's caches kept whole (design D5, D6)
 
-- [x] 3.1 Write `scripts/cache-room.sh` and `scripts/cache-prune.sh` with their `just` recipes, and tests against a stand-in `gh` (`wrt_tests.model.github`):
+- [x] 3.1 Write `scripts/cache-room.sh` and `scripts/cache-prune.sh` with their `just` recipes, and tests against a stand-in `gh` (`orbyt_tests.model.github`):
   - the room check on the default branch and on another ref, with and without room;
   - the pruning of superseded caches;
   - the deletion of merged and deleted branches' caches, and the keeping of unmerged ones: the build/ci scenario "A merged branch".

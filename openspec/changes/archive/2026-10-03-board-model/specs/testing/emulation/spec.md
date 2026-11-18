@@ -18,7 +18,7 @@ The emulated machine SHALL have the cores of the board's SoC, each with the capa
 
 ### Requirement: Boot the shipped artifacts
 The emulator SHALL boot the shipped factory image of a board itself, through the bootloader chain:
-- the firmware is `uboot-wrt-qemu`, built from the same U-Boot source and slot logic as the boards' bootloaders (firmware/boot-rollback);
+- the firmware is `uboot-orbyt-qemu`, built from the same U-Boot source and slot logic as the boards' bootloaders (firmware/boot-rollback);
 - the boot disk is this image, attached as the board's kind of disk (an SD card or an eMMC) through an SD host controller, so U-Boot and Linux both see an MMC device and the U-Boot environment sits at the same offset as on the board;
 - U-Boot selects the slot, loads that slot's kernel FIT and passes the kernel command line, as on the board.
 
@@ -29,7 +29,7 @@ The emulator MUST NOT use a separately built kernel or root filesystem, and MUST
 - **THEN**:
   - the log records the sha256 of the image and of the emulator's U-Boot, and they match the values in the build manifest;
   - the running kernel is the one in the current slot's kernel FIT;
-  - its command line carries `wrt.slot=a` and `fstools_overlay_compression_type=zstd`
+  - its command line carries `orbyt.slot=a` and `fstools_overlay_compression_type=zstd`
 
 ### Requirement: Boot with the board identity
 The emulated machine SHALL boot with the board name of the board whose image it runs (`friendlyarm,nanopi-r4s` or `friendlyarm,nanopi-r6s`). Board scripts, port role assignment and the board check of upgrade images then follow the same paths as on the device.

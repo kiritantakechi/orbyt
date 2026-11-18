@@ -46,7 +46,7 @@ if [ -z "${fstype}" ]; then
 	[ -n "${owner}" ] || owner=$(stat -c %u:%g "${REPO_DIR}")
 	[ "${owner%%:*}" -ne 0 ] || die "cannot tell whose the volume is; rerun with --owner <user>"
 	# Lazy init and no discard: the backing file lives on HFS+, which cannot punch holes.
-	mkfs.ext4 -q -L wrtwork -m 0 -E lazy_itable_init=1,lazy_journal_init=1,nodiscard "${image}"
+	mkfs.ext4 -q -L orbytwork -m 0 -E lazy_itable_init=1,lazy_journal_init=1,nodiscard "${image}"
 	fstype=ext4
 	created=1
 fi

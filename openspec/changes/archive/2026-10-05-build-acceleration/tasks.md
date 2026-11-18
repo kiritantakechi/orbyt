@@ -55,7 +55,7 @@
   If Rust's bootstrap fails, or ignores sccache as `RUSTC_WRAPPER`, the patch drops the wrapper from Rust's own build (design, risks).
 
   Verify: `staging_dir/hostpkg/bin/rustc -vV` runs, and `staging_dir/hostpkg/lib/rustlib/aarch64-unknown-linux-musl` exists. LLVM's CMake cache in the build directory lists the host's and the target's backends (one, AArch64, where both are aarch64). The host report shows Rust's stages.
-- [x] 3.2 Make `scripts/toolchain-build.sh` build the Go and Rust host toolchains after the tools and the cross toolchain. Its record, `wrt-toolchain.json`, gains the hash of the Rust standard library for the target, and is written as soon as the cross toolchain is built, so a failed Go or Rust build keeps it. The toolchains are built anew when the configuration's flags differ from the recorded ones, or a library differs from its record, as the C library already is. Add the build/environment scenario "Change the compiler flags" to `tests/verified-elsewhere.toml`.
+- [x] 3.2 Make `scripts/toolchain-build.sh` build the Go and Rust host toolchains after the tools and the cross toolchain. Its record, `orbyt-toolchain.json`, gains the hash of the Rust standard library for the target, and is written as soon as the cross toolchain is built, so a failed Go or Rust build keeps it. The toolchains are built anew when the configuration's flags differ from the recorded ones, or a library differs from its record, as the C library already is. Add the build/environment scenario "Change the compiler flags" to `tests/verified-elsewhere.toml`.
 
   Verify:
   - after `just toolchain-build dev`, the record names both libraries;
@@ -89,20 +89,20 @@
 - [x] 4.1 Lay out the compiler caches:
   - add sccache to the build packages in `flake.nix`;
   - set `CONFIG_RUST_SCCACHE=y` in `config/toolchain.seed`, with a comment;
-  - `link_tree` links `$WRT_WORKDIR/compiler-cache/{ccache,go-build,sccache}` as the tree's `.ccache`, `tmp/go-build` and `.sccache`, and `config/ccache.conf` into `ccache/`.
+  - `link_tree` links `$ORBYT_WORKDIR/compiler-cache/{ccache,go-build,sccache}` as the tree's `.ccache`, `tmp/go-build` and `.sccache`, and `config/ccache.conf` into `ccache/`.
 
   On the VM, move the existing ccache and Go cache there. Document the layout and the move in `docs/dev-setup.md`.
 
-  Verify: after `just config r4s dev`, the three links resolve into `compiler-cache`, and `sccache --version` runs in the build environment (`nix develop .#build -c wrt-build-fhs -c 'sccache --version'`).
+  Verify: after `just config r4s dev`, the three links resolve into `compiler-cache`, and `sccache --version` runs in the build environment (`nix develop .#build -c orbyt-build-fhs -c 'sccache --version'`).
 - [x] 4.2 Make `scripts/build.sh` report every cache:
   - ccache's and sccache's `--show-stats`;
   - how many packages Go compiled instead of taking them from its cache;
   - and it runs one sccache server for the whole build, which it stops afterwards.
 
   Verify: build r4s, then clean and rebuild `einat` and `dae`. The second build reports sccache hits and no package Go compiled anew.
-- [x] 4.3 Trim every compiler cache in CI: `WRT_COMPILER_CACHE_TRIM` replaces `WRT_CCACHE_TRIM`. ccache evicts by its own last use, and Go and sccache drop files not modified since the build began (Go since the hour before it, as Go refreshes an entry at most once an hour). Put the file trim in a `scripts/lib.sh` helper with a unit test in `tests/unit/test_lib.py` over files of different ages.
+- [x] 4.3 Trim every compiler cache in CI: `ORBYT_COMPILER_CACHE_TRIM` replaces `ORBYT_CCACHE_TRIM`. ccache evicts by its own last use, and Go and sccache drop files not modified since the build began (Go since the hour before it, as Go refreshes an entry at most once an hour). Put the file trim in a `scripts/lib.sh` helper with a unit test in `tests/unit/test_lib.py` over files of different ages.
 
-  Verify: the unit test passes, and `grep -r WRT_CCACHE_TRIM` finds nothing outside the archive.
+  Verify: the unit test passes, and `grep -r ORBYT_CCACHE_TRIM` finds nothing outside the archive.
 - [x] 4.4 Update the build/environment records in `tests/verified-elsewhere.toml`:
   - "Build directory on an external volume" names the compiler caches of every language;
   - "A new source tree" is added, proven by every CI job, which starts from a fresh tree and restored caches.
@@ -113,7 +113,7 @@
 
 - [x] 5.1 Update `.github/workflows/build.yml`:
   - the host-toolchain job, on a miss, restores the download cache without saving it, restores `compiler-cache-host-…`, builds, trims, packs, and saves the archive and its compiler cache;
-  - the firmware jobs use `compiler-cache-<board>-…` with `WRT_COMPILER_CACHE_TRIM`, and restore the archive last;
+  - the firmware jobs use `compiler-cache-<board>-…` with `ORBYT_COMPILER_CACHE_TRIM`, and restore the archive last;
   - the `caches` job keeps the newest compiler cache of each stage and deletes the old `ccache-…` family;
   - the workflow's header comments match.
 

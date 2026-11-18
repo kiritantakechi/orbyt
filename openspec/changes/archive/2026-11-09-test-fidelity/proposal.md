@@ -16,7 +16,7 @@ The audit of 2026-10-26 also read the test harness and the tests. Each finding b
   - The spare-disk test may look up the block device of the disk it has just pulled out.
   - The test of a failing trial boot commits the health check's 6 s limits, so the boot it reboots into, which must pass and confirm the slot, gets 6 s too; on a slow runner it fails and reboots again (CI run 40281789469).
 - **The harness:**
-  - A command that runs past its time limit goes on running on the router: labgrid gives up on ssh without ending it. One that holds a lock, as `wrt-sync` does, fails the module's later tests.
+  - A command that runs past its time limit goes on running on the router: labgrid gives up on ssh without ending it. One that holds a lock, as `orbyt-sync` does, fails the module's later tests.
   - A login session that does not end makes the harness wait for it forever.
   - The report of a failed test with the router down waits 120 s for each of three connections, so that a suite of such failures runs past its job's time limit.
   - The WireGuard peer's tunnel stays in the session's namespace when it fails to come up, and every later module that wants one fails.
@@ -52,5 +52,5 @@ The tests of `network/wan`, `network/nat`, `network/tc-hook-order`, `network/tra
 
 ## Impact
 
-- `tests/wrt_tests/device/router.py`, `emu.py`, `storage.py`; `tests/wrt_tests/services/datapath.py`, `vpn.py`, `tests/services/conftest.py`; `tests/wrt_tests/sandbox/netprobe.py`.
+- `tests/orbyt_tests/device/router.py`, `emu.py`, `storage.py`; `tests/orbyt_tests/services/datapath.py`, `vpn.py`, `tests/services/conftest.py`; `tests/orbyt_tests/sandbox/netprobe.py`.
 - The tests named above, `tests/firmware/test_ab_upgrade.py`, `tests/unit/test_netprobe.py`, and the new scenarios' tests in `tests/testing`.

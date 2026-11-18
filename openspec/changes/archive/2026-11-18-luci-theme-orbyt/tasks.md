@@ -2,9 +2,9 @@
 
 ## 1. The tests (design D6, D7, D8, D9)
 
-- [x] 1.1 Add `tests/firmware/test_web_theme.py`: the default on a fresh install, the upgrade that brings the theme (the uci-defaults script with `themes.Wrt` removed), an administrator's choice across a configuration-preserving upgrade, the login page without external resources, the coverage against bootstrap's stylesheet with `tests/firmware/web-theme-exceptions.toml`, and the theme's files without external resources.
+- [x] 1.1 Add `tests/firmware/test_web_theme.py`: the default on a fresh install, the upgrade that brings the theme (the uci-defaults script with `themes.Orbyt` removed), an administrator's choice across a configuration-preserving upgrade, the login page without external resources, the coverage against bootstrap's stylesheet with `tests/firmware/web-theme-exceptions.toml`, and the theme's files without external resources.
 
-  Verify: `spec-coverage --change luci-theme-wrt` reports every scenario covered or verified elsewhere; before 2.1 the tests fail (no theme).
+  Verify: `spec-coverage --change luci-theme-orbyt` reports every scenario covered or verified elsewhere; before 2.1 the tests fail (no theme).
   Result (2026-11-18): every scenario covered or verified elsewhere (343 covered, 37 elsewhere, none missing). "The theme's files and pages" had two tests, which spec-coverage refuses; it became two scenarios, the theme's files (no emulator) and the login page. The tests were not run against an image without the theme: they were written with it, and a control run on the R6S's older image stopped in setup with the rest (see 2.1).
 
 - [x] 1.2 Add to `tests/firmware/test_web_theme.py` the icons of LuCI against the theme's glyphs: every icon under `icons/` and `cbi/` on the router named in the served stylesheet, none stale, every glyph served (design D10).
@@ -14,15 +14,15 @@
 
 ## 2. The theme (design D1 to D5, D8)
 
-- [x] 2.1 Add `feed/luci/luci-theme-wrt`: the package, the templates, the stylesheet from the approved mockup's tokens, the menu and login scripts, and the uci-defaults script; select it in `config/system.seed`; describe it in `docs/`.
+- [x] 2.1 Add `feed/luci/luci-theme-orbyt`: the package, the templates, the stylesheet from the approved mockup's tokens, the menu and login scripts, and the uci-defaults script; select it in `config/system.seed`; describe it in `docs/`.
 
   Verify: the R4S builds; the tests of 1.1 pass on the emulator; `just check` passes.
   Result (2026-11-18): the R4S builds on the VM. The tests pass on both boards in CI run 44196283518, the theme's module in the system suite (the first run, 44147358978, had it in no suite and ran none of them). On the VM three runs stopped in setup, the router's first boot past the harness's 600 s for SSH, under a load of 8 to 26 from the Mac's own work; the R6S's image of 2026-11-16, without the theme, stopped the same way under the same load, which places the cause on the host. `just check` passes.
 
-- [x] 2.2 Draw LuCI's icons in glyphs of the theme's own (`htdocs/luci-static/wrt/icons/`, the mask rules in `cascade.css`), and map LuCI's graph, zone and inline state colors to the theme's tokens (design D10, D11); give the theme its own Simplified Chinese strings where luci-base has none.
+- [x] 2.2 Draw LuCI's icons in glyphs of the theme's own (`htdocs/luci-static/orbyt/icons/`, the mask rules in `cascade.css`), and map LuCI's graph, zone and inline state colors to the theme's tokens (design D10, D11); give the theme its own Simplified Chinese strings where luci-base has none.
 
   Verify: the tests of 1.1 and 1.2 pass on the emulator; `just check` passes.
-  Result (2026-11-18): as 2.1: the tests pass in CI on both boards, the VM's runs stopped by the host's load. The Simplified Chinese strings are the package `luci-i18n-wrt-zh-cn` (luci.mk names it after `wrt`), in the image; a work tree's build saw its `po/` only once the Makefile changed, OpenWrt's metadata cache keying on Makefiles.
+  Result (2026-11-18): as 2.1: the tests pass in CI on both boards, the VM's runs stopped by the host's load. The Simplified Chinese strings are the package `luci-i18n-orbyt-zh-cn` (luci.mk names it after `orbyt`), in the image; a work tree's build saw its `po/` only once the Makefile changed, OpenWrt's metadata cache keying on Makefiles.
 
 ## 3. In a browser (design D9)
 

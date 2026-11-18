@@ -37,7 +37,7 @@
 ## 4. Packaging (design D5)
 
 - [x] 4.1 No core dumps for honk; `check` creates no directory and takes an absolute path; a failed pinning is logged.
-- [x] 4.2 Dependencies: `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for wrt-sync.
+- [x] 4.2 Dependencies: `+flock +bpftool` for honk, `+bpftool` for einat, `+flock` for orbyt-sync.
 - [x] 4.3 The bindgen includes expand at compile time and stop the build when empty; `PKG_FILE_DEPENDS` rebuilds honk with bpf-linker or doona.
 
   Verify:

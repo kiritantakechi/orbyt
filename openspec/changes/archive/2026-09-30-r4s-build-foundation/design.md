@@ -48,7 +48,7 @@ See the Why section of proposal.md for motivation. This design depends on the fo
 ### D1. Repository layout
 
 ```
-wrt-build/
+Orbyt/
   flake.nix  flake.lock           host environment (build FHS + tooling)
   justfile                        entry points, grouped: build / image / test / quality / ci / workdir
   upstream.lock                   openwrt / packages / luci: url, sha, commit epoch
@@ -64,7 +64,7 @@ wrt-build/
   .github/workflows/{check,build}.yml
   docs/
 
-$WRT_WORKDIR/  (outside repo)     openwrt/  dl/  ccache/  out/<profile>/  emu/
+$ORBYT_WORKDIR/  (outside repo)     openwrt/  dl/  ccache/  out/<profile>/  emu/
 ```
 
 ### D2. Fetch upstream by SHA
@@ -141,7 +141,7 @@ CONFIG_I6300ESB_WDT=y
 
 ### D9. Local build directory
 
-A 112 GiB ext4 image file on the external SSD is loop-mounted at `/mnt/wrt` inside the VM. `workdir-mount` and `workdir-unmount` come as a pair; `mount` can be run repeatedly, and `--format` only formats an empty image.
+A 112 GiB ext4 image file on the external SSD is loop-mounted at `/mnt/orbyt` inside the VM. `workdir-mount` and `workdir-unmount` come as a pair; `mount` can be run repeatedly, and `--format` only formats an empty image.
 
 ### D10. Build environment (flake)
 
@@ -151,21 +151,21 @@ A 112 GiB ext4 image file on the external SSD is loop-mounted at `/mnt/wrt` insi
 - **Two FHS environments, plus two devShells**:
 
 ```
-wrt-build-fhs   build packages + build profile            (WRT_FHS=build)
-wrt-test-fhs    build packages + test packages + profile  (WRT_FHS=test, superset)
+orbyt-build-fhs   build packages + build profile            (ORBYT_FHS=build)
+orbyt-test-fhs    build packages + test packages + profile  (ORBYT_FHS=test, superset)
 devShell quality  code standards only, same on Linux and macOS (CI check job)
 devShell default  quality + both FHS environments on Linux; quality on macOS
 ```
 
   - Scripts declare the environment they need with `ensure_fhs build` or `ensure_fhs test`; the test environment contains the build environment and satisfies both.
-  - The build environment's profile exports `WRT_BUILD_INPUTS`, pointing to a file that lists every build package path and the profile contents. This is the build environment's fingerprint.
+  - The build environment's profile exports `ORBYT_BUILD_INPUTS`, pointing to a file that lists every build package path and the profile contents. This is the build environment's fingerprint.
 - **Python tools are managed by uv**: ruff, ty, pytest, labgrid, and the Python interpreter itself are pinned by `tests/uv.lock`, not by Nix.
 - **Test tool set**: the flake's `testPackages` list collects the daemons and clients that the various peers in the emulation environment need, for example the PPPoE server and package mirror added by later changes. They come from `nixpkgs` and go into the FHS environment; `just test` also runs in the FHS. The foundation adds uv, qemu, dtc, u-boot-tools, `iproute2`, `dnsmasq`, `openssh`, and the `libstdc++` that manylinux wheels need. The closure of full qemu is about 2.2 GiB, but cache.nixos.org has prebuilt binaries, while trimming it ourselves would mean building from source, so we do not trim it.
 - **Variables exported by the FHS profile**:
   - `NIX_HARDENING_ENABLE=`
   - `AR=gcc-ar`, `NM=gcc-nm`, `RANLIB=gcc-ranlib`
   - `FAKEROOTDONTTRYCHOWN=1`
-  - `WRT_FHS=1`
+  - `ORBYT_FHS=1`
 
 ### D11. CI: two workflows, four jobs
 
@@ -175,7 +175,7 @@ check.yml   (every push/PR, no paths filter)          ~2 min
 
 build.yml   (paths-ignore: openspec/**, docs/**, **/*.md)
   host-toolchain  key = hash(arch, tools/, toolchain/, lang/golang, lang/rust,
-                             toolchain.seed, WRT_BUILD_INPUTS)
+                             toolchain.seed, ORBYT_BUILD_INPUTS)
                   miss -> build tools + toolchain -> pack existing paths only
   firmware        needs host-toolchain; unpack + touch; dl/ccache caches;
                   ci profile (ALL_KMODS); manifest.json; unsigned artifacts
@@ -216,7 +216,7 @@ require_linux; require_workdir; ensure_fhs "$@"   # only the guards the script n
   - Pipeline stages are single verbs: `fetch`, `patch`, `config`, `build`, `test`, `check`, `fmt`.
   - Operations on a specific object use "object-verb": `workdir-mount`/`workdir-unmount`, `toolchain-key`/`toolchain-build`/`toolchain-pack`/`toolchain-unpack`, `image-audit`, `env-report`, `runner-prepare`.
   - just recipe names match script names and are grouped with `[group(...)]`.
-  - Environment variables all use the `WRT_` prefix.
+  - Environment variables all use the `ORBYT_` prefix.
 - **One command to check**: `just check` only checks and never modifies; `just fmt` formats. Both run on macOS, with their tools provided by the platform's devShell.
 
 ### D13. Test framework
@@ -227,16 +227,16 @@ tests/
   pytest.toml  ruff.toml  ty.toml              one configuration file per tool
   conftest.py                                  fixtures: shell, ssh, emulator, net
   targets/emulation.yaml                       labgrid environment of the emulated R4S
-  wrt_tests/                                   helpers: spec markers, coverage, emu, net
+  orbyt_tests/                                   helpers: spec markers, coverage, emu, net
   <domain>/test_<capability>.py                one module per spec capability, e.g.
       firmware/test_rootfs.py      <-> specs/firmware/rootfs
       testing/test_emulation.py    <-> specs/testing/emulation
-  unit/test_<helper>.py                        unit tests of wrt_tests/, no emulator, no @spec
+  unit/test_<helper>.py                        unit tests of orbyt_tests/, no emulator, no @spec
 ```
 
 - **Directory rules**:
   - Spec tests may only live in `tests/<domain>/test_<capability>.py`, with hyphens in the capability name replaced by underscores. Every test in the module must carry `@spec`, and the capability it names must be the module's own capability.
-  - `tests/unit/` only tests the helper code in `wrt_tests/`, connects to no target, and carries no `@spec`.
+  - `tests/unit/` only tests the helper code in `orbyt_tests/`, connects to no target, and carries no `@spec`.
   - `spec-coverage` enforces both rules, with no exceptions.
 
 - **Mapping to specs**:
@@ -245,7 +245,7 @@ tests/
   - Scenarios verified elsewhere, by the build or CI itself (for example build/ci), are recorded in `tests/verified-elsewhere.toml` together with what verifies them.
 - **One target**: every system test runs against the emulated R4S (`just test`, `targets/emulation.yaml`). There is no device target: no verification step needs an R4S, and what only the RK3399 can run is checked statically in the shipped image instead (D14).
 - **Reports**: JUnit and a terminal summary, written to `tests/.reports/emulation.xml`.
-- **Router interface**: `wrt_tests.router.Router` offers `run`, `returncode`, `login` (a real interactive login), `put`, `http`, `reboot`, `wait_ready`, `moved_to` (temporarily use another LAN address), and `reset`, which returns the emulator to its post-boot snapshot.
+- **Router interface**: `orbyt_tests.router.Router` offers `run`, `returncode`, `login` (a real interactive login), `put`, `http`, `reboot`, `wait_ready`, `moved_to` (temporarily use another LAN address), and `reset`, which returns the emulator to its post-boot snapshot.
 - **BPF test program**: the test that checks tcx compiles a two-line C program with the host clang (`--target=bpf`), which the test environment carries anyway because it contains the build environment.
 
 ### D14. Emulation environment

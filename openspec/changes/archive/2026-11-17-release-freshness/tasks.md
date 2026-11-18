@@ -14,7 +14,7 @@
 
 ## 2. Publishing and pruning by a current commit (design D2, D3)
 
-- [x] 2.1 Add the tests of "A branch moved by documentation only" (`tests/release/test_publishing.py`, with a comparison of 300 files that does not publish) and "A re-run of a superseded run" (`tests/build/test_ci.py`, beside the other scenarios of the prune, with a head moved by documentation alone that prunes as before); the stand-in `gh` (`wrt_tests.model.github`), which the publishing tests now share, answers for branch heads, the compare API and the release it records.
+- [x] 2.1 Add the tests of "A branch moved by documentation only" (`tests/release/test_publishing.py`, with a comparison of 300 files that does not publish) and "A re-run of a superseded run" (`tests/build/test_ci.py`, beside the other scenarios of the prune, with a head moved by documentation alone that prunes as before); the stand-in `gh` (`orbyt_tests.model.github`), which the publishing tests now share, answers for branch heads, the compare API and the release it records.
 
   Verify: `spec-coverage --change release-freshness` reports both covered; before 2.2 the test of a branch moved by documentation fails (publishing refuses) and the test of a superseded run fails (it deletes the newer run's caches).
   Result (2026-11-17): both covered. Before 2.2, publishing refused the branch moved by documentation ("main has moved from c… to d…: the newer run publishes"), and the superseded run deleted the newer run's toolchain and caches, and on main a deleted branch's too; the other cases of a moved branch (a script, a script renamed into the documentation, 300 files, a head that does not descend) refused as before. The test of a run past documentation went to `tests/unit/test_ci_caches.py`, unmarked.
@@ -31,7 +31,7 @@
   Verify: `spec-coverage --change release-freshness` reports "A file not committed" covered; the tests fail before 3.2 (no such function).
   Result (2026-11-17): covered; all five cases failed before 3.2.
 
-- [x] 3.2 Add `source_commit` to `scripts/lib/manifest.sh` and take `build.sh`'s commit from it; update the field's description in `tests/wrt_tests/model/outputs.py`.
+- [x] 3.2 Add `source_commit` to `scripts/lib/manifest.sh` and take `build.sh`'s commit from it; update the field's description in `tests/orbyt_tests/model/outputs.py`.
 
   Verify: the tests of 3.1 pass; `just check` passes; on the VM, `just build r4s` with an untracked scratch file in the checkout writes a manifest whose `commit` ends in `-dirty`, and without it one that does not.
   Result (2026-11-17): the five cases pass; `just check` passes. On the VM, the R4S built from 768f855 with an untracked scratch file wrote `768f855…-dirty`, where the check of tracked files would have written it clean, and built again without it wrote `768f855…` (a first build, with tracked changes besides, proved nothing and is not counted).

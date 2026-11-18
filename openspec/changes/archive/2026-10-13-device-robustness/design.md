@@ -5,7 +5,7 @@
 See proposal.md for why. The current state:
 
 **How a mount reaches an init script.**
-- The data disk is a plain fstab mount (`fstab.wrtdata`, target `/mnt/data`, no autofs). `wrt-data` enables it and announces the device with a `uevent` add; `/etc/hotplug.d/block/10-mount` runs `block hotplug`.
+- The data disk is a plain fstab mount (`fstab.orbytdata`, target `/mnt/data`, no autofs). `orbyt-data` enables it and announces the device with a `uevent` add; `/etc/hotplug.d/block/10-mount` runs `block hotplug`.
 - blockd sends `mount.add` and `mount.remove` on its ubus object, with `{device, target}`. procd watches that object (`blockd.init` sets `watch block`) and matches the event names against its triggers exactly.
 - `block` sends blockd `umount` before its lazy `umount2()`. blockd replies once `hotplug-call mount remove` has run, and it sends `mount.remove` when it is asked. So the event comes before the unmount: by the time of the reply in this image, which has no `/etc/hotplug.d/mount` script.
 - On a hot unplug, `mount_action("remove")` first sends blockd `hotplug` with `remove`. blockd frees the device. Only then does `block` unmount, and blockd's `umount` handler no longer finds the device. Its `static char oldtarget[]` then keeps whatever an earlier unmount left, or nothing, and `mount.remove` names that.
@@ -88,11 +88,11 @@ Two long names that share their first two and last nine characters would still s
 ### D7. The data disk's mount point lies in RAM
 
 The file-sharing test found `containers` on the flash under `/mnt/data` once the disk was unmounted. `block` removes the mount point after a lazy unmount. A podman command that started before it, and touched its graph root after, created the path anew on the boot disk. Stopping each service on the unmount (D1) cannot cover a process that is already running. So the place it writes to must not be the flash:
-- A preinit hook of wrt-data (`/lib/preinit/86_wrt_data_mountpoint`) mounts a small tmpfs (1 MiB) on the mount point's parent, `/mnt`. It runs after the overlay is mounted (`80_mount_root`), and before procd's coldplug lets `block` mount anything.
+- A preinit hook of orbyt-data (`/lib/preinit/86_orbyt_data_mountpoint`) mounts a small tmpfs (1 MiB) on the mount point's parent, `/mnt`. It runs after the overlay is mounted (`80_mount_root`), and before procd's coldplug lets `block` mount anything.
 - Without the disk, whatever a process writes under the mount point lands in that tmpfs, in RAM. Once 1 MiB is used up, the write fails instead of growing. Nothing reaches the flash, and a reboot forgets it.
 - The disk mounts on the mount point as before: `block` creates the directory when it is missing and removes it after an unmount, now in RAM.
 - blockd's links to its automounts of unconfigured devices (`/mnt/<device>`) keep working in the tmpfs.
-- `/proc/mounts` lists the tmpfs at `/mnt`, not at `/mnt/data`. So the checks that look for the disk's mount, ksmbd's `grep " /mnt/data "` and `wrt_data_mounted`'s btrfs line, are unaffected.
+- `/proc/mounts` lists the tmpfs at `/mnt`, not at `/mnt/data`. So the checks that look for the disk's mount, ksmbd's `grep " /mnt/data "` and `orbyt_data_mounted`'s btrfs line, are unaffected.
 - sysupgrade's second stage mounts the new slot's boot partition at its own ramfs's `/mnt`, not this one.
 
 What this costs: what lay under `/mnt` on the flash is hidden. The image puts nothing there.

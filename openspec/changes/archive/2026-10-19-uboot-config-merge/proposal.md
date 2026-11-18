@@ -11,7 +11,7 @@ U-Boot's Kconfig lags Linux's in two fixes, both by Masahiro Yamada:
 ## What Changes
 
 - **U-Boot's Kconfig asks no question a fragment leaves.** Two U-Boot patches backport Linux's commits: the `%.config` rule runs `olddefconfig` after `merge_config.sh`, and an int or hex symbol without a default is zero. They are meant for upstream (`Upstream-Status: Pending`), carried in uboot-rockchip's patches through the openwrt series, with their write-up in `docs/patches.md`.
-- **The emulator's U-Boot takes the boards' patches.** uboot-wrt-qemu, which already takes its version and hash from uboot-rockchip so that the two builds cannot drift apart, also takes uboot-rockchip's patch directory: the emulator's U-Boot is built from the boards' source with the boards' patches, these among them.
+- **The emulator's U-Boot takes the boards' patches.** uboot-orbyt-qemu, which already takes its version and hash from uboot-rockchip so that the two builds cannot drift apart, also takes uboot-rockchip's patch directory: the emulator's U-Boot is built from the boards' source with the boards' patches, these among them.
 - **A test that configures with a fragment leaving such a question.** On the emulator's prepared U-Boot source, a fragment that turns on the second environment copy must merge within a time limit with the flash address at zero, an `oldconfig` without input after it must end, and a later fragment's address must replace the zero.
 
 ## Capabilities
@@ -25,6 +25,6 @@ None.
 
 ## Impact
 
-- `patches/openwrt`: a new patch adding the two U-Boot patches to uboot-rockchip, `PKG_RELEASE` up; `feed/boot/uboot-wrt-qemu/Makefile`: the boards' patch directory, `PKG_RELEASE` up; `docs/patches.md`: the write-up.
+- `patches/openwrt`: a new patch adding the two U-Boot patches to uboot-rockchip, `PKG_RELEASE` up; `feed/boot/uboot-orbyt-qemu/Makefile`: the boards' patch directory, `PKG_RELEASE` up; `docs/patches.md`: the write-up.
 - `tests/build/`: the configuration test, which runs where a build tree with the emulator's U-Boot is present.
 - The boards' and the emulator's U-Boot: built again; their configurations are unchanged, as none has a number without a value today.

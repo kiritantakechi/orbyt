@@ -5,7 +5,7 @@
 - uci's command line keeps the configuration in a directory (`-c`, `/etc/config` by default) and uncommitted changes in change directories: it reads a package's changes from every directory of its list, which always holds `/tmp/.uci`, and saves new ones in its save directory, `/tmp/.uci` unless `-t` (or `-P`) names another, which `-t` adds to the list (`uci_set_savedir`). `-P` does the same and refuses `commit`; `-t` does not. A commit applies the changes of every directory of the list and clears those of the save directory alone (`uci_load_delta`). Every command that changes a package saves its changes at once (`cli.c`).
 - `validate` (`scripts/config-push.d/device.uc`) runs each batch alone, on a fresh copy of `/etc/config`, with `-c` alone; `write` runs a service's batches with plain `uci batch`, then `uci commit` without a package, which commits every package with changes.
 - uci records a change only where one is made: `set` to the value an option already holds records nothing (`uci_set`), while `add_list` always adds.
-- `apply` saves `/etc/config` whole before `write`, and `restore` puts it back after a failure; config-push removes the router's `/tmp/wrt-push` once the push ends, however it ends (`docs/ops.md`, step 5).
+- `apply` saves `/etc/config` whole before `write`, and `restore` puts it back after a failure; config-push removes the router's `/tmp/orbyt-push` once the push ends, however it ends (`docs/ops.md`, step 5).
 
 ## Goals / Non-Goals
 
@@ -21,7 +21,7 @@
 
 ### D1. The dry run in a change directory of its own
 
-`validate` runs a service's batches in order, as `write` will, on one fresh copy of `/etc/config` per service, with `uci -c <copy> -t <copy's changes>`: the changes go to that directory, inside `/tmp/wrt-push`, which the push removes. The directory's files then name the packages the service's batches change: uci saves a package's changes in a file of the package's name.
+`validate` runs a service's batches in order, as `write` will, on one fresh copy of `/etc/config` per service, with `uci -c <copy> -t <copy's changes>`: the changes go to that directory, inside `/tmp/orbyt-push`, which the push removes. The directory's files then name the packages the service's batches change: uci saves a package's changes in a file of the package's name.
 
 Running a service's batches together rather than each on a copy of its own checks what the push will do: a batch may set what an earlier one added.
 
@@ -35,7 +35,7 @@ Alternatives considered:
 
 ### D3. Committing package by package from the push's own changes
 
-`write` runs the service's batches with `uci -t <push's changes>`, a fresh directory in `/tmp/wrt-push`, then commits each package that directory names, `uci -t <push's changes> commit <package>`; `/tmp/.uci` holds no change of those packages (D2), so each commit writes the push's changes alone. Whatever the outcome, `write` removes the directory before it returns: a batch that fails leaves no change behind, and `restore` puts the files back as today.
+`write` runs the service's batches with `uci -t <push's changes>`, a fresh directory in `/tmp/orbyt-push`, then commits each package that directory names, `uci -t <push's changes> commit <package>`; `/tmp/.uci` holds no change of those packages (D2), so each commit writes the push's changes alone. Whatever the outcome, `write` removes the directory before it returns: a batch that fails leaves no change behind, and `restore` puts the files back as today.
 
 ### D4. Tests
 

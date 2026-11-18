@@ -6,9 +6,9 @@ See proposal.md for why. The mechanisms the fixes depend on, as read in their so
 - Linux: `TCP_MAXSEG` on a connected socket is the MSS the stack sends with, the peer's advertised MSS less the TCP options of every segment (12 bytes with timestamps). `TCP_SAVE_SYN` (27) on a listening socket keeps each SYN's headers, which `TCP_SAVED_SYN` (28) returns on the accepted socket.
 - fw4: the wan zone's `REJECT` answers a TCP SYN with a reset.
 - dropbear: the process of a connection calls `setsid()` once; the commands of all its channels run in that session, in one process group.
-- labgrid's `SSHDriver.run()` waits with `communicate(timeout=...)`, which raises without ending ssh, so the command goes on running on the router. `QEMUDriver._read()` returns an empty read for every select once QEMU has closed the console's socket; `off()` asks QEMU's monitor to quit, which fails once QEMU has exited. The SSH driver's connection timeout is 120 s (`tests/wrt_tests/device/emu.py`). `QEMUDriver.on()` starts a new QEMU, stopped (`-S`), restores the port forwards labgrid made, and lets it run: devices added through the monitor are not restored.
+- labgrid's `SSHDriver.run()` waits with `communicate(timeout=...)`, which raises without ending ssh, so the command goes on running on the router. `QEMUDriver._read()` returns an empty read for every select once QEMU has closed the console's socket; `off()` asks QEMU's monitor to quit, which fails once QEMU has exited. The SSH driver's connection timeout is 120 s (`tests/orbyt_tests/device/emu.py`). `QEMUDriver.on()` starts a new QEMU, stopped (`-S`), restores the port forwards labgrid made, and lets it run: devices added through the monitor are not restored.
 - BusyBox 1.38 in the image has `setsid`, `flock` and `timeout`; its `timeout` ends only the program it runs, not the processes that program started.
-- `wrt-containers start` runs `wrt-containers apply` as a procd instance: the Pods start after the init script returns.
+- `orbyt-containers start` runs `orbyt-containers apply` as a procd instance: the Pods start after the init script returns.
 
 ## Goals / Non-Goals
 
@@ -47,7 +47,7 @@ The test reads the container's start time, restarts the service, waits until the
 `removed(router, disk)` waits until no block device has the disk's model; the spare-disk test calls it after pulling the disk out, before plugging it in again.
 
 ### D9. Commands end with their time limit
-- `Router` runs each command as `echo $$ >/tmp/wrt-tests.pid; exec setsid sh -c '<command>'`: the shell, in a session of its own, keeps its PID, which the file records. dropbear's one session per connection would otherwise hold every command of the connection in one process group.
+- `Router` runs each command as `echo $$ >/tmp/orbyt-tests.pid; exec setsid sh -c '<command>'`: the shell, in a session of its own, keeps its PID, which the file records. dropbear's one session per connection would otherwise hold every command of the connection in one process group.
 - When labgrid's wait times out, the harness kills that session's process group over the connection (`kill -KILL -- -<pid>`), and raises `TimeoutError` naming the command and its limit. The harness runs one command on a router at a time, so one file suffices.
 - A login session's output is read by a thread while the harness waits for it; at the time limit the harness kills the session's ssh, whose pseudo-terminal then hangs up the shell on the router, and raises `TimeoutError` with what the session printed. Reading meanwhile also keeps a long output from filling the pipe and stalling the session.
 

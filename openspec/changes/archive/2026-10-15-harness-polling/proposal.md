@@ -23,7 +23,7 @@ None.
 
 ## Impact
 
-- `tests/wrt_tests/model/poll.py`: the helper's contract.
-- `tests/wrt_tests/device/storage.py`, `tests/testing/test_emulation.py`: the `or None` workarounds go.
+- `tests/orbyt_tests/model/poll.py`: the helper's contract.
+- `tests/orbyt_tests/device/storage.py`, `tests/testing/test_emulation.py`: the `or None` workarounds go.
 - `tests/testing/test_harness.py`: the scenarios' tests.
 - No change to the firmware or the build. Waits that ended early now take as long as their condition does, within their existing time limits.

@@ -28,6 +28,6 @@ None.
 
 ## Impact
 
-- `tests/wrt_tests/device/router.py`: `reset()` and `set_clock()`.
+- `tests/orbyt_tests/device/router.py`: `reset()` and `set_clock()`.
 - `tests/testing/test_emulation.py`: the new test.
 - No change to the firmware or the build.
