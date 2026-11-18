@@ -84,7 +84,7 @@ options: compress=zstd:3,noatime,space_cache=v2
 ### D4. App containers defined by declaration files
 
 - **Declaration files**: Kubernetes Pod YAML read by `podman kube play`, stored in `/mnt/data/containers/pods/*.yaml`. The source of truth lives in the private config repository and is written by the config push tool.
-- **Startup service**: the own feed adds a `orbyt-containers` service with a mount trigger on `/mnt/data/containers`. On each trigger, it compares each declaration file's hash with the hash recorded at the last successful apply:
+- **Startup service**: the own feed adds an `orbyt-containers` service with a mount trigger on `/mnt/data/containers`. On each trigger, it compares each declaration file's hash with the hash recorded at the last successful apply:
   - if the hash changed, it runs `podman kube play --replace`;
   - if the hash is unchanged, it only ensures that the Pod is running.
   - This satisfies "no rebuild when the declaration is unchanged".
