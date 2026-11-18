@@ -1,8 +1,8 @@
 # orbyt-ab: the two slots on the boot disk (r4s-ab-rollback design D1, D4), for the
-# A/B sysupgrade alone (/lib/upgrade/orbyt-ab.sh), whose second stage runs from a
+# A/B sysupgrade alone (/lib/upgrade/z-orbyt-ab.sh), whose second stage runs from a
 # RAM root without ucode. Everything else reads these facts through the ucode
 # module orbyt.ab (/usr/share/ucode/orbyt/ab.uc). POSIX sh, so no locals: every
-# function keeps its variables under a orbyt_ prefix of its own.
+# function keeps its variables under an orbyt_ prefix of its own.
 
 # orbyt_ab_slot: print the running slot, a or b, as U-Boot passed it to the kernel.
 orbyt_ab_slot() {
