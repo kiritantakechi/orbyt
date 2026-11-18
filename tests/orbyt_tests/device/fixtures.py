@@ -46,8 +46,15 @@ def target(emulation_dir: Path) -> Iterator[Target]:
     labgrid's pytest plugin is off (python-style D1): this is the one thing the
     tests took from it. Its SSH connections close with the session.
     """
-    environment = Environment(config_file=str(emulation_dir / TARGET_FILE))
-    yield environment.get_target()
+    description = emulation_dir / TARGET_FILE
+    # labgrid declares Environment with attrs' classic attr.ib(), whose fields
+    # carry no annotation for a type checker to read.
+    environment = Environment(config_file=str(description))  # ty: ignore[unknown-argument]
+    target = environment.get_target()
+    if target is None:
+        msg = f"{description} describes no target 'main'"
+        raise LookupError(msg)
+    yield target
     environment.cleanup()
     sshmanager.close_all()
 

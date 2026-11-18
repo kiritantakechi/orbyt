@@ -1,40 +1,71 @@
-# ruff configuration of the system tests (design D12): every rule, and each
-# exception says why.
-line-length = 100
-target-version = "py314"
+# ruff configuration of the system tests (python-style D2): the Python style
+# standard's, every rule, and each exception says why. Pinned with ruff itself
+# (pyproject.toml): `select = ["ALL"]` means a release that adds a rule
+# changes what the check enforces.
+target-version = "py315"
+line-length = 88
+indent-width = 4
+output-format = "concise"
 
 [lint]
 select = ["ALL"]
 ignore = [
-    # The formatter owns trailing commas; the rule conflicts with ruff format.
-    "COM812",
-    # Files carry no copyright headers; licensing is decided for the repository as a whole.
+    # ruff's formatter-conflict list; D203 goes with the google convention.
+    "W191", "E111", "E114", "E117",
+    "D206", "D300",
+    "Q000", "Q001", "Q002", "Q003", "Q004",
+    "COM812", "COM819",
+    "ISC002",
+    # Redundant with the formatter.
+    "D207", "D208",
+    # Files carry no copyright headers; licensing is decided for the repository.
     "CPY001",
-    # Docstring layout: keep D211 (no blank line before a class docstring) and
-    # D212 (summary on the first line); their opposites D203 and D213 conflict.
-    "D203",
-    "D213",
     # The harness drives the pinned tools of orbyt-test-fhs from PATH; every
     # argument comes from the test code itself, never from outside input.
     "S603",
     "S607",
 ]
 
+[lint.pycodestyle]
+# PEP 8's 72 for the prose of docstrings and comments, which the formatter does
+# not wrap; W505 does nothing until this is set.
+max-doc-length = 72
+
+[lint.flake8-pytest-style]
+# A pytest.raises without match passes on the wrong exception of the right type.
+raises-require-match-for = ["*"]
+
+[lint.flake8-implicit-str-concat]
+# Safe only with ISC001 enabled, as it is.
+allow-multiline = false
+
+[lint.pydocstyle]
+# The convention that keeps D417 and settles D211 and D212.
+convention = "google"
+
+[lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[lint.flake8-type-checking]
+# pydantic reads the annotations of its models when it builds them.
+runtime-evaluated-base-classes = ["pydantic.BaseModel"]
+
 [lint.per-file-ignores]
-# Tests: assert is how pytest checks; each test documents itself through its @spec
-# marker (capability, requirement, scenario); pytest imports test modules by path
-# (--import-mode=importlib), so test directories are not packages.
-"**/test_*.py" = ["S101", "D103", "INP001"]
+# Tests: assert is how pytest checks; test credentials are fixtures; a test's
+# @spec marker and name are its specification; private members and magic values
+# are what a test pins; pytest imports test modules by path (--import-mode=
+# importlib), so test directories are not packages.
+"**/test_*.py" = ["S101", "S105", "S106", "S107", "PLR2004", "SLF001", "INP001", "D103"]
 "*/conftest.py" = ["INP001"]
 # Command-line tools print their report.
 "orbyt_tests/model/boards.py" = ["T201"]
 "orbyt_tests/model/coverage.py" = ["T201"]
 "orbyt_tests/model/lib_check.py" = ["T201"]
 
-[lint.flake8-type-checking]
-# pydantic reads the annotations of its models when it builds them.
-runtime-evaluated-base-classes = ["pydantic.BaseModel"]
-
-[lint.flake8-pytest-style]
-fixture-parentheses = false
-mark-parentheses = false
+[format]
+preview = false
+quote-style = "double"
+indent-style = "space"
+line-ending = "lf"
+docstring-code-format = true
+skip-magic-trailing-comma = false

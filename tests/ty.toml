@@ -1,7 +1,56 @@
-# ty configuration of the system tests (design D12): every rule is an error.
-[rules]
-all = "error"
+# ty configuration of the system tests (python-style D2): the Python style
+# standard's. ty is 0.0.x and may change its diagnostics in any release: it is
+# pinned exactly (pyproject.toml), and moving the pin is a reviewed event.
 
-# The tests run on Linux only (the sandbox needs its namespaces).
 [environment]
+python-version = "3.15"
+# The tests run on Linux only (the sandbox needs its namespaces).
 python-platform = "linux"
+
+[rules]
+# ty ships no `strict` preset. What it ships is a set of rules that are off by
+# default; every one is named here, one at a time — enabled, or left off with
+# the reason.
+#
+# `all = "error"` is deliberately NOT used. Since 0.0.52 `error-on-warning`
+# defaults true, so every level above `ignore` already exits 1 — promoting the
+# warn-level rules changes the printed label and nothing else. And `all` would
+# silently enrol every rule a future release adds, which for a project with no
+# stability guarantee means an upgrade can fail your build for reasons nobody
+# chose.
+blanket-ignore-comment = "error"
+dynamic-function-decorator-return = "error"
+missing-override-decorator = "error"
+missing-type-argument = "error"
+unsound-assignment = "error"
+unsound-return = "error"
+unsound-yield = "error"
+unsupported-dynamic-base = "error"
+# A cast between types no value can inhabit both of is always a mistake.
+disjoint-cast = "error"
+# PS-TYPE-20's sentinels: the name passed must be the name it is bound to.
+mismatched-sentinel-name = "error"
+# Was warn by default until 0.0.84; kept at warn rather than lost to the move.
+invalid-legacy-positional-parameter = "warn"
+
+# Astral documents these four as false-positive-prone. `warn` is still a
+# promotion from their `ignore` default, and warn exits 1, so they still block —
+# they simply read differently in the output.
+division-by-zero = "warn"
+possibly-missing-attribute = "warn"
+possibly-missing-import = "warn"
+possibly-unresolved-reference = "warn"
+# The same false-positive warning applies to these two.
+redundant-condition-strict = "warn"
+truthiness-test-of-none-union = "warn"
+
+# Left off: `missing-direct-dependency` is preview and does nothing unless ty runs
+# under uv with `TY_UV` set, so enabling it here would claim a check that never runs.
+
+[analysis]
+strict-equality-semantics = true
+strict-generic-narrowing = true
+
+[terminal]
+error-on-warning = true    # already the default since 0.0.52; pinned explicitly
+output-format = "concise"  # the cheapest stable line format to parse
