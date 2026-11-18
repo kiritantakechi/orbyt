@@ -1,6 +1,7 @@
-# Scenarios verified by the build or by CI itself rather than by a system test.
-# spec-coverage counts them as covered; a scenario listed here must not also have
-# a test. `by` names the job or command whose success is the evidence.
+# Scenarios verified by the build or by CI itself rather than by a system test, or,
+# for how the web interface looks, in a browser. spec-coverage counts them as
+# covered; a scenario listed here must not also have a test. `by` names the job or
+# command whose success is the evidence, or what was looked at and when.
 
 # build/ci: the pipeline verifies itself.
 
@@ -189,6 +190,40 @@ capability = "firmware/toolchain"
 requirement = "LTO, mold, and gc-sections by default"
 scenario = "Package incompatible with LTO"
 by = "docs/optimization.md lists every no-lto opt-out with its patch in patches/packages"
+
+# firmware/web-theme: looked at in a browser against the emulator's LuCI, reached
+# from the Mac through a port forwarded into the test's network namespace
+# (luci-theme-wrt D9), on the R4S image of luci-theme-wrt.
+
+[[scenario]]
+capability = "firmware/web-theme"
+requirement = "Light and dark"
+scenario = "A browser that prefers dark"
+by = "2026-11-18, the login page and the overview with the browser emulating a dark preference and nothing stored: :root's data-darkmode was true, the theme choice automatic, the page dark; on 2026-11-17 the overview, an interface form and the apply dialog the same way"
+
+[[scenario]]
+capability = "firmware/web-theme"
+requirement = "Light and dark"
+scenario = "Dark pinned in a light browser"
+by = "2026-11-18, the browser emulating a light preference: Dark pinned with the switch on the interfaces page, then the firewall page opened: prefers-color-scheme light, the key luci-theme-wrt stored as dark, data-darkmode true, the page dark; the login page likewise with the key set"
+
+[[scenario]]
+capability = "firmware/web-theme"
+requirement = "Usable at phone width"
+scenario = "A page at phone width"
+by = "2026-11-17 and 2026-11-18, at 375 by 812 pixels: the overview, the interfaces page, the firewall's zones and the login, light and dark; the menu drawer opened with its button and closed by a tap beside it, tables stacked as rows, and the document no wider than the window on each page"
+
+[[scenario]]
+capability = "firmware/web-theme"
+requirement = "LuCI's icons and colors in the theme's style"
+scenario = "A device up and one down"
+by = "2026-11-18, the interfaces page's devices, light and dark: the theme's glyphs for LuCI's bridge, Ethernet and tunnel icons, the devices up (br-lan, eth1) in the accent (#0c8f63 light, #34d399 dark) and those down (ethernet_disabled) faint (#8a9a92, #6a7b73); the overview's ports with link in the plugged socket"
+
+[[scenario]]
+capability = "firmware/web-theme"
+requirement = "LuCI's icons and colors in the theme's style"
+scenario = "A realtime graph"
+by = "2026-11-18, the load and bandwidth graphs, light and dark: the box on the surface with the theme's border, grid and labels in its line and muted colors, and each line in the series color its legend's underline has (load 1, 5, 15 minutes blue, orange, aqua; inbound blue, outbound aqua)"
 
 # testing/harness: a property of CI.
 

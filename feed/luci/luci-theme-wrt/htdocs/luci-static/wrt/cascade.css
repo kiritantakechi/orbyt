@@ -520,16 +520,25 @@ fieldset legend {
 	white-space: nowrap;
 }
 
-.crumbs .trail::after {
+/* Each part of the page's place truncates on its own, the separator at the start
+ * of the parts after the first, so that an ellipsis clips a name and never a "›";
+ * the menu's levels give way, the page's own name only once it fills the bar. */
+.crumbs > * {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.crumbs > * + *::before {
 	content: "›";
-	margin-left: 6px;
+	margin-right: 6px;
 }
 
 .crumbs b {
+	flex-shrink: 0;
+	max-width: 100%;
 	color: var(--ink);
 	font-weight: 650;
-	overflow: hidden;
-	text-overflow: ellipsis;
 }
 
 .spacer {
@@ -1812,6 +1821,15 @@ button,
 	transition: opacity .25s ease-in;
 }
 
+/* A pane collapsed to no height keeps its box too: a section's card would leave
+ * its padding and border behind it (the interfaces page's other tabs). */
+[data-tab-title]:not([data-tab-active="true"]) {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	box-shadow: none;
+}
+
 .tab-content > .tab-pane,
 .tab-content > div {
 	display: none;
@@ -1945,6 +1963,14 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 	width: 100%;
 	min-width: auto;
 	max-width: none;
+}
+
+/* A select keeps room for LuCI's short choices (accept, reject, drop) with its
+ * arrow: squeezed to its cell, the firewall's zones showed one character each.
+ * A table too wide for its card scrolls in it. */
+.table.cbi-section-table select,
+.table.cbi-section-table .cbi-select {
+	min-width: 6.5em;
 }
 
 .table.cbi-section-table .td.cbi-section-table-cell {
@@ -2973,9 +2999,19 @@ form.inline { display: inline; margin-bottom: 0; }
 		display: inline-grid;
 	}
 
+	/* The page's place takes the room the buttons leave and truncates in it; the
+	 * bar wraps only when the buttons alone do not fit. */
 	.topbar {
 		flex-wrap: wrap;
 		padding: 10px 16px;
+	}
+
+	.crumbs {
+		flex: 1 1 0;
+	}
+
+	.spacer {
+		display: none;
 	}
 
 	.segmented .label-text {
