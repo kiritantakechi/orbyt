@@ -33,9 +33,10 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run CI's build on this change's branch for both boards.
+- [x] 4.1 Run CI's build on this change's branch for both boards.
 
   Verify: every job passes; the run is recorded in `docs/ci.md`.
+  Result (2026-11-18): CI run 44219605027, at 83526b4 after the browser look's fixes, passed on both boards in its first attempt, the theme's tests in the system suite; check passed (run 44219609857), spec-coverage with none missing. Recorded in `docs/ci.md` with the two runs before it.
 
 ## Workflow follow-up
 
