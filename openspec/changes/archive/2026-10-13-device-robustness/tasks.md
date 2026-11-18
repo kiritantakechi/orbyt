@@ -12,7 +12,7 @@
 
   Verify: `just patch` applies the series. The services/file-sharing test "Data disk removed while sharing" (new, D6) passes on both boards, and so does "Data disk absent".
 
-- [x] 1.4 Add wrt-data's preinit hook (D7) that puts the mount point on a small tmpfs, bump wrt-data's `PKG_RELEASE`, and add the storage/data-disk test "Data disk removed while in use" (new).
+- [x] 1.4 Add orbyt-data's preinit hook (D7) that puts the mount point on a small tmpfs, bump orbyt-data's `PKG_RELEASE`, and add the storage/data-disk test "Data disk removed while in use" (new).
 
   Verify: on both boards the new test passes, the file-sharing test "Data disk removed while sharing" finds nothing on the boot disk under `/mnt/data`, and the storage/data-disk, services and firmware/ab-upgrade suites pass.
 

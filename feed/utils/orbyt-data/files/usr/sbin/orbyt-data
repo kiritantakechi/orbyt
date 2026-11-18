@@ -3,9 +3,9 @@
 # Usage: orbyt-data init [device]   (without a device: list the candidates)
 #        orbyt-data status
 # init erases the disk, after its full name has been typed again: a btrfs
-# filesystem labelled wrtdata, the subvolumes containers, downloads, shares, logs
+# filesystem labelled orbytdata, the subvolumes containers, downloads, shares, logs
 # and .snapshots; then it names the disk by UUID in the fstab mount of /mnt/data
-# (section wrtdata, which the image's defaults hold disabled until then).
+# (section orbytdata, which the image's defaults hold disabled until then).
 set -eu
 # shellcheck source=../../lib/functions/orbyt-data.sh
 . /lib/functions/orbyt-data.sh
@@ -54,11 +54,11 @@ init() {
 	rmdir "${top}"
 
 	uci -q batch <<-EOF
-		set fstab.wrtdata=mount
-		set fstab.wrtdata.uuid='${uuid}'
-		set fstab.wrtdata.target='${ORBYT_DATA}'
-		set fstab.wrtdata.options='${ORBYT_DATA_OPTIONS}'
-		set fstab.wrtdata.enabled='1'
+		set fstab.orbytdata=mount
+		set fstab.orbytdata.uuid='${uuid}'
+		set fstab.orbytdata.target='${ORBYT_DATA}'
+		set fstab.orbytdata.options='${ORBYT_DATA_OPTIONS}'
+		set fstab.orbytdata.enabled='1'
 		commit fstab
 	EOF
 	# Announce the disk again, as when it is plugged in: blockd mounts it and

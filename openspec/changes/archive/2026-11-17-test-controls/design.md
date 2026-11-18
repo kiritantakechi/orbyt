@@ -3,8 +3,8 @@
 ## Context
 
 - The tests drive the emulated router over SSH (`router.run`, `router.returncode`, `router.poll`), the LAN clients and the ISP in network namespaces (`online.client()`, `isp`), and read the serial console's record (`router.emulator.console`: `mark()`, `text(since)`), which a thread drains into memory and a log for as long as the session runs, across reboots, power cuts and returns to the snapshot.
-- `wrt_tests.device.ab.setenv` runs `wrt_ab_setenv` with its pairs joined by spaces, unquoted; `wrt_ab_setenv` feeds `printf '%s %s\n' "$@"` to `fw_setenv -s -`, which reads a name and the rest of the line as its value.
-- The `ubsan` image turns on `debug.exception-trace`; arm64 reports each unhandled trap with `pr_info` (`<comm>[<pid>]: unhandled exception: … User debug trap …`, then the registers). The image keeps the kernel's console level at 7 (`CONFIG_CONSOLE_LOGLEVEL_DEFAULT`, no `quiet`, no sysctl lowering `kernel.printk`), so the reports reach the console. `wrt_tests.device.ubsan.parse` reads them with or without the console's timestamps.
+- `orbyt_tests.device.ab.setenv` runs `orbyt_ab_setenv` with its pairs joined by spaces, unquoted; `orbyt_ab_setenv` feeds `printf '%s %s\n' "$@"` to `fw_setenv -s -`, which reads a name and the rest of the line as its value.
+- The `ubsan` image turns on `debug.exception-trace`; arm64 reports each unhandled trap with `pr_info` (`<comm>[<pid>]: unhandled exception: … User debug trap …`, then the registers). The image keeps the kernel's console level at 7 (`CONFIG_CONSOLE_LOGLEVEL_DEFAULT`, no `quiet`, no sysctl lowering `kernel.printk`), so the reports reach the console. `orbyt_tests.device.ubsan.parse` reads them with or without the console's timestamps.
 - qosify shapes `pppoe-wan` with cake; `tc -s qdisc show` counts, per qdisc, the packets the shaper held back (`overlimits`).
 - dnsmasq's init script reloads through procd, which restarts the instance after the command returns; until then the old instance listens.
 
@@ -25,7 +25,7 @@ The test checks every path of LRNG's interfaces with `[ -e <path> ]` on its own 
 
 ### D2. `setenv` quotes its values (T2)
 
-`setenv` quotes each value for the shell (`shlex.quote`), so that `wrt_ab_setenv` receives a name and its whole value as two words. The test of a stored boot command reads `bootcmd` and `wrt_boot` back with `getenv` before it reboots, so that the boot that ignores them follows an environment that holds them.
+`setenv` quotes each value for the shell (`shlex.quote`), so that `orbyt_ab_setenv` receives a name and its whole value as two words. The test of a stored boot command reads `bootcmd` and `orbyt_boot` back with `getenv` before it reboots, so that the boot that ignores them follows an environment that holds them.
 
 ### D3. The PPP half counts its packets (T4)
 
@@ -64,7 +64,7 @@ Before the refused connection to the LAN host, the same `podman exec <container>
 
 For each test, a run before its change and one after, on the emulator, or for D7 the unit tests of `Traps`:
 - T1: the old check, given `/proc/sys/kernel/random/boot_id` and an absent path, passes; the new one fails on the present path.
-- T2: with the old `setenv`, `wrt_boot` reads back unset; with the new one, it holds the value.
+- T2: with the old `setenv`, `orbyt_boot` reads back unset; with the new one, it holds the value.
 - T4, T5, T8: the new assertions hold on the image as it is; T5's fail with the shaper set above what the emulator carries (at 900 Mbit the uploads reached 92 Mbit together).
 - T6, T10: the controls pass on the image as it is.
 - T9 (`tests/unit/test_ubsan.py`): a console record with a trap, then a reboot's banner, reports the trap; one record read twice reports each trap once.

@@ -7,4 +7,4 @@ The factory image the build produces SHALL carry everything the NanoPi R4S 4GB n
 
 #### Scenario: Inspect the boot chain
 - **WHEN** the factory image is inspected
-- **THEN** sector 64 holds an RK3399 SD boot loader; sector 16384 holds a U-Boot FIT whose default configuration is compatible with `friendlyarm,nanopi-r4s`, loads TF-A and boots with `run wrt_boot`; and the kernel FIT on both boot-A and boot-B carries a device tree compatible with `friendlyarm,nanopi-r4s` and `rockchip,rk3399`, with the GMAC and the PCIe controller enabled
+- **THEN** sector 64 holds an RK3399 SD boot loader; sector 16384 holds a U-Boot FIT whose default configuration is compatible with `friendlyarm,nanopi-r4s`, loads TF-A and boots with `run orbyt_boot`; and the kernel FIT on both boot-A and boot-B carries a device tree compatible with `friendlyarm,nanopi-r4s` and `rockchip,rk3399`, with the GMAC and the PCIe controller enabled

@@ -41,8 +41,8 @@ None.
 
 - Packages: `feed/net/dae` replaced by `feed/net/honk`; `feed/luci/luci-app-dae` removed; `upstream.lock`, `patches/daeuniverse/` (luci-app-honk, luci-lib-daeuniverse), patches to honk inside `feed/net/honk/patches`; OpenWrt's `lang/rust` raised if honk needs it (packages series); a host bpf-linker.
 - Build environment: `flake.nix` gains Node and pnpm for doona; `config/datapath.seed`, `config/toolchain.seed`, kernel packages for NFQUEUE (`kmod-nft-queue`, `kmod-nfnetlink-queue`).
-- Firmware files: `files/etc/uci-defaults/91-wrt-datapath` (dnsmasq, firewall rule for the native API), `files/lib/upgrade/keep.d/wrt-config`.
-- Tools: `scripts/config-push.sh`, `scripts/config-push.d/device.uc`, `scripts/config-init.sh` and its skeleton, `scripts/image-audit.sh`; `feed/utils/wrt-sync`, `feed/utils/wrt-containers` (comments and behaviour that name dae).
+- Firmware files: `files/etc/uci-defaults/91-orbyt-datapath` (dnsmasq, firewall rule for the native API), `files/lib/upgrade/keep.d/orbyt-config`.
+- Tools: `scripts/config-push.sh`, `scripts/config-push.d/device.uc`, `scripts/config-init.sh` and its skeleton, `scripts/image-audit.sh`; `feed/utils/orbyt-sync`, `feed/utils/orbyt-containers` (comments and behaviour that name dae).
 - `config/marks.tsv`; docs (`docs/services.md`, `docs/ops.md`, `docs/release-flow.md`, `docs/patches.md`, `docs/supply-chain/`).
-- Tests: `tests/network/test_transparent_proxy.py`, `test_dns.py`, `test_tc_hook_order.py`, `test_nat.py`, `tests/ops/test_config_push.py`, `tests/release/`, `tests/services/test_containers.py`, `test_vpn.py`, and `tests/wrt_tests/services/datapath.py`.
+- Tests: `tests/network/test_transparent_proxy.py`, `test_dns.py`, `test_tc_hook_order.py`, `test_nat.py`, `tests/ops/test_config_push.py`, `tests/release/`, `tests/services/test_containers.py`, `test_vpn.py`, and `tests/orbyt_tests/services/datapath.py`.
 - The user's private config repository: `git mv dae honk`, and the configuration checked against honk's dialect (its differences from dae are listed in the design).

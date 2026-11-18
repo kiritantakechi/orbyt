@@ -22,7 +22,7 @@ See proposal.md for why. The current state:
 
 ### D1. Detached commands keep their output
 
-`Router.detach()` runs `(command) >/tmp/wrt-detached.log 2>&1 </dev/null &` and remembers the command, the address it ran at and the console's mark. `/tmp` is in memory: the reboot the command leads to clears the file, and only a command that did not reboot the router leaves it.
+`Router.detach()` runs `(command) >/tmp/orbyt-detached.log 2>&1 </dev/null &` and remembers the command, the address it ran at and the console's mark. `/tmp` is in memory: the reboot the command leads to clears the file, and only a command that did not reboot the router leaves it.
 
 ### D2. The notes of a reboot that does not come
 

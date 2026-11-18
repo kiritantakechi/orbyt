@@ -6,7 +6,7 @@ An audit of the code that runs on the router (2026-10-26) found places where a f
 
 - A trial boot whose confirmation could not be written is logged as confirmed; U-Boot rolls back three reboots later. An environment that cannot be read reads as "not on trial".
 - An upgrade whose write failed still makes the half-written slot the trial slot; the configuration is copied only after that switch, so a power cut in between boots the new slot without it.
-- The sync unpacks the release's `repo.tar` after verifying `manifest.json`, so a crafted archive replaces the verified manifest; any extra upgrade image lands in the release, and `wrt-update` takes the last one by name, which can be an older, validly signed release. The release tag from the API reaches paths and a shell command unchecked, and nothing flushes a release before it becomes current.
+- The sync unpacks the release's `repo.tar` after verifying `manifest.json`, so a crafted archive replaces the verified manifest; any extra upgrade image lands in the release, and `orbyt-update` takes the last one by name, which can be an older, validly signed release. The release tag from the API reaches paths and a shell command unchecked, and nothing flushes a release before it becomes current.
 - One Pod that fails to start stops every Pod after it.
 - dae's reload can be lost: its entry is rewritten without a lock, `dae reload` refuses while dae starts or reloads, and nothing retries; turning dae off in its configuration does not stop it.
 - Snapshots are pruned by date: after a week without power, or with the clock set ahead, every older snapshot goes.
@@ -19,8 +19,8 @@ An audit of the code that runs on the router (2026-10-26) found places where a f
 
 - **The health check** tells an unreadable environment from one without a trial, and reports a confirmation it could not write; neither reboots.
 - **An upgrade** checks every write, copies the configuration before it switches the slot, and switches only when all of it succeeded; the image's members are matched the same way the check and the write read them.
-- **The sync** checks the tag, unpacks only the package repository's regular files, keeps only the upgrade image the manifest names, and flushes the release before it becomes current; **`wrt-update`** installs the image the manifest names.
-- **`wrt-containers apply`** starts every Pod it can and fails at the end if any did not start.
+- **The sync** checks the tag, unpacks only the package repository's regular files, keeps only the upgrade image the manifest names, and flushes the release before it becomes current; **`orbyt-update`** installs the image the manifest names.
+- **`orbyt-containers apply`** starts every Pod it can and fails at the end if any did not start.
 - **dae's init script** writes its entry under a lock and atomically, a reload waits for dae to take it, and a reload of a disabled dae stops it.
 - **Snapshots** are kept for the seven most recent days on which one was taken.
 - **`mount.remove` follows the unmount**, as `mount.add` follows the mount (patch 0044), so an unmount trigger (patch 0035) finds the mount point gone; a new helper says whether every fstab mount point holding a path is mounted; ksmbd (packages 0001) and the log service (patch 0008) use them.
@@ -47,9 +47,9 @@ None.
 
 ## Impact
 
-- `feed/utils/wrt-ab`: `ab.uc`, `wrt-healthcheck`, `wrt-slot`, `lib/upgrade/wrt-ab.sh`.
-- `feed/utils/wrt-sync`: `wrt-sync`, `wrt-update`, `libexec/wrt-sync/fetch`.
-- `feed/utils/wrt-containers`, `feed/utils/wrt-data` (`wrt-snap`), `feed/net/dae` (init, hotplug), `feed/net/einat` (health check).
+- `feed/utils/orbyt-ab`: `ab.uc`, `orbyt-healthcheck`, `orbyt-slot`, `lib/upgrade/orbyt-ab.sh`.
+- `feed/utils/orbyt-sync`: `orbyt-sync`, `orbyt-update`, `libexec/orbyt-sync/fetch`.
+- `feed/utils/orbyt-containers`, `feed/utils/orbyt-data` (`orbyt-snap`), `feed/net/dae` (init, hotplug), `feed/net/einat` (health check).
 - `patches/openwrt/0035` (procd.sh), `patches/openwrt/0008` (ubox log), `patches/packages/0001` (ksmbd-tools), `patches/openwrt/0041` (firewall4), `patches/openwrt/0043` (procd's report of its trigger commands), `patches/openwrt/0044` (fstools).
 - `scripts/config-push.sh`, `scripts/config-push.d/device.uc`.
 - Tests in `tests/firmware`, `tests/release`, `tests/services`, `tests/network`, `tests/storage`, `tests/ops`; docs where they describe these.

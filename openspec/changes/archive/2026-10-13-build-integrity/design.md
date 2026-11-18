@@ -16,7 +16,7 @@ See proposal.md for why. The current state:
 **How this project builds.**
 - One board-neutral toolchain serves both boards (`just toolchain-build`). Each board then builds in directories of its own (`build_dir/target-*_<board>`, `staging_dir/target-*_<board>`).
 - `toolchain-build.sh`:
-  - rebuilds the toolchain when the configuration's flags or its C library differ from its record, `wrt-toolchain.json`;
+  - rebuilds the toolchain when the configuration's flags or its C library differ from its record, `orbyt-toolchain.json`;
   - writes `.ver_check` from `git log -1 toolchain`, so that the ci profile, which sets `CONFIG_BUILDBOT=y`, keeps a toolchain the host stage packed.
 - CI's toolchain key (`scripts/toolchain-key.sh`) hashes the `tools/` and `toolchain/` trees and the build files that name host stamps, but not `target/linux/generic`.
 
@@ -66,7 +66,7 @@ This splits buildbot's single cleanup into its two halves. Each half cleans what
 ### D3. toolchain-build.sh stops writing `.ver_check`
 
 - `make toolchain/install` builds the record through D1's rule, so the `git log` line and its comment go.
-- The record of the flags (`wrt-toolchain.json`) stays: D1 covers the toolchain's files, and the record its flags.
+- The record of the flags (`orbyt-toolchain.json`) stays: D1 covers the toolchain's files, and the record its flags.
 - The compile stamp the script builds after the install still keeps `make world` out of `toolchain/compile` on a restored toolchain.
 
 ### D4. CI's toolchain key covers the generic kernel files
@@ -107,7 +107,7 @@ Caches go by id, and a branch's all at once by its ref, never by key alone: `gh 
   - Main's run after the merge deletes the branch's caches.
   - The runs and listings go to `docs/ci.md` and `tests/verified-elsewhere.toml`.
 - **The patched check** on a stand-in tree (`tests/build/test_boards.py`): parallel makes keep a toolchain whose record names its inputs, and each board's build directories follow the toolchain they record.
-- **Both scripts against a stand-in `gh`** that answers for a repository described as data (`wrt_tests.model.github`):
+- **Both scripts against a stand-in `gh`** that answers for a repository described as data (`orbyt_tests.model.github`):
   - in the unit suite, the room check on the default branch and on another ref, with and without room, the pruning of superseded caches, and a branch's run leaving other branches' caches;
   - the build/ci scenario "A merged branch" (`tests/build/test_ci.py`): main's run deletes merged and deleted branches' caches, and keeps unmerged ones.
 

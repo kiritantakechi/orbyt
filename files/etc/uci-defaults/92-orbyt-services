@@ -20,9 +20,9 @@
 
 touch /etc/config/fstab
 uci -q batch <<-EOF
-	set fstab.wrtdata=mount
-	set fstab.wrtdata.target='/mnt/data'
-	set fstab.wrtdata.enabled='0'
+	set fstab.orbytdata=mount
+	set fstab.orbytdata.target='/mnt/data'
+	set fstab.orbytdata.enabled='0'
 	set system.@system[0].log_file='/mnt/data/logs/messages'
 	set system.@system[0].log_size='65536'
 	set firewall.lan_podman=forwarding

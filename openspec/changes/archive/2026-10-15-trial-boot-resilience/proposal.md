@@ -15,7 +15,7 @@ Found on the way: the health check measures its time limit on the wall clock. Th
 
 ## What Changes
 
-- **U-Boot keeps two copies of its environment** (`uboot/wrt-ab.config`), at `0x3F8000` and `0x400000`. A write goes to the older copy, so a write cut short leaves the newer one, the previous state, in effect.
+- **U-Boot keeps two copies of its environment** (`uboot/orbyt-ab.config`), at `0x3F8000` and `0x400000`. A write goes to the older copy, so a write cut short leaves the newer one, the previous state, in effect.
 - **The bootloader tells the system where its copies are.** It passes their sizes and offsets on the kernel command line, as it passes the running slot. `fw_printenv` and `fw_setenv` are configured from that alone. A system started by a bootloader that does not tell refuses to write the environment, rather than write it in a layout that bootloader cannot read.
 - **The emulator logs what its watchdog does**, and every shutdown QEMU is asked for, next to the console log. CI uploads that log with the console's when a test fails.
 - **The health check measures its time limits on the boot's monotonic clock**, which setting the time of day does not move.
@@ -36,9 +36,9 @@ None.
 
 ## Impact
 
-- `uboot/wrt-ab.config`, `uboot/wrt-ab.env`: the second copy, and its announcement on the kernel command line.
-- `feed/utils/wrt-ab`: the ucode module reads the announcement, the uci-defaults configure `fw_env.config` from it, and the sysupgrade hook refuses to start without it; `wrt-healthcheck`'s clock.
-- `tests/wrt_tests/device/emu.py`, `tests/wrt_tests/device/ab.py`, `.github/workflows/build.yml`: the emulator's log, the environment's two places, the uploaded artifact.
+- `uboot/orbyt-ab.config`, `uboot/orbyt-ab.env`: the second copy, and its announcement on the kernel command line.
+- `feed/utils/orbyt-ab`: the ucode module reads the announcement, the uci-defaults configure `fw_env.config` from it, and the sysupgrade hook refuses to start without it; `orbyt-healthcheck`'s clock.
+- `tests/orbyt_tests/device/emu.py`, `tests/orbyt_tests/device/ab.py`, `.github/workflows/build.yml`: the emulator's log, the environment's two places, the uploaded artifact.
 - `tests/firmware/test_boot_rollback.py`, `tests/firmware/test_health_check.py`, `tests/testing/test_emulation.py`: the scenarios.
 - `docs/ab-layout.md`: the layout and the states.
 - The bootloader changes only with a factory image, so a device gets the second copy by writing the factory image again.

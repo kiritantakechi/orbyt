@@ -11,12 +11,11 @@
 
 **Goals:**
 - One name, Orbyt, with one lowercase form, `orbyt`, in every identifier the project owns.
-- No identifier left of the old name outside the records of the past.
+- No identifier or record left of the old name: on 2026-11-19 the maintainer asked for every leftover to go, the archive and the CI history included.
 
 **Non-Goals:**
 - A migration for devices on an older image: none exists in production.
 - Renaming upstream: OpenWrt, LuCI, their packages and paths, and the `openwrt/` source tree.
-- Rewriting history: archived changes and the CI runs recorded before the rename keep their names.
 
 ## Decisions
 
@@ -32,8 +31,11 @@
 | `wrt-build` | `orbyt` | the repository, prose naming the project as Orbyt |
 | `luci-theme-wrt`, theme `wrt`, `luci.themes.Wrt` | `luci-theme-orbyt`, theme `orbyt`, `luci.themes.Orbyt` | the theme, its media path `/luci-static/orbyt`, its script `menu-orbyt.js`, its strings' context `orbyt`, its browser storage keys |
 | `wrt` (a name alone) | `orbyt` | the sandbox's PPPoE and tailnet users, U-Boot's environment source file |
+| `wrt<name>`, `Wrt<Name>`, `wrt<Name>` joined | `orbyt<name>`, `Orbyt<Name>`, `orbyt<Name>` | the data disk's label and fstab section `orbytdata`, the work volume's label `orbytwork`, U-Boot's make functions `OrbytAB/…`, the theme's `window.orbytTheme` |
 
-A one-off script applies the mapping to file contents and to file and directory names; a search for the old forms afterwards, case-insensitive with OpenWrt excluded, must find nothing outside the exceptions of the Non-Goals.
+A one-off script applies the mapping to file contents and to file and directory names; a search for the old forms afterwards, case-insensitive with OpenWrt and ImmortalWrt excluded, must find nothing outside this change's own documents, which record the mapping.
+
+The first pass matched a name only between separators, and kept the archive, the CI runs before the rename and the release key's comment as history. A second pass, after the maintainer's word, applies the mapping there too, with the joined and camel-case forms the first had missed (`wrtdata`, `WrtAB`, `wrtTheme`, and `\0wrt_boot` in a unit test's data, which failed the test), and relabels the work volume. The archived luci-theme change is renamed with the rest; orbyt-theme, whose design replaces it, removes it.
 
 ### D2. Patches keep their numbers
 

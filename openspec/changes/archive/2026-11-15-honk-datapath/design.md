@@ -55,11 +55,11 @@ Alternatives: doona's release tarballs, hash-pinned (not built from source); pnp
 
 ### D4. The firmware's part of the configuration is an entry around the user's
 
-The init script copies the configuration's directory to `/var/run/honk`, readable by root alone, and writes two files of its own there: the entry `wrt-entry.dae` and the firmware's settings `wrt-settings.dae` (a configuration that has either name is refused). honk resolves includes from the entry's directory and takes one only from inside it, so the configuration's own includes resolve as they do in its directory (copies, since links would resolve outside it). The entry holds:
+The init script copies the configuration's directory to `/var/run/honk`, readable by root alone, and writes two files of its own there: the entry `orbyt-entry.dae` and the firmware's settings `orbyt-settings.dae` (a configuration that has either name is refused). honk resolves includes from the entry's directory and takes one only from inside it, so the configuration's own includes resolve as they do in its directory (copies, since links would resolve outside it). The entry holds:
 
 ```
 routing { dip(geoip: private) && dport(53) -> direct(must) }
-include { config.dae; wrt-settings.dae }
+include { config.dae; orbyt-settings.dae }
 ```
 
 and the settings:

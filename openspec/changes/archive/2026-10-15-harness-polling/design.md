@@ -3,12 +3,12 @@
 ## Context
 
 See proposal.md for why. The current state:
-- `wrt_tests.model.poll.until(probe, *, timeout, what, every=1)` is how every test and harness module waits. It calls the probe until the answer is neither `None` nor `False`, returns that answer, and raises `TimeoutError` naming `what` when the time is up.
+- `orbyt_tests.model.poll.until(probe, *, timeout, what, every=1)` is how every test and harness module waits. It calls the probe until the answer is neither `None` nor `False`, returns that answer, and raises `TimeoutError` naming `what` when the time is up.
 - 56 calls pass a probe. Most answer with a comparison, so a `bool`. Others answer with a value or `None`: a session, a dict of what a probe saw, the mount options as a set. Six answer with a value that is empty while the condition does not hold:
   - `client.run("ss", ...)`, the empty output of `ss` while nothing listens: the netprobe server in `tests/network/test_wan.py` and the UDP listener in `tests/network/test_nat.py`;
   - the conntrack lines of the offloaded flow, an empty list before the flow is offloaded (`tests/network/test_wan.py`);
   - netifd's `ipv6-prefix` of wan6, a list that is empty before the ISP delegates the prefix (`Online.wait_datapath`);
-  - `router.run(command) or None` (`wrt_tests.device.storage`) and `client.run(...) or None` (`tests/testing/test_emulation.py`), which turn the empty output into `None` themselves.
+  - `router.run(command) or None` (`orbyt_tests.device.storage`) and `client.run(...) or None` (`tests/testing/test_emulation.py`), which turn the empty output into `None` themselves.
 - The reproduction: `network/test_wan.py` ten times on the R4S on the VM, with `stress-ng --cpu 4` beside the emulator and `tcpdump` on the sandbox's `br-lan`: three runs failed, each with client-a resetting client-b's SYN within 5 µs, and the server listening right after.
 
 ## Goals / Non-Goals

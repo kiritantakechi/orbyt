@@ -8,14 +8,14 @@ See proposal.md for why. The current state:
 
 | Script | Lines | JSON |
 |---|---|---|
-| `wrt-healthcheck` (wrt-ab) | 112 | builds its result with jshn; reads `ifstatus lan` with jsonfilter |
-| `wrt-slot` (wrt-ab) | 54 | reads the result with jsonfilter |
-| `fetch` (wrt-sync) | 72 | reads the GitHub release with jsonfilter; downloads with `uclient-fetch` |
+| `orbyt-healthcheck` (orbyt-ab) | 112 | builds its result with jshn; reads `ifstatus lan` with jsonfilter |
+| `orbyt-slot` (orbyt-ab) | 54 | reads the result with jsonfilter |
+| `fetch` (orbyt-sync) | 72 | reads the GitHub release with jsonfilter; downloads with `uclient-fetch` |
 | `config-push.d/device.sh` | 181 | reads `network.interface.lan status` with jsonfilter |
 
-- `wrt-slot`, `wrt-healthcheck` and the sysupgrade hook (`lib/upgrade/wrt-ab.sh`) share `/lib/functions/wrt-ab.sh`: the running slot (from `/proc/cmdline`), the other slot, the partitions, and `fw_printenv`/`fw_setenv`.
+- `orbyt-slot`, `orbyt-healthcheck` and the sysupgrade hook (`lib/upgrade/orbyt-ab.sh`) share `/lib/functions/orbyt-ab.sh`: the running slot (from `/proc/cmdline`), the other slot, the partitions, and `fw_printenv`/`fw_setenv`.
 - sysupgrade runs its hook from a ramfs in its second stage, as shell.
-- wrt-metrics' rpcd plugin and the manifest helper are already ucode.
+- orbyt-metrics' rpcd plugin and the manifest helper are already ucode.
 - jsonfilter itself stays in the image, as base-files depends on it (`/lib/functions/network.sh`).
 
 **ucode in the image.**
@@ -40,7 +40,7 @@ See proposal.md for why. The current state:
 - Patch 0010 makes qosify set an interface up anew on a device replaced under the same name.
 
 **Key directory.**
-- `/etc/opkg/keys` is read by sysupgrade's `fwtool.sh` (`ucert -P`) and by wrt-sync (`usign -P`), and written by wrt-keyring.
+- `/etc/opkg/keys` is read by sysupgrade's `fwtool.sh` (`ucert -P`) and by orbyt-sync (`usign -P`), and written by orbyt-keyring.
 - The release scripts and the tests mirror the same layout.
 - No release has been published.
 
@@ -62,11 +62,11 @@ See proposal.md for why. The current state:
 ### D1. The A/B tools in ucode, on a shared module
 
 ```
-/usr/share/ucode/wrt/ab.uc       slot(), other(slot), getenv(name, default), setenv({name: value, ...})
-/usr/sbin/wrt-healthcheck        ucode: ubus (system board, network.interface.lan), uci (limits),
+/usr/share/ucode/orbyt/ab.uc       slot(), other(slot), getenv(name, default), setenv({name: value, ...})
+/usr/sbin/orbyt-healthcheck        ucode: ubus (system board, network.interface.lan), uci (limits),
                                  /proc/net/tcp{,6}, the checks in /etc/healthcheck.d, the JSON result
-/usr/sbin/wrt-slot               ucode: the module and the result file
-/lib/functions/wrt-ab.sh         POSIX sh, kept for the sysupgrade hook alone
+/usr/sbin/orbyt-slot               ucode: the module and the result file
+/lib/functions/orbyt-ab.sh         POSIX sh, kept for the sysupgrade hook alone
 ```
 
 **The module.**
@@ -81,12 +81,12 @@ See proposal.md for why. The current state:
 **Alternatives considered:**
 - Keeping shell with a smaller JSON need, for example writing the result as `key=value`, would remove jshn but not the pattern. It would also make the result file a format of its own instead of the JSON the status command reads.
 
-### D2. wrt-sync's fetch in ucode, with uclient
+### D2. orbyt-sync's fetch in ucode, with uclient
 
 - `fetch` becomes a ucode script that uses `ucode-mod-uclient` for its requests, with the same retries, and parses the release natively.
-- It still runs in wrt-sync's container, whose root is the host's, read-only.
+- It still runs in orbyt-sync's container, whose root is the host's, read-only.
 - It still trusts nothing it fetches: the host checks the manifest with the existing ucode helper.
-- wrt-sync's dependencies swap `jsonfilter` and `uclient-fetch` for `ucode-mod-uclient`.
+- orbyt-sync's dependencies swap `jsonfilter` and `uclient-fetch` for `ucode-mod-uclient`.
 
 ### D3. config-push's device side in ucode, still sent per push
 
@@ -142,9 +142,9 @@ DNS learning:       AF_PACKET (SOCK_DGRAM) on each managed WAN device, filtered 
 ### D5. `/etc/usign/keys`
 
 - The directory is named after the tool whose keys it holds, as `/etc/apk/keys` is. usign reads them, and so does ucert, which builds on them.
-- `/etc/sysupgrade/keys` was considered and rejected: wrt-sync checks release manifests with the same keys.
+- `/etc/sysupgrade/keys` was considered and rejected: orbyt-sync checks release manifests with the same keys.
 - base-files' `fwtool.sh` reads `/etc/usign/keys`, or `/etc/opkg/keys` when the new directory does not exist, so the patch stays harmless for upstream's images. It is meant for upstream: its trailer says `Upstream-Status: Pending`, and its write-up goes into `docs/patches.md`.
-- wrt-keyring, wrt-sync, `wrt-release.sh`, `release-keys.sh`, `release-sign.sh` and the tests' keyring and the router's trust in it (`wrt_tests.model.keys`, `wrt_tests.device.trust`) move together.
+- orbyt-keyring, orbyt-sync, `orbyt-release.sh`, `release-keys.sh`, `release-sign.sh` and the tests' keyring and the router's trust in it (`orbyt_tests.model.keys`, `orbyt_tests.device.trust`) move together.
 
 ### D6. The code-standards check
 

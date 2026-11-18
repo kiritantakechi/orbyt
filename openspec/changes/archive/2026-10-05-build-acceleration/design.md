@@ -35,7 +35,7 @@ Locally, the no-change build re-extracted the R6S kernel, compiled `vmlinux` aga
 **The patch step.** `fetch` and `patch` each reset every repository to its pinned commit, and `patch` then applies the series with `git am`. Every file a patch touches is written twice, and gets a new modification time, on every run.
 
 **Compiler caches.**
-- **C and C++**: ccache lives in `$WRT_WORKDIR/ccache`, linked as the tree's `.ccache`. In CI there is one per board, trimmed to what the build used (`WRT_CCACHE_TRIM`).
+- **C and C++**: ccache lives in `$ORBYT_WORKDIR/ccache`, linked as the tree's `.ccache`. In CI there is one per board, trimmed to what the build used (`ORBYT_CCACHE_TRIM`).
 - **Go**: Go's build cache is the tree's `tmp/go-build`, 5.3 GB locally, and is lost with each CI runner.
 - **Rust**: Rust packages have no cache. The feed offers sccache (`CONFIG_RUST_SCCACHE`, cache directory `$(TOPDIR)/.sccache` by default), which the build environment does not have.
 
@@ -140,7 +140,7 @@ Alternatives considered:
 - **The move.** The work tree then moves to the patched commit with a single `git checkout -f --detach` from wherever it was, followed by `git clean -fd`. Git writes only the files whose content differs between the two commits. The clean removes untracked files that are not ignored, such as a patch a package would apply; ignored build output stays, and so does `version.date`, which `patch.sh` writes only when it changes.
 - **`fetch`** fetches the pinned commits and checks them out only in a new tree. An existing tree is left for `patch` to move.
 
-- **The other writes.** The steps after the patch keep times as well. Links that already point where they should stay; `env/wrt-boards.mk` and the toolchain's version stamp are written only when they change. A configuration the same as the one its build directories were last configured with keeps that one's time (`tmp/wrt-config-<build>`). This was found during the implementation: `make defconfig` touches `.config`, and `toolchain-build` and `config` configure the tree twice in every build. The kernel configures again when `.config`, or one of its configuration files (`env/kernel-config`, a link, among them), is newer than its configured stamp, and every kernel module's build stamp follows the kernel's `.config`. So a build with nothing changed configured the kernel and rebuilt every kernel module.
+- **The other writes.** The steps after the patch keep times as well. Links that already point where they should stay; `env/orbyt-boards.mk` and the toolchain's version stamp are written only when they change. A configuration the same as the one its build directories were last configured with keeps that one's time (`tmp/orbyt-config-<build>`). This was found during the implementation: `make defconfig` touches `.config`, and `toolchain-build` and `config` configure the tree twice in every build. The kernel configures again when `.config`, or one of its configuration files (`env/kernel-config`, a link, among them), is newer than its configured stamp, and every kernel module's build stamp follows the kernel's `.config`. So a build with nothing changed configured the kernel and rebuilt every kernel module.
 
 The result:
 - running fetch and patch again with nothing changed writes no file;
@@ -153,12 +153,12 @@ The alternative is to keep `git am`, save the modification times of the patched 
 
 ### D6. One compiler cache per stage, every language in it
 
-- **Layout.** `$WRT_WORKDIR/compiler-cache/` holds `ccache/`, `go-build/` and `sccache/`. `link_tree` links them as the tree's `.ccache`, `.sccache` and `tmp/go-build`: the default directories of `rules.mk`, of the feed's Rust values and of its Go values. Nothing goes into the configuration, so the toolchain key does not change with the work directory. `config/ccache.conf` is linked into `ccache/` as today.
+- **Layout.** `$ORBYT_WORKDIR/compiler-cache/` holds `ccache/`, `go-build/` and `sccache/`. `link_tree` links them as the tree's `.ccache`, `.sccache` and `tmp/go-build`: the default directories of `rules.mk`, of the feed's Rust values and of its Go values. Nothing goes into the configuration, so the toolchain key does not change with the work directory. `config/ccache.conf` is linked into `ccache/` as today.
 - **sccache.** `config/toolchain.seed` sets `CONFIG_RUST_SCCACHE=y`, and `flake.nix` adds sccache to the build packages. Every build starts sccache's server anew, with no idle timeout, and stops it after the build, for its statistics and so that no daemon is left behind. With the default timeout, the server exited during a board build's ten idle minutes before its Rust packages, and took their statistics with it (found during the implementation).
 - **Reports.** `build.sh` prints each cache's statistics. For ccache and sccache that is their `--show-stats`. Go keeps no statistics, but writes an action entry, its creation time inside, only for an action it runs: the report counts those of the build that hold compiled code. A warm rebuild compiles nothing anew; it still writes the index of each package's sources it unpacked anew, which the count leaves out. A plain count of entries, the first plan, rose by those indexes, and fell with Go's own trim.
 - **CI.** Each stage keeps one Actions cache per run:
   - **Keys**: `compiler-cache-host-<hash>-<run>`, restored and saved only when the host stage builds, and `compiler-cache-<board>-<hash>-<run>`. The hash is that of `config/ccache.conf`, which decides whether a ccache entry can hit. Go and sccache entries carry their compiler's identity themselves.
-  - **Trim**: `WRT_COMPILER_CACHE_TRIM`, replacing `WRT_CCACHE_TRIM`, drops what the build did not use:
+  - **Trim**: `ORBYT_COMPILER_CACHE_TRIM`, replacing `ORBYT_CCACHE_TRIM`, drops what the build did not use:
     - ccache by its own last-use time (`--evict-older-than`);
     - Go and sccache by the files' modification times. Both refresh an entry's time when they use it: sccache on every hit, Go only when the entry is more than an hour old, so Go's cache also keeps what was modified in the hour before the build.
   - **Pruning**: the `caches` job keeps the newest compiler cache of each stage.
@@ -167,7 +167,7 @@ Each stage's cache holds all three languages, which gives one key family, one re
 
 ### D7. Guards for the shared toolchains
 
-- **The record.** `toolchain-build.sh` writes `wrt-toolchain.json` with:
+- **The record.** `toolchain-build.sh` writes `orbyt-toolchain.json` with:
   - the flags, as today;
   - the hash of the C library, as today;
   - the hash of the Rust standard library for the target (`lib/rustlib/<target>/lib`).
@@ -212,7 +212,7 @@ A board's build that rebuilt Rust would put its `-mcpu` into the shared standard
 ## Migration Plan
 
 1. **Locally**, once:
-   - move `$WRT_WORKDIR/ccache` to `$WRT_WORKDIR/compiler-cache/ccache`, and the tree's `tmp/go-build` to `compiler-cache/go-build`;
+   - move `$ORBYT_WORKDIR/ccache` to `$ORBYT_WORKDIR/compiler-cache/ccache`, and the tree's `tmp/go-build` to `compiler-cache/go-build`;
    - the next build rebuilds the toolchains, under the new recipe;
    - then delete the per-board Rust left behind: `build_dir/target-*/host/rustc-*`, and Rust's files in `staging_dir/target-*/host`.
 2. **In CI**, the first run builds the host stage cold under the new key and saves the new cache families. The `caches` job deletes the old `ccache-<board>-…` family along with the superseded caches.

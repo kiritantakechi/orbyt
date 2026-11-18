@@ -12,10 +12,10 @@ The rpcd plugin, also on that list, turned out to be a ucode plugin already.
 ## What Changes
 
 - **ucode for the device tools that handle structured data**:
-  - `wrt-healthcheck` and `wrt-slot` share a ucode module for the A/B facts: the running slot, the other slot and the U-Boot variables. They read ubus, uci and their result file natively.
-  - wrt-sync's `fetch` helper uses ucode's uclient and JSON instead of `uclient-fetch` and jsonfilter.
+  - `orbyt-healthcheck` and `orbyt-slot` share a ucode module for the A/B facts: the running slot, the other slot and the U-Boot variables. They read ubus, uci and their result file natively.
+  - orbyt-sync's `fetch` helper uses ucode's uclient and JSON instead of `uclient-fetch` and jsonfilter.
   - config-push's device side becomes a ucode script, still sent over SSH for every push.
-  - jshn and jsonfilter leave this project's code, and wrt-ab and wrt-sync depend on ucode modules instead.
+  - jshn and jsonfilter leave this project's code, and orbyt-ab and orbyt-sync depend on ucode modules instead.
   - What only orchestrates processes stays POSIX sh, because procd and sysupgrade call shell: init scripts, uci-defaults, and the sysupgrade hook with its A/B library.
 - **qosify on tcx** (a qosify patch):
   - Its classifiers attach as tcx links after every other program. einat already attaches its own first, so the order on the WAN port holds whatever starts first, and the links go away with the daemon.
@@ -23,8 +23,8 @@ The rpcd plugin, also on that list, turned out to be a ucode plugin already.
   - Ingress shaping, when configured, redirects to the interface's ifb from the BPF program instead of a mirred filter.
   - No legacy tc filter is left on the WAN port.
 - **Trust anchors in `/etc/usign/keys`**:
-  - wrt-keyring installs the firmware keys there, and sysupgrade's `fwtool` reads them there: a base-files patch, which falls back to `/etc/opkg/keys` for upstream's images.
-  - wrt-sync and the release scripts follow, and the image has no `/etc/opkg` at all.
+  - orbyt-keyring installs the firmware keys there, and sysupgrade's `fwtool` reads them there: a base-files patch, which falls back to `/etc/opkg/keys` for upstream's images.
+  - orbyt-sync and the release scripts follow, and the image has no `/etc/opkg` at all.
   - No release has been published, so no router holds keys in the old place.
 - **A code-standards check** keeps jshn, jsonfilter and `/etc/opkg` out of this project's device code.
 - **What a step replaces goes in the same step**: the shell tools ucode replaces, `ifb-dns` and its filters, the old key directory in this project's code. No compatibility path stays behind, except where an upstream component must keep serving upstream's images (`fwtool`'s fallback).
@@ -48,11 +48,11 @@ None.
 ## Impact
 
 - **Feed packages**:
-  - `wrt-ab`: `wrt-healthcheck`, `wrt-slot`, a ucode module and its dependencies;
-  - `wrt-sync`: `fetch`, the key directory and its dependencies;
-  - `wrt-keyring`: the key directory.
+  - `orbyt-ab`: `orbyt-healthcheck`, `orbyt-slot`, a ucode module and its dependencies;
+  - `orbyt-sync`: `fetch`, the key directory and its dependencies;
+  - `orbyt-keyring`: the key directory.
 - **Files and scripts**:
-  - `files/lib/upgrade/wrt-release.sh`;
+  - `files/lib/upgrade/orbyt-release.sh`;
   - `scripts/config-push.sh`, with `scripts/config-push.d/device.uc` replacing `device.sh`;
   - `scripts/release-sign.sh` and `scripts/release-keys.sh`.
 - **Patches**, carried by the series under the next free numbers, each stating its upstream status in its trailer (`toolchain-o3`'s convention):
@@ -62,7 +62,7 @@ None.
   - `tests/network/test_tc_hook_order.py`;
   - `tests/network/test_qos.py`: DNS name, ingress shaping;
   - `tests/firmware/test_base_system.py`;
-  - `tests/wrt_tests/model/keys.py` and `tests/wrt_tests/device/trust.py`;
+  - `tests/orbyt_tests/model/keys.py` and `tests/orbyt_tests/device/trust.py`;
   - the code-standards check and its test.
 - **Docs**: `docs/release-flow.md`, `docs/ops.md`, `docs/patches.md`.
 - **Order**: the fourth of four changes, after the archived `board-model`: `build-acceleration`, then `toolchain-o3`, then `module-boundaries`, then `device-modernization`. It takes `toolchain-o3`'s patch convention and the audit of qosify's earlier patches as given, and puts its scripts and tests in `module-boundaries`' structure: the shell library's modules and the test harness's layers.

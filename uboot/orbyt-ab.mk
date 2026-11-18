@@ -9,15 +9,15 @@ ORBYT_AB_DIR := $(TOPDIR)/env/uboot
 # U-Boot tree> (scripts/lib/boards.sh writes them from boards/*.json).
 include $(TOPDIR)/env/orbyt-boards.mk
 
-# WrtAB/config <board>: the configuration fragments after the defconfig in
+# OrbytAB/config <board>: the configuration fragments after the defconfig in
 # UBOOT_CONFIG.
-WrtAB/config = orbyt-ab board-$(1)
+OrbytAB/config = orbyt-ab board-$(1)
 
-# WrtAB/Build <board>,<environment directory in the U-Boot tree>: build the
+# OrbytAB/Build <board>,<environment directory in the U-Boot tree>: build the
 # package's variant with the slot logic. Preparing it puts the fragments where
 # U-Boot finds them, and writes the board constants followed by the shared
 # logic as the variant's default environment, orbyt.env (ENV_SOURCE_FILE).
-define WrtAB/Build
+define OrbytAB/Build
 PKG_FILE_DEPENDS += $(ORBYT_AB_DIR)/
 
 define Build/Prepare
@@ -28,7 +28,7 @@ define Build/Prepare
 endef
 endef
 
-define WrtAB/newline
+define OrbytAB/newline
 
 
 endef
@@ -37,7 +37,7 @@ endef
 # after its last, and the package the slot logic.
 ORBYT_AB_BOARD := $(subst :, ,$(filter $(BUILD_VARIANT):%,$(ORBYT_AB_BOARDS)))
 ifneq ($(ORBYT_AB_BOARD),)
-ORBYT_AB_CONFIG := $(call WrtAB/config,$(word 2,$(ORBYT_AB_BOARD)))
-U-Boot/$(BUILD_VARIANT) += $(WrtAB/newline)UBOOT_CONFIG += $(ORBYT_AB_CONFIG)
-$(eval $(call WrtAB/Build,$(word 2,$(ORBYT_AB_BOARD)),$(word 3,$(ORBYT_AB_BOARD))))
+ORBYT_AB_CONFIG := $(call OrbytAB/config,$(word 2,$(ORBYT_AB_BOARD)))
+U-Boot/$(BUILD_VARIANT) += $(OrbytAB/newline)UBOOT_CONFIG += $(ORBYT_AB_CONFIG)
+$(eval $(call OrbytAB/Build,$(word 2,$(ORBYT_AB_BOARD)),$(word 3,$(ORBYT_AB_BOARD))))
 endif

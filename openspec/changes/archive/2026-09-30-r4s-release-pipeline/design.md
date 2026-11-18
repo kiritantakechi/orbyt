@@ -13,7 +13,7 @@ For motivation, see proposal.md. The following current behavior was checked agai
 - **Firmware signing**: `CONFIG_SIGN_FIRMWARE` uses usign/ucert to sign the firmware metadata (`include/image-commands.mk:94,125`). The rockchip `platform.sh` requires firmware to carry metadata (`REQUIRE_IMAGE_METADATA=1`).
 - **Prerequisites provided by earlier changes**:
   - `r4s-build-foundation` produces unsigned artifacts and `manifest.json`;
-  - `r4s-ab-rollback` provides writing to the inactive slot and `wrt-slot`;
+  - `r4s-ab-rollback` provides writing to the inactive slot and `orbyt-slot`;
   - `r4s-services` provides the data disk, podman, and declarative Pods;
   - `r4s-ebpf-datapath` routes container traffic through dae;
   - the foundation's emulation environment and test framework, plus the ISP, internet, and data disk that later changes add.
@@ -40,17 +40,17 @@ For motivation, see proposal.md. The following current behavior was checked agai
 ```
 CONFIG_BUILDBOT=y
 # CONFIG_PACKAGE_openwrt-keyring is not set
-CONFIG_PACKAGE_wrt-keyring=y
+CONFIG_PACKAGE_orbyt-keyring=y
 # CONFIG_SIGN_FIRMWARE is not set
 ```
 
 - **`BUILDBOT`'s other defaults**: `BUILDBOT` also turns on the SDK, the image builder, the toolchain archive, the target-wide package set (`ALL_NONSHARED`) and the kernel debug archive. `ci.seed` turns them off again: none of them is published, and each costs build time.
 
-- **The `wrt-keyring` package**: Lives in the project's own feed and installs `/etc/apk/keys/wrt-release-<id>.pem` (the EC public key used by apk) and the usign public key. It can hold several keys at once for rotation.
+- **The `orbyt-keyring` package**: Lives in the project's own feed and installs `/etc/apk/keys/orbyt-release-<id>.pem` (the EC public key used by apk) and the usign public key. It can hold several keys at once for rotation.
 - **Signing during the build**: The build still generates a one-time apk private key for installs and indexing inside the build. Because `BUILDBOT` is enabled, that key's public key does not enter the image. The build does not sign the firmware either.
 - **Development builds**: The dev profile does not enable `BUILDBOT` and keeps the upstream behavior, so the image trusts the locally built key. These images are for debugging only and are never published.
 - **Impact on existing tests**: The foundation test "Install a kmod from the same build" switches to the `signed_repo` fixture. This fixture re-signs the current build's repository with an ephemeral key, and the router's snapshot trusts the ephemeral public keys instead of the image's (see D7).
-- **Every image requires signed upgrades**: `/lib/upgrade/wrt-release.sh` (in `files/`, so in every profile) sets sysupgrade's own `REQUIRE_IMAGE_SIGNATURE=1`. A dev image therefore also refuses unsigned upgrade images; the tests sign theirs with `release-sign.sh` (D7).
+- **Every image requires signed upgrades**: `/lib/upgrade/orbyt-release.sh` (in `files/`, so in every profile) sets sysupgrade's own `REQUIRE_IMAGE_SIGNATURE=1`. A dev image therefore also refuses unsigned upgrade images; the tests sign theirs with `release-sign.sh` (D7).
 - **Alternatives**:
   - Patch base-files to skip installing the build public key. Rejected, because upstream already provides the ready-made `BUILDBOT` path.
   - Add a separate release profile. Rejected, because then the image CI tests and the image that is published would not be the same.
@@ -66,7 +66,7 @@ job sign  (needs: firmware; environment: release-signing -> required reviewer)
   4. scripts/release-sign.sh <in> <out> --apk-key $APK_KEY --fw-key $FW_KEY
        apk adbsign every packages.adb; usign + ucert + fwtool on factory image and upgrade tar;
        usign manifest.json (manifest.json.sig, what devices trust a release by);
-       verify the result against the public keys shipped in wrt-keyring; write SHA256SUMS
+       verify the result against the public keys shipped in orbyt-keyring; write SHA256SUMS
   5. upload signed set for upgrade-drill and publish
 ```
 
@@ -94,7 +94,7 @@ The `publish` job runs after `upgrade-drill` passes (D5). `scripts/release-publi
 ### D4. Device-side sync
 
 ```
-wrt-sync (procd service, mount trigger /mnt/data/repo; cron daily)
+orbyt-sync (procd service, mount trigger /mnt/data/repo; cron daily)
   -> podman run --rootfs /mnt/data/repo/.root  (the router's own programs mounted read-only,
                                                no image; network: podman bridge -> proxied by dae)
        container: query the Releases API (channel: stable | candidate)
@@ -108,12 +108,12 @@ wrt-sync (procd service, mount trigger /mnt/data/repo; cron daily)
        keep newest 3 (by activation), delete older
 ```
 
-- **Configurable Releases address**: The UCI option `wrt-sync.main.api` defaults to `https://api.github.com`; tests point it at a mock service in the sandbox.
+- **Configurable Releases address**: The UCI option `orbyt-sync.main.api` defaults to `https://api.github.com`; tests point it at a mock service in the sandbox.
 - **The container does not need to be trusted**: The host verifies integrity with the release public keys in the image. The container needs no image at all: its root is an empty directory on the data disk with the router's own `uclient-fetch` and `jsonfilter` mounted read-only, so nothing is pulled and nothing third-party runs. Its only writable mount is `.incoming`.
 - **Atomic switch**: A new release is first downloaded to `.incoming`, and the `current` symlink changes only after all checks pass.
 - **apk feed list**: `/etc/apk/repositories.d/distfeeds.list` is overwritten to point to the local repository under `current`, as a `file`-style `packages.adb` path.
-- **Local upgrade**: `wrt-update` calls sysupgrade to upgrade to the upgrade tar in `current`.
-- **Mandatory signature check**: sysupgrade's own `fwtool_check_signature` does the check once `REQUIRE_IMAGE_SIGNATURE=1` (D1): ucert verifies the image's certificate chain with the usign keys in `/etc/opkg/keys`. A missing or wrong signature makes the image invalid; only `sysupgrade -F` would force it, and `wrt-update` never passes it. The A/B change's `platform_check_image` is left as it is.
+- **Local upgrade**: `orbyt-update` calls sysupgrade to upgrade to the upgrade tar in `current`.
+- **Mandatory signature check**: sysupgrade's own `fwtool_check_signature` does the check once `REQUIRE_IMAGE_SIGNATURE=1` (D1): ucert verifies the image's certificate chain with the usign keys in `/etc/opkg/keys`. A missing or wrong signature makes the image invalid; only `sysupgrade -F` would force it, and `orbyt-update` never passes it. The A/B change's `platform_check_image` is left as it is.
 
 ### D5. Weekly bump
 
@@ -129,7 +129,7 @@ build.yml   host-toolchain -> firmware (ci) -> system-test (emulation, ephemeral
 upgrade-drill (emulation):
   base      = factory image of the latest stable release (or of this build if none exists yet)
   isp/inet  = datapath topology + fake GitHub Releases API serving this signed candidate
-  steps     = push test config -> wrt-sync --candidate -> wrt-update -> reboot
+  steps     = push test config -> orbyt-sync --candidate -> orbyt-update -> reboot
               -> health check confirms the new slot -> config still present
   pass      = new slot confirmed; fail = rollback observed, job fails, nothing is published
 ```
@@ -144,7 +144,7 @@ upgrade-drill (emulation):
 - **Private repository layout**:
 
 ```
-wrt-config (private repo)
+orbyt-config (private repo)
   .sops.yaml                  age recipient (your workstation key)
   secrets/secrets.enc.yaml    pppoe, wg key, tailscale authkey + login server, smb users
   dae/*.dae.enc               user dae config (no lan_interface / wan_interface), encrypted:
@@ -155,15 +155,15 @@ wrt-config (private repo)
 
 - **Skeleton**: `scripts/config-init.d/` holds the skeleton as plain files; `config-init` copies it, encrypts the secrets and the dae configuration with sops for the recipient in `.sops.yaml`, and commits.
 
-- **Commands**: `just config-init` generates the private repository skeleton; `just config-push <host>` performs the push, with the private repository location given by `WRT_CONFIG_DIR`. Both share their names with their scripts, following the foundation's "object-verb" naming rule. The push runs these steps in order:
+- **Commands**: `just config-init` generates the private repository skeleton; `just config-push <host>` performs the push, with the private repository location given by `ORBYT_CONFIG_DIR`. Both share their names with their scripts, following the foundation's "object-verb" naming rule. The push runs these steps in order:
   1. Decrypt with sops into a temporary directory, which is cleaned up on exit;
   2. Render the templates;
-  3. Transfer the files to `/tmp/wrt-push` on the device over SSH with key authentication only (`BatchMode`, `PasswordAuthentication=no`, `PreferredAuthentications=publickey`, and `IdentitiesOnly` with `--identity`);
-  4. Validate on the device without changing anything: `dae validate` in a scratch directory set up as the dae service sets up its own (the firmware's `lan_interface` and DNS listener, an include of the configuration file), and each `uci batch` on a copy of `/etc/config`. A rejected push removes `/tmp/wrt-push` and changes nothing else;
-  5. Compare each service's hash with the one recorded in `/etc/wrt-config/<service>` at its last push, and write and reload only the services that changed;
+  3. Transfer the files to `/tmp/orbyt-push` on the device over SSH with key authentication only (`BatchMode`, `PasswordAuthentication=no`, `PreferredAuthentications=publickey`, and `IdentitiesOnly` with `--identity`);
+  4. Validate on the device without changing anything: `dae validate` in a scratch directory set up as the dae service sets up its own (the firmware's `lan_interface` and DNS listener, an include of the configuration file), and each `uci batch` on a copy of `/etc/config`. A rejected push removes `/tmp/orbyt-push` and changes nothing else;
+  5. Compare each service's hash with the one recorded in `/etc/orbyt-config/<service>` at its last push, and write and reload only the services that changed;
   6. Wait until each reloaded service is back (dae: its health check; network: the LAN up; tailscale: logged in). If it is not, restore its pre-push files, reload it again, and exit with a nonzero status.
 - **The device side**: `scripts/config-push.d/device.sh` is sent over SSH for each step (`sh -s -- validate | hashes | apply <service>`), so the image carries nothing of the push.
-- **Preservation across upgrades**: What the push writes outside `/etc/config` (`/etc/dae/`, `/etc/tailscale/`, and `/etc/wrt-config/` with the hashes and the tailnet login) is listed in the image's `/lib/upgrade/keep.d/wrt-config`, sysupgrade's own list of what the backup keeps, so it survives A/B upgrades; the uci configuration, the SMB user database and `/etc/passwd` are kept as conffiles already. The Pods live on the data disk.
+- **Preservation across upgrades**: What the push writes outside `/etc/config` (`/etc/dae/`, `/etc/tailscale/`, and `/etc/orbyt-config/` with the hashes and the tailnet login) is listed in the image's `/lib/upgrade/keep.d/orbyt-config`, sysupgrade's own list of what the backup keeps, so it survives A/B upgrades; the uci configuration, the SMB user database and `/etc/passwd` are kept as conffiles already. The Pods live on the data disk.
 - **Why encrypt**: If the private repository leaks or is made public by mistake, every plaintext secret is exposed. sops with age fits the Nix ecosystem, and decryption happens only on the workstation. This is a default security measure added by this design; exploration only confirmed "secrets live in a private repository".
 
 ### D7. Verification
@@ -174,10 +174,10 @@ wrt-config (private repo)
   - `tests/release/test_device_sync.py`: An emulator test. A stand-in for GitHub's Releases API runs in `inet` (HTTPS, with a certificate issued by the test CA, one directory per repository as on GitHub); dae routes it through the proxy, and the ISP blocks direct connections from the router's WAN address to it.
   - `tests/release/test_upstream_bump.py`: Uses local bare repositories on the host as the three upstreams and covers opening a PR, not opening a PR, and patch conflicts; the two upgrade drill scenarios are tagged by the tests that `upgrade-drill` runs.
   - `tests/ops/test_config_push.py`: Runs `just config-push` against the router in the emulator, using a throwaway config repository and an age test key.
-- **Ephemeral key fixtures**: `wrt_tests/keys.py` generates a one-time apk EC key and usign key (`release_keys`), and:
+- **Ephemeral key fixtures**: `orbyt_tests/keys.py` generates a one-time apk EC key and usign key (`release_keys`), and:
   - `signed_repo`: re-signs the current build's artifacts with `release-sign.sh`;
   - the router's snapshot trusts the matching public keys (`install_trust`), in place of the image's own in `/etc/apk/keys` and `/etc/opkg/keys`, as a release image trusts the release keys.
-  - With `WRT_SIGNED` naming a production-signed build (the `upgrade-drill` job), nothing is signed and the image's own trust anchors decide.
+  - With `ORBYT_SIGNED` naming a production-signed build (the `upgrade-drill` job), nothing is signed and the image's own trust anchors decide.
 - **What the emulator lacks**: The harness logs in with a key of its own, authorized in the snapshot, because the config push tests give root a password. The emulated internet has no time server and a snapshot restore rewinds the clock, so the harness sets the router's clock after every boot and restore, as NTP does on a device in service (the firmware certificate is valid from the signing time, D2).
 - **Drill tests**: The tests run by the `upgrade-drill` job carry a `drill` marker and are selected separately with pytest's `-m drill`. `system-test` runs the same tests with ephemeral keys, so the drill logic itself is tested on every commit; after signing, the same tests simply run again with the production keys and the production trust anchor.
 - **GitHub-side settings**: The environment reviewers and the branch protection required checks are GitHub repository settings, not code. `scripts/github-audit.sh` reads and checks them with `gh api`, and runs periodically in the check workflow.
@@ -187,7 +187,7 @@ wrt-config (private repo)
 
 - **[If the build job is compromised, the current artifacts may already be tampered with]** Signing isolation cannot prevent this. → Long term, reproducible builds and comparison against third-party rebuilds can detect it; short term, manual approval plus reading the diff are the safeguard.
 - **[GitHub API rate limiting or throttling]** → Sync runs once a day and makes one API request; a release it has already is not downloaded again.
-- **[Arguments and behavior of `apk adbsign`]** → The last step of `release-sign.sh` verifies with the public keys in `wrt-keyring` and treats a failed check as a failure; `test_signing.py` covers this path.
+- **[Arguments and behavior of `apk adbsign`]** → The last step of `release-sign.sh` verifies with the public keys in `orbyt-keyring` and treats a failed check as a failure; `test_signing.py` covers this path.
 - **[The previous stable release used for the drill is itself defective]** For example, if the old release's upgrade logic has a bug, the drill keeps failing. → The maintainer then decides, and ships an interim release after the fix; the drill baseline is always the latest stable release.
 - **[The emulator cannot cover the hardware path]** → A/B rollback is the safety net: if the device fails to boot after an upgrade, it automatically returns to the previous slot.
 - **[Forced toolchain rebuilds triggered by `BUILDBOT`]** They happen only when the git revision of the toolchain directory changes, which matches the caching strategy.
@@ -197,11 +197,11 @@ wrt-config (private repo)
 ## Migration Plan
 
 1. Set up GitHub: the `release-signing` environment with the maintainer as required reviewer and `main` and `bump/*` as its only deployment branches, and a ruleset on main requiring `check` and `upgrade-drill`. `just github-audit` reads them back.
-2. The maintainer generates the release apk EC key pair and usign key pair with `just release-keys --upload` on their own machine: the private keys go to the environment's secrets and an offline backup, never into the repository; the public keys go into `wrt-keyring` and are committed.
+2. The maintainer generates the release apk EC key pair and usign key pair with `just release-keys --upload` on their own machine: the private keys go to the environment's secrets and an offline backup, never into the repository; the public keys go into `orbyt-keyring` and are committed.
 3. Set the repository variable `RELEASE_SIGNING` to `enabled`: from then on main and bump builds are signed, drilled and published.
 4. Set up the private config repository and the age key (`just config-init`), and migrate the existing configuration into it.
-5. After the first stable release passes its upgrade drill, flash its factory image (which already includes `wrt-keyring`) and push the configuration. All later updates go through sync plus `wrt-update`.
-6. Rollback: `wrt-slot switch` returns to the previous slot; the local repository keeps the latest 3 releases, so you can also upgrade again to a specific older release.
+5. After the first stable release passes its upgrade drill, flash its factory image (which already includes `orbyt-keyring`) and push the configuration. All later updates go through sync plus `orbyt-update`.
+6. Rollback: `orbyt-slot switch` returns to the previous slot; the local repository keeps the latest 3 releases, so you can also upgrade again to a specific older release.
 
 ## Open Questions
 

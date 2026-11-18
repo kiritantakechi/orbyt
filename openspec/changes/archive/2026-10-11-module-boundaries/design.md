@@ -14,7 +14,7 @@ See proposal.md for why. The facts the approach rests on:
 
 **Harness.**
 - No runtime import cycle exists today. The cross-layer references are type-only imports, or calls on a router passed in: `pki.trust` and `keys.install_trust` act on the router; `isp`, `oci`, `pki`, `keys` and `ubsan` import device or sandbox types.
-- pytest loads the markers through `-p wrt_tests.plugin` (`tests/pytest.toml`), and `tests/services/conftest.py` and `tests/release/conftest.py` hold their suites' fixtures.
+- pytest loads the markers through `-p orbyt_tests.plugin` (`tests/pytest.toml`), and `tests/services/conftest.py` and `tests/release/conftest.py` hold their suites' fixtures.
 - `spec-coverage` already checks the suite's structure: the directory rule, and one marker per test.
 
 ## Goals / Non-Goals
@@ -69,7 +69,7 @@ scripts/lib/
 
 ### D2. The tree as an argument
 
-`require_workdir` becomes `workdir_tree`, which checks `WRT_WORKDIR` as before and prints the tree's path. A script holds it in its own variable:
+`require_workdir` becomes `workdir_tree`, which checks `ORBYT_WORKDIR` as before and prints the tree's path. A script holds it in its own variable:
 
 ```
 tree=$(workdir_tree)
@@ -107,7 +107,7 @@ The skeleton check expects core's line where it expected `lib.sh`'s, and a `use`
 ### D5. The harness in four layers
 
 ```
-tests/wrt_tests/
+tests/orbyt_tests/
   __init__.py      spec, the one name every test imports from the package root
   model/           markers (+ the markers plugin), boards, specs, coverage, patches,
                    undefined_behavior, data, outputs, image, trees, poll, keys (signing),
@@ -176,7 +176,7 @@ The models are strict, with `extra="forbid"`:
 | `out/.../manifest.json`, a release's `<device>-manifest.json` (the build's, copied) | `Manifest` | `outputs` |
 | `out/.../warnings.json` | `Diagnostic` (a list) | `undefined_behavior` |
 | `<emulator>/source.json` | `EmulationSource` | `outputs` (emu-prepare writes it through the model as well) |
-| `wrt-toolchain.json` | `ToolchainRecord` | `outputs` |
+| `orbyt-toolchain.json` | `ToolchainRecord` | `outputs` |
 | `release.json` | `Release` | `outputs` |
 
 **Who uses them.**
@@ -213,7 +213,7 @@ Every script keeps the skeleton of quality/code-standards. The order is stated i
 - [tach reports what the layering must allow] → Its config is the layering of D5, nothing more. A report means a module in the wrong layer, and is fixed by moving code, never by an exception in `tach.toml`.
 - [The toolchain key changes, so CI's next host stage rebuilds] → Once, from its compiler cache: about 71 minutes (docs/ci.md). It is recorded with the change's CI run.
 - [A function's new tree argument is missed in a caller] → The module check finds a function a script does not load, not a missing argument. So each function's first line checks its arguments, `[ -d "$1" ] || die ...`, and the unit tests and a full build of both boards exercise every caller.
-- [`device-modernization` names an old path: `tests/wrt_tests/keys.py`, whose trust anchors it moves] → Its proposal and tasks point to `model/keys.py` and `device/trust.py` once this change is archived.
+- [`device-modernization` names an old path: `tests/orbyt_tests/keys.py`, whose trust anchors it moves] → Its proposal and tasks point to `model/keys.py` and `device/trust.py` once this change is archived.
 
 ## Migration Plan
 

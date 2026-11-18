@@ -68,4 +68,4 @@ None.
 
 - `.github/workflows/build.yml`, `check.yml`, `bump.yml`; a new `.github/actions/nix/action.yml`.
 - `scripts/release-publish.sh`, `release-sign.sh`, `build.sh`, `drill-base.sh`, `cache-prune.sh`, `cache-room.sh`, `toolchain-key.sh`, `toolchain-pack.sh`, `github-audit.sh`, `marks-check.sh`, `lib/upstream.sh`, `lib/tree.sh`; new: `scripts/download.sh` and `scripts/lib/manifest.sh`; the `justfile`.
-- Tests in `tests/build`, `tests/release`, `tests/unit`, the patch series' scratch repository moved to `wrt_tests/model/series.py`; `docs/ci.md`, `docs/release-flow.md`, `docs/dev-setup.md`.
+- Tests in `tests/build`, `tests/release`, `tests/unit`, the patch series' scratch repository moved to `orbyt_tests/model/series.py`; `docs/ci.md`, `docs/release-flow.md`, `docs/dev-setup.md`.

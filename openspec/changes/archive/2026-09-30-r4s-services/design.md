@@ -36,8 +36,8 @@ For the motivation, see proposal.md. Everything below was checked against the up
 ### D1. Mount layout
 
 ```
-USB SSD  (btrfs, label wrtdata, identified by UUID)
-  top level (subvolid=5) -> /mnt/data        (fstab "wrtdata", by UUID)
+USB SSD  (btrfs, label orbytdata, identified by UUID)
+  top level (subvolid=5) -> /mnt/data        (fstab "orbytdata", by UUID)
     containers  subvolume -> /mnt/data/containers
     downloads   subvolume -> /mnt/data/downloads
     shares      subvolume -> /mnt/data/shares
@@ -48,7 +48,7 @@ options: compress=zstd:3,noatime,space_cache=v2
 
 - **Mounting**: fstools block-mount mounts the top level at `/mnt/data`, one fstab entry by UUID; each subvolume sits at its fixed path in it, under the same mount options.
 - **Why not one fstab entry per subvolume**: `block` maps a device to one fstab section (`find_block` in fstools' `block.c` returns the first match), so entries for several subvolumes of the same UUID mount only one of them. Mounting the rest from a hotplug script would race the services that wait for them: blockd runs `hotplug-call mount` in the background and notifies procd at once.
-- **Initialization**: `wrt-data init` creates the filesystem, the subvolumes and the fstab entry. The target disk must be confirmed manually before it runs, because it wipes the entire disk: the operator types its full device name again.
+- **Initialization**: `orbyt-data init` creates the filesystem, the subvolumes and the fstab entry. The target disk must be confirmed manually before it runs, because it wipes the entire disk: the operator types its full device name again.
 - **Alternatives**:
   - Separate data by plain subdirectories. Rejected: a subdirectory cannot be snapshotted on its own.
   - ext4 or xfs. btrfs was already chosen during exploration.
@@ -56,11 +56,11 @@ options: compress=zstd:3,noatime,space_cache=v2
 ### D2. Startup ordering for mount-dependent services
 
 - **Approach**: every service that depends on the data disk declares `procd_add_restart_mount_trigger` on its data path, which procd resolves to the fstab mount point `/mnt/data`, and at startup returns immediately without creating directories if `/mnt/data` is not mounted:
-  - `wrt-containers` does so itself; podman's own API service stays disabled, as the Pods are `wrt-containers'` (`podman kube play` needs no daemon);
+  - `orbyt-containers` does so itself; podman's own API service stays disabled, as the Pods are `orbyt-containers'` (`podman kube play` needs no daemon);
   - ksmbd through a patch to its init script (`patches/packages/0001`): a share on an unmounted mount point is left out, the service does not start while every share waits, and each share's mount restarts it; the patch is general enough to offer upstream;
   - persistent logs through the upstream mechanism, `system.@system[0].log_file=/mnt/data/logs/messages` and `log_size`: the log service writes the file only while its fstab mount point is mounted, and its mount trigger starts it then. Upstream skips an unmounted mount point at boot only, so a later reload would log onto the SD card; a patch to its init script (`patches/openwrt/0009`) skips it always.
-- **The mount point before any disk**: the image's defaults hold the fstab entry of `/mnt/data` from the first boot, disabled and without a UUID; `wrt-data init` fills it in. Without it, a service could not tell `/mnt/data` for a mount point until a disk was set up, and would neither wait for it nor register a mount trigger.
-- **Mounting a new data disk**: `wrt-data init` announces the disk again through the kernel (a synthetic `add` uevent), so blockd mounts it by the hotplug path, as a disk plugged in; only that path tells procd, whose mount triggers start the waiting services. `block mount` alone would mount it silently.
+- **The mount point before any disk**: the image's defaults hold the fstab entry of `/mnt/data` from the first boot, disabled and without a UUID; `orbyt-data init` fills it in. Without it, a service could not tell `/mnt/data` for a mount point until a disk was set up, and would neither wait for it nor register a mount trigger.
+- **Mounting a new data disk**: `orbyt-data init` announces the disk again through the kernel (a synthetic `add` uevent), so blockd mounts it by the hotplug path, as a disk plugged in; only that path tells procd, whose mount triggers start the waiting services. `block mount` alone would mount it silently.
 - **Why no directories are created at startup**: this avoids creating directories on the SD card when the data disk is absent, which satisfies the spec's "must not write data to the SD card" rule.
 
 ### D3. Containers: netavark stays out of the firewall, fw4 manages it all
@@ -84,7 +84,7 @@ options: compress=zstd:3,noatime,space_cache=v2
 ### D4. App containers defined by declaration files
 
 - **Declaration files**: Kubernetes Pod YAML read by `podman kube play`, stored in `/mnt/data/containers/pods/*.yaml`. The source of truth lives in the private config repository and is written by the config push tool.
-- **Startup service**: the own feed adds a `wrt-containers` service with a mount trigger on `/mnt/data/containers`. On each trigger, it compares each declaration file's hash with the hash recorded at the last successful apply:
+- **Startup service**: the own feed adds a `orbyt-containers` service with a mount trigger on `/mnt/data/containers`. On each trigger, it compares each declaration file's hash with the hash recorded at the last successful apply:
   - if the hash changed, it runs `podman kube play --replace`;
   - if the hash is unchanged, it only ensures that the Pod is running.
   - This satisfies "no rebuild when the declaration is unchanged".
@@ -97,10 +97,10 @@ options: compress=zstd:3,noatime,space_cache=v2
 
 ### D5. Snapshots
 
-- **Tool**: the own feed adds `wrt-snap`:
-  - `wrt-snap now` takes one read-only snapshot each of `containers` and `shares` into `.snapshots/<subvolume>/<UTC time>`; a second one in the same second waits for the next, as btrfs would put it into the existing snapshot of that name;
-  - `wrt-snap prune` keeps the snapshots of the last 7 days (UTC), today's included: by calendar day, so the daily job keeps exactly seven however many seconds it runs late or early;
-  - `wrt-snap list [subvolume]` lists them, oldest first;
+- **Tool**: the own feed adds `orbyt-snap`:
+  - `orbyt-snap now` takes one read-only snapshot each of `containers` and `shares` into `.snapshots/<subvolume>/<UTC time>`; a second one in the same second waits for the next, as btrfs would put it into the existing snapshot of that name;
+  - `orbyt-snap prune` keeps the snapshots of the last 7 days (UTC), today's included: by calendar day, so the daily job keeps exactly seven however many seconds it runs late or early;
+  - `orbyt-snap list [subvolume]` lists them, oldest first;
   - cron runs `now` and `prune` once a day, at 03:17.
 - **Why `@downloads` and `@logs` are excluded**: downloads can be fetched again and logs rotate on their own, so snapshotting them only wastes space.
 
@@ -125,7 +125,7 @@ options: compress=zstd:3,noatime,space_cache=v2
 ### D8. Monitoring
 
 - **Configuration**: `prometheus-node-exporter-ucode` with `listen_interface 'lan'`; port 9101 is open only to the lan zone.
-- **Collectors**: cpu, meminfo, netdev, filesystem, and hwmon (temperature). The ucode exporter has neither of the last two; `wrt-metrics` adds them under node_exporter's metric names. The exporter runs in a procd jail with mount and PID namespaces of its own, which sees none of the host's mounts, so the filesystem collector asks an rpcd plugin of the same package over ubus (`wrt-metrics filesystems`), which runs on the host. On the R4S, `rockchip-thermal` registers the SoC's thermal zones with hwmon; the emulator has no sensor, so the test checks the driver and the collector instead of a reading.
+- **Collectors**: cpu, meminfo, netdev, filesystem, and hwmon (temperature). The ucode exporter has neither of the last two; `orbyt-metrics` adds them under node_exporter's metric names. The exporter runs in a procd jail with mount and PID namespaces of its own, which sees none of the host's mounts, so the filesystem collector asks an rpcd plugin of the same package over ubus (`orbyt-metrics filesystems`), which runs on the host. On the R4S, `rockchip-thermal` registers the SoC's thermal zones with hwmon; the emulator has no sensor, so the test checks the driver and the collector instead of a reading.
 
 ### D9. New packages and kernel modules
 
@@ -135,10 +135,10 @@ podman crun netavark conmon
 kmod-fs-ksmbd ksmbd-server luci-app-ksmbd
 kmod-wireguard wireguard-tools luci-proto-wireguard tailscale
 prometheus-node-exporter-ucode
-wrt-data wrt-containers wrt-metrics   (own feed)
+orbyt-data orbyt-containers orbyt-metrics   (own feed)
 ```
 
-All of these go into `config/services.seed`. `usb-storage` is built into the kernel already. blockd is what tells procd of a mount: its init has procd watch its `block` object, whose `mount.add` notifications fire the services' mount triggers; without it they never fire. `ksmbd-server` is the ksmbd-tools package that runs the server. The own feed holds three packages: `wrt-data` (`wrt-data` and `wrt-snap`, D1 and D5), `wrt-containers` (D4) and `wrt-metrics` (D8: the hwmon and filesystem collectors the ucode node exporter lacks).
+All of these go into `config/services.seed`. `usb-storage` is built into the kernel already. blockd is what tells procd of a mount: its init has procd watch its `block` object, whose `mount.add` notifications fire the services' mount triggers; without it they never fire. `ksmbd-server` is the ksmbd-tools package that runs the server. The own feed holds three packages: `orbyt-data` (`orbyt-data` and `orbyt-snap`, D1 and D5), `orbyt-containers` (D4) and `orbyt-metrics` (D8: the hwmon and filesystem collectors the ucode node exporter lacks).
 
 ### D10. Verification: the USB data disk and all peers run in the emulator
 
@@ -184,7 +184,7 @@ test image: busybox, uhttpd, uclient-fetch + their libraries from the shipped ro
 ## Migration Plan
 
 1. Deploy firmware that includes this change.
-2. Attach a new SSD, run `wrt-data init`, and confirm the target disk when prompted.
+2. Attach a new SSD, run `orbyt-data init`, and confirm the target disk when prompted.
 3. Use the config push tool to write the SMB user, WireGuard private key, Tailscale auth key, and Pod declaration files.
 4. Rollback: unplug the data disk, and the system degrades to routing only; to roll back the firmware, switch back to the previous slot with A/B.
 

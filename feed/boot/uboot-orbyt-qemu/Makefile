@@ -30,7 +30,7 @@ endef
 
 define U-Boot/orbyt-qemu
   NAME:=the emulated boards (QEMU virt)
-  UBOOT_CONFIG:=qemu_arm64 $(call WrtAB/config,qemu)
+  UBOOT_CONFIG:=qemu_arm64 $(call OrbytAB/config,qemu)
 endef
 
 UBOOT_TARGETS := orbyt-qemu
@@ -40,7 +40,7 @@ UBOOT_CUSTOMIZE_CONFIG := \
 	--disable TOOLS_MKEFICAPSULE \
 	--set-str MKIMAGE_DTC_PATH $(PKG_BUILD_DIR)/scripts/dtc/dtc
 
-$(eval $(call WrtAB/Build,qemu,board/emulation/qemu-arm))
+$(eval $(call OrbytAB/Build,qemu,board/emulation/qemu-arm))
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(STAGING_DIR_IMAGE)

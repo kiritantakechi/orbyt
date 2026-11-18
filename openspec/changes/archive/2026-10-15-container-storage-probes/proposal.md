@@ -6,7 +6,7 @@ The services/containers test "Runtime commands at the same time" failed in both 
 
 The mounts are podman's own. Its storage's overlay driver probes some kernel features when it is first asked about them: idmapped lower layers in `podman info` and in every layer or container creation, volatile mounts in `podman info`. Each probe mounts in a directory under the driver's home and unmounts by path. Meanwhile another podman process may bind the home onto itself, as every command does when it starts and finds the home unmounted after an earlier one's end. The bind hides the probe's mounts from the paths it unmounts them by: podman warns `Unmount ".../compatNNN/lower-mapped": invalid argument`, and the mounts stay until a reboot. The store's graph lock keeps the bind apart from the probes that the driver's initialization makes, but not from the later ones.
 
-On the R4S on the VM, with the probes' records removed as they appeared, the test reproduced it: two of ten rounds left the probes' idmapped and volatile mounts behind. On a router, the storage is on the data disk, and wrt-containers and wrt-sync run podman at once after a boot, when the run root in RAM has no record of the probes yet. A mount left under the storage keeps the data disk's mount busy until a reboot.
+On the R4S on the VM, with the probes' records removed as they appeared, the test reproduced it: two of ten rounds left the probes' idmapped and volatile mounts behind. On a router, the storage is on the data disk, and orbyt-containers and orbyt-sync run podman at once after a boot, when the run root in RAM has no record of the probes yet. A mount left under the storage keeps the data disk's mount busy until a reboot.
 
 ## What Changes
 

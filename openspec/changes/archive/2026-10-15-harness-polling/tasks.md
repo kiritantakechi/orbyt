@@ -2,7 +2,7 @@
 
 ## 1. The polling contract (design D1, D2, D3)
 
-- [x] 1.1 Make `wrt_tests.model.poll.until` wait while the probe's answer is empty (D1), with its docstring; drop the `or None` of `wrt_tests.device.storage` and `tests/testing/test_emulation.py` (D2); and describe the contract in `docs/conventions.md`, next to the harness's layers.
+- [x] 1.1 Make `orbyt_tests.model.poll.until` wait while the probe's answer is empty (D1), with its docstring; drop the `or None` of `orbyt_tests.device.storage` and `tests/testing/test_emulation.py` (D2); and describe the contract in `docs/conventions.md`, next to the harness's layers.
 
   Verify: `just check` passes.
 - [x] 1.2 Add the `testing/harness` tests "A probe answers empty first" and "No answer within the time limit" to `tests/testing/test_harness.py` (D3).

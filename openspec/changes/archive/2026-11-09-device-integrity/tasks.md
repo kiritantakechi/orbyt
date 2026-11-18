@@ -8,7 +8,7 @@
 
 ## 2. The A/B code (design D1, D2)
 
-- [x] 2.1 `wrt.ab`'s `variables()`, the health check's environment and confirmation, and `wrt-slot status` (D1).
+- [x] 2.1 `orbyt.ab`'s `variables()`, the health check's environment and confirmation, and `orbyt-slot status` (D1).
 
   Verify: the firmware/health-check tests pass on both boards.
 - [x] 2.2 The upgrade hook: members read whole, checked writes, the configuration before the switch (D2).
@@ -17,19 +17,19 @@
 
 ## 3. The sync (design D3)
 
-- [x] 3.1 The tag checks, the package archive's listing, the release built from its verified parts, the flushes, and `wrt-update`'s image (D3).
+- [x] 3.1 The tag checks, the package archive's listing, the release built from its verified parts, the flushes, and `orbyt-update`'s image (D3).
 
   Verify: the release/device-sync tests pass on both boards.
 
 ## 4. The services (design D4, D5, D6, D9)
 
-- [x] 4.1 `wrt-containers apply` per Pod (D4).
+- [x] 4.1 `orbyt-containers apply` per Pod (D4).
 
   Verify: the services/containers tests pass on both boards.
 - [x] 4.2 dae's lock, entry, reload and hotplug handler (D5).
 
   Verify: the network/transparent-proxy tests pass on both boards.
-- [x] 4.3 `wrt-snap prune` by days (D6), and einat's check (D9).
+- [x] 4.3 `orbyt-snap prune` by days (D6), and einat's check (D9).
 
   Verify: the storage/data-disk tests and the network/nat health check pass on both boards.
 

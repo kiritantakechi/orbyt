@@ -5,7 +5,7 @@
 Eight tests can pass while what they check is broken, found by a review of the project on 2026-11-17. Each asserts an absence, a refusal or a balance without showing that the thing it watches took part:
 
 - **T1** (firmware/base-system, excluded components): `ls /proc/lrng_type /proc/sys/kernel/random/lrng_type` fails when either path is missing, so the test passes with one of LRNG's interfaces present.
-- **T2** (firmware/boot-rollback, stored boot command ignored): the helper `setenv` joins names and values unquoted, so `bootcmd="echo wrt-hijacked"` writes `bootcmd=echo` and a variable named `wrt-hijacked`, and `wrt_boot` is never written: the test of a stored boot logic being ignored stores none.
+- **T2** (firmware/boot-rollback, stored boot command ignored): the helper `setenv` joins names and values unquoted, so `bootcmd="echo orbyt-hijacked"` writes `bootcmd=echo` and a variable named `orbyt-hijacked`, and `orbyt_boot` is never written: the test of a stored boot logic being ignored stores none.
 - **T4** (network/nat, spoofed inbound): the half sent through the PPP session asserts that no packet reached the LAN, with nothing to show that one reached the router; the Ethernet half counts its frames at the WAN port, this one does not.
 - **T5** (network/qos, two hosts share the upload): the rates of the two uploads are compared with each other alone; two uploads limited by anything else, the emulator's speed or nothing at all, are as fair.
 - **T6** (firmware/kernel, a kmod of another kernel refused): `apk add` of a virtual package depending on a foreign vermagic fails, without a control that the same command with the running kernel's vermagic succeeds; any other failure of apk passes the test.
@@ -31,6 +31,6 @@ None.
 
 ## Impact
 
-- `tests/wrt_tests/device/ab.py` (`setenv`), `tests/wrt_tests/device/ubsan.py` (`Traps` reads the console), `tests/wrt_tests/device/fixtures.py`, `tests/wrt_tests/services/fixtures.py` (`internet_zone`).
+- `tests/orbyt_tests/device/ab.py` (`setenv`), `tests/orbyt_tests/device/ubsan.py` (`Traps` reads the console), `tests/orbyt_tests/device/fixtures.py`, `tests/orbyt_tests/services/fixtures.py` (`internet_zone`).
 - `tests/firmware/test_base_system.py`, `test_boot_rollback.py`, `test_kernel.py`; `tests/network/test_nat.py`, `test_qos.py`; `tests/services/test_containers.py`; the unit tests of the trap parser, if the console's lines need them.
 - No change to the image, the build or CI's workflows.

@@ -39,7 +39,7 @@
 				query.addEventListener('change', apply);
 				apply();
 
-				window.wrtTheme = function (choice) {
+				window.orbytTheme = function (choice) {
 					pinned = (choice === 'light' || choice === 'dark') ? choice : null;
 					try {
 						if (pinned) localStorage.setItem(key, pinned);

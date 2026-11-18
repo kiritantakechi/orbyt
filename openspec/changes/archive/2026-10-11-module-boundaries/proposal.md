@@ -4,7 +4,7 @@
 
 The host-side code grew by accretion, change after change, and its parts now depend on each other more than their tasks require:
 - `scripts/lib.sh` holds 43 functions of nine domains, from compiler caches to seed composition and UB warnings. Every script sources all of it, and most use two to five. A third of the functions read a global, `TREE`, that `require_workdir` sets as a side effect. The UB-warning parser, a 50-line awk program, sits inline in a shell string.
-- `tests/wrt_tests` is one flat package of 29 modules. Pure data models, the sandbox network, the emulated router and the services mix freely, and nothing keeps a lower piece from reaching up: the sandbox's CA module installs its certificate on the router, and the release-key module does the same with the keys.
+- `tests/orbyt_tests` is one flat package of 29 modules. Pure data models, the sandbox network, the emulated router and the services mix freely, and nothing keeps a lower piece from reaching up: the sandbox's CA module installs its certificate on the router, and the release-key module does the same with the keys.
 - `tests/conftest.py` composes every domain in one file: the build under test, the network and the ISP, the emulator and the router, the data disk, the app image, signed releases and UBSan's traps.
 - The data the tests read has no single shape. The build's manifest is parsed with `json.loads` in eight places, each picking the keys it needs. `verified-elsewhere.toml` is read as raw dicts, `reviewed-warnings.toml` through pydantic, and the board descriptions through pydantic again with their own error format.
 
@@ -19,7 +19,7 @@ Each new change pays for this: it reads more than it touches, and a mistake in o
   - awk programs of more than a few lines move to files beside their module, where unit tests reach them directly.
   - `just check` fails when a script calls a library function that the modules it loads do not provide.
 - **Layered test harness**:
-  - `tests/wrt_tests` becomes four subpackages, from the bottom up:
+  - `tests/orbyt_tests` becomes four subpackages, from the bottom up:
     - `model`: the repository and the build's outputs as data, and the harness's own utilities;
     - `sandbox`: the network, the ISP and the emulated internet;
     - `device`: the emulator and the router;
@@ -71,7 +71,7 @@ None.
   - every script in `scripts/` loads its modules by name;
   - `scripts/check.sh` gains the module check and tach.
 - **Tests**:
-  - `tests/wrt_tests/` is reorganized into `model/`, `sandbox/`, `device/` and `services/`, each with its `fixtures.py`;
+  - `tests/orbyt_tests/` is reorganized into `model/`, `sandbox/`, `device/` and `services/`, each with its `fixtures.py`;
   - `tests/conftest.py` composes them;
   - `tests/tach.toml` is new, and tach joins the dev dependencies (`tests/pyproject.toml`, `uv.lock`);
   - every test's imports follow the new paths, and its data reads go through the models;

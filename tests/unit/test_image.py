@@ -53,7 +53,7 @@ def test_read_mbr_rejects_a_disk_without_boot_signature() -> None:
 # Strings of a U-Boot binary around its built-in environment.
 BINARY = (
     b"\x7fELF\x02U-Boot 2026.07\0%s=%s\0\0\x00\x13"
-    b"bootcmd=run orbyt_boot\0bootlimit=3\0wrt_boot=if test a; then\trun b; fi\0\0"
+    b"bootcmd=run orbyt_boot\0bootlimit=3\0orbyt_boot=if test a; then\trun b; fi\0\0"
     b"\xff\xfeother\0\0"
 )
 

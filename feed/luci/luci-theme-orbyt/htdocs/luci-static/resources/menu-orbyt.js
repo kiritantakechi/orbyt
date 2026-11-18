@@ -222,7 +222,7 @@ return baseclass.extend({
 
 		buttons.forEach((button) => {
 			button.addEventListener('click', () => {
-				window.wrtTheme(button.dataset.choice);
+				window.orbytTheme(button.dataset.choice);
 				show();
 			});
 		});

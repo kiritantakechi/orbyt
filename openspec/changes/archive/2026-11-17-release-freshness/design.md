@@ -50,7 +50,7 @@ Alternatives considered:
 
 ### D4. Any difference marks the commit
 
-`build.sh` takes its `commit` from `source_commit` (`scripts/lib/manifest.sh`): `git rev-parse HEAD`, and `-dirty` when `git status --porcelain` lists anything: a tracked file changed, a change staged, or a file neither tracked nor ignored. The build's outputs live outside the repository (`WRT_WORKDIR`), and the repository's own outputs are ignored, so a clean checkout stays clean. `tests/wrt_tests/model/outputs.py` says so where it describes the field.
+`build.sh` takes its `commit` from `source_commit` (`scripts/lib/manifest.sh`): `git rev-parse HEAD`, and `-dirty` when `git status --porcelain` lists anything: a tracked file changed, a change staged, or a file neither tracked nor ignored. The build's outputs live outside the repository (`ORBYT_WORKDIR`), and the repository's own outputs are ignored, so a clean checkout stays clean. `tests/orbyt_tests/model/outputs.py` says so where it describes the field.
 
 ### D5. OpenWrt's build files and scripts whole in the key
 
@@ -61,7 +61,7 @@ Alternatives considered:
 
 ### D6. Tests
 
-- `tests/release/test_publishing.py`: the stand-in `gh` of the cache tests (`wrt_tests.model.github`), which now also answers for a branch's head and the compare API and records a release it is asked to create, takes the place of the module's own. A branch moved by documentation alone publishes, its tag on the commit built; moved by a file the build reads, it fails naming both commits, as today's test does; a comparison of 300 files, documentation all, does not publish.
+- `tests/release/test_publishing.py`: the stand-in `gh` of the cache tests (`orbyt_tests.model.github`), which now also answers for a branch's head and the compare API and records a release it is asked to create, takes the place of the module's own. A branch moved by documentation alone publishes, its tag on the commit built; moved by a file the build reads, it fails naming both commits, as today's test does; a comparison of 300 files, documentation all, does not publish.
 - `tests/build/test_ci.py`, beside the prune's other scenarios: with the ref's head moved by a file the build reads, a run deletes nothing and says why, on a branch and on main; `tests/unit/test_ci_caches.py`: moved by documentation alone, it prunes as today.
 - `tests/unit/test_lib.py`: the module's list is the workflow's; `build_reads` for a path in and out of each pattern.
 - `tests/build/test_ci.py`: `source_commit` in a scratch repository: clean; an untracked file; an ignored file (clean); a staged change.

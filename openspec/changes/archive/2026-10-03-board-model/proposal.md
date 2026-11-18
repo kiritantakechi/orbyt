@@ -26,7 +26,7 @@ Every layer of the project is written for exactly one board, the NanoPi R4S: the
 - **Upstream patches reduced to generic hooks**:
   - the U-Boot patch applies the slot logic to every variant in a board table generated from the descriptions, instead of naming the R4S;
   - the image patch gives the A/B images to every device in that table;
-  - the uboot-envtools patch is dropped: wrt-ab configures the environment location of any A/B system itself;
+  - the uboot-envtools patch is dropped: orbyt-ab configures the environment location of any A/B system itself;
   - the move_config patch reads the boot partition's number from sysfs instead of parsing an MBR `PARTUUID`. This removes the wrong-partition case on GPT disks and the shell arithmetic error it could raise in preinit.
 - **Board-neutral device code**:
   - the WAN stays on the port upstream's board scripts assign (the R6S's WAN is `eth1`) instead of a fixed `eth0`;
@@ -37,7 +37,7 @@ Every layer of the project is written for exactly one board, the NanoPi R4S: the
   - an upgrade drill per board;
   - one release per pipeline run, carrying each board's asset set, published only when every board's drill passed.
 
-  **BREAKING** for release assets: each board's set is prefixed by its OpenWrt device name, and `wrt-sync` fetches only its own board's set. No release has been published yet.
+  **BREAKING** for release assets: each board's set is prefixed by its OpenWrt device name, and `orbyt-sync` fetches only its own board's set. No release has been published yet.
 - **Tests per board**:
   - the emulated board is the board of the build under test;
   - board-specific checks read the board description;
@@ -70,15 +70,15 @@ Every layer of the project is written for exactly one board, the NanoPi R4S: the
 - **New**:
   - `boards/`;
   - `uboot/board-r6s.env` and `uboot/board-r6s.config`;
-  - board loading in the scripts and in `wrt_tests`;
+  - board loading in the scripts and in `orbyt_tests`;
   - `tests/build/test_boards.py`.
 - **Changed**:
   - `scripts/{config,build,test,toolchain-build,drill-base,release-sign,release-publish}.sh` and the `justfile`;
-  - `config/{target,toolchain}.seed` and `uboot/wrt-ab.mk`;
+  - `config/{target,toolchain}.seed` and `uboot/orbyt-ab.mk`;
   - patches 0003–0006 (0006 removed);
-  - `feed/utils/wrt-ab`, `feed/utils/wrt-sync`, `feed/net/dae` and `files/etc/uci-defaults/91-wrt-datapath`;
-  - `tests/wrt_tests/{emu,net}.py`, `tests/targets/`, and the board constants of the test modules;
+  - `feed/utils/orbyt-ab`, `feed/utils/orbyt-sync`, `feed/net/dae` and `files/etc/uci-defaults/91-orbyt-datapath`;
+  - `tests/orbyt_tests/{emu,net}.py`, `tests/targets/`, and the board constants of the test modules;
   - `.github/workflows/build.yml`, the docs and `openspec/config.yaml`.
 - **CI**: twice the firmware and system-test jobs, run in parallel, and a compiler cache per board. The toolchain cache stays one.
-- **Local builds**: building both boards needs about 45 GB more in `$WRT_WORKDIR`, one board-specific `build_dir`.
+- **Local builds**: building both boards needs about 45 GB more in `$ORBYT_WORKDIR`, one board-specific `build_dir`.
 - **Hardware**: no real R6S has been tested. Until the first flash, the emulator and static inspection of the boot chain stand in for it.
