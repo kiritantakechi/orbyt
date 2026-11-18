@@ -6,7 +6,7 @@ The flake's `nixpkgs` follows `nixos-25.11`, which reached its end of life on 20
 
 ## What Changes
 
-- `flake.nix`'s `nixpkgs` follows `nixos-26.05`, and `flake.lock` pins its head of 2026-11-16 (`f68407657ad2`). `nixpkgs-unstable`, which supplies uv and the emulator's tools, stays as locked.
+- `flake.nix`'s `nixpkgs` follows `nixos-26.05`, and `flake.lock` pins its head of 2026-11-16 (`f68407657ad2`). `nixpkgs-unstable`, which supplies uv and the emulator's tools, stays as locked; `erofs-utils` joins those tools from it, as 26.05's cannot extract the images' EROFS.
 - The build environment's host tools move with it: the compilers and libraries the host stage builds OpenWrt's tools and toolchains with, and the quality tools (shellcheck, shfmt, nixfmt, actionlint, editorconfig-checker, gitleaks). The toolchain key covers the environment, so the host stage and every toolchain build anew once, in CI and on the VM.
 
 ## Capabilities

@@ -28,6 +28,10 @@
 - CI on the branch builds the host stage anew and then both boards, and runs every suite.
 - The VM's work tree builds its toolchain anew and the R4S on it, after orbyt-brand's and orbyt-theme's local tests, whose images need the current toolchain.
 
+### D3. The image's EROFS reader as new as its writer
+
+The images' root filesystem is written by the tree's own `mkfs.erofs` (OpenWrt's `tools/erofs-utils`, 1.9.4), with fragments and deduplication. The tests read it with the shell's `fsck.erofs --extract`: 25.11's 1.8.10 did, 26.05's 1.9.1 cannot, failing on the packed file whatever the target directory (its first message, "path is not a directory", misleads). `erofs-utils` comes from `nixpkgs-unstable` (1.9.4) with the emulator's tools, as a reader no older than the writer.
+
 ## Risks / Trade-offs
 
 - [A newer host compiler breaks a host tool's build] → The host stage in CI shows it before the merge; a fix goes into the tool's patch, upstream-acceptable, as the series' other tool patches.

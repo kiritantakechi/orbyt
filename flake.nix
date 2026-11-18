@@ -175,6 +175,10 @@
           (emulatorQemu unstable)
           unstable.dtc
           unstable.ubootTools
+          # The images' EROFS is written by the tree's mkfs.erofs (1.9.4); the
+          # reader is at least as new: 26.05's 1.9.1 cannot extract its packed
+          # fragments (nixpkgs-2605 D3).
+          unstable.erofs-utils
         ]
         ++ (with pkgs; [
           stdenv.cc.cc.lib
@@ -202,7 +206,6 @@
           # test CA for the registry and headscale
           distribution
           skopeo
-          erofs-utils
           headscale
           tailscale
           wireguard-tools

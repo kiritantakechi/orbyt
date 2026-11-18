@@ -10,6 +10,10 @@
 
   Verify: `build`, `quality` and the default shell build; `just check` passes.
 
+- [x] 1.3 Take `erofs-utils` from `nixpkgs-unstable` (D3).
+
+  Verify: the shell's `fsck.erofs` is 1.9.4; `unit/test_oci.py` passes, which failed with 26.05's 1.9.1.
+
 ## 2. Verification (design D2)
 
 - [ ] 2.1 Run CI's build on this change's branch for both boards.
