@@ -81,6 +81,15 @@ if [ -n "${stale}" ]; then
 		rm -- "${apk}"
 	done
 fi
+# The images and the files about them in the board's target directory are this
+# build's alone: make writes each of them again, and leaves those it no longer
+# writes (an image of an earlier name, an output the configuration no longer asks
+# for), which the outputs below would take, hash and sign as this build's. Its
+# packages are the stale check's above.
+bin_dir=$(make -C "${tree}" -s val.BIN_DIR)
+if [ -d "${bin_dir}" ]; then
+	find "${bin_dir}" -maxdepth 1 -type f -delete
+fi
 info "make -j${jobs} (${board}, ${profile}) on ${cpu}"
 # The time log is named after the build directories, as each build keeps its own.
 log=$(time_log "${tree}" "${name}")
@@ -144,7 +153,6 @@ info "kernel configuration overlay applied"
 
 # The images in the board's output directory, and its build and staging
 # directories (BUILD_SUFFIX).
-bin_dir=$(make -C "${tree}" -s val.BIN_DIR)
 staging_dir=$(make -C "${tree}" -s val.STAGING_DIR)
 out="${ORBYT_WORKDIR}/out/${board}/${profile}"
 rm -rf "${out}"
@@ -155,7 +163,13 @@ cp "${ORBYT_WORKDIR}/out/${board}/diffconfig-${profile}" "${out}/diffconfig"
 
 # warnings.json: the UB-indicative warnings of the packages in the board's image,
 # for the system tests' register check (quality/undefined-behavior).
-found=$(image_warnings "${bin_dir}/"*"-${device}.manifest" "${tree}/tmp/.packageinfo" "${warnings}")
+image_manifest() {
+	set -- "${bin_dir}/"*"-${device}.manifest"
+	[ "$#" -eq 1 ] && [ -f "$1" ] || die "expected one manifest of ${device}, found: $*"
+	printf '%s\n' "$1"
+}
+manifest=$(image_manifest)
+found=$(image_warnings "${manifest}" "${tree}/tmp/.packageinfo" "${warnings}")
 printf '%s' "${found}" | jq -R -n '[inputs | split("\t")
 		| {package: .[0], option: .[1], file: .[2], function: .[3], line: (.[4] | tonumber)}]' \
 	>"${out}/warnings.json"
