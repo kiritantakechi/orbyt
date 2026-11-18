@@ -1,9 +1,10 @@
 """Read the pieces of the shipped images (design D14, r4s-ab-rollback D7).
 
-Everything here is a pure function over bytes or text, so the unit tests cover it
-without an image: a gzip stream may be followed by fwtool metadata, the disk has
-an MBR, U-Boot and the kernel are FITs, read from their ``dumpimage -l`` listings,
-and U-Boot carries its default environment as a run of strings.
+Everything here is a pure function over bytes or text, so the unit tests
+cover it without an image: a gzip stream may be followed by fwtool
+metadata, the disk has an MBR, U-Boot and the kernel are FITs, read from
+their ``dumpimage -l`` listings, and U-Boot carries its default
+environment as a run of strings.
 """
 
 import re
@@ -12,7 +13,8 @@ import zlib
 from dataclasses import dataclass
 from typing import BinaryIO
 
-# The hostname of a fresh configuration: the image's name (orbyt-brand D3).
+# The hostname of a fresh configuration: the image's name (orbyt-brand
+# D3).
 DEFAULT_HOSTNAME = "orbyt"
 SECTOR = 512
 _MBR_SIGNATURE = 0x1B8
@@ -58,8 +60,8 @@ def gunzip_first_member(
 ) -> bytes:
     """Stream the first gzip member of ``source`` into ``target``; return what follows it.
 
-    sysupgrade images carry fwtool metadata after the gzip stream, which gzip(1)
-    reports as trailing garbage.
+    sysupgrade images carry fwtool metadata after the gzip stream, which
+    gzip(1) reports as trailing garbage.
     """
     decompressor = zlib.decompressobj(zlib.MAX_WBITS | 16)
     while not decompressor.eof and (block := source.read(chunk)):
@@ -96,9 +98,10 @@ _ENVIRONMENT_ENTRY = re.compile(
 def default_environment(binary: bytes, marker: str) -> dict[str, str]:
     """Read U-Boot's built-in environment from its binary.
 
-    The environment is a run of ``name=value`` strings, each ending in a zero byte,
-    with one more zero byte after the last. ``marker`` is a variable that only this
-    environment defines; it picks the run out of the other strings of the binary.
+    The environment is a run of ``name=value`` strings, each ending in a
+    zero byte, with one more zero byte after the last. ``marker`` is a
+    variable that only this environment defines; it picks the run out of
+    the other strings of the binary.
     """
     for block in _ENVIRONMENT_BLOCK.finditer(binary):
         entries = block.group().decode("ascii").split("\0")
@@ -158,8 +161,9 @@ class Fit:
 def parse_fit(listing: str) -> Fit:
     """Parse a ``dumpimage -l`` listing of a FIT.
 
-    Nodes start at one space of indent, their properties at two, and the further
-    values of a list property (Compatible, Loadables) are indented deeper still.
+    Nodes start at one space of indent, their properties at two, and the
+    further values of a list property (Compatible, Loadables) are
+    indented deeper still.
     """
     nodes: dict[str, dict[str, FitNode]] = {"Image": {}, "Configuration": {}}
     default: str | None = None

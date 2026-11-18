@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 CAPABILITY = "firmware/ab-layout"
 MIB = 1 << 20
-# U-Boot and its environment end at 32 MiB; boot-A, root-A, boot-B, root-B follow.
+# U-Boot and its environment end at 32 MiB; boot-A, root-A, boot-B,
+# root-B follow.
 RESERVED = 32 * MIB
 PARTITION_SIZES = (64 * MIB, 1024 * MIB, 64 * MIB, 1024 * MIB)
 # The smallest capacity a 4 GB microSD card offers.
@@ -55,7 +56,8 @@ def test_slot_b_boots(router: Router) -> None:
 
 @spec(CAPABILITY, "Single-slot upgrade image", "Inspect upgrade image contents")
 def test_upgrade_image_holds_one_slot(upgrade_image: Path) -> None:
-    # gzip stops at the end of its stream; the fwtool metadata after it is ignored.
+    # gzip stops at the end of its stream; the fwtool metadata after it
+    # is ignored.
     with (
         gzip.open(upgrade_image) as stream,
         tarfile.open(fileobj=stream, mode="r|") as archive,
@@ -70,5 +72,6 @@ def test_upgrade_image_holds_one_slot(upgrade_image: Path) -> None:
 def test_factory_image_fits_a_4gb_card(router: Router, build_output: Path) -> None:
     partitions = read_mbr(_factory_disk(build_output)).partitions
     assert partitions[-1].start + partitions[-1].size <= CARD_4GB
-    # The emulator's card is this image (both slots booting from it: "Slot B also boots").
+    # The emulator's card is this image (both slots booting from it:
+    # "Slot B also boots").
     assert slot(router) == "a"

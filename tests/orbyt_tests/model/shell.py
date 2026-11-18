@@ -12,8 +12,8 @@ if TYPE_CHECKING:
 
 LIBRARY = REPO_DIR / "scripts" / "lib"
 CORE = LIBRARY / "core.sh"
-# core.sh finds the repository from the path of the script that loads it: here,
-# one beside the scripts.
+# core.sh finds the repository from the path of the script that loads
+# it: here, one beside the scripts.
 SCRIPT = REPO_DIR / "scripts" / "test"
 
 

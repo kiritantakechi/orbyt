@@ -15,8 +15,9 @@ TRAILER = re.compile(r"^([A-Za-z][A-Za-z0-9-]*): (.+)$")
 def upstream_status(text: str) -> str | None:
     """Return the Upstream-Status trailer of a patch file's text, or None.
 
-    A git format-patch file carries it at the end of its message, before the
-    ``---`` line; a plain diff in its header, before the diff itself.
+    A git format-patch file carries it at the end of its message, before
+    the ``---`` line; a plain diff in its header, before the diff
+    itself.
     """
     if text.startswith("From ") and "\n---\n" in text:
         message = text.split("\n---\n", 1)[0]

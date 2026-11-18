@@ -1,7 +1,8 @@
 """The emulated router under test (design D13).
 
-Commands run over SSH: the runner reaches the router's LAN address from inside the
-sandbox. ``reset`` returns the emulator to its post-boot snapshot.
+Commands run over SSH: the runner reaches the router's LAN address from
+inside the sandbox. ``reset`` returns the emulator to its post-boot
+snapshot.
 """
 
 import json
@@ -29,57 +30,64 @@ if TYPE_CHECKING:
     from orbyt_tests.device.emu import Emulator
 
 SSH_PORT = 22
-# Terminal control in a login session's output: CSI sequences and carriage returns.
+# Terminal control in a login session's output: CSI sequences and
+# carriage returns.
 _TERMINAL_CONTROL = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|\r")
 BOOT_TIMEOUT = 600.0
 READY_MARK = "- init complete -"
 # The kernel's last words before the machine restarts.
 RESTART_MARK = "reboot: Restarting system"
 BOOT_ID = "cat /proc/sys/kernel/random/boot_id"
-# A connection the router stopped answering: labgrid says so before it runs a
-# command, and ssh exits with this status.
+# A connection the router stopped answering: labgrid says so before it
+# runs a command, and ssh exits with this status.
 DEAD_CONNECTION = "Keepalive no longer running"
 SSH_FAILED = 255
-# Each command runs in a session of its own, whose shell records its PID here:
-# dropbear runs every command of a connection in the connection's one session,
-# and labgrid gives up on a command past its time limit without ending it, which
-# would go on holding what it holds, such as orbyt-sync's lock (test-fidelity D9).
+# Each command runs in a session of its own, whose shell records its PID
+# here: dropbear runs every command of a connection in the connection's
+# one session, and labgrid gives up on a command past its time limit
+# without ending it, which would go on holding what it holds, such as
+# orbyt-sync's lock (test-fidelity D9).
 COMMAND_PID = "/tmp/orbyt-tests.pid"  # noqa: S108 (a path on the router)
-# How long a failure's report waits for a new connection to the router before it
-# says that the router does not answer (test-fidelity D10).
+# How long a failure's report waits for a new connection to the router
+# before it says that the router does not answer (test-fidelity D10).
 REACHABLE_TIMEOUT = 5
-# How long a new connection is tried: the emulator stops answering while the
-# disk it runs from catches up with a burst of writes.
+# How long a new connection is tried: the emulator stops answering while
+# the disk it runs from catches up with a burst of writes.
 RECONNECT_TIMEOUT = 60.0
-# How long an interactive login may take: zsh's first start after a boot builds
-# its completion dump in /tmp, 21 to 26 s under TCG on an idle host and several
-# times that on a busy one (2026-10-03); later logins take 7 to 9 s.
+# How long an interactive login may take: zsh's first start after a boot
+# builds its completion dump in /tmp, 21 to 26 s under TCG on an idle
+# host and several times that on a busy one (2026-10-03); later logins
+# take 7 to 9 s.
 LOGIN_TIMEOUT = 180.0
-# The serial console's shell answers a knock with this line, and a script's end
-# with that one; the typed commands, which the console echoes, hold neither.
+# The serial console's shell answers a knock with this line, and a
+# script's end with that one; the typed commands, which the console
+# echoes, hold neither.
 CONSOLE_READY = "console-ready"
 CONSOLE_END = "console-end"
 CONSOLE_KNOCK = 15.0
-# preinit's offer of failsafe mode on the console, and its answer to the key.
+# preinit's offer of failsafe mode on the console, and its answer to the
+# key.
 FAILSAFE_PROMPT = r"Press the \[f\] key and hit \[enter\] to enter failsafe mode"
 FAILSAFE_MARK = r"- failsafe -"
 FAILSAFE_TIMEOUT = 120.0
-# How far the router's clock may be off the runner's at a return to the snapshot
-# (testing/emulation "The router back at its snapshot").
+# How far the router's clock may be off the runner's at a return to the
+# snapshot (testing/emulation "The router back at its snapshot").
 CLOCK_SKEW = 2.0
-# A reading of the router's clock counts as precise once its round trip is this
-# short, and is taken this often at most. date -s sets whole seconds, half of one
-# off at most once rounded, and the emulated clock runs over a percent slow, a
-# few tenths more by the time it is checked: a second (snapshot-return D2).
+# A reading of the router's clock counts as precise once its round trip
+# is this short, and is taken this often at most. date -s sets whole
+# seconds, half of one off at most once rounded, and the emulated clock
+# runs over a percent slow, a few tenths more by the time it is checked:
+# a second (snapshot-return D2).
 CLOCK_ROUND_TRIP = 1.0
 CLOCK_READINGS = 5
 CLOCK_RESOLUTION = 1.0
-# The router's clock to the nanosecond: the image's BusyBox date prints whole
-# seconds only (no FEATURE_DATE_NANO), ucode's clock() gives the nanoseconds.
+# The router's clock to the nanosecond: the image's BusyBox date prints
+# whole seconds only (no FEATURE_DATE_NANO), ucode's clock() gives the
+# nanoseconds.
 READ_CLOCK = "ucode -e 'printf(\"%d.%09d\", ...clock())'"
-# Where a detached command's output goes on the router, which the reboot it leads
-# to clears; and how much of the console a reboot that does not come shows
-# (failure-diagnostics D1, D2).
+# Where a detached command's output goes on the router, which the reboot
+# it leads to clears; and how much of the console a reboot that does not
+# come shows (failure-diagnostics D1, D2).
 DETACHED_LOG = "/tmp/orbyt-detached.log"  # noqa: S108 (a path on the router)
 CONSOLE_LINES = 60
 
@@ -120,8 +128,8 @@ class Router:
     def __init__(self, target: Target, emulator: Emulator, key: Path) -> None:
         """Bind to the SSHDriver of ``target`` on ``emulator``; log in with ``key``.
 
-        root has no password on a fresh router, and dropbear lets it in without
-        one; the key logs in once it has one.
+        root has no password on a fresh router, and dropbear lets it in
+        without one; the key logs in once it has one.
         """
         self.target = target
         self.emulator = emulator
@@ -130,7 +138,8 @@ class Router:
         self.ssh.keyfile = str(key)
         self.address = str(target.get_resource("NetworkService").address)
         self.detached: Detached | None = None
-        # The module whose fixtures keep the router from test to test, if one does.
+        # The module whose fixtures keep the router from test to test,
+        # if one does.
         self.holder: str | None = None
 
     def _connected(self) -> SSHDriver:
@@ -144,10 +153,10 @@ class Router:
     def _run(self, command: str, timeout: float) -> tuple[list[str], list[str], int]:
         """Run ``command`` over the SSH connection, a new one if the old one has died.
 
-        labgrid refuses a command on a dead connection before running it, so
-        running it on a new one runs it once. Past ``timeout`` the command's
-        session goes, with every process in it, and the command fails as a
-        timeout.
+        labgrid refuses a command on a dead connection before running
+        it, so running it on a new one runs it once. Past ``timeout``
+        the command's session goes, with every process in it, and the
+        command fails as a timeout.
         """
         session = f"echo $$ >{COMMAND_PID}; exec setsid sh -c {shlex.quote(command)}"
         try:
@@ -159,7 +168,8 @@ class Router:
                 self.disconnect()
                 result = self._connected().run(session, timeout=timeout)
         except subprocess.TimeoutExpired:
-            # A router that does not take the kill has nothing running for us either.
+            # A router that does not take the kill has nothing running
+            # for us either.
             self.poll(f'kill -KILL -- -"$(cat {COMMAND_PID})"')
             msg = f"{command!r} did not finish within {timeout:g} s"
             raise TimeoutError(msg) from None
@@ -176,12 +186,13 @@ class Router:
     def poll(self, command: str, *, timeout: float = 30) -> str | None:
         """Run a shell command if the router answers; return stdout, or None if not or it failed.
 
-        For states the router passes through while it reboots, when SSH comes
-        and goes, or hangs while the old system goes down.
+        For states the router passes through while it reboots, when SSH
+        comes and goes, or hangs while the old system goes down.
         """
         try:
             stdout, _, code = self._connected().run(command, timeout=timeout)
-        # labgrid raises a bare Exception for a connection that never came up.
+        # labgrid raises a bare Exception for a connection that never
+        # came up.
         except Exception:  # noqa: BLE001
             self.disconnect()
             return None
@@ -209,7 +220,8 @@ class Router:
     def reachable(self, timeout: int = REACHABLE_TIMEOUT) -> bool:
         """Return whether the router takes a new SSH connection within ``timeout`` and runs on it.
 
-        A fresh connection, apart from labgrid's, which waits two minutes for one.
+        A fresh connection, apart from labgrid's, which waits two
+        minutes for one.
         """
         try:
             subprocess.run(
@@ -225,10 +237,10 @@ class Router:
     def login(self, script: str, *, timeout: float = LOGIN_TIMEOUT) -> str:
         """Log in interactively (with a terminal) and type ``script``; return the session output.
 
-        This is a real login shell, unlike run(), so /etc/profile and the zsh
-        hand-over apply. The script should end with ``exit``. A session still
-        running at ``timeout`` is ended, and fails as a timeout with what it
-        showed (test-fidelity D9).
+        This is a real login shell, unlike run(), so /etc/profile and
+        the zsh hand-over apply. The script should end with ``exit``. A
+        session still running at ``timeout`` is ended, and fails as a
+        timeout with what it showed (test-fidelity D9).
         """
         with subprocess.Popen(
             self._ssh("-tt"),
@@ -241,8 +253,9 @@ class Router:
             if stdin is None or stdout is None:
                 msg = "ssh has no pipes"
                 raise RuntimeError(msg)
-            # Read while the session runs: a long output would fill the pipe and
-            # stall ssh. The thread alone appends; the list is read after it ended.
+            # Read while the session runs: a long output would fill the
+            # pipe and stall ssh. The thread alone appends; the list is
+            # read after it ended.
             output: list[str] = []
             reader = threading.Thread(
                 target=lambda: output.append(stdout.read()), name="login"
@@ -250,12 +263,14 @@ class Router:
             reader.start()
             stdin.write(script)
             stdin.flush()
-            # Keep stdin open: at end of input ssh would end the session before the
-            # shell has read the script. The script's own exit ends it.
+            # Keep stdin open: at end of input ssh would end the session
+            # before the shell has read the script. The script's own
+            # exit ends it.
             try:
                 session.wait(timeout=timeout)
             except subprocess.TimeoutExpired:
-                # The router's shell goes with ssh: its pseudo-terminal hangs up.
+                # The router's shell goes with ssh: its pseudo-terminal
+                # hangs up.
                 session.kill()
                 session.wait()
                 reader.join()
@@ -268,10 +283,10 @@ class Router:
     def console(self, script: str, *, timeout: float = LOGIN_TIMEOUT) -> str:
         """Run ``script`` in the serial console's shell; return what it printed.
 
-        For a router that ssh cannot reach. Enter activates the console's shell,
-        whose login takes a while, so a knock repeats until the shell answers. A
-        console that never answers, or never finishes, is said so after what it
-        showed meanwhile.
+        For a router that ssh cannot reach. Enter activates the
+        console's shell, whose login takes a while, so a knock repeats
+        until the shell answers. A console that never answers, or never
+        finishes, is said so after what it showed meanwhile.
         """
         console = self.emulator.console
         since = console.mark()
@@ -308,7 +323,8 @@ class Router:
     def put(self, local: Path, remote: str) -> None:
         """Copy a local file to the router (over ssh; dropbear has no sftp server).
 
-        A connection the router does not take is tried again for a while.
+        A connection the router does not take is tried again for a
+        while.
         """
         deadline = time.monotonic() + RECONNECT_TIMEOUT
         while True:
@@ -340,8 +356,8 @@ class Router:
         """Wait until SSH answers and procd has run every init script; set the clock."""
         deadline = time.monotonic() + timeout
         self.wait_ssh(timeout)
-        # procd logs through ulog, which writes to logd (not the kernel log) once
-        # logd runs, as it does long before init completes.
+        # procd logs through ulog, which writes to logd (not the kernel
+        # log) once logd runs, as it does long before init completes.
         while self.returncode(f"logread | grep -qF -- '{READY_MARK}'") != 0:
             _check(deadline, "procd never reported init complete")
             time.sleep(2)
@@ -350,10 +366,11 @@ class Router:
     def clock_reading(self) -> ClockReading:
         """Read how far the router's clock is behind the runner's.
 
-        The router read its clock somewhere within the reading's round trip, so
-        the offset is as precise as half of it. Of a few readings the first
-        quick one counts, else the quickest, as NTP prefers its quickest
-        exchanges; the first also makes a connection that may take a while.
+        The router read its clock somewhere within the reading's round
+        trip, so the offset is as precise as half of it. Of a few
+        readings the first quick one counts, else the quickest, as NTP
+        prefers its quickest exchanges; the first also makes a
+        connection that may take a while.
         """
         best = self._read_clock()
         for _ in range(CLOCK_READINGS - 1):
@@ -371,12 +388,13 @@ class Router:
     def set_clock(self) -> None:
         """Set the router's clock to the runner's, as NTP does on a router in service.
 
-        The emulated internet has no time server: a router boots with the time
-        of its newest file in /etc, and a restored snapshot rewinds the clock to
-        when it was taken. What is signed now (a release's certificate) is valid
-        from now on. The clock is stepped by the offset a reading measured,
-        relative to the router's own, so how long the command takes to arrive
-        does not count, and a second reading checks it to the precision the two
+        The emulated internet has no time server: a router boots with
+        the time of its newest file in /etc, and a restored snapshot
+        rewinds the clock to when it was taken. What is signed now (a
+        release's certificate) is valid from now on. The clock is
+        stepped by the offset a reading measured, relative to the
+        router's own, so how long the command takes to arrive does not
+        count, and a second reading checks it to the precision the two
         readings allow (snapshot-return D2).
         """
         measured = self.clock_reading()
@@ -408,7 +426,8 @@ class Router:
             f"http://{self.address}{path}", headers=headers or {}, data=data
         )
         try:
-            # Always http://<router address>; no other scheme is ever built.
+            # Always http://<router address>; no other scheme is ever
+            # built.
             with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
                 return int(response.status), str(
                     response.read().decode(errors="replace")
@@ -419,9 +438,9 @@ class Router:
     def detach(self, command: str) -> None:
         """Start a command that outlives the connection (reboot, sysupgrade, ...).
 
-        Its output goes to a file on the router, which the reboot it leads to
-        clears; a command that does not reboot the router leaves it for the
-        wait to show (failure-diagnostics D1).
+        Its output goes to a file on the router, which the reboot it
+        leads to clears; a command that does not reboot the router
+        leaves it for the wait to show (failure-diagnostics D1).
         """
         self.detached = Detached(command, self.address, self.emulator.console.mark())
         self.run(f"({command}) >{DETACHED_LOG} 2>&1 </dev/null &")
@@ -438,10 +457,11 @@ class Router:
     def wait_rebooted(self, previous_boot: str, timeout: float = BOOT_TIMEOUT) -> None:
         """Wait until the router has booted again after ``previous_boot`` and is ready.
 
-        The old system may still answer while it shuts down, and the reboot may
-        cut or hang the connection in the middle of a command; each only means
-        waiting on. Only a new boot ID is the new system: waiting for it to be
-        ready, which sets its clock, starts then, never on the old one.
+        The old system may still answer while it shuts down, and the
+        reboot may cut or hang the connection in the middle of a
+        command; each only means waiting on. Only a new boot ID is the
+        new system: waiting for it to be ready, which sets its clock,
+        starts then, never on the old one.
         """
         deadline = time.monotonic() + timeout
         try:
@@ -457,8 +477,8 @@ class Router:
     def _detached_notes(self) -> list[str]:
         """Return what the harness can see of the last detached command (failure-diagnostics D2).
 
-        The command, its output as the system it ran on still holds it, and the
-        console since; a part that cannot be had says so.
+        The command, its output as the system it ran on still holds it,
+        and the console since; a part that cannot be had says so.
         """
         detached = self.detached
         if detached is None:
@@ -493,9 +513,9 @@ class Router:
     ) -> None:
         """Run ``command`` (which must end in a reboot) and wait until the router is back.
 
-        ``while_off`` runs between the end of the old system and the next boot:
-        hardware changed then is changed with the power off, after the old
-        system has written out and unmounted everything.
+        ``while_off`` runs between the end of the old system and the
+        next boot: hardware changed then is changed with the power off,
+        after the old system has written out and unmounted everything.
         """
         previous_boot = self.boot_id()
         mark = self.emulator.console.mark()
@@ -523,9 +543,9 @@ class Router:
     def reset(self) -> None:
         """Return to the state right after boot (the emulator's snapshot), at the time of now.
 
-        The runner forgets the router's link-layer address: the router at its
-        snapshot may have another one than since (failsafe mode's), and nothing
-        on the link says so (snapshot-return D1).
+        The runner forgets the router's link-layer address: the router
+        at its snapshot may have another one than since (failsafe
+        mode's), and nothing on the link says so (snapshot-return D1).
         """
         self.disconnect()
         self.emulator.restore()

@@ -1,9 +1,10 @@
 """The app Pod of the services tests (r4s-services D4, D10), which stands in for qBittorrent.
 
-Its declaration lies on the data disk, as an administrator would write one: a
-Kubernetes Pod of the test app image whose uhttpd serves a directory of the data
-disk, and an options file that gives it a fixed address for a port forward.
-orbyt-containers starts it once the data disk is mounted.
+Its declaration lies on the data disk, as an administrator would write
+one: a Kubernetes Pod of the test app image whose uhttpd serves a
+directory of the data disk, and an options file that gives it a fixed
+address for a port forward. orbyt-containers starts it once the data
+disk is mounted.
 """
 
 import shlex

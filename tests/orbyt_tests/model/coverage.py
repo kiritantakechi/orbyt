@@ -1,20 +1,24 @@
 """spec-coverage: map every spec scenario to its one test (design D13).
 
-The report lists, for each scenario, the test that verifies it, or the job named in
-``verified-elsewhere.toml``, or MISSING. Structural errors always fail:
+The report lists, for each scenario, the test that verifies it, or the
+job named in ``verified-elsewhere.toml``, or MISSING. Structural errors
+always fail:
 
 * a ``@spec`` marker naming a scenario that does not exist;
-* a scenario with more than one test, or with a test and an entry elsewhere;
-* a spec test outside ``<domain>/test_<capability>.py``, a module test without
-  exactly one ``@spec`` of that module's capability, or a ``@spec`` in ``unit/``;
-* a harness module that no other harness module or test imports, that no string
-  names (``python -m``) and that the tests' configuration does not name as an
-  entry point or a plugin (module-boundaries D5);
-* a fixture defined in the root ``conftest.py``, which only composes the layers'
-  plugins (module-boundaries D6).
+* a scenario with more than one test, or with a test and an entry
+  elsewhere;
+* a spec test outside ``<domain>/test_<capability>.py``, a module test
+  without exactly one ``@spec`` of that module's capability, or a
+  ``@spec`` in ``unit/``;
+* a harness module that no other harness module or test imports, that no
+  string names (``python -m``) and that the tests' configuration does
+  not name as an entry point or a plugin (module-boundaries D5);
+* a fixture defined in the root ``conftest.py``, which only composes the
+  layers' plugins (module-boundaries D6).
 
-Every scenario of the archived specs (``openspec/specs``, the system as built)
-must be covered; with ``--change NAME`` so must those of that change in flight.
+Every scenario of the archived specs (``openspec/specs``, the system as
+built) must be covered; with ``--change NAME`` so must those of that
+change in flight.
 """
 
 import argparse
@@ -44,7 +48,8 @@ OPENSPEC_DIR = REPO_DIR / "openspec"
 ELSEWHERE_FILE = "verified-elsewhere.toml"
 UNIT_DOMAIN = "unit"
 HARNESS = "orbyt_tests"
-# A module named in the tests' configuration: an entry point, or a pytest plugin.
+# A module named in the tests' configuration: an entry point, or a
+# pytest plugin.
 CONFIGURED = re.compile(rf"\b({HARNESS}(?:\.\w+)+)\b")
 
 

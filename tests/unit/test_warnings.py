@@ -1,7 +1,8 @@
 """The UB-indicative warnings, collected and reviewed (toolchain-o3 D4).
 
-The build collects them from its logs (scripts/lib/warnings.sh); the system tests check
-them against the register (orbyt_tests.model.undefined_behavior).
+The build collects them from its logs (scripts/lib/warnings.sh); the
+system tests check them against the register
+(orbyt_tests.model.undefined_behavior).
 """
 
 import json
@@ -54,8 +55,9 @@ def _warnings(tmp_path: Path, log: str) -> list[tuple[str, ...]]:
 
 
 def test_a_warning_falls_in_the_function_named_before_it(tmp_path: Path) -> None:
-    # GCC names a function once, before its first diagnostic, in typographic quotes
-    # in a UTF-8 locale; notes and source excerpts do not end it.
+    # GCC names a function once, before its first diagnostic, in
+    # typographic quotes in a UTF-8 locale; notes and source excerpts do
+    # not end it.
     log = """\
 make[5]: Entering directory '/work/openwrt/build_dir/target-aarch64_generic_musl_r4s/pptp-1.10.0'
 pptp.c: In function 'pptp_start_client':
@@ -76,8 +78,8 @@ lexer.c:9:3: warning: left shift count >= width of type [-Wshift-count-overflow]
 
 
 def test_a_warning_outside_any_function_names_none(tmp_path: Path) -> None:
-    # "At top level", or a file other than the function's: a later compilation,
-    # which GCC gives no context line of its own.
+    # "At top level", or a file other than the function's: a later
+    # compilation, which GCC gives no context line of its own.
     log = """\
 util.c: In function 'grow':
 util.c:40:3: warning: pointer 'p' used after 'free' [-Wuse-after-free]
@@ -93,9 +95,9 @@ other.c:7:5: warning: 'm' is used uninitialized [-Wuninitialized]
 
 
 def test_inlined_code_is_placed_at_its_outermost_call(tmp_path: Path) -> None:
-    # GCC continues the context line with the chain of calls the code was inlined
-    # through, the outermost last; a later warning of that function, in its file,
-    # falls in it as well.
+    # GCC continues the context line with the chain of calls the code
+    # was inlined through, the outermost last; a later warning of that
+    # function, in its file, falls in it as well.
     log = f"""\
 In file included from {TOOLCHAIN}/include/string.h:12,
                  from ../libbpf/src/btf.c:3:
@@ -112,8 +114,8 @@ In function 'btf_add_type',
 
 
 def test_a_note_takes_the_context_before_it(tmp_path: Path) -> None:
-    # GCC gives a note the chain of the code it points to; the warning after it
-    # has a context of its own, or none.
+    # GCC gives a note the chain of the code it points to; the warning
+    # after it has a context of its own, or none.
     log = """\
 In function 'xmalloc',
     inlined from 'yyparse' at parse.y:1099:9:
@@ -126,9 +128,9 @@ execute_cmd.c:1197:7: warning: 'ofifo_list' may be used uninitialized [-Wmaybe-u
 
 
 def test_an_interleaved_chain_is_dropped(tmp_path: Path) -> None:
-    # Jobs that write to the log at the same time interleave: before patch 0016
-    # synced a package's jobs, bash's R4S build put another LTRANS job's chain
-    # and context lines before redir.c's warning.
+    # Jobs that write to the log at the same time interleave: before
+    # patch 0016 synced a package's jobs, bash's R4S build put another
+    # LTRANS job's chain and context lines before redir.c's warning.
     log = """\
 In function 'make_command',
     inlined from 'make_group_command' at make_cmd.c:321:11,
@@ -152,8 +154,9 @@ table.c:30:12: warning: array subscript 4 is above array bounds of 'int[4]' [-Wa
 
 
 def test_only_ub_indicative_warnings_count(tmp_path: Path) -> None:
-    # Style warnings, and errors (which fail the build anyway), are not recorded;
-    # a warning reported twice (a header of two compilations) is recorded once.
+    # Style warnings, and errors (which fail the build anyway), are not
+    # recorded; a warning reported twice (a header of two compilations)
+    # is recorded once.
     log = """\
 main.c: In function 'main':
 main.c:3:9: warning: unused variable 'x' [-Wunused-variable]
@@ -168,8 +171,9 @@ main.c:5:3: warning: 'v' may be used uninitialized [-Wmaybe-uninitialized]
 
 
 def test_a_clone_is_named_after_its_function(tmp_path: Path) -> None:
-    # GCC names the clones it makes (.isra, .part, .constprop) after the source's
-    # function, with suffixes that follow the optimization, and the board's -mcpu.
+    # GCC names the clones it makes (.isra, .part, .constprop) after the
+    # source's function, with suffixes that follow the optimization, and
+    # the board's -mcpu.
     log = """\
 src/load.c: In function 'lex_scan.isra':
 src/load.c:573:9: warning: writing 1 byte into a region of size 0 [-Wstringop-overflow=]
@@ -183,9 +187,9 @@ segment.c:495:3: warning: 'blk' may be used uninitialized [-Wmaybe-uninitialized
 
 
 def test_paths_lose_the_build_directories(tmp_path: Path) -> None:
-    # The package's build directory (a build variant's with the versioned one inside
-    # it), the staging directory and ./ parts: both boards, every checkout and every
-    # version name the same file alike.
+    # The package's build directory (a build variant's with the
+    # versioned one inside it), the staging directory and ./ parts: both
+    # boards, every checkout and every version name the same file alike.
     cache = f"{BUILD}/dnsmasq-nodhcpv6/dnsmasq-2.93/src/cache.c"
     log = f"""\
 {cache}: In function 'cache_insert':
@@ -236,9 +240,9 @@ ABI-Version: 4
 
 
 def test_image_packages_map_to_their_build_logs(tmp_path: Path) -> None:
-    # A library is installed under its ABI version; a package of no build variant
-    # is built in the variant builds of the image's other packages from its source;
-    # the kernel is the target's.
+    # A library is installed under its ABI version; a package of no
+    # build variant is built in the variant builds of the image's other
+    # packages from its source; the kernel is the target's.
     (tmp_path / "manifest").write_text(
         "curl - 8.16.0-r1\nkernel - 6.18.52~96aa-r1\nlibbpf1 - 1.6.2-r1\n"
         "libcurl4 - 8.16.0-r1\nppp - 2.5.3-r2\nppp-mod-pppoe - 2.5.3-r2\n"
@@ -273,8 +277,9 @@ def _time_log(path: Path, *compiled: str) -> None:
 
 
 def test_a_compiled_package_gets_a_new_record(tmp_path: Path) -> None:
-    # base-files compiles without a word: its log holds only the packing's and
-    # make's lines, and the image's report needs a record of every package it ships.
+    # base-files compiles without a word: its log holds only the
+    # packing's and make's lines, and the image's report needs a record
+    # of every package it ships.
     logs, records = tmp_path / "logs", tmp_path / "records"
     for name, log in {
         "built": "built.c:2:1: warning: 'b' is used uninitialized [-Wuninitialized]\n",
@@ -326,8 +331,9 @@ def test_the_report_is_read_from_the_build(tmp_path: Path) -> None:
 
 
 def test_a_review_covers_its_warning_on_any_line() -> None:
-    # Upstream moving code around moves the line, not the package, option, file or
-    # function; a warning in another function is another warning.
+    # Upstream moving code around moves the line, not the package,
+    # option, file or function; a warning in another function is another
+    # warning.
     moved = Diagnostic.model_validate({**PACKED, "line": 240})
     other = Diagnostic.model_validate({**PACKED, "function": "pptp_call", "line": 92})
     register = [_review()]

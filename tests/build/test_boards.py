@@ -31,8 +31,8 @@ CAPABILITY = "build/boards"
 REPO = Path(__file__).resolve().parents[2]
 FIXTURES = REPO / "tests" / "fixtures"
 WORKFLOW = REPO / ".github" / "workflows" / "build.yml"
-# What the board facts must stay out of, and the places they belong instead:
-# the descriptions and each board's own U-Boot fragments.
+# What the board facts must stay out of, and the places they belong
+# instead: the descriptions and each board's own U-Boot fragments.
 SEARCHED = (
     "scripts",
     "config",
@@ -54,26 +54,30 @@ NEUTRAL_CFLAGS = (
     " -fno-caller-saves -fno-plt -O3 -fhonour-copts"
 )
 LIBC = b"the toolchain's C library"
-# The stand-in Rust standard library for the target, in staging_dir/hostpkg/lib/rustlib.
+# The stand-in Rust standard library for the target, in
+# staging_dir/hostpkg/lib/rustlib.
 RUST_STD = Path("aarch64-unknown-linux-musl/lib/libstd.rlib")
-# Fragments on the emulator's defconfig, which keeps the environment in flash:
-# the first brings up the second environment copy, whose flash address is a
-# number without a default, and the second sets it (uboot-config-merge D3).
+# Fragments on the emulator's defconfig, which keeps the environment in
+# flash: the first brings up the second environment copy, whose flash
+# address is a number without a default, and the second sets it
+# (uboot-config-merge D3).
 QUESTION_FRAGMENT = "orbyt-question.config"
 ANSWER_FRAGMENT = "orbyt-answer.config"
 ANSWER = "0x40000"
 CONFIGURE_SECONDS = 60
 RUST_STD_CONTENT = b"Rust's standard library"
 PATCHES = REPO / "patches" / "openwrt"
-# The check of the toolchain's record of its inputs in toolchain/Makefile, which
-# also checks the target's record of its toolchain: the rule and its recipe.
+# The check of the toolchain's record of its inputs in
+# toolchain/Makefile, which also checks the target's record of its
+# toolchain: the rule and its recipe.
 TOOLCHAIN_CHECK = re.compile(
     r"^  \$\(TOOLCHAIN_DIR\)/stamp/\.ver_check:.*\n(?:\t.*\n)+", re.MULTILINE
 )
-# The tree's toolchain inputs as the stand-in hashes them: a file holding the hash.
+# The tree's toolchain inputs as the stand-in hashes them: a file
+# holding the hash.
 INPUTS = "1f2e3d4c\n"
-# Makes started a millisecond apart check at once, as world's sub-makes do; the
-# unpatched check deletes the toolchain in most rounds.
+# Makes started a millisecond apart check at once, as world's sub-makes
+# do; the unpatched check deletes the toolchain in most rounds.
 MAKES = 8
 ROUNDS = 20
 
@@ -132,7 +136,8 @@ def test_no_board_is_named_outside_its_description() -> None:
         for board in boards
         for kind in ("env", "config")
     }
-    # The files the tests keep as a build and a release wrote them name the board.
+    # The files the tests keep as a build and a release wrote them name
+    # the board.
     recorded = f"{FIXTURES.relative_to(REPO).as_posix()}/"
     listed = subprocess.run(
         [
@@ -189,8 +194,8 @@ def test_every_board_goes_through_the_pipeline() -> None:
             if step.get("uses", "").startswith("actions/download-artifact@")
         ]
 
-    # One sign job takes every board's build, and publish every signed one,
-    # once every board's drill passed.
+    # One sign job takes every board's build, and publish every signed
+    # one, once every board's drill passed.
     (upload,) = [
         step
         for step in jobs["firmware"]["steps"]
@@ -225,8 +230,8 @@ def test_an_unknown_board_is_refused(recipe: str, tmp_path: Path) -> None:
 @spec(CAPABILITY, "One build per board from one tree", "Two boards in one tree")
 def test_boards_build_apart(build_output: Path) -> None:
     tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
-    # A build whose directories were deleted since, as a ubsan build's may be,
-    # is no longer in the tree.
+    # A build whose directories were deleted since, as a ubsan build's
+    # may be, is no longer in the tree.
     builds = [
         (board, build)
         for board, build in _builds_beside(build_output)
@@ -238,9 +243,9 @@ def test_boards_build_apart(build_output: Path) -> None:
     for board, build in builds:
         manifest = _manifest(build)
         assert manifest.board == board.id
-        # Its own build and staging directories, and its own output directory,
-        # named after the board, and its profile when that profile has seeds of
-        # its own for the boards...
+        # Its own build and staging directories, and its own output
+        # directory, named after the board, and its profile when that
+        # profile has seeds of its own for the boards...
         name = manifest.build
         assert name in {board.id, f"{board.id}_{manifest.profile}"}
         config = (build / "diffconfig").read_text().splitlines()
@@ -286,7 +291,8 @@ def _tree_with_toolchain(
 ) -> Path:
     """Write a stand-in tree configured for ``board`` whose toolchain has ``record``.
 
-    Its Makefile answers build.sh's val.* queries and marks any build it is asked for.
+    Its Makefile answers build.sh's val.* queries and marks any build it
+    is asked for.
     """
     tree = workdir / "openwrt"
     toolchain = tree / "staging_dir" / "toolchain"
@@ -304,7 +310,8 @@ def _tree_with_toolchain(
         "val.%:\n\t@echo '$($*)'\n"
         "download:\n\t@:\n"
         "world:\n\t@touch $(CURDIR)/built\n"
-        # COMPILED (from the environment) logs a host build the build compiled.
+        # COMPILED (from the environment) logs a host build the build
+        # compiled.
         "\t@[ -z '$(COMPILED)' ] || printf '1\\tbegin\\thost-compile\\t%s\\n' '$(COMPILED)'"
         " >>'$(BUILD_TIME_LOG)'\n"
     )
@@ -359,14 +366,16 @@ def _board_toolchains() -> list[tuple[str, ToolchainRecord | None, str | None]]:
 def _toolchain_check() -> str:
     """Return the toolchain check as the patch series leaves toolchain/Makefile.
 
-    The last patch that changes the rule carries it as the series leaves it.
+    The last patch that changes the rule carries it as the series leaves
+    it.
     """
     check = None
     for patch in sorted(PATCHES.glob("*.patch")):
         for diff in patch.read_text().split("\ndiff --git ")[1:]:
             if not diff.startswith("a/toolchain/Makefile "):
                 continue
-            # The patched side of each hunk: its context and its added lines.
+            # The patched side of each hunk: its context and its added
+            # lines.
             patched = "".join(
                 f"{line[1:]}\n"
                 for line in diff.splitlines()
@@ -384,10 +393,10 @@ def _toolchain_check() -> str:
 def _tree_to_check_toolchain(workdir: Path) -> Path:
     """Write a stand-in tree whose Makefile holds the toolchain check of the series.
 
-    The make variable BOARD names the board whose build directories the check
-    is for (none: the board-neutral configuration's), and TOOLCHAIN_DIR_NAME the
-    toolchain's directory. The tree's toolchain inputs hash to the content of
-    its file ``inputs``, INPUTS at first.
+    The make variable BOARD names the board whose build directories the
+    check is for (none: the board-neutral configuration's), and
+    TOOLCHAIN_DIR_NAME the toolchain's directory. The tree's toolchain
+    inputs hash to the content of its file ``inputs``, INPUTS at first.
     """
     tree = workdir / "openwrt"
     tree.mkdir()
@@ -412,7 +421,8 @@ def _check_make(
     """Return the make that checks the toolchain for ``board``'s build, with ``variables``.
 
     Every variable the stand-in reads goes on the command line, where no
-    variable of the environment, such as CI's BOARD, can stand in for it.
+    variable of the environment, such as CI's BOARD, can stand in for
+    it.
     """
     return [
         *(
@@ -432,9 +442,9 @@ def _check_toolchain(
 ) -> Path:
     """Check the toolchain as a make from the top level does, for ``board``'s build.
 
-    The make gets ``variables`` too. Return the toolchain's record. Every make
-    from the top level touches tmp/.build, and a record that stays is older than
-    that.
+    The make gets ``variables`` too. Return the toolchain's record.
+    Every make from the top level touches tmp/.build, and a record that
+    stays is older than that.
     """
     record = tree / "staging_dir" / toolchain / "stamp" / ".ver_check"
     if record.exists():
@@ -471,12 +481,13 @@ def _tree_to_build_toolchain(
 ) -> Path:
     """Write a stand-in tree whose toolchain holds ``libc``, recorded as ``record``'s.
 
-    The record names ``cflags`` and the stand-in Rust library, which the tree
-    holds as ``rust_std``. The tree's Makefile answers toolchain-build.sh's val.*
-    queries, builds a toolchain with LIBC for its C library only where there is
-    none, and installs the Rust library only where there is none, as make does;
-    it marks the tree when it builds either. RUST_FAILS (from the environment)
-    fails Rust's build.
+    The record names ``cflags`` and the stand-in Rust library, which the
+    tree holds as ``rust_std``. The tree's Makefile answers
+    toolchain-build.sh's val.* queries, builds a toolchain with LIBC for
+    its C library only where there is none, and installs the Rust
+    library only where there is none, as make does; it marks the tree
+    when it builds either. RUST_FAILS (from the environment) fails
+    Rust's build.
     """
     tree = workdir / "openwrt"
     toolchain = tree / "staging_dir" / "toolchain"
@@ -592,7 +603,8 @@ def test_a_failed_rust_build_keeps_the_cross_toolchain(tmp_path: Path) -> None:
     failed = _toolchain_build(tree, RUST_FAILS="1")
     assert failed.returncode != 0
     assert (tree / "built").exists(), failed.stderr
-    # The cross toolchain is recorded as soon as it is built, Rust's library not yet.
+    # The cross toolchain is recorded as soon as it is built, Rust's
+    # library not yet.
     assert read_json(record, ToolchainRecord) == cross
     (tree / "built").unlink()
     result = _toolchain_build(tree)
@@ -607,8 +619,8 @@ def test_a_failed_rust_build_keeps_the_cross_toolchain(tmp_path: Path) -> None:
 )
 def test_buildbot_mode_keeps_the_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_check_toolchain(tmp_path)
-    # The toolchain as toolchain-build leaves it in the dev profile: its compiler,
-    # and the record its make wrote.
+    # The toolchain as toolchain-build leaves it in the dev profile: its
+    # compiler, and the record its make wrote.
     record = _check_toolchain(tree)
     compiler = record.parents[1] / "bin" / "gcc"
     compiler.parent.mkdir()
@@ -636,11 +648,12 @@ def test_each_board_keeps_its_build_with_its_toolchain(tmp_path: Path) -> None:
     for board in (first, *others):
         _check_toolchain(tree, board)
         _build_target(tree, board)
-    # The record names the toolchain alone, so a build in any profile keeps it.
+    # The record names the toolchain alone, so a build in any profile
+    # keeps it.
     _check_toolchain(tree, first)
     assert _target_built(tree, first)
-    # A toolchain built anew for the board-neutral configuration leaves every
-    # board's build alone until that board is built next.
+    # A toolchain built anew for the board-neutral configuration leaves
+    # every board's build alone until that board is built next.
     (tree / "inputs").write_text("5a6b7c8d\n")
     _check_toolchain(tree)
     assert all(_target_built(tree, board) for board in (first, *others))
@@ -654,8 +667,8 @@ def test_each_board_keeps_its_build_with_its_toolchain(tmp_path: Path) -> None:
         _check_toolchain(tree, board)
         assert not _target_built(tree, board)
         assert _target_built(tree, first)
-    # A toolchain in another directory, of another GCC version or C library,
-    # takes a board's build anew too.
+    # A toolchain in another directory, of another GCC version or C
+    # library, takes a board's build anew too.
     _check_toolchain(tree, first, toolchain="toolchain-other")
     assert not _target_built(tree, first)
 
@@ -663,8 +676,9 @@ def test_each_board_keeps_its_build_with_its_toolchain(tmp_path: Path) -> None:
 def _recorded_toolchain(tree: Path, inputs: str) -> tuple[Path, Path]:
     """Put a toolchain built from ``inputs`` into ``tree``; return its compiler and record.
 
-    The record is older than tmp/.build, as a record that names the tree's inputs
-    stays after every make from the top level, which touches tmp/.build.
+    The record is older than tmp/.build, as a record that names the
+    tree's inputs stays after every make from the top level, which
+    touches tmp/.build.
     """
     toolchain = tree / "staging_dir" / "toolchain"
     shutil.rmtree(toolchain, ignore_errors=True)
@@ -685,7 +699,8 @@ def _recorded_toolchain(tree: Path, inputs: str) -> tuple[Path, Path]:
 )
 def test_parallel_makes_check_the_toolchain(tmp_path: Path) -> None:
     tree = _tree_to_check_toolchain(tmp_path)
-    # The first make records the target's toolchain before world starts the others.
+    # The first make records the target's toolchain before world starts
+    # the others.
     _check_toolchain(tree)
     for _ in range(ROUNDS):
         compiler, record = _recorded_toolchain(tree, INPUTS)
@@ -705,7 +720,8 @@ def test_parallel_makes_check_the_toolchain(tmp_path: Path) -> None:
             assert make.returncode == 0, errors
         assert compiler.exists()
         assert record.read_text() == INPUTS
-    # A toolchain recorded from other inputs is still deleted, and recorded anew.
+    # A toolchain recorded from other inputs is still deleted, and
+    # recorded anew.
     compiler, record = _recorded_toolchain(tree, "0000000\n")
     subprocess.run(_check_make(tree), check=True)
     assert not compiler.exists()
@@ -765,8 +781,9 @@ def test_a_board_build_that_compiles_the_toolchain_fails(tmp_path: Path) -> None
 def _configure(source: Path, *targets: str) -> dict[str, str]:
     """Run U-Boot's ``make targets`` on ``source`` without input; return the values of its .config.
 
-    It runs in the build environment, which has U-Boot's host tools. A step
-    that asks writes its question for ever, so its output goes nowhere.
+    It runs in the build environment, which has U-Boot's host tools. A
+    step that asks writes its question for ever, so its output goes
+    nowhere.
     """
     command = f"make -C {source} {' '.join(targets)}"
     step = subprocess.Popen(
@@ -814,8 +831,9 @@ def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) ->
     (source / "board" / ANSWER_FRAGMENT).write_text(
         f"CONFIG_ENV_ADDR_REDUND={ANSWER}\n", encoding="utf-8"
     )
-    # Left to no later fragment, the address is zero, as in Linux, and the
-    # oldconfig after include/u-boot.mk's own changes asks nothing either.
+    # Left to no later fragment, the address is zero, as in Linux, and
+    # the oldconfig after include/u-boot.mk's own changes asks nothing
+    # either.
     values = _configure(source, "qemu_arm64_defconfig", QUESTION_FRAGMENT)
     assert values["CONFIG_ENV_REDUNDANT"] == "y"
     assert values["CONFIG_ENV_ADDR_REDUND"] == "0x0"

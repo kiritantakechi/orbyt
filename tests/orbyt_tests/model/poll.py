@@ -12,12 +12,14 @@ def until[T](
 ) -> T:
     """Call ``probe`` until it answers with content; return that answer.
 
-    An empty answer is no answer yet, as Python's truth testing reads it: None,
-    False, zero, an empty string or collection alike, so that a probe means what
-    it would mean in a condition. A probe that reports an empty value as its
-    result returns something with content instead, such as a comparison.
+    An empty answer is no answer yet, as Python's truth testing reads
+    it: None, False, zero, an empty string or collection alike, so that
+    a probe means what it would mean in a condition. A probe that
+    reports an empty value as its result returns something with content
+    instead, such as a comparison.
 
-    A probe that raises stops the wait: probes catch what they expect themselves.
+    A probe that raises stops the wait: probes catch what they expect
+    themselves.
     """
     deadline = time.monotonic() + timeout
     while not (result := probe()):

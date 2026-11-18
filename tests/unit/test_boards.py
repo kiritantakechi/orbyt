@@ -24,7 +24,8 @@ def test_the_supported_boards_load() -> None:
 
 
 def test_the_device_follows_the_board_name() -> None:
-    # orbyt-sync finds its board's release assets by the device its board name gives.
+    # orbyt-sync finds its board's release assets by the device its
+    # board name gives.
     for board in load_all():
         assert board.device == board.board_name.replace(",", "_"), board.id
 

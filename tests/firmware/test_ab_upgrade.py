@@ -19,16 +19,19 @@ UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # Slow enough that a power cut lands in the middle of writing a slot.
 THROTTLED_WRITE = 2 << 20
 HOSTNAME = "upgraded"
-# An image whose every read waits: a FIFO, whose opening waits for a writer.
+# An image whose every read waits: a FIFO, whose opening waits for a
+# writer.
 SLOW_IMAGE = "/tmp/slow-image"  # noqa: S108 (a path on the router)
 VALIDATION = "/tmp/validation"  # noqa: S108 (a path on the router)
-# How long the validation waits: longer than procd's watchdog timeout (30 s); and
-# how long it may then take to end, the call's own limit.
+# How long the validation waits: longer than procd's watchdog timeout
+# (30 s); and how long it may then take to end, the call's own limit.
 SLOW_SECONDS = 45
 VALIDATION_LIMIT = 300
-# The upgrade hook, as sysupgrade's second stage loads it, in a shell of a test.
+# The upgrade hook, as sysupgrade's second stage loads it, in a shell of
+# a test.
 HOOK = ". /lib/functions.sh && include /lib/upgrade"
-# An upgrade image cut short inside its root member, an uncompressed tar.
+# An upgrade image cut short inside its root member, an uncompressed
+# tar.
 BROKEN_IMAGE = "/tmp/broken-image.tar"  # noqa: S108 (a path on the router)
 BACKUP = "/tmp/backup.tgz"  # noqa: S108 (a path on the router)
 # What the A/B switch writes, as it was before an upgrade.
@@ -146,10 +149,11 @@ def test_a_write_that_fails_keeps_the_running_slot(
 ) -> None:
     running = slot(router)
     router.put(upgrade_image, UPGRADE_IMAGE)
-    # The image unpacked and cut a tenth short, as it streams (/tmp is memory):
-    # inside root, its last and largest member. BusyBox tar reads an archive to
-    # its end whichever member it extracts, so every member's read then fails,
-    # kernel's too, though its data came whole: the write stops at the kernel.
+    # The image unpacked and cut a tenth short, as it streams (/tmp is
+    # memory): inside root, its last and largest member. BusyBox tar
+    # reads an archive to its end whichever member it extracts, so every
+    # member's read then fails, kernel's too, though its data came
+    # whole: the write stops at the kernel.
     router.run(
         f"size=$(gzip -dc {UPGRADE_IMAGE} | wc -c)"
         f" && gzip -dc {UPGRADE_IMAGE} | head -c $((size * 9 / 10)) >{BROKEN_IMAGE}",
@@ -180,8 +184,9 @@ def test_the_configuration_is_in_place_before_the_switch(
 ) -> None:
     router.put(upgrade_image, UPGRADE_IMAGE)
     router.run(f"sysupgrade -b {BACKUP}", timeout=120)
-    # The switch, recorded instead of written: whether the new slot's boot
-    # partition (the hook's orbyt_boot_dev) holds the backup when it comes.
+    # The switch, recorded instead of written: whether the new slot's
+    # boot partition (the hook's orbyt_boot_dev) holds the backup when
+    # it comes.
     record = (
         'orbyt_ab_setenv() { mount -o ro "/dev/${orbyt_boot_dev}" /mnt'
         " && if [ -f /mnt/sysupgrade.tgz ]; then echo switch=backup-present;"
@@ -201,7 +206,8 @@ def test_image_for_another_board_is_rejected(
     router: Router, board: Board, upgrade_image: Path
 ) -> None:
     router.put(upgrade_image, UPGRADE_IMAGE)
-    # Rewrite the metadata so that the image names another supported board only.
+    # Rewrite the metadata so that the image names another supported
+    # board only.
     other = next(other for other in load_all() if other.id != board.id)
     router.run(
         f"fwtool -q -t -i /tmp/meta.json {UPGRADE_IMAGE}"
@@ -250,10 +256,11 @@ def test_a_slow_validation_keeps_the_system_going(router: Router) -> None:
         time.sleep(5)
     assert router.boot_id() == previous_boot
     assert "watchdog_perform_action" not in emulator.logged()[logged:]
-    # Each check that waits on the image now ends. One that reads it gets an empty
-    # image from a writer, which opens and closes the FIFO again and again. One that
-    # holds it read-write never sees the end of its input, being a writer itself
-    # (fwtool), so it fails: its process ends.
+    # Each check that waits on the image now ends. One that reads it
+    # gets an empty image from a writer, which opens and closes the FIFO
+    # again and again. One that holds it read-write never sees the end
+    # of its input, being a writer itself (fwtool), so it fails: its
+    # process ends.
     router.detach(f"while :; do : > {SLOW_IMAGE}; done")
     router.run(
         f"until grep -q '^exit=' {VALIDATION}; do for fd in /proc/[0-9]*/fd/*; do"

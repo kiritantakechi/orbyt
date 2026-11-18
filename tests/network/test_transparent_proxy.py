@@ -1,8 +1,9 @@
 """network/transparent-proxy: honk on the LAN side, splitting by rule into direct and proxied.
 
-honk runs with the test configuration (orbyt_tests.services.datapath.PROXY_CONFIG): the
-socks5 exit on the emulated internet is its only node, PROXIED_TARGET goes through
-it, everything else goes direct.
+honk runs with the test configuration
+(orbyt_tests.services.datapath.PROXY_CONFIG): the socks5 exit on the
+emulated internet is its only node, PROXIED_TARGET goes through it,
+everything else goes direct.
 """
 
 import json
@@ -50,38 +51,46 @@ if TYPE_CHECKING:
 
 CAPABILITY = "network/transparent-proxy"
 BIND_TIMEOUT = 60
-# The LAN connections to the router that must all be answered: one a second to
-# each service at each address, for a minute (honk #456 refused some of them).
+# The LAN connections to the router that must all be answered: one a
+# second to each service at each address, for a minute (honk #456
+# refused some of them).
 ROUTER_CONNECTIONS = 60
-# What the router's SSH server (dropbear) says first: its protocol version.
+# What the router's SSH server (dropbear) says first: its protocol
+# version.
 SSH_BANNER = "SSH-2.0-"
-# A domain the rules send through the proxy: it keeps every new direct UDP
-# flow's route open until honk has seen the flow's first packet, which waits in
-# honk's queue meanwhile, as with any configuration that routes by domain.
+# A domain the rules send through the proxy: it keeps every new direct
+# UDP flow's route open until honk has seen the flow's first packet,
+# which waits in honk's queue meanwhile, as with any configuration that
+# routes by domain.
 PROXIED_DOMAIN = "example.org"
-# New UDP flows a second while the firewall reloads, and the reloads: a reload
-# drops the packets waiting in honk's queue (any netfilter hook unregistered
-# flushes every queue), and a verdict for one of them ended honk (honk #476).
+# New UDP flows a second while the firewall reloads, and the reloads: a
+# reload drops the packets waiting in honk's queue (any netfilter hook
+# unregistered flushes every queue), and a verdict for one of them ended
+# honk (honk #476).
 NEW_FLOWS = 200
 FIREWALL_RELOADS = 15
-# The source ports the new flows come from in turn: each flow a new five-tuple for
-# honk, while einat (10000 ports, a mapping kept for minutes) keeps room.
+# The source ports the new flows come from in turn: each flow a new
+# five-tuple for honk, while einat (10000 ports, a mapping kept for
+# minutes) keeps room.
 FLOW_SOURCES = 1000
-# How long new flows stream in for honk to withstand them: at NEW_FLOWS a second
-# the emulated router fell behind activating them one by one, and honk exited
-# within minutes (honk 005).
+# How long new flows stream in for honk to withstand them: at NEW_FLOWS
+# a second the emulated router fell behind activating them one by one,
+# and honk exited within minutes (honk 005).
 STREAM_SECONDS = 180
-# Restarts of a pinned honk: the old honk's exit could race the new start and
-# leave one in ten unpinned (procd replaced the cgroup the init had set up).
+# Restarts of a pinned honk: the old honk's exit could race the new
+# start and leave one in ten unpinned (procd replaced the cgroup the
+# init had set up).
 PINNED_RESTARTS = 10
-# How soon new UDP flows go direct again once the flows that waited have been
-# decided: honk drops a flow it cannot decide in time, and a client retries.
+# How soon new UDP flows go direct again once the flows that waited have
+# been decided: honk drops a flow it cannot decide in time, and a client
+# retries.
 DRAIN_TIMEOUT = 15
 # A request of the native API that needs a credential.
 NATIVE_API_REQUEST = "/api/v1/dns/cache?name=example.net"
-# honk's programs on the cgroup2 root, by attach type: its sock_ops program,
-# which acts in its own network namespace only, and its socket-identity capture,
-# which records a socket's process and allows every operation.
+# honk's programs on the cgroup2 root, by attach type: its sock_ops
+# program, which acts in its own network namespace only, and its
+# socket-identity capture, which records a socket's process and allows
+# every operation.
 CGROUP_PROGRAMS = {
     ("cgroup_sock_ops", "honk_tcp_passive"),
     ("cgroup_inet_sock_create", "tproxy_wan_cg_sock_create"),
@@ -235,11 +244,12 @@ def test_router_traffic_goes_direct(proxy: Online) -> None:
 def test_the_router_answers_the_lan(
     proxy_restored: Online, domains: tuple[str, ...]
 ) -> None:
-    # Each second a connection to the router's web server (LuCI) and one to its
-    # SSH server, at each of its LAN addresses. Routed by address alone, honk's
-    # programs leave them to the kernel; with a domain rule honk takes each into
-    # its own socket (TPROXY) to sniff it and dials the router's service itself,
-    # the path where honk #456 rejected some IPv4 connections.
+    # Each second a connection to the router's web server (LuCI) and one
+    # to its SSH server, at each of its LAN addresses. Routed by address
+    # alone, honk's programs leave them to the kernel; with a domain
+    # rule honk takes each into its own socket (TPROXY) to sniff it and
+    # dials the router's service itself, the path where honk #456
+    # rejected some IPv4 connections.
     online = proxy_restored
     proxy_start(online.router, proxy_config(domains=domains))
     client = online.client()
@@ -264,17 +274,18 @@ def test_luci_save_hot_reloads(proxy_restored: Online) -> None:
     router = online.router
     session = _luci_session(router)
     pid = proxy_pid(router)
-    # A direct flow runs through the reload: pings every 0.1 s, none may be lost,
-    # from before the write until the saved configuration is in effect. nsenter
-    # runs ping in its own process: the interrupt reaches ping, which then prints
-    # its summary (test-fidelity D6).
+    # A direct flow runs through the reload: pings every 0.1 s, none may
+    # be lost, from before the write until the saved configuration is in
+    # effect. nsenter runs ping in its own process: the interrupt
+    # reaches ping, which then prints its summary (test-fidelity D6).
     pings = subprocess.Popen(
         online.client().argv("ping", "-i", "0.1", "-W", "1", DIRECT_TARGET[0]),
         stdout=subprocess.PIPE,
         text=True,
     )
     try:
-        # The edit LuCI makes, then its save: the proxied target now goes direct as well.
+        # The edit LuCI makes, then its save: the proxied target now
+        # goes direct as well.
         config = proxy_config(
             [address for address in PROXIED if address not in PROXIED_TARGET]
         )
@@ -363,7 +374,8 @@ def test_health_check_fails_without_honk(proxy_restored: Online) -> None:
 )
 def test_the_nfqueue_table_outlives_a_firewall_reload(proxy: Online) -> None:
     router = proxy.router
-    # With its handles: a table made anew with the same rules gets other ones.
+    # With its handles: a table made anew with the same rules gets other
+    # ones.
     before = router.run(f"nft -a list table {PROXY_NFQUEUE_TABLE}")
     router.run("fw4 -q reload")
     assert router.run(f"nft -a list table {PROXY_NFQUEUE_TABLE}") == before
@@ -489,9 +501,10 @@ def test_honk_listens_only_for_dns_on_loopback(proxy: Online) -> None:
 def test_cpu_pinning_takes_the_big_cores(proxy_restored: Online, board: Board) -> None:
     router = proxy_restored.router
     assert router.run("uci get honk.config.cpu_pinning") == "0"
-    # The big cores: the CPUs of the highest capacity the router reports, which
-    # the emulator gives the board's SoC's (testing/emulation). They are fewer
-    # than all, so a honk that is not pinned runs elsewhere too.
+    # The big cores: the CPUs of the highest capacity the router
+    # reports, which the emulator gives the board's SoC's
+    # (testing/emulation). They are fewer than all, so a honk that is
+    # not pinned runs elsewhere too.
     listing = router.run("grep -H . /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity")
     capacities = {
         int(cpu): int(capacity)
@@ -589,10 +602,11 @@ def test_the_firmware_keeps_the_native_api_in_token_mode(
     proxy_restored: Online,
 ) -> None:
     router = proxy_restored.router
-    # Written on the router, as LuCI's editor writes it: password login, anonymous
-    # loopback and configuration writes beside the token. honk refuses password
-    # login beside a token, and anonymous loopback beside password login: it runs,
-    # with the token alone, because the firmware's settings turn all three off.
+    # Written on the router, as LuCI's editor writes it: password login,
+    # anonymous loopback and configuration writes beside the token. honk
+    # refuses password login beside a token, and anonymous loopback
+    # beside password login: it runs, with the token alone, because the
+    # firmware's settings turn all three off.
     api = NATIVE_API.replace(
         "enabled: true\n",
         "enabled: true\n"
@@ -627,12 +641,14 @@ def test_the_native_api_answers_nothing_outside_the_lan(
     assert (
         native_api(online.client(), online.router.address, "/api")[0] == HTTPStatus.OK
     )
-    # The internet reaches the router's WAN address, but not the API there.
+    # The internet reaches the router's WAN address, but not the API
+    # there.
     online.network["inet"].run("ping", "-c", "1", "-W", "5", online.wan_address)
     assert native_api(online.network["inet"], online.wan_address, "/api")[0] == 0
-    # The container reaches the internet through its gateway (the probe server
-    # answers as it connects), but not the API on it. The firmware's busybox,
-    # the container's, has an nc without -w: the router bounds each try.
+    # The container reaches the internet through its gateway (the probe
+    # server answers as it connects), but not the API on it. The
+    # firmware's busybox, the container's, has an nc without -w: the
+    # router bounds each try.
     container = f"timeout 20 podman exec {app.CONTAINER} nc"
     assert (
         online.router.returncode(f"{container} {DIRECT_TARGET[0]} {PORT} </dev/null")

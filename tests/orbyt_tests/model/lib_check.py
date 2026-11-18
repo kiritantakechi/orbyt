@@ -1,17 +1,19 @@
 """lib-check: the scripts load what they call, and the library has no dead function.
 
-The shell library is modules by domain (``scripts/lib/*.sh``, module-boundaries
-D1). A script loads core by path and the other modules by name, with ``use``; a
-module loads the modules it depends on with its own ``use``. ``lib-check``
-(``just check modules``, D4) reads them all and fails on
+The shell library is modules by domain (``scripts/lib/*.sh``,
+module-boundaries D1). A script loads core by path and the other modules
+by name, with ``use``; a module loads the modules it depends on with its
+own ``use``. ``lib-check`` (``just check modules``, D4) reads them all
+and fails on
 
-* a call of a library function that the modules a script or a module loads,
-  directly or through theirs, do not provide;
-* a library function that no script, other module, test, workflow or recipe
-  calls.
+* a call of a library function that the modules a script or a module
+  loads, directly or through theirs, do not provide;
+* a library function that no script, other module, test, workflow or
+  recipe calls.
 
-Each problem names the file and the function. A call is the function's name as
-a word outside comments; every library function has a name of its own.
+Each problem names the file and the function. A call is the function's
+name as a word outside comments; every library function has a name of
+its own.
 """
 
 import argparse
@@ -138,7 +140,8 @@ def dead_functions(repo: Path) -> list[str]:
         ]
         for function in sorted(module.functions):
             word = re.compile(rf"\b{function}\b")
-            # Its own module calls it when the name appears beyond its definition.
+            # Its own module calls it when the name appears beyond its
+            # definition.
             called = len(word.findall(own)) > 1 or any(
                 word.search(t) for t in (*others, *texts)
             )

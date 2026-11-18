@@ -1,7 +1,7 @@
 """Unit tests of orbyt_tests.sandbox.netprobe: every mode between two plain network namespaces.
 
-``solicit-prefix`` needs a DHCPv6 server on a PPP link, and ``solicit-router`` a
-router; test_isp and the network tests cover them.
+``solicit-prefix`` needs a DHCPv6 server on a PPP link, and
+``solicit-router`` a router; test_isp and the network tests cover them.
 """
 
 import json
@@ -24,7 +24,8 @@ if TYPE_CHECKING:
 LISTEN_TIMEOUT = 10
 SERVER = ("192.0.2.200", "2001:db8:1::200")
 CLIENT = ("192.0.2.100", "2001:db8:1::100")
-# A second address of the server: answers must come from the address asked.
+# A second address of the server: answers must come from the address
+# asked.
 SECOND = ("192.0.2.201", "2001:db8:1::201")
 
 
@@ -93,8 +94,8 @@ def client(pair: Pair) -> Netns:
 def test_tcp_reports_the_peer_and_mss(client: Netns, family: int) -> None:
     seen = client.probe("tcp", SERVER[family])
     assert seen["address"] == CLIENT[family]
-    # The SYN's MSS on the pair's link of 1500 bytes: less IPv4's or IPv6's
-    # header and TCP's.
+    # The SYN's MSS on the pair's link of 1500 bytes: less IPv4's or
+    # IPv6's header and TCP's.
     assert seen["mss"] == (1460, 1440)[family]
 
 
@@ -112,7 +113,8 @@ def test_connect_tells_accepted_from_refused(client: Netns, family: int) -> None
 def test_greeting_returns_what_the_server_says_first(
     client: Netns, family: int
 ) -> None:
-    # netprobe's TCP server speaks first: it sends what it saw of the client.
+    # netprobe's TCP server speaks first: it sends what it saw of the
+    # client.
     seen = client.probe("greeting", SERVER[family], "--port", str(PORT))
     assert json.loads(cast("str", seen["greeting"]))["address"] == CLIENT[family]
 
@@ -143,7 +145,8 @@ FLOW_RATE = 50
 
 @pytest.mark.parametrize("sources", [(), ("--sources", "4")], ids=["fresh", "pooled"])
 def test_flows_start_at_their_rate(client: Netns, sources: tuple[str, ...]) -> None:
-    # Every flow, the last (rate - 1) / rate s after the first: never earlier, whatever the load.
+    # Every flow, the last (rate - 1) / rate s after the first: never
+    # earlier, whatever the load.
     start = time.monotonic()
     rate = str(FLOW_RATE)
     sent = client.probe("flows", SERVER[0], "--rate", rate, "--seconds", "1", *sources)[

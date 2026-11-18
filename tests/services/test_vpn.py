@@ -1,9 +1,10 @@
 """services/vpn: WireGuard and Tailscale into the LAN, and how each passes honk.
 
-wg-peer connects over WireGuard and routes the LAN and the proxied target
-through its tunnel; ts-peer is a tailnet node that takes the LAN through the
-router's subnet route and, when asked, the router as its exit node. honk is on:
-tailnet traffic is split by its rules, WireGuard traffic goes direct.
+wg-peer connects over WireGuard and routes the LAN and the proxied
+target through its tunnel; ts-peer is a tailnet node that takes the LAN
+through the router's subnet route and, when asked, the router as its
+exit node. honk is on: tailnet traffic is split by its rules, WireGuard
+traffic goes direct.
 """
 
 import re
@@ -74,7 +75,8 @@ def test_tailnet_reaches_the_lan(remote: Online, tailnet: Tailnet) -> None:
     assert "10.0.0.0/24 dev tailscale0" in tailnet.peer.run(
         "ip", "route", "show", "table", "52"
     )
-    # The image (/rom) holds no tailnet state: the test logged the router in.
+    # The image (/rom) holds no tailnet state: the test logged the
+    # router in.
     assert remote.router.returncode("test -e /rom/etc/tailscale/tailscaled.state") != 0
 
 
@@ -114,9 +116,9 @@ def test_tailscale_marks_are_registered(remote: Online, tailnet: Tailnet) -> Non
     rows = [line.split("\t") for line in MARKS.read_text().splitlines()[1:]]
     (mask,) = (int(row[0], 16) for row in rows if row[1] == "tailscale")
     subprocess.run([MARKS_CHECK], check=True, capture_output=True)
-    # The marks tailscaled's own nftables rules set and match lie within its mask.
-    # Its tables are the ones holding its chains, named ts-*; fw4's and honk's
-    # tables hold their own marks.
+    # The marks tailscaled's own nftables rules set and match lie within
+    # its mask. Its tables are the ones holding its chains, named ts-*;
+    # fw4's and honk's tables hold their own marks.
     ruleset = remote.router.run("nft list ruleset")
     tables = re.split(r"^table ", ruleset, flags=re.MULTILINE)
     theirs = [

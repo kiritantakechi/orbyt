@@ -46,7 +46,8 @@ def repo(tmp_path: Path) -> Path:
         (copy / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO / name, copy / name)
     subprocess.run(["git", "init", "-q", str(copy)], check=True)
-    # The Python checks run in the tests' virtual environment, shared with the copy.
+    # The Python checks run in the tests' virtual environment, shared
+    # with the copy.
     environment = Path(sys.prefix)
     (copy / "tests" / environment.name).symlink_to(environment)
     return copy
@@ -123,7 +124,8 @@ def test_new_script_without_skeleton_fails(repo: Path) -> None:
     "Script calls a function it does not load",
 )
 def test_a_call_without_its_module_fails(repo: Path) -> None:
-    # fetch.sh calls fetch_locked, of the upstream module, which it stops loading.
+    # fetch.sh calls fetch_locked, of the upstream module, which it
+    # stops loading.
     script = repo / "scripts" / "fetch.sh"
     text = script.read_text()
     assert "\nuse boards upstream\n" in text
@@ -142,7 +144,8 @@ def test_a_call_without_its_module_fails(repo: Path) -> None:
     "Library function that nothing calls",
 )
 def test_a_library_function_that_nothing_calls_fails(repo: Path) -> None:
-    # Named here only as it is put together: a test that names a function calls it.
+    # Named here only as it is put together: a test that names a
+    # function calls it.
     word = "spent"
     name = f"time_{word}"
     with (repo / "scripts" / "lib" / "timing.sh").open("a") as module:
@@ -217,9 +220,10 @@ def test_fmt_then_check_passes(repo: Path) -> None:
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-# Every module of the harness, and through them every dependency the tests use:
-# a free-threaded build of a dependency can still turn the GIL back on, for the
-# whole process, when it is imported (python-style D1).
+# Every module of the harness, and through them every dependency the
+# tests use: a free-threaded build of a dependency can still turn the
+# GIL back on, for the whole process, when it is imported (python-style
+# D1).
 @spec(
     CAPABILITY,
     "Python on the free-threaded interpreter",

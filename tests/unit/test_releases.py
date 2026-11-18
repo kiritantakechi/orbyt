@@ -19,8 +19,8 @@ if TYPE_CHECKING:
 
 REPOSITORY = "owner/repository"
 API = f"https://{RELEASES[0]}/repos/{REPOSITORY}"
-# A client that connects and sends nothing yet, as a proxy's connection pool
-# connects ahead of the request it will carry.
+# A client that connects and sends nothing yet, as a proxy's connection
+# pool connects ahead of the request it will carry.
 SILENT = """
 import socket, sys, time
 with socket.create_connection((sys.argv[1], 443)):

@@ -1,11 +1,11 @@
 """The router's VPNs and their peers on the emulated internet (r4s-services D6, D10).
 
-The image presets no keys: the tests write them the way the config push does.
-``WireGuard`` gives the router's wg0 its key and wg-peer as its one peer, whose
-end is a wireguard link of the host kernel in wg-peer's namespace. ``Tailnet``
-logs the router and ts-peer into headscale with a preauth key; the router
-advertises the LAN and itself as an exit node, and headscale approves both, as
-an administrator would.
+The image presets no keys: the tests write them the way the config push
+does. ``WireGuard`` gives the router's wg0 its key and wg-peer as its
+one peer, whose end is a wireguard link of the host kernel in wg-peer's
+namespace. ``Tailnet`` logs the router and ts-peer into headscale with a
+preauth key; the router advertises the LAN and itself as an exit node,
+and headscale approves both, as an administrator would.
 """
 
 import json
@@ -26,7 +26,8 @@ if TYPE_CHECKING:
 
 LAN_PREFIX = "10.0.0.0/24"
 WG_PORT = 51820
-# The router's and wg-peer's addresses in the tunnel (92-orbyt-services).
+# The router's and wg-peer's addresses in the tunnel
+# (92-orbyt-services).
 WG_ADDRESSES = ("10.9.0.1", "10.9.0.2")
 HEADSCALE_URL = f"https://{HEADSCALE[0]}"
 TAILNET_USER = "orbyt"
@@ -57,8 +58,9 @@ class WireGuard:
     def connect(cls, online: Online, routes: Sequence[str]) -> Self:
         """Key both ends and bring the tunnel up; wg-peer routes ``routes`` through it.
 
-        A failure on the way takes wg-peer's tunnel down again, so that the
-        session's namespace holds none for the next one (test-fidelity D11).
+        A failure on the way takes wg-peer's tunnel down again, so that
+        the session's namespace holds none for the next one
+        (test-fidelity D11).
         """
         router_private, router_public = key_pair()
         peer_private, peer_public = key_pair()
@@ -101,7 +103,8 @@ class WireGuard:
                     what="a WireGuard handshake",
                 )
             except TimeoutError as error:
-                # Both ends as they stand, their private keys hidden by wg.
+                # Both ends as they stand, their private keys hidden by
+                # wg.
                 error.add_note(f"wg-peer:\n{peer.run('wg', 'show', 'wg0')}")
                 error.add_note(
                     f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}"
@@ -146,9 +149,10 @@ def _node(network: Network, name: str) -> int:
 def clear(network: Network) -> None:
     """Remove every node from headscale (the tailnet starts empty), routes withdrawn first.
 
-    headscale (0.27) lets go of the routes a node serves when their approval
-    changes or the node goes offline, not when it is deleted: a router deleted
-    while it serves the LAN route would keep the next one from ever serving it.
+    headscale (0.27) lets go of the routes a node serves when their
+    approval changes or the node goes offline, not when it is deleted: a
+    router deleted while it serves the LAN route would keep the next one
+    from ever serving it.
     """
     for node in _nodes(network):
         identifier = f"--identifier={node['id']}"
@@ -196,7 +200,8 @@ class Tailnet:
     def join(cls, online: Online) -> Self:
         """Log the router (subnet router and exit node) and ts-peer into the tailnet.
 
-        The tailnet starts empty: a node an earlier module left behind goes first.
+        The tailnet starts empty: a node an earlier module left behind
+        goes first.
         """
         clear(online.network)
         key = preauth_key(online.network)
@@ -249,7 +254,8 @@ class Tailnet:
                 json.dumps(_headscale(online.network, "nodes", "list-routes"))
             )
             raise
-        # A route is not yet a path: the first packets wait for the tunnel.
+        # A route is not yet a path: the first packets wait for the
+        # tunnel.
         until(
             tailnet.reachable,
             timeout=TAILSCALE_TIMEOUT,

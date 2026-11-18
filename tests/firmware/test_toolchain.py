@@ -18,7 +18,8 @@ CAPABILITY = "firmware/toolchain"
 PATCHES = Path(__file__).resolve().parents[2] / "patches" / "openwrt"
 OPTIMIZATION = re.compile(r"-O([0-3gsz]|fast)?")
 MCPU = re.compile(r"-mcpu=.+")
-# The options that relax IEEE floating-point semantics (toolchain-o3 D2).
+# The options that relax IEEE floating-point semantics (toolchain-o3
+# D2).
 RELAXING = frozenset(
     {
         "-Ofast",
@@ -51,7 +52,8 @@ def test_patch_queue_leaves_target_mk_alone() -> None:
 
 @spec(CAPABILITY, "Optimization flags for big.LITTLE cores", "Check compile command")
 def test_packages_compile_for_the_board(board: Board, manifest: Manifest) -> None:
-    # Every target package compiles with TARGET_CFLAGS, which the manifest records.
+    # Every target package compiles with TARGET_CFLAGS, which the
+    # manifest records.
     flags = manifest.cflags
     size = flags.index("-Os")
     optimization = _last(flags, OPTIMIZATION)

@@ -1,9 +1,9 @@
 """The A/B slots as the tests see them (r4s-ab-rollback design D1, D4).
 
-Everything goes through the router: the running slot from the kernel command
-line, U-Boot variables through fw_printenv and fw_setenv, and checksums of disk
-regions read with dd, so a test can tell which slot booted and what an upgrade
-wrote without stopping the emulator.
+Everything goes through the router: the running slot from the kernel
+command line, U-Boot variables through fw_printenv and fw_setenv, and
+checksums of disk regions read with dd, so a test can tell which slot
+booted and what an upgrade wrote without stopping the emulator.
 """
 
 import shlex
@@ -12,15 +12,17 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
-# The emulator's boot disk, an SD card or an eMMC on its SD host controller.
+# The emulator's boot disk, an SD card or an eMMC on its SD host
+# controller.
 BOOT_DISK = "/dev/mmcblk0"
 # The copies of the U-Boot environment on the boot disk (design D1,
 # trial-boot-resilience D1): their offsets and their size in bytes.
 ENV_COPIES, ENV_SIZE = (0x3F8000, 0x400000), 0x8000
-# A copy's serial flag, after its CRC: U-Boot reads the valid copy with the higher.
+# A copy's serial flag, after its CRC: U-Boot reads the valid copy with
+# the higher.
 ENV_FLAG = 4
-# The area U-Boot and the partition table occupy before boot-A, without the
-# environment: MBR, loader (sector 64 on) and u-boot.itb (8 MiB on).
+# The area U-Boot and the partition table occupy before boot-A, without
+# the environment: MBR, loader (sector 64 on) and u-boot.itb (8 MiB on).
 BOOT_AREA = ((0, 0x200), (0x8000, ENV_COPIES[0]), (0x800000, 0x2000000))
 PARTITIONS = {"a": (1, 2), "b": (3, 4)}
 READ_BLOCK = 1 << 20
@@ -62,8 +64,8 @@ def setenv(router: Router, **variables: str | int) -> None:
 def newest_env_copy(router: Router) -> int:
     """Return the offset of the copy of the environment the latest write went to.
 
-    Each write goes to the other copy with a serial flag one higher, so the
-    newest copy holds the higher flag, counting on from 255 to 0.
+    Each write goes to the other copy with a serial flag one higher, so
+    the newest copy holds the higher flag, counting on from 255 to 0.
     """
     flags = {
         offset: int(
@@ -81,8 +83,9 @@ def newest_env_copy(router: Router) -> int:
 def region_sha256(router: Router, device: str, start: int, end: int) -> str:
     """Return the SHA-256 of bytes ``start`` up to ``end`` of a block device.
 
-    dd reads in the largest block (up to 1 MiB) both ends are a multiple of:
-    a sector at a time, the emulated boot disk takes minutes for a slot.
+    dd reads in the largest block (up to 1 MiB) both ends are a multiple
+    of: a sector at a time, the emulated boot disk takes minutes for a
+    slot.
     """
     block = READ_BLOCK
     while start % block or end % block:

@@ -1,7 +1,7 @@
 """network/nat: einat's full-cone NAT44 and what falls back to masquerade.
 
-honk stays off in this module: every flow goes direct, so what the internet sees
-is einat's work (or masquerade's) alone.
+honk stays off in this module: every flow goes direct, so what the
+internet sees is einat's work (or masquerade's) alone.
 """
 
 import contextlib
@@ -36,7 +36,8 @@ if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/nat"
-# einat's public ports (its UCI default) and the kernel's local ephemeral ports.
+# einat's public ports (its UCI default) and the kernel's local
+# ephemeral ports.
 EINAT_PORTS = range(20000, 30000)
 LOCAL_PORTS = range(32768, 61000)
 INBOUND_MARK = "0x20000000"
@@ -45,9 +46,10 @@ NEVER_CONTACTED = (
 )
 RECOVERY = 60
 HEALTHCHECK = "/etc/healthcheck.d/50-einat"
-# A table of the test's own on the router, which counts the IPv4 packets that
-# enter a device: at the WAN port the bare frames, PPPoE's being of other types
-# (test-fidelity D3), and at the session's device the packets it carries.
+# A table of the test's own on the router, which counts the IPv4 packets
+# that enter a device: at the WAN port the bare frames, PPPoE's being of
+# other types (test-fidelity D3), and at the session's device the
+# packets it carries.
 PACKETS_TABLE = "orbyt_test_packets"
 # The router's end of the PPPoE session.
 PPP_DEVICE = "pppoe-wan"
@@ -72,9 +74,9 @@ class Listener:
     def receives(self, send: Callable[[], object]) -> bool:
         """Return whether what ``send`` sends arrives before the listener gives up.
 
-        ``send`` sends again each second: the emulated path can lose a datagram
-        now and then, and what lets one in lets every one in, as what keeps one
-        out keeps every one out.
+        ``send`` sends again each second: the emulated path can lose a
+        datagram now and then, and what lets one in lets every one in,
+        as what keeps one out keeps every one out.
         """
         while self.process.poll() is None:
             send()
@@ -150,8 +152,8 @@ def test_filtering_is_endpoint_independent(online: Online) -> None:
 def _packets_at(router: Router, device: str) -> Generator[Callable[[], int]]:
     """Count the IPv4 packets that enter ``device`` while the context lasts; yield their count.
 
-    By their protocol, which a PPP device's packets carry without a link-layer
-    header as an Ethernet device's carry with one.
+    By their protocol, which a PPP device's packets carry without a
+    link-layer header as an Ethernet device's carry with one.
     """
     hook = f"{{ type filter hook ingress device {device} priority -500; }}"
     router.run(
@@ -183,8 +185,8 @@ def _packets_at(router: Router, device: str) -> Generator[Callable[[], int]]:
     "Inbound packet with spoofed destination",
 )
 def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
-    # Structurally: einat's mark is the only way from wan into lan for a new flow
-    # (OpenWrt's default accepts of ESP and ISAKMP are gone).
+    # Structurally: einat's mark is the only way from wan into lan for a
+    # new flow (OpenWrt's default accepts of ESP and ISAKMP are gone).
     accepts = [
         line
         for line in online.router.run(
@@ -200,7 +202,8 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     isp = online.network["isp"]
     wan = board.wan.device
     mac = online.router.run(f"cat /sys/class/net/{wan}/address")
-    # Through the PPP session, routed by the ISP to an internal address...
+    # Through the PPP session, routed by the ISP to an internal
+    # address...
     isp.run("ip", "route", "replace", "10.0.0.0/24", "dev", online.session.interface)
     try:
         listener = Listener(online.client(), 41002)
@@ -247,8 +250,9 @@ def test_inbound_to_a_mapped_port_is_accepted(
     before = _inbound_accepted(online)
     public = _map(online, 41004)
     assert Listener(online.client(), 41004).receives(_unasked(online, public))
-    # The patch's mark is what let it in (design D2, D3): without --inbound-mark
-    # einat marks nothing, and the same packet stays out (task 1.5).
+    # The patch's mark is what let it in (design D2, D3): without
+    # --inbound-mark einat marks nothing, and the same packet stays out
+    # (task 1.5).
     assert _inbound_accepted(online) > before >= 0
     online.router.run(
         "uci set einat.config.inbound_mark=0 && /etc/init.d/einat restart"
@@ -280,21 +284,24 @@ def test_stopping_einat_falls_back_to_masquerade(
 ) -> None:
     del einat_restored
     online.router.run("/etc/init.d/einat stop")
-    # procd only signals einat: its programs go with it as it exits, which can
-    # be a moment after the init script returns. qosify's stay.
+    # procd only signals einat: its programs go with it as it exits,
+    # which can be a moment after the init script returns. qosify's
+    # stay.
     until(
         lambda: hooks(online.router, PPP_DEVICE) == QOSIFY,
         timeout=RECOVERY,
         what="einat's programs detached",
     )
-    # fw4 reloads without einat's rules a moment later; masquerade then applies.
+    # fw4 reloads without einat's rules a moment later; masquerade then
+    # applies.
     until(
         lambda: not _einat_rules(online),
         timeout=RECOVERY,
         what="einat's rules withdrawn",
     )
     seen = online.client().probe("udp", DIRECT_TARGET[0], "--source-port", "41006")
-    # Masquerade keeps a free source port; einat would have picked one of its own.
+    # Masquerade keeps a free source port; einat would have picked one
+    # of its own.
     assert (seen["address"], seen["port"]) == (online.wan_address, 41006)
     assert (
         online.client().probe("tcp", DIRECT_TARGET[0])["address"] == online.wan_address
@@ -317,10 +324,12 @@ def test_local_connections_keep_their_port(online: Online) -> None:
     seen = json.loads(body)
     assert seen["address"] == online.wan_address
     assert seen["port"] in LOCAL_PORTS
-    # The router's own conntrack entry has the same port: nothing rewrote it.
+    # The router's own conntrack entry has the same port: nothing
+    # rewrote it.
     conntrack = online.router.run("cat /proc/net/nf_conntrack")
     assert f"dst={DIRECT_TARGET[0]} sport={seen['port']} dport={HTTP_PORT}" in conntrack
-    # The ranges cannot meet (design D6): einat's ports lie below the kernel's.
+    # The ranges cannot meet (design D6): einat's ports lie below the
+    # kernel's.
     assert online.router.run("uci get einat.config.ports") == "20000-29999"
     assert (
         int(online.router.run("cut -f1 /proc/sys/net/ipv4/ip_local_port_range"))
@@ -365,7 +374,8 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     finally:
         router.run("ifup wan")
         online.reconnected()
-    # Task 4.3: einat not running fails, and so does einat not attached to pppoe-wan.
+    # Task 4.3: einat not running fails, and so does einat not attached
+    # to pppoe-wan.
     router.run("/etc/init.d/einat stop")
     assert router.returncode(HEALTHCHECK) != 0
     router.run("/etc/init.d/einat start")

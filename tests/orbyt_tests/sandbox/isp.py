@@ -1,23 +1,27 @@
 """The emulated ISP between the router's WAN and the emulated internet (r4s-ebpf-datapath D11).
 
-The ``isp`` namespace is the BRAS. rp-pppoe's pppoe-server runs in user mode (a
-pty per session, so the host needs only ppp_generic and ppp_async, never
-pppoe.ko) and hands each session the next address of its pool: every redial
-gets a new address. pppd runs four scripts per session:
+The ``isp`` namespace is the BRAS. rp-pppoe's pppoe-server runs in user
+mode (a pty per session, so the host needs only ppp_generic and
+ppp_async, never pppoe.ko) and hands each session the next address of
+its pool: every redial gets a new address. pppd runs four scripts per
+session:
 
-- ``ip-up`` and ``ip-down`` keep a registry for the tests, one file per session
-  (named after its pppd) with its PPP interface and the address the peer got;
-- ``ipv6-up`` gives the session the WAN prefix for SLAAC (radvd) and a delegated
-  prefix (kea-dhcp6), and ``ipv6-down`` stops both. The prefixes stay the same
-  across redials, so only the IPv4 address moves.
+- ``ip-up`` and ``ip-down`` keep a registry for the tests, one file per
+  session (named after its pppd) with its PPP interface and the address
+  the peer got;
+- ``ipv6-up`` gives the session the WAN prefix for SLAAC (radvd) and a
+  delegated prefix (kea-dhcp6), and ``ipv6-down`` stops both. The
+  prefixes stay the same across redials, so only the IPv4 address moves.
 
-Everything is keyed by the session's pppd, never by its interface: a redial may
-get the same interface name while the previous session is still going down.
+Everything is keyed by the session's pppd, never by its interface: a
+redial may get the same interface name while the previous session is
+still going down.
 
-pppd reads its options and secrets from fixed paths under /etc/ppp, and looks
-up root's home for ``~/.ppprc``; the sandbox mounts what ``configure`` writes
-there (``orbyt_tests.sandbox.net``). The scripts stay in the ISP's own directory, named by
-the server options, so that a pppd dialing from a test runs none of them.
+pppd reads its options and secrets from fixed paths under /etc/ppp, and
+looks up root's home for ``~/.ppprc``; the sandbox mounts what
+``configure`` writes there (``orbyt_tests.sandbox.net``). The scripts
+stay in the ISP's own directory, named by the server options, so that a
+pppd dialing from a test runs none of them.
 """
 
 import ipaddress
@@ -36,8 +40,8 @@ if TYPE_CHECKING:
 
     from orbyt_tests.sandbox.net import Netns
 
-# The account the router dials with; the image carries none (the config push
-# writes the real one).
+# The account the router dials with; the image carries none (the config
+# push writes the real one).
 LOGIN = ("orbyt", "sandbox")
 BRAS_ADDRESS = "192.0.2.1"
 POOL_START = "192.0.2.64"
@@ -140,15 +144,17 @@ def _scripts(workdir: Path) -> dict[str, str]:
     session = f"{workdir}/${{PPPD_PID}}"
     kea_config = {
         "Dhcp6": {
-            # ipv6-up runs as IPv6CP comes up, possibly before the link-local
-            # address is usable: keep trying to bind for a while.
+            # ipv6-up runs as IPv6CP comes up, possibly before the
+            # link-local address is usable: keep trying to bind for a
+            # while.
             "interfaces-config": {
                 "interfaces": ["${IFNAME}"],
                 "service-sockets-max-retries": 20,
                 "service-sockets-retry-wait-time": 500,
             },
             "lease-database": {"type": "memfile", "persist": False},
-            # A fixed server DUID, kept in memory instead of /var/lib/kea.
+            # A fixed server DUID, kept in memory instead of
+            # /var/lib/kea.
             "server-id": {
                 "type": "LL",
                 "htype": 1,
@@ -194,12 +200,14 @@ def _scripts(workdir: Path) -> dict[str, str]:
             "# SLAAC on the link (radvd) and a delegated prefix (kea-dhcp6).\n"
             "set -eu\n"
             f'mkdir -p "{session}"\n'
-            # pppd sets the link-local address with the peer's; kea would bind
-            # to the peer's, so the session's own becomes a plain one ($4).
+            # pppd sets the link-local address with the peer's; kea
+            # would bind to the peer's, so the session's own becomes a
+            # plain one ($4).
             f'{ip} -6 addr flush dev "${{IFNAME}}" scope link\n'
             f'{ip} -6 addr add "$4/64" dev "${{IFNAME}}" nodad\n'
-            # The newest session owns the prefixes: the previous one may still be
-            # going down (its peer left without a word, as after a snapshot jump).
+            # The newest session owns the prefixes: the previous one may
+            # still be going down (its peer left without a word, as
+            # after a snapshot jump).
             f'{ip} -6 addr add {WAN_GATEWAY}/64 dev "${{IFNAME}}" nodad\n'
             f'{ip} -6 route replace {WAN_PREFIX} dev "${{IFNAME}}"\n'
             f'{ip} -6 route replace {DELEGATED_PREFIX} dev "${{IFNAME}}"\n'

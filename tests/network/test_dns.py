@@ -1,12 +1,13 @@
 """network/dns: dnsmasq serves the LAN and asks honk first, the WAN's resolvers without it.
 
-Names under any.example.net all resolve on the emulated internet, so every test
-asks a name no cache has seen. The emulated internet lives in the documentation
-ranges, which dnsmasq's rebind protection counts as private: the module lets
-its zone through, as an operator does for a local domain.
+Names under any.example.net all resolve on the emulated internet, so
+every test asks a name no cache has seen. The emulated internet lives in
+the documentation ranges, which dnsmasq's rebind protection counts as
+private: the module lets its zone through, as an operator does for a
+local domain.
 
-honk names no query in its log; whether it resolved a name is what its DNS cache
-holds, which the module reads through honk's native API.
+honk names no query in its log; whether it resolved a name is what its
+DNS cache holds, which the module reads through honk's native API.
 """
 
 import json
@@ -97,8 +98,8 @@ def test_external_names_go_through_honk(proxy: Online) -> None:
 )
 def test_the_router_answers_its_own_names(proxy: Online) -> None:
     ipv4_b, _ = proxy.addresses("client-b")
-    # A name dnsmasq answers itself: honk, which would intercept DNS to a
-    # public resolver, leaves DNS to the router's address to dnsmasq.
+    # A name dnsmasq answers itself: honk, which would intercept DNS to
+    # a public resolver, leaves DNS to the router's address to dnsmasq.
     assert _resolve(proxy, "client-b.lan") == {"rcode": 0, "answers": [ipv4_b]}
     assert not _cached(proxy, "client-b.lan")
 
@@ -135,7 +136,8 @@ def test_honk_dns_port_is_closed_to_the_lan(proxy: Online) -> None:
 )
 def test_containers_resolve_through_their_network(app_pod: Online) -> None:
     router = app_pod.router
-    # honk binds the container bridge, and passes its DNS to a private address.
+    # honk binds the container bridge, and passes its DNS to a private
+    # address.
     until(
         lambda: hooks(router, "podman0") == PROXY_HOOKS_L2,
         timeout=60,

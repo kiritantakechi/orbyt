@@ -78,7 +78,8 @@ def test_default_environment_needs_the_marker() -> None:
         default_environment(BINARY, "orbyt_other")
 
 
-# Shortened ``dumpimage -l`` listings of the two FITs in a shipped image, of an example board.
+# Shortened ``dumpimage -l`` listings of the two FITs in a shipped
+# image, of an example board.
 KERNEL_FIT = """FIT description: ARM64 OpenWrt FIT (Flattened Image Tree)
  Image 0 (kernel-1)
   Description:  ARM64 OpenWrt Linux-6.18.52

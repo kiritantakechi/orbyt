@@ -1,12 +1,13 @@
 """Read spec scenarios from the OpenSpec tree.
 
-A capability lives at ``specs/<domain>/<name>/spec.md``: once archived under
-``openspec/specs``, and while in flight as a delta under
-``openspec/changes/<change>/specs``. Requirements are ``### Requirement:`` headings
-and scenarios are ``#### Scenario:`` headings below them. Deltas group
-requirements under ``## ADDED|MODIFIED|REMOVED|RENAMED Requirements``; removed
-requirements have no scenarios to verify, and a renamed requirement is the
-archived one under its new name.
+A capability lives at ``specs/<domain>/<name>/spec.md``: once archived
+under ``openspec/specs``, and while in flight as a delta under
+``openspec/changes/<change>/specs``. Requirements are ``###
+Requirement:`` headings and scenarios are ``#### Scenario:`` headings
+below them. Deltas group requirements under ``##
+ADDED|MODIFIED|REMOVED|RENAMED Requirements``; removed requirements have
+no scenarios to verify, and a renamed requirement is the archived one
+under its new name.
 """
 
 import re
@@ -88,9 +89,9 @@ def parse_renames(spec_file: Path) -> dict[str, str]:
 def load_scenarios(openspec_dir: Path) -> list[Scenario]:
     """Return every scenario of the archived specs and of the changes in flight.
 
-    An archived requirement that a change in flight renames keeps its scenarios,
-    under the new name: the system still has to meet them, and its tests follow
-    the change.
+    An archived requirement that a change in flight renames keeps its
+    scenarios, under the new name: the system still has to meet them,
+    and its tests follow the change.
     """
     changes = openspec_dir / "changes"
     deltas = [

@@ -1,8 +1,9 @@
 """network/qos: qosify shapes WAN egress with cake, fairly across hosts, by class.
 
-The fairness test sets the upload rate to 20 Mbit/s, and the ingress shaping
-test the download rate to 10 Mbit/s, which the emulator can saturate, so their
-results do not depend on the host's speed (design D11).
+The fairness test sets the upload rate to 20 Mbit/s, and the ingress
+shaping test the download rate to 10 Mbit/s, which the emulator can
+saturate, so their results do not depend on the host's speed (design
+D11).
 """
 
 import json
@@ -29,24 +30,26 @@ CAPABILITY = "network/qos"
 DEFAULT_RATE = "100Mbit"
 FAIR_MBIT = 20
 FAIR_RATE = f"{FAIR_MBIT}mbit"
-# The share of the shaped rate two uploads it limits reach together: below it
-# goes cake's overhead (46 bytes a packet) and TCP's back-off, above it iperf's
-# own count of the bytes it sent. Measured 2026-11-17: 92 % at 20 Mbit, while
-# shaped at 900 Mbit the emulator carried them at 92 Mbit.
+# The share of the shaped rate two uploads it limits reach together:
+# below it goes cake's overhead (46 bytes a packet) and TCP's back-off,
+# above it iperf's own count of the bytes it sent. Measured 2026-11-17:
+# 92 % at 20 Mbit, while shaped at 900 Mbit the emulator carried them at
+# 92 Mbit.
 SHAPED_SHARE = (0.8, 1.05)
 FAIR_SECONDS = 60
 FAIRNESS = 0.2
 VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-orbyt.conf
 RECOVERY = 60
-# Ingress shaping: the interface's ifb, the rate, and how long the download runs.
+# Ingress shaping: the interface's ifb, the rate, and how long the
+# download runs.
 IFB = "ifb-pppoe-wan"
 DOWN_RATE = 10_000_000
 DOWN_SECONDS = 10
 # How far above the rate a shaped download may measure.
 DOWN_MARGIN = 1.2
-# A device with a 14-character name, a VLAN of the LAN bridge (busybox's ip makes
-# VLANs, not veth pairs), and the ifb its ingress shaping gets: "ifb-", the
-# name's first two characters and its last nine.
+# A device with a 14-character name, a VLAN of the LAN bridge (busybox's
+# ip makes VLANs, not veth pairs), and the ifb its ingress shaping gets:
+# "ifb-", the name's first two characters and its last nine.
 LONG_DEVICE = "qosify-long-v1"
 LONG_VLAN = 4001
 LONG_IFB = f"ifb-{LONG_DEVICE[:2]}{LONG_DEVICE[-9:]}"
@@ -153,8 +156,9 @@ def test_two_hosts_share_the_upload(fair_rate: Online) -> None:
         for upload in uploads
     ]
     assert abs(rates[0] - rates[1]) <= FAIRNESS * max(rates), rates
-    # The shaper is what limited them: together they ran at its rate, which the
-    # emulator carries several times over. Slower, something else held them back.
+    # The shaper is what limited them: together they ran at its rate,
+    # which the emulator carries several times over. Slower, something
+    # else held them back.
     low, high = SHAPED_SHARE
     assert low * FAIR_MBIT * 1e6 <= sum(rates) <= high * FAIR_MBIT * 1e6, rates
 
@@ -174,8 +178,8 @@ def test_dns_rule_reaches_the_voice_tin(internet_zone: Online) -> None:
         before = qos.voice_packets(router)
         address = qos.send_by_name(internet_zone, 20)
         assert address == DIRECT_TARGET[0]
-        # qosify learnt the address from the reply on pppoe-wan, which has no
-        # link-layer header.
+        # qosify learnt the address from the reply on pppoe-wan, which
+        # has no link-layer header.
         assert address in qos.learnt(router).get("ipv4", [])
         assert qos.voice_packets(router) >= before + 20
 
@@ -191,7 +195,8 @@ def test_ingress_shaping_takes_the_download(online: Online) -> None:
             timeout=DOWN_SECONDS * 3,
         )
         received = json.loads(download)["end"]["sum_received"]
-        # Every byte of the download went through cake on the ifb, headers on top.
+        # Every byte of the download went through cake on the ifb,
+        # headers on top.
         assert _sent_bytes(router, IFB) - before >= received["bytes"]
         assert received["bits_per_second"] <= DOWN_RATE * DOWN_MARGIN
     assert _ifbs(router) == []
@@ -200,7 +205,8 @@ def test_ingress_shaping_takes_the_download(online: Online) -> None:
 @spec(CAPABILITY, "Recovery after redial", "PPPoE redial")
 def test_shaping_returns_after_a_redial(online: Online) -> None:
     online.redial()
-    # Online waits for qosify's classifier on the new pppoe-wan, and times it.
+    # Online waits for qosify's classifier on the new pppoe-wan, and
+    # times it.
     assert online.recovery <= RECOVERY
     assert hooks(online.router, "pppoe-wan") == WAN
     assert "qdisc cake" in _cake(online.router)

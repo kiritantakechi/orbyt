@@ -1,7 +1,7 @@
 """services/monitoring: the ucode node exporter on the LAN, with or without a data disk.
 
-The module's router has no data disk, so every scrape also shows that metrics
-need none.
+The module's router has no data disk, so every scrape also shows that
+metrics need none.
 """
 
 import re
@@ -51,7 +51,8 @@ def test_temperature_metrics(online: Online, metrics: str) -> None:
     assert re.search(
         r'^node_scrape_collector_success\{collector="hwmon"\} 1$', metrics, re.MULTILINE
     )
-    # The sensor driver of both SoCs is in the kernel; on a board it feeds hwmon.
+    # The sensor driver of both SoCs is in the kernel; on a board it
+    # feeds hwmon.
     assert (
         online.router.returncode("test -d /sys/bus/platform/drivers/rockchip-thermal")
         == 0

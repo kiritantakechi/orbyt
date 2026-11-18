@@ -1,7 +1,8 @@
 """Unit tests of scripts/github-audit.sh against a gh that answers from files.
 
-The stand-in answers ``gh api <path> [--jq <filter>]`` with the JSON file named
-after the path, as GitHub's API would for a repository set up that way.
+The stand-in answers ``gh api <path> [--jq <filter>]`` with the JSON
+file named after the path, as GitHub's API would for a repository set up
+that way.
 """
 
 import json
@@ -31,7 +32,8 @@ def _settings(
 ) -> Any:  # noqa: ANN401 (JSON)
     """Return the API's answers for a repository set up as the release pipeline needs.
 
-    ``has_push`` says whether the bump's push token is among its secrets.
+    ``has_push`` says whether the bump's push token is among its
+    secrets.
     """
     base = f"repos/{REPOSITORY}"
     names = [PUSH_CREDENTIAL] if has_push else []
@@ -126,7 +128,8 @@ def test_a_bump_without_its_push_token_fails(tmp_path: Path) -> None:
 
 
 def test_secrets_that_cannot_be_read_are_noted(tmp_path: Path) -> None:
-    # A workflow's token reads neither the secret nor the list of secrets.
+    # A workflow's token reads neither the secret nor the list of
+    # secrets.
     answers = {
         path: answer
         for path, answer in _settings().items()

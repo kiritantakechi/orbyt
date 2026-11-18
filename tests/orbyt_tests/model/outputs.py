@@ -1,12 +1,13 @@
 """The build's and the release's outputs as data (module-boundaries D7).
 
-``scripts/build.sh`` writes a build's ``manifest.json``; a release carries it as
-``<device>-manifest.json``, and a drill base carries the manifest of the build
-its image comes from. ``emu-prepare`` records what an emulator directory was
-made from (``source.json``), ``scripts/toolchain-build.sh`` what a toolchain was
-built with (``orbyt-toolchain.json``), and ``scripts/release-publish.sh`` what a
-release is (``release.json``). Each is read through its model here, strict
-about unknown fields and types (``orbyt_tests.model.data``).
+``scripts/build.sh`` writes a build's ``manifest.json``; a release
+carries it as ``<device>-manifest.json``, and a drill base carries the
+manifest of the build its image comes from. ``emu-prepare`` records what
+an emulator directory was made from (``source.json``),
+``scripts/toolchain-build.sh`` what a toolchain was built with
+(``orbyt-toolchain.json``), and ``scripts/release-publish.sh`` what a
+release is (``release.json``). Each is read through its model here,
+strict about unknown fields and types (``orbyt_tests.model.data``).
 """
 
 from pathlib import Path
@@ -53,8 +54,8 @@ class Manifest(_Record):
     toolchain_cflags: Flags
     upstream_lock_sha256: Sha256
     patches_sha256: Sha256
-    # This repository's commit, -dirty when the checkout differed from it in any
-    # file, an untracked one that is not ignored included.
+    # This repository's commit, -dirty when the checkout differed from
+    # it in any file, an untracked one that is not ignored included.
     commit: Annotated[str, Field(pattern=r"^[0-9a-f]{40}(-dirty)?$")]
     openwrt_head: Annotated[str, Field(pattern=r"^[0-9a-f]{40}$")]
     kernel_version: str

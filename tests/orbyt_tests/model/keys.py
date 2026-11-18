@@ -1,12 +1,12 @@
 """Release keys made for the test, and what the tests sign with them (r4s-release-pipeline D7).
 
-A release is signed with an apk key (EC P-256, package indexes) and a firmware
-key (usign, images and the manifest). ``Keys.make`` creates both and a keyring
-that mirrors the image's trust anchors (etc/apk/keys, etc/usign/keys), as
-orbyt-keyring holds the production ones; ``orbyt_tests.device.trust`` puts it on a
-router.
-``sign`` runs scripts/release-sign.sh, the script CI signs releases with, on a
-build with these keys.
+A release is signed with an apk key (EC P-256, package indexes) and a
+firmware key (usign, images and the manifest). ``Keys.make`` creates
+both and a keyring that mirrors the image's trust anchors (etc/apk/keys,
+etc/usign/keys), as orbyt-keyring holds the production ones;
+``orbyt_tests.device.trust`` puts it on a router. ``sign`` runs
+scripts/release-sign.sh, the script CI signs releases with, on a build
+with these keys.
 """
 
 import shutil
@@ -71,7 +71,8 @@ class Keys:
     def sign_file(self, path: Path) -> Path:
         """Sign ``path`` with the firmware key, as a release's manifest is; return the signature.
 
-        The signature is a file of its own, never written through a link.
+        The signature is a file of its own, never written through a
+        link.
         """
         signature = path.with_name(f"{path.name}.sig")
         signature.unlink(missing_ok=True)

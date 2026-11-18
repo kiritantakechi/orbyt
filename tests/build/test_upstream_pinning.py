@@ -1,7 +1,8 @@
 """build/upstream-pinning: every patch states its upstream status, with write-ups in step.
 
-And a patch series gives the same commit whatever the git configuration of the
-user who applies it (orbyt_tests.model.series, as patch.sh applies it).
+And a patch series gives the same commit whatever the git configuration
+of the user who applies it (orbyt_tests.model.series, as patch.sh
+applies it).
 """
 
 import os
@@ -23,8 +24,9 @@ if TYPE_CHECKING:
 
 CAPABILITY = "build/upstream-pinning"
 REQUIREMENT = "Every patch states its upstream status"
-# A user's git configuration: it fixes whitespace on apply, signs every commit
-# with a signing program that fails, and converts line endings on checkout.
+# A user's git configuration: it fixes whitespace on apply, signs every
+# commit with a signing program that fails, and converts line endings on
+# checkout.
 USER_CONFIGURATION = """[apply]
 whitespace = fix
 [commit]
@@ -60,7 +62,8 @@ def test_every_write_up_names_its_patch() -> None:
 )
 def test_the_series_commit_ignores_the_user_s_git_configuration(tmp_path: Path) -> None:
     series = Series(tmp_path)
-    # A third patch, whose line ends in a blank: whitespace that apply would fix.
+    # A third patch, whose line ends in a blank: whitespace that apply
+    # would fix.
     (series.repo / "c.txt").write_text("c\none\ntwo, patched \n")
     series.git("commit", "-q", "-a", "-m", "patch c")
     series.git(

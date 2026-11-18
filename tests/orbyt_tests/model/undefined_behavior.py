@@ -1,12 +1,13 @@
 """UB-indicative warnings and their reviews (spec quality/undefined-behavior).
 
-A build's report (``warnings.json``, written by ``scripts/build.sh``) holds every
-warning of a UB-indicative option in the build of a package its image ships. The
-register (``tests/reviewed-warnings.toml``) holds the warnings reviewed as not
-undefined behavior, each with its reason. A review matches a warning on package,
-option, file and function, never on the line, so that it survives upstream moving
-code around. A review that names boards matches only their builds' warnings: what
-GCC finds can depend on the optimization, and so on the board's ``-mcpu``.
+A build's report (``warnings.json``, written by ``scripts/build.sh``)
+holds every warning of a UB-indicative option in the build of a package
+its image ships. The register (``tests/reviewed-warnings.toml``) holds
+the warnings reviewed as not undefined behavior, each with its reason. A
+review matches a warning on package, option, file and function, never on
+the line, so that it survives upstream moving code around. A review that
+names boards matches only their builds' warnings: what GCC finds can
+depend on the optimization, and so on the board's ``-mcpu``.
 """
 
 from datetime import date

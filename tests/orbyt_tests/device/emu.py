@@ -1,15 +1,17 @@
 """The emulated board (design D14, r4s-ab-rollback D7, board-model D7): its files and driving it.
 
-``emu-prepare`` turns the outputs of a build into what the emulator boots, as the
-board the build is for: the factory image as the board's kind of boot disk (an
-SD card or an eMMC), which every test run overlays with copy-on-write; the
-emulator's U-Boot as firmware; a device tree with the board's identity, which
-U-Boot hands on to the kernel it starts from the slot; and the labgrid target
-description of the machine, from the board's description. The output directory
-is keyed by the image, the firmware and the board, and reused; directories of
-builds that have since changed are removed.
+``emu-prepare`` turns the outputs of a build into what the emulator
+boots, as the board the build is for: the factory image as the board's
+kind of boot disk (an SD card or an eMMC), which every test run overlays
+with copy-on-write; the emulator's U-Boot as firmware; a device tree
+with the board's identity, which U-Boot hands on to the kernel it starts
+from the slot; and the labgrid target description of the machine, from
+the board's description. The output directory is keyed by the image, the
+firmware and the board, and reused; directories of builds that have
+since changed are removed.
 
-``Emulator`` gives the tests power, disk snapshots and the serial console.
+``Emulator`` gives the tests power, disk snapshots and the serial
+console.
 """
 
 import argparse
@@ -66,10 +68,11 @@ QEMU = "qemu-system-aarch64"
 MACHINE = "virt,gic-version=3"
 # The boot disk's device, which throttled_writes() slows down.
 BOOT_DISK_ID = "boot-disk"
-# QEMU's own account of the machine, beside the console log: its watchdog's
-# actions and the shutdowns it is asked for, with the time, so that a reset the
-# console does not explain is named there (trial-boot-resilience D5). QEMU
-# writes each run's anew; the session's log keeps every run's.
+# QEMU's own account of the machine, beside the console log: its
+# watchdog's actions and the shutdowns it is asked for, with the time,
+# so that a reset the console does not explain is named there
+# (trial-boot-resilience D5). QEMU writes each run's anew; the session's
+# log keeps every run's.
 QEMU_LOG = "qemu.log"
 QEMU_RUN_LOG = "qemu-run.log"
 QEMU_TRACES = ("watchdog_perform_action", "qemu_system_shutdown_request")
@@ -82,15 +85,16 @@ UNPLUG_TIMEOUT = 30
 class BootDisk:
     """A kind of boot disk as the emulator attaches it.
 
-    ``device`` is QEMU's device on the SD host controller, ``size`` the disk's size,
-    a power of two as QEMU wants it.
+    ``device`` is QEMU's device on the SD host controller, ``size`` the
+    disk's size, a power of two as QEMU wants it.
     """
 
     device: str
     size: int
 
 
-# An SD card as small as an image must fit, and an eMMC as large as the boards'.
+# An SD card as small as an image must fit, and an eMMC as large as the
+# boards'.
 BOOT_DISKS = {"sd": BootDisk("sd-card", 4 << 30), "emmc": BootDisk("emmc", 32 << 30)}
 
 
@@ -103,9 +107,9 @@ class Machine:
     def dump_dtb(self, output: Path, firmware: Path) -> None:
         """Write the device tree QEMU generates for this machine running ``firmware``.
 
-        The firmware belongs to the machine: with one, QEMU replaces the PL061 GPIO
-        with an ACPI event device, and a device tree without it would describe a
-        device the kernel faults on.
+        The firmware belongs to the machine: with one, QEMU replaces the
+        PL061 GPIO with an ACPI event device, and a device tree without
+        it would describe a device the kernel faults on.
         """
         emulator, cores = self.board.emulator, len(self.board.soc.cores)
         subprocess.run(
@@ -123,10 +127,10 @@ class Machine:
     def description(self, directory: Path) -> dict[str, Any]:
         """Return the labgrid target description of the machine booting ``directory``'s files.
 
-        The boot disk is the board's kind on an SD host controller; each of the
-        board's ports is a virtio NIC in the board's order, on its segment's tap.
-        The xHCI controller takes the USB data disks the tests plug in and out
-        (r4s-services D10).
+        The boot disk is the board's kind on an SD host controller; each
+        of the board's ports is a virtio NIC in the board's order, on
+        its segment's tap. The xHCI controller takes the USB data disks
+        the tests plug in and out (r4s-services D10).
         """
         emulator = self.board.emulator
         nics = [
@@ -168,9 +172,9 @@ class Machine:
                             "dtb": "dtb",
                             "extra_args": " ".join(arguments),
                         },
-                        # The first boot of a slot creates dropbear's host keys,
-                        # which takes a while under TCG, before the first
-                        # connection is accepted.
+                        # The first boot of a slot creates dropbear's
+                        # host keys, which takes a while under TCG,
+                        # before the first connection is accepted.
                         "SSHDriver": {"connection_timeout": 120.0},
                     },
                 },
@@ -208,7 +212,8 @@ def boot_files(
         filesystem.write_bytes(raw.read(boot.size))
     for name in names:
         file = output / name
-        # debugfs exits 0 even when the file is missing; check the result instead.
+        # debugfs exits 0 even when the file is missing; check the
+        # result instead.
         run("debugfs", "-R", f"dump /{name} {file}", str(filesystem))
         if not file.is_file() or file.stat().st_size == 0:
             msg = f"{name} not found on partition {partition}"
@@ -283,7 +288,8 @@ def prepare(build: Build, root: Path) -> Path:
         machine.dump_dtb(dtb, work / FIRMWARE_FILE)
         run("fdtput", "-t", "s", str(dtb), "/", "compatible", build.board.board_name)
         run("fdtput", "-t", "s", str(dtb), "/", "model", build.board.model)
-        # Each core's capacity as on the SoC, so that the kernel knows the big cores.
+        # Each core's capacity as on the SoC, so that the kernel knows
+        # the big cores.
         cpus = sorted(
             (
                 node
@@ -322,7 +328,8 @@ def prepare(build: Build, root: Path) -> Path:
 def _current(record: Path) -> bool:
     """Return whether the build an emulator directory was made from still has those files.
 
-    A record or a manifest that no longer reads as one names a build that changed.
+    A record or a manifest that no longer reads as one names a build
+    that changed.
     """
     try:
         source = read_json(record, EmulationSource)
@@ -366,18 +373,19 @@ class ConsoleEndedError(Exception):
 class Console:
     """Drain the serial console for as long as the machine runs.
 
-    QEMU's PL011 writes one byte at a time, and on the labgrid socket every byte
-    takes a whole socket-buffer slot, so an unread console stalls the guest within
-    a few hundred bytes. A thread reads it continuously into memory and a log file;
-    tests wait for console output against that record. A console that ends, as
-    QEMU exits, or cannot be read ends the waits at once (test-fidelity D12).
+    QEMU's PL011 writes one byte at a time, and on the labgrid socket
+    every byte takes a whole socket-buffer slot, so an unread console
+    stalls the guest within a few hundred bytes. A thread reads it
+    continuously into memory and a log file; tests wait for console
+    output against that record. A console that ends, as QEMU exits, or
+    cannot be read ends the waits at once (test-fidelity D12).
     """
 
     def __init__(self, read: Callable[[int, float], bytes], log: Path) -> None:
         """Read the console with ``read(size, timeout)`` into memory and append it to ``log``.
 
-        ``read`` raises pexpect's TIMEOUT when nothing came, and returns nothing
-        once the console has ended.
+        ``read`` raises pexpect's TIMEOUT when nothing came, and returns
+        nothing once the console has ended.
         """
         self._read = read
         self._log = log
@@ -385,7 +393,8 @@ class Console:
         self._changed = threading.Condition()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
-        # Why the console gave out, and the error that did it, if one did.
+        # Why the console gave out, and the error that did it, if one
+        # did.
         self._ended: tuple[str, BaseException | None] | None = None
 
     def start(self) -> None:
@@ -410,8 +419,9 @@ class Console:
                     chunk = self._read(4096, 0.2)
                 except TIMEOUT:
                     continue
-                # Whatever stops the reading is the waits' to raise: unread, it
-                # would end this thread alone, and every wait at its time limit.
+                # Whatever stops the reading is the waits' to raise:
+                # unread, it would end this thread alone, and every wait
+                # at its time limit.
                 except Exception as error:  # noqa: BLE001
                     self._end("the console cannot be read", error)
                     return
@@ -442,7 +452,8 @@ class Console:
     def wait_for(self, pattern: str, *, since: int, timeout: float) -> str:
         """Wait until ``pattern`` (a regular expression) appears after ``since``.
 
-        Raise ConsoleEndedError at once when the console ended without it.
+        Raise ConsoleEndedError at once when the console ended without
+        it.
         """
         regex = re.compile(pattern.encode())
         deadline = time.monotonic() + timeout
@@ -478,7 +489,8 @@ class Emulator:
         self.target = target
         self.qemu: QEMUDriver = target.get_driver("QEMUDriver", activate=False)
         self.console = Console(self._read_console, console_log)
-        # The machines powered on so far: a limit set on one ends with it.
+        # The machines powered on so far: a limit set on one ends with
+        # it.
         self.runs = 0
         self.log = console_log.with_name(QEMU_LOG)
         self.run_log = console_log.with_name(QEMU_RUN_LOG)
@@ -488,7 +500,8 @@ class Emulator:
         )
         self.disk = directory / DISK_FILE
         self.overlay = directory / OVERLAY_FILE
-        # The disks plug_disk() plugged in, by name: they stay through a power cut.
+        # The disks plug_disk() plugged in, by name: they stay through a
+        # power cut.
         self.plugged: dict[str, PluggedDisk] = {}
 
     def reset_disk(self) -> None:
@@ -500,16 +513,16 @@ class Emulator:
         )
 
     def _read_console(self, size: int, timeout: float) -> bytes:
-        # _read is the console primitive every labgrid console driver implements;
-        # read() would record each call as a test step.
+        # _read is the console primitive every labgrid console driver
+        # implements; read() would record each call as a test step.
         return cast("bytes", self.qemu._read(size=size, timeout=timeout))  # noqa: SLF001
 
     def power_on(self) -> None:
         """Start the machine and drain its console.
 
-        The disks plugged in are plugged in again: QEMU starts anew, without the
-        devices added while it ran, where a power cut leaves a disk in its port
-        (test-fidelity D17).
+        The disks plugged in are plugged in again: QEMU starts anew,
+        without the devices added while it ran, where a power cut leaves
+        a disk in its port (test-fidelity D17).
         """
         self.target.activate(self.qemu)
         self.qemu.on()
@@ -564,8 +577,8 @@ class Emulator:
     def throttled_writes(self, bps: int) -> Generator[None]:
         """Limit writes to the boot disk to ``bps`` bytes per second while the context lasts.
 
-        The limit ends with the context, however it ends, or with the power cut
-        that ends the QEMU holding it (test-fidelity D11).
+        The limit ends with the context, however it ends, or with the
+        power cut that ends the QEMU holding it (test-fidelity D11).
         """
         run = self.runs
         self._limit_writes(bps)
@@ -578,7 +591,8 @@ class Emulator:
     def write_limit(self) -> int:
         """Return the boot disk's limit of written bytes per second, 0 for none."""
         blocks = cast("list[dict[str, Any]]", self.qemu.monitor_command("query-block"))
-        # A device's qdev is its id, or its QOM path, which holds the id.
+        # A device's qdev is its id, or its QOM path, which holds the
+        # id.
         (disk,) = (
             block
             for block in blocks
@@ -593,10 +607,10 @@ class Emulator:
     def plug_disk(self, name: str, image: Path, port: int) -> None:
         """Plug ``image`` in as a USB SSD (UAS, as the boards' data disks) on xHCI port ``port``.
 
-        The disk's SCSI product name is ``name``, which the guest shows as its
-        model. The machine's snapshot holds no such disk (a raw image takes no
-        internal snapshot), so a disk must be unplugged before the machine is
-        restored.
+        The disk's SCSI product name is ``name``, which the guest shows
+        as its model. The machine's snapshot holds no such disk (a raw
+        image takes no internal snapshot), so a disk must be unplugged
+        before the machine is restored.
         """
         disk = PluggedDisk(image, port)
         self._attach(name, disk)
@@ -622,7 +636,8 @@ class Emulator:
             "product": name,
         }
         self.qemu.monitor_command("device_add", scsi)
-        # A hot-plugged usb-uas waits for its disk: only now it appears on the port.
+        # A hot-plugged usb-uas waits for its disk: only now it appears
+        # on the port.
         self.qemu.monitor_command(
             "qom-set",
             {
@@ -636,8 +651,8 @@ class Emulator:
         """Pull a disk plug_disk() plugged in."""
         del self.plugged[name]
         self.qemu.monitor_command("device_del", {"id": f"{name}-uas"})
-        # The drive is free once the disk device has let it go, which QEMU
-        # finishes a little after the device is gone.
+        # The drive is free once the disk device has let it go, which
+        # QEMU finishes a little after the device is gone.
         deadline = time.monotonic() + UNPLUG_TIMEOUT
         while self._drive_in_use(name):
             if time.monotonic() > deadline:

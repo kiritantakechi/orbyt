@@ -1,11 +1,12 @@
 """The rootless network sandbox around the emulator (design D14).
 
-``scripts/test.sh`` starts pytest inside ``unshare --user --map-root-user --net
---mount``, so everything here runs as root of a private user namespace and changes
-nothing on the host. The topology is data: bridges (with the emulator's taps and
-the test runner's address), and network namespaces whose ports are veth pairs to
-the bridges, each port with static addresses or a DHCP client, plus routes and
-daemons. ``topology`` makes it for a board: a segment per port of the board
+``scripts/test.sh`` starts pytest inside ``unshare --user
+--map-root-user --net --mount``, so everything here runs as root of a
+private user namespace and changes nothing on the host. The topology is
+data: bridges (with the emulator's taps and the test runner's address),
+and network namespaces whose ports are veth pairs to the bridges, each
+port with static addresses or a DHCP client, plus routes and daemons.
+``topology`` makes it for a board: a segment per port of the board
 (board-model D7), and the ISP and internet of ``UPSTREAM``.
 
 ```
@@ -15,9 +16,9 @@ runner   ─┘ 10.0.0.0/24    │ (QEMU) │  PPPoE        (BRAS)          └�
 client-c ─── br-lan2 ─ LAN │        │   (a second LAN port)
 ```
 
-A namespace is held by a ``sleep`` process started with ``unshare --net``;
-commands enter it with ``nsenter``. No named namespaces, so no /run/netns and no
-real root are needed.
+A namespace is held by a ``sleep`` process started with ``unshare
+--net``; commands enter it with ``nsenter``. No named namespaces, so no
+/run/netns and no real root are needed.
 """
 
 import itertools
@@ -43,8 +44,9 @@ if TYPE_CHECKING:
 UDHCPC_SCRIPT = Path(__file__).with_name("udhcpc.sh")
 RUNNER_ADDRESS = "10.0.0.2"
 DAEMON_SETTLE = 0.5
-# The emulated internet: probe targets the tests route differently (direct or
-# through the proxy), the ISP's resolver, and the socks5 exit.
+# The emulated internet: probe targets the tests route differently
+# (direct or through the proxy), the ISP's resolver, and the socks5
+# exit.
 INET_GATEWAY = ("203.0.113.1", "2001:db8:ffff::1")
 DIRECT_TARGET = ("203.0.113.10", "2001:db8:ffff::10")
 # The name the internet's DNS gives DIRECT_TARGET.
@@ -78,10 +80,10 @@ class Port:
 class Namespace:
     """A network namespace; its ports are eth0, eth1, ... in order.
 
-    ``sysctls`` are ``key=value`` settings of the namespace, ``routes`` are ``ip
-    route add`` arguments. ``daemons`` are command lines started inside the
-    namespace; ``{workdir}`` in an argument is replaced with a private directory
-    of that namespace.
+    ``sysctls`` are ``key=value`` settings of the namespace, ``routes``
+    are ``ip route add`` arguments. ``daemons`` are command lines
+    started inside the namespace; ``{workdir}`` in an argument is
+    replaced with a private directory of that namespace.
     """
 
     name: str
@@ -99,7 +101,8 @@ class Topology:
     namespaces: tuple[Namespace, ...]
 
 
-# The ISP and the internet behind the router's WAN port, the same for every board.
+# The ISP and the internet behind the router's WAN port, the same for
+# every board.
 UPSTREAM = (
     Namespace(
         "isp",
@@ -117,8 +120,9 @@ UPSTREAM = (
         sysctls=(
             "net.ipv4.ip_forward=1",
             "net.ipv6.conf.all.forwarding=1",
-            # A session's link-local address is its own: kea binds to it as
-            # soon as IPv6CP is up, before duplicate detection would end.
+            # A session's link-local address is its own: kea binds to it
+            # as soon as IPv6CP is up, before duplicate detection would
+            # end.
             "net.ipv6.conf.default.accept_dad=0",
         ),
         daemons=(
@@ -167,8 +171,8 @@ UPSTREAM = (
                 "dnsmasq",
                 "--keep-in-foreground",
                 "--conf-file=/dev/null",
-                # Empty user and group: keep the sandbox's identity; setgroups
-                # is not allowed in a user namespace.
+                # Empty user and group: keep the sandbox's identity;
+                # setgroups is not allowed in a user namespace.
                 "--user=",
                 "--group=",
                 "--log-facility=-",
@@ -179,10 +183,11 @@ UPSTREAM = (
                 "--no-resolv",
                 "--no-hosts",
                 # The one zone the internet serves, anything else is
-                # NXDOMAIN (host records win over address rules). Every name
-                # under any.example.net resolves, so each test query can be
-                # one no cache has seen. Not a .test zone: the router's
-                # dnsmasq keeps RFC 6761 names local and never forwards them.
+                # NXDOMAIN (host records win over address rules). Every
+                # name under any.example.net resolves, so each test
+                # query can be one no cache has seen. Not a .test zone:
+                # the router's dnsmasq keeps RFC 6761 names local and
+                # never forwards them.
                 "--address=/#/",
                 f"--address=/any.example.net/{DIRECT_TARGET[0]}",
                 f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
@@ -222,8 +227,8 @@ UPSTREAM = (
         routes=tuple(f"default via {gateway}" for gateway in PROXY_GATEWAY),
         daemons=(("microsocks", "-i", "::", "-p", str(PROXY_PORT)),),
     ),
-    # A remote WireGuard device; the tests make its tunnel, a wireguard link
-    # of the host kernel, with the keys they push to the router.
+    # A remote WireGuard device; the tests make its tunnel, a wireguard
+    # link of the host kernel, with the keys they push to the router.
     Namespace(
         "wg-peer",
         ports=(
@@ -237,7 +242,8 @@ UPSTREAM = (
         ),
         routes=tuple(f"default via {gateway}" for gateway in INET_GATEWAY),
     ),
-    # A tailnet device: tailscaled on a TUN of its own, trusting the test CA.
+    # A tailnet device: tailscaled on a TUN of its own, trusting the
+    # test CA.
     Namespace(
         "ts-peer",
         ports=(
@@ -269,7 +275,8 @@ UPSTREAM = (
 def segments(board: Board) -> tuple[str, ...]:
     """Return the segment each of the board's ports joins, in the board's order (board-model D7).
 
-    The WAN port's segment is ``wan``, the LAN ports' are ``lan``, ``lan2``, ...
+    The WAN port's segment is ``wan``, the LAN ports' are ``lan``,
+    ``lan2``, ...
     """
     lans = itertools.chain(("lan",), (f"lan{number}" for number in itertools.count(2)))
     return tuple("wan" if port.role == "wan" else next(lans) for port in board.ports)
@@ -283,8 +290,9 @@ def taps(board: Board) -> tuple[str, ...]:
 def topology(board: Board) -> Topology:
     """Return the sandbox around the emulated board: a segment per port, the LAN clients, upstream.
 
-    The runner, ``client-a`` and ``client-b`` share the first LAN port's segment;
-    every further LAN port's segment has a client of its own, ``client-c`` on.
+    The runner, ``client-a`` and ``client-b`` share the first LAN port's
+    segment; every further LAN port's segment has a client of its own,
+    ``client-c`` on.
     """
     lans = [segment for segment in segments(board) if segment != "wan"]
     clients = zip(string.ascii_lowercase, (lans[0], *lans), strict=False)
@@ -423,12 +431,13 @@ class Network(AbstractContextManager["Network"]):
     def _isolate(self) -> None:
         """Give the sandbox its own accounts, hosts, the ISP's /etc/ppp and the servers' setup.
 
-        The sandbox has one uid, 0, which is the invoking user outside. Its own
-        passwd and group make every account that uid, with a private home:
-        daemons that switch to an account (rp-pppoe drops to nobody) or read a
-        dotfile (pppd reads ~/.ppprc) stay inside the sandbox. The host's name
-        service cache would answer with the host's accounts, so its socket is
-        hidden. Its own hosts file names the emulated internet's servers.
+        The sandbox has one uid, 0, which is the invoking user outside.
+        Its own passwd and group make every account that uid, with a
+        private home: daemons that switch to an account (rp-pppoe drops
+        to nobody) or read a dotfile (pppd reads ~/.ppprc) stay inside
+        the sandbox. The host's name service cache would answer with the
+        host's accounts, so its socket is hidden. Its own hosts file
+        names the emulated internet's servers.
         """
         etc = self.workdir / "etc"
         home = self.workdir / "home"
@@ -481,8 +490,9 @@ class Network(AbstractContextManager["Network"]):
         ip("link", "set", outside, "master", port.bridge, "up")
         netns.run("ip", "link", "set", device, "up")
         for address in port.addresses:
-            # Static IPv6 addresses skip duplicate address detection: nothing else
-            # in the sandbox claims them, and the tests need them at once.
+            # Static IPv6 addresses skip duplicate address detection:
+            # nothing else in the sandbox claims them, and the tests
+            # need them at once.
             netns.run(
                 "ip",
                 "addr",

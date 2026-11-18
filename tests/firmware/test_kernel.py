@@ -20,8 +20,8 @@ KERNEL_PATCH_DIR = re.compile(
 )
 BBR3_PATCH = re.compile(r"^target/linux/generic/hack-[0-9.]+/960-bbr3-")
 BPF_OBJECT = "/tmp/orbyt_pass.o"  # noqa: S108 (a path on the router)
-# The smallest tcx program: it hands every packet on (TCX_NEXT). libbpf derives the
-# program and attach type from the section name.
+# The smallest tcx program: it hands every packet on (TCX_NEXT). libbpf
+# derives the program and attach type from the section name.
 TCX_SOURCE = """\
 __attribute__((section("tcx/ingress"), used)) int orbyt_pass(void *ctx) { return -1; }
 char LICENSE[] __attribute__((section("license"), used)) = "GPL";
@@ -123,14 +123,16 @@ def test_virt_devices(router: Router, board: Board) -> None:
     assert router.run("ls /sys/bus/pci/drivers/sdhci-pci/ | grep -c '^0000:'") == "1"
     nics = router.run("ls /sys/bus/virtio/drivers/virtio_net/ | grep '^virtio'").split()
     assert len(nics) == len(board.ports)
-    # OpenWrt builds without WATCHDOG_SYSFS; the driver announces itself instead.
+    # OpenWrt builds without WATCHDOG_SYSFS; the driver announces itself
+    # instead.
     assert router.returncode("dmesg | grep -q 'i6300ESB timer .*initialized'") == 0
     assert router.returncode("[ -c /dev/watchdog0 ]") == 0
 
 
 @spec(CAPABILITY, "Drivers for the board's ports", "Port drivers registered")
 def test_port_drivers_registered(router: Router, board: Board) -> None:
-    # They register at boot, although the emulator has none of their devices.
+    # They register at boot, although the emulator has none of their
+    # devices.
     drivers = [
         *(f"/sys/bus/platform/drivers/{name}" for name in board.drivers.platform),
         *(f"/sys/bus/pci/drivers/{name}" for name in board.drivers.pci),
@@ -157,7 +159,8 @@ def test_bbr3_is_the_default(router: Router) -> None:
     "Router-originated connections use BBR",
 )
 def test_local_connection_uses_bbr(router: Router) -> None:
-    # Hold a connection from the router to its own web server open, then look at it.
+    # Hold a connection from the router to its own web server open, then
+    # look at it.
     info = router.run(
         "(sleep 5 | nc 127.0.0.1 80 >/dev/null) & sleep 2; ss -Htin state established 'dport = :80'"
     )
@@ -188,12 +191,13 @@ def test_kmod_of_the_same_build_loads(router: Router, repository: str) -> None:
 
 @spec(CAPABILITY, "Standard vermagic", "Reject a kmod with a different kernel config")
 def test_kmod_of_another_kernel_is_refused(router: Router) -> None:
-    # A kmod depends on kernel=<version>~<vermagic>; a virtual package with the
-    # running version but another vermagic has exactly the dependency of a kmod
-    # from a build with a different kernel configuration.
+    # A kmod depends on kernel=<version>~<vermagic>; a virtual package
+    # with the running version but another vermagic has exactly the
+    # dependency of a kmod from a build with a different kernel
+    # configuration.
     version = router.run("uname -r")
-    # The control: the running kernel's own, as its installed package names it
-    # (kernel-<version>~<vermagic>-r<release>), installs.
+    # The control: the running kernel's own, as its installed package
+    # names it (kernel-<version>~<vermagic>-r<release>), installs.
     (installed,) = router.run("apk list --installed kernel | cut -d' ' -f1").split()
     own = f"kernel={installed.removeprefix('kernel-')}"
     assert own.startswith(f"kernel={version}~"), own

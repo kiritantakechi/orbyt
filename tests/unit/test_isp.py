@@ -1,7 +1,7 @@
 """Unit tests of orbyt_tests.sandbox.isp: a pppd in the sandbox dials the emulated ISP.
 
-The dialer uses PPPoE in user mode as the ISP does (the host has no pppoe.ko);
-the router dials the same ISP with the kernel's PPPoE.
+The dialer uses PPPoE in user mode as the ISP does (the host has no
+pppoe.ko); the router dials the same ISP with the kernel's PPPoE.
 """
 
 import ipaddress

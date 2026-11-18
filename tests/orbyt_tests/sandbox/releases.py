@@ -1,15 +1,17 @@
 """A stand-in for GitHub's Releases API on the emulated internet (r4s-release-pipeline D7).
 
-``serve`` answers what orbyt-sync asks, over HTTPS with the test CA's certificate:
-a repository's newest stable release (``/repos/<owner>/<repo>/releases/latest``),
-its releases newest first (``/repos/<owner>/<repo>/releases``), and each asset at
-its ``browser_download_url`` (``/<owner>/<repo>/releases/download/<tag>/<asset>``,
-as on GitHub). A repository's releases are directories under
-``<root>/<owner>/<repo>``, each an assembled release (release-publish.sh) that
-``publish`` put there, with the time it did in ``.published``. A release with a
-``.cut`` file sends only that many bytes of each asset, then drops the
-connection: a sync interrupted halfway. Every download is recorded in the
-release's ``.downloads``, which ``downloads`` reads.
+``serve`` answers what orbyt-sync asks, over HTTPS with the test CA's
+certificate: a repository's newest stable release
+(``/repos/<owner>/<repo>/releases/latest``), its releases newest first
+(``/repos/<owner>/<repo>/releases``), and each asset at its
+``browser_download_url``
+(``/<owner>/<repo>/releases/download/<tag>/<asset>``, as on GitHub). A
+repository's releases are directories under ``<root>/<owner>/<repo>``,
+each an assembled release (release-publish.sh) that ``publish`` put
+there, with the time it did in ``.published``. A release with a ``.cut``
+file sends only that many bytes of each asset, then drops the
+connection: a sync interrupted halfway. Every download is recorded in
+the release's ``.downloads``, which ``downloads`` reads.
 """
 
 import argparse
@@ -44,8 +46,9 @@ def publish(
 ) -> str:
     """Publish an assembled release in ``repository`` (owner/repo), the newest now; return its tag.
 
-    ``tag`` and ``prerelease`` publish it as another release: one assembled
-    build stands for several. Its files are linked, not copied (none changes).
+    ``tag`` and ``prerelease`` publish it as another release: one
+    assembled build stands for several. Its files are linked, not copied
+    (none changes).
     """
     info = read_json(release / RELEASE_FILE, Release)
     info = info.model_copy(
@@ -64,7 +67,8 @@ def publish(
 def rename(root: Path, repository: str, tag: str, name: str) -> None:
     """Have the API name release ``tag`` ``name``; its directory, and its assets' URLs, stay.
 
-    ``name`` may be no file name at all, as a misbehaving service would answer.
+    ``name`` may be no file name at all, as a misbehaving service would
+    answer.
     """
     target = root / repository / tag
     info = read_json(target / RELEASE_FILE, Release)
@@ -184,9 +188,9 @@ def serve(root: Path, address: str, name: str, certificate: Path, key: Path) -> 
     context.load_cert_chain(certificate, key)
     with ThreadingHTTPServer((address, PORT), handler) as server:
         # Each handshake runs in its request's thread, on the first read
-        # (OpenSSL negotiates there), not in accept: a client that connects
-        # ahead and sends nothing yet, as a proxy's connection pool does,
-        # would otherwise hold up every client behind it.
+        # (OpenSSL negotiates there), not in accept: a client that
+        # connects ahead and sends nothing yet, as a proxy's connection
+        # pool does, would otherwise hold up every client behind it.
         server.socket = context.wrap_socket(
             server.socket, server_side=True, do_handshake_on_connect=False
         )

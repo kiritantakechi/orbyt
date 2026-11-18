@@ -1,9 +1,10 @@
 """firmware/web-theme: the image's own LuCI theme, its default, its coverage and its sources.
 
-The coverage, LuCI's icons and the pages are read as the router serves them, LuCI's
-stock theme beside the image's own; the theme's files are read from this repository's
-feed. Light and dark, phone width, and how the icons and graphs look are verified in
-a browser (verified-elsewhere).
+The coverage, LuCI's icons and the pages are read as the router serves
+them, LuCI's stock theme beside the image's own; the theme's files are
+read from this repository's feed. Light and dark, phone width, and how
+the icons and graphs look are verified in a browser
+(verified-elsewhere).
 """
 
 import re
@@ -27,8 +28,9 @@ THEME = "/luci-static/orbyt"
 STOCK = "/luci-static/bootstrap"
 DEFAULTS = "/rom/etc/uci-defaults/31_luci-theme-orbyt"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
-# What loads a resource, in markup, in a stylesheet and in a script, when it names
-# another host: a scheme's // or a scheme-relative //. Links (<a href>) load nothing.
+# What loads a resource, in markup, in a stylesheet and in a script,
+# when it names another host: a scheme's // or a scheme-relative //.
+# Links (<a href>) load nothing.
 LOADS = (
     re.compile(
         r"<(?:link|script|img|source|iframe|object|embed)\b[^>]*\b(?:href|src)"
@@ -40,14 +42,14 @@ LOADS = (
     re.compile(r"\b(?:fetch|import)\s*\(\s*[\"'`](?:[a-z]+:)?//", re.IGNORECASE),
 )
 SOURCES = (".ut", ".css", ".js", ".svg")
-# The icons LuCI's pages draw, under its resources: luci-base's devices, ports,
-# signal strength and loading, and the file browser's.
+# The icons LuCI's pages draw, under its resources: luci-base's devices,
+# ports, signal strength and loading, and the file browser's.
 LUCI_ICONS = "cd /www/luci-static/resources && ls icons/*.svg cbi/*.svg"
 GENERIC_GLYPH = "icons/generic.svg"
 LUCI = "/cgi-bin/luci/"
 PAGE = f"{LUCI}admin/status/overview"
-# The mark is an inline <svg class="orbyt-mark">; the pages name the theme's own
-# icon file as their icon.
+# The mark is an inline <svg class="orbyt-mark">; the pages name the
+# theme's own icon file as their icon.
 MARK = 'class="orbyt-mark"'
 ICON = re.compile(
     rf"<link\b[^>]*\brel=[\"']icon[\"'][^>]*\bhref=[\"']{re.escape(THEME)}/mark\.svg[\"']",
@@ -123,8 +125,9 @@ def test_a_fresh_install_uses_the_theme(router: Router) -> None:
     CAPABILITY, "The image's own theme by default", "An upgrade that brings the theme"
 )
 def test_an_upgrade_that_brings_the_theme_makes_it_the_default(router: Router) -> None:
-    # A configuration kept from an image without the theme: the stock theme chosen,
-    # the image's unknown. The first boot of the new image runs its uci-defaults.
+    # A configuration kept from an image without the theme: the stock
+    # theme chosen, the image's unknown. The first boot of the new image
+    # runs its uci-defaults.
     router.run(
         f"uci -q delete luci.themes.Orbyt; uci set luci.main.mediaurlbase={STOCK}"
         f" && uci commit luci && sh {DEFAULTS}"
@@ -156,7 +159,8 @@ def test_every_class_of_the_stock_theme_is_styled(router: Router) -> None:
     reviewed = {entry["class"]: entry["reason"] for entry in entries}
     assert all(reason.strip() for reason in reviewed.values())
     assert sorted(stock - ours - reviewed.keys()) == []
-    # An entry is stale once the theme styles its class, or the stock theme no longer does.
+    # An entry is stale once the theme styles its class, or the stock
+    # theme no longer does.
     assert sorted(name for name in reviewed if name in ours or name not in stock) == []
 
 

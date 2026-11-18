@@ -1,11 +1,12 @@
 """The sandbox's test CA and the certificate of the emulated internet's servers.
 
-One CA per sandbox, made with openssl: the emulated internet's servers present
-its certificate, and the router (``orbyt_tests.device.trust``) and the peers trust
-the CA for the length of the test session only (it never enters the image, nor an upgrade's
-backup). The certificates are valid from long before now: until the harness
-sets its clock, the emulated router keeps its image's time, which lags the
-runner's, as a router before NTP does.
+One CA per sandbox, made with openssl: the emulated internet's servers
+present its certificate, and the router (``orbyt_tests.device.trust``)
+and the peers trust the CA for the length of the test session only (it
+never enters the image, nor an upgrade's backup). The certificates are
+valid from long before now: until the harness sets its clock, the
+emulated router keeps its image's time, which lags the runner's, as a
+router before NTP does.
 """
 
 import subprocess
@@ -36,7 +37,8 @@ class Pki:
     def trust(self) -> Path:
         """A directory with the CA certificate alone, for tools that read one.
 
-        skopeo and podman's certs.d would take a key there for a client key.
+        skopeo and podman's certs.d would take a key there for a client
+        key.
         """
         return self.directory / "trust"
 

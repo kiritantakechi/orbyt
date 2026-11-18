@@ -9,8 +9,9 @@ from orbyt_tests.device.ubsan import Trap, Traps, parse, report
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
-# What arm64_show_signal logs for a process killed by a UBSan trap, and for one
-# killed by a segmentation fault, with the kernel's time in front.
+# What arm64_show_signal logs for a process killed by a UBSan trap, and
+# for one killed by a segmentation fault, with the kernel's time in
+# front.
 TRAP = """\
 [   41.112233] orbyt-ubsan-probe[1234]: unhandled exception: User debug trap in \
 orbyt-ubsan-probe[aaaab4560000+1000]
@@ -46,7 +47,8 @@ def test_a_log_without_times_still_names_the_trap() -> None:
     ]
 
 
-# A reboot on the console: the bootloader's banner, then the new boot's kernel.
+# A reboot on the console: the bootloader's banner, then the new boot's
+# kernel.
 REBOOT = """\
 [   60.123456] reboot: Restarting system
 U-Boot 2026.10-OpenWrt-r0-99fe68f8 (Nov 16 2026 - 11:00:30 +0000)
@@ -82,8 +84,8 @@ class _Router:
 
 
 def test_each_trap_is_reported_once() -> None:
-    # A module's tests share the router, and so its kernel log; one that does not
-    # answer has nothing to report of its own.
+    # A module's tests share the router, and so its kernel log; one that
+    # does not answer has nothing to report of its own.
     traps = Traps(cast("Router", _Router("", TRAP, TRAP, None)))
     assert traps.new() == []
     assert [trap.process for trap in traps.new()] == ["orbyt-ubsan-probe"]
@@ -92,7 +94,8 @@ def test_each_trap_is_reported_once() -> None:
 
 
 def test_a_trap_before_a_reboot_is_reported() -> None:
-    # The kernel log of the new boot holds nothing; the console kept the report.
+    # The kernel log of the new boot holds nothing; the console kept the
+    # report.
     router = _Router("", "")
     traps = Traps(cast("Router", router))
     assert traps.new() == []
@@ -113,7 +116,8 @@ def test_a_trap_in_the_console_and_the_kernel_log_is_reported_once() -> None:
 
 
 def test_a_report_still_arriving_is_reported_once_whole() -> None:
-    # The console has the report's first line, the kernel log the whole report.
+    # The console has the report's first line, the kernel log the whole
+    # report.
     router = _Router(TRAP)
     router.emulator.console.record = TRAP.splitlines(keepends=True)[0]
     traps = Traps(cast("Router", router))

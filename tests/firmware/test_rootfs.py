@@ -19,16 +19,18 @@ if TYPE_CHECKING:
     from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/rootfs"
-# Digest of every file of the read-only root, independent of the overlay above it.
+# Digest of every file of the read-only root, independent of the overlay
+# above it.
 ROM_DIGEST = "find /rom -xdev -type f | sort | xargs sha256sum | sha256sum"
-# The SoC's boot ROM reads the loader (DRAM setup and SPL) from sector 64 of the
-# boot disk, and SPL reads the U-Boot FIT from sector 16384.
+# The SoC's boot ROM reads the loader (DRAM setup and SPL) from sector
+# 64 of the boot disk, and SPL reads the U-Boot FIT from sector 16384.
 LOADER_SECTOR, UBOOT_SECTOR = 64, 16384
 # boot-A and boot-B, each with the kernel FIT of its slot.
 BOOT_PARTITIONS = (1, 3)
-# What the slot logic (uboot/orbyt-ab.env) runs besides the command that starts
-# the kernel: part uuid, load from the ext4 boot partition, and saveenv to the
-# environment on the boot disk, where bootcount lives too.
+# What the slot logic (uboot/orbyt-ab.env) runs besides the command that
+# starts the kernel: part uuid, load from the ext4 boot partition, and
+# saveenv to the environment on the boot disk, where bootcount lives
+# too.
 SLOT_LOGIC = (
     "CONFIG_CMD_PART",
     "CONFIG_PARTITION_UUIDS",
@@ -79,9 +81,10 @@ def test_overlay_is_compressed_f2fs(router: Router) -> None:
     source, kind, options = _mount(router, "/overlay")
     assert kind == "f2fs"
     assert re.search(r"(^|,)compress_algorithm=zstd(:\d+)?(,|$)", options), options
-    # The overlay is a loop device on the root partition itself, past the EROFS image.
-    # fstools opens the partition during preinit, from a /dev that is mounted
-    # elsewhere later, so the recorded path may lack the /dev prefix.
+    # The overlay is a loop device on the root partition itself, past
+    # the EROFS image. fstools opens the partition during preinit, from
+    # a /dev that is mounted elsewhere later, so the recorded path may
+    # lack the /dev prefix.
     loop = source.removeprefix("/dev/")
     backing = router.run(f"cat /sys/block/{loop}/loop/backing_file")
     assert re.fullmatch(r"(/dev)?/(vda|mmcblk\d+p)2", backing), backing
@@ -107,8 +110,8 @@ def test_boot_chain(
     disk = emulation_dir / "disk.raw"
     with disk.open("rb") as raw:
         first = read_mbr(raw.read(SECTOR)).partitions[0].start // SECTOR
-    # The boot ROM of the board's SoC takes the loader by its signature; U-Boot's
-    # own tool verifies the loader's header.
+    # The boot ROM of the board's SoC takes the loader by its signature;
+    # U-Boot's own tool verifies the loader's header.
     idbloader = _sectors(disk, LOADER_SECTOR, UBOOT_SECTOR, tmp_path / "idbloader.img")
     run("dumpimage", "-T", "rksd", "-l", str(idbloader))
     header, loader = board.soc.loader, idbloader.read_bytes()

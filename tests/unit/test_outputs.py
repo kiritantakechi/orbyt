@@ -1,8 +1,9 @@
 """The build's and the release's outputs as data (module-boundaries D7), on real files.
 
-The fixtures are files a build and a release wrote: the R4S's dev build's
-manifest and warnings report, the record of the toolchain it was built with, the
-emulator directory emu-prepare made from it, and a release assembled from it.
+The fixtures are files a build and a release wrote: the R4S's dev
+build's manifest and warnings report, the record of the toolchain it was
+built with, the emulator directory emu-prepare made from it, and a
+release assembled from it.
 """
 
 from pathlib import Path

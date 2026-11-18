@@ -1,10 +1,10 @@
 """build/ci: a build hands on its image and kmods with a manifest that describes them.
 
-And the workflows: main's runs delete the caches of merged branches and closed
-pull requests, branch runs save caches only within the quota's room, the system
-test jobs run every test module once, and runs cancel only what a newer commit
-superseded. The cache scripts run against a stand-in gh (orbyt_tests.model.github);
-the rest reads .github/.
+And the workflows: main's runs delete the caches of merged branches and
+closed pull requests, branch runs save caches only within the quota's
+room, the system test jobs run every test module once, and runs cancel
+only what a newer commit superseded. The cache scripts run against a
+stand-in gh (orbyt_tests.model.github); the rest reads .github/.
 """
 
 import os
@@ -70,8 +70,8 @@ def test_the_manifest_describes_the_build(
         if path.is_file() and path.name != MANIFEST_FILE
     }
     assert files.keys() == held
-    # It names the board the images were built for, and its device, after which
-    # OpenWrt names them.
+    # It names the board the images were built for, and its device,
+    # after which OpenWrt names them.
     device = load(manifest.board).device
     assert manifest.device == device
     images = [path for pattern in IMAGES for path in build_output.glob(pattern)]
@@ -103,8 +103,8 @@ def _git(repository: Path, *args: str) -> str:
     ).stdout.strip()
 
 
-# A checkout's change since its commit: the files written, whether they are
-# staged, and whether the commit a build names is then -dirty.
+# A checkout's change since its commit: the files written, whether they
+# are staged, and whether the commit a build names is then -dirty.
 CHANGES = {
     "clean": ((), False, False),
     "an untracked file": (("new",), False, True),
@@ -164,7 +164,8 @@ def test_main_deletes_merged_branches_caches(tmp_path: Path) -> None:
         tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN
     )
     assert result.returncode == 0, result.stderr
-    # A branch merged into main, or one deleted, keeps no cache; the others stay.
+    # A branch merged into main, or one deleted, keeps no cache; the
+    # others stay.
     assert sorted(ref for ref, _ in left) == [
         "refs/heads/ahead",
         "refs/heads/diverged",
@@ -233,7 +234,8 @@ def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
         [{"filename": "docs/ci.md"}, {"filename": "scripts/build.sh"}],
     )
     _caches_of_a_rerun(repository, ref)
-    # On main, a deleted branch's caches too, which the newer run deletes.
+    # On main, a deleted branch's caches too, which the newer run
+    # deletes.
     repository.cache("refs/heads/deleted", "dl-deleted")
     result, left = run_script(
         tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=ref
@@ -248,7 +250,8 @@ def test_a_superseded_run_prunes_nothing(tmp_path: Path, ref: str) -> None:
 def test_room_counts_every_job_that_saves(
     tmp_path: Path, savers: str, save: str
 ) -> None:
-    # Each board's job asks for its caches together, counted for every board's.
+    # Each board's job asks for its caches together, counted for every
+    # board's.
     firmware = _workflow()["jobs"]["firmware"]
     room = _step(firmware, "Room for the caches")
     assert room["env"]["CACHE_SAVERS"] == "${{ strategy.job-total }}"
@@ -282,8 +285,8 @@ def test_a_download_cache_follows_every_download() -> None:
     steps = firmware["steps"]
     download = next(step for step in steps if step.get("id") == "download")
     assert download["run"] == "nix develop .#build -c just download"
-    # The downloads end before the build starts, and the cache is saved only
-    # when they all succeeded, whatever the build did.
+    # The downloads end before the build starts, and the cache is saved
+    # only when they all succeeded, whatever the build did.
     assert steps.index(download) < steps.index(_step(firmware, "Build firmware"))
     save = _step(firmware, "Save download cache")
     assert save["if"].startswith("always() && steps.download.outcome == 'success' && ")
@@ -334,9 +337,9 @@ def test_a_document_a_test_reads_runs_the_build(event: str) -> None:
 @pytest.mark.parametrize("event", ["push", "pull_request"])
 def test_other_documentation_does_not_run_the_build(event: str) -> None:
     paths = _triggers()[event]["paths"]
-    # GitHub reads the patterns in order, the last that matches deciding: code
-    # runs the build, then documentation does not, then the documents tests read
-    # do again.
+    # GitHub reads the patterns in order, the last that matches
+    # deciding: code runs the build, then documentation does not, then
+    # the documents tests read do again.
     assert paths[: paths.index("!**/*.md") + 1] == [
         "**",
         "!openspec/**",

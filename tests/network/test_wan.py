@@ -1,7 +1,7 @@
 """network/wan: PPPoE without built-in credentials, MSS clamping, prefix delegation, the flowtable.
 
-The first two tests look at the router as it boots (its snapshot); the rest share
-one router online behind the emulated ISP.
+The first two tests look at the router as it boots (its snapshot); the
+rest share one router online behind the emulated ISP.
 """
 
 import ipaddress
@@ -30,11 +30,12 @@ if TYPE_CHECKING:
 
 CAPABILITY = "network/wan"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
-# PPPoE takes 8 of Ethernet's 1500 bytes; a TCP segment's headers take 40 more.
+# PPPoE takes 8 of Ethernet's 1500 bytes; a TCP segment's headers take
+# 40 more.
 PATH_MTU = 1492
 MSS_MAX = PATH_MTU - 40
-# The download outlasts the wait for its offload, and the reading at the server
-# after it (test-fidelity D2).
+# The download outlasts the wait for its offload, and the reading at the
+# server after it (test-fidelity D2).
 DOWNLOAD_SECONDS = 60
 OFFLOAD_TIMEOUT = 20
 RECEIVED_TIMEOUT = 10
@@ -48,7 +49,8 @@ def test_image_has_no_credentials(router: Router, board: Board) -> None:
     assert router.run("uci get network.wan.device") == board.wan.device
     for option in ("username", "password"):
         assert router.returncode(f"uci -q get network.wan.{option}") != 0, option
-    # The rest of the datapath's defaults (uci-defaults 91-orbyt-datapath).
+    # The rest of the datapath's defaults (uci-defaults
+    # 91-orbyt-datapath).
     assert router.run("uci get network.wan6.device") == "@wan"
     assert router.run("uci get network.lan.ip6assign") == "64"
     assert router.run("uci get firewall.@defaults[0].flow_offloading") == "1"
@@ -58,8 +60,9 @@ def test_image_has_no_credentials(router: Router, board: Board) -> None:
 def test_upgrade_keeps_the_pushed_configuration(
     router: Router, upgrade_image: Path
 ) -> None:
-    # The defaults apply to a fresh configuration only; one that an upgrade
-    # carries over keeps its values, however they differ (uci-defaults, keep.d).
+    # The defaults apply to a fresh configuration only; one that an
+    # upgrade carries over keeps its values, however they differ
+    # (uci-defaults, keep.d).
     changes = {
         "network.wan.username": "someone",
         "network.wan.password": "secret",
@@ -91,15 +94,16 @@ def test_dial_after_pushing_credentials(online: Online) -> None:
 @spec(CAPABILITY, "MSS clamping", "LAN host opens a TCP connection")
 def test_mss_fits_the_path(online: Online) -> None:
     client = online.client()
-    # The client offers the MSS of its own link, 1460: only the router's clamp
-    # brings it down to the path's. Netlink answers for the namespace; its /sys
-    # would still be the host's.
+    # The client offers the MSS of its own link, 1460: only the router's
+    # clamp brings it down to the path's. Netlink answers for the
+    # namespace; its /sys would still be the host's.
     link = client.run("ip", "-o", "link", "show", "dev", "eth0").split()
     assert link[link.index("mtu") + 1] == "1500"
     seen = client.probe("tcp", DIRECT_TARGET[0])
     assert isinstance(seen["mss"], int)
     assert seen["mss"] <= MSS_MAX
-    # The path MTU itself: the largest unfragmented ping fits, one byte more does not.
+    # The path MTU itself: the largest unfragmented ping fits, one byte
+    # more does not.
     payload = PATH_MTU - 28
     client.run(
         "ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload), DIRECT_TARGET[0]
@@ -130,8 +134,8 @@ def test_lan_host_gets_ipv6(online: Online) -> None:
 def _lan_state(online: Online, address: str) -> str:
     """Return what the LAN clients make of ``address``, for a LAN probe that was refused.
 
-    CI's run 38102368454, and an R4S run before it, had client-b refused once
-    by the server on client-a, which was listening.
+    CI's run 38102368454, and an R4S run before it, had client-b refused
+    once by the server on client-a, which was listening.
     """
     server, client = online.client(), online.client("client-b")
     commands = (
@@ -166,8 +170,8 @@ def test_inbound_ipv6_is_rejected(online: Online) -> None:
             timeout=10,
             what="netprobe",
         )
-        # The LAN reaches the server; the internet's connection is refused (a
-        # reset, fw4's REJECT), not left unanswered.
+        # The LAN reaches the server; the internet's connection is
+        # refused (a reset, fw4's REJECT), not left unanswered.
         try:
             assert online.client("client-b").probe("tcp", ipv6)["address"]
         except subprocess.CalledProcessError as error:
@@ -196,8 +200,9 @@ def _count_forwarded(router: Router) -> None:
     """Have the router count the segments to the download's server at the forward hook.
 
     Those are the direction the flowtable can carry. einat translates on
-    pppoe-wan, so the flowtable knows a flow's replies by the LAN address, which
-    they do not carry yet on the device below pppoe-wan where it would take them.
+    pppoe-wan, so the flowtable knows a flow's replies by the LAN
+    address, which they do not carry yet on the device below pppoe-wan
+    where it would take them.
     """
     router.run(
         f"nft add table inet {FORWARD_COUNTER}"
@@ -218,12 +223,13 @@ def _forwarded(router: Router) -> int:
 def _carried(online: Online, inet: Netns) -> list[str]:
     """Return the download's conntrack entries if the flowtable carries it for a whole reading.
 
-    The flag alone does not tell: the kernel sets it while it tries to add a flow
-    and clears it when that fails, so a flow that never enters the flowtable
-    shows it now and then. The segments of a flow the flowtable carries do not
-    reach the forward hook, while the server goes on receiving them, from the WAN
-    address: untranslated, they would come from the LAN address, which no server
-    socket takes (test-fidelity D2).
+    The flag alone does not tell: the kernel sets it while it tries to
+    add a flow and clears it when that fails, so a flow that never
+    enters the flowtable shows it now and then. The segments of a flow
+    the flowtable carries do not reach the forward hook, while the
+    server goes on receiving them, from the WAN address: untranslated,
+    they would come from the LAN address, which no server socket takes
+    (test-fidelity D2).
     """
     forwarded = _forwarded(online.router)
     before = _received(inet)
@@ -238,8 +244,8 @@ def _carried(online: Online, inet: Netns) -> list[str]:
 def _received(inet: Netns) -> Counter[str]:
     """Return the segments the download's server has received, by the address they came from.
 
-    ss shows each connection on a line of its own, its peer last, and below it,
-    indented, its counters.
+    ss shows each connection on a line of its own, its peer last, and
+    below it, indented, its counters.
     """
     shown = inet.run(
         "ss", "-Htin", "state", "established", f"( sport = :{IPERF_PORTS[0]} )"
@@ -257,7 +263,8 @@ def _received(inet: Netns) -> Counter[str]:
 def _address(text: str) -> str:
     """Return an address as the router's would read: IPv4 for one mapped into IPv6.
 
-    iperf3 listens on both families at once, so an IPv4 peer shows as ::ffff:<IPv4>.
+    iperf3 listens on both families at once, so an IPv4 peer shows as
+    ::ffff:<IPv4>.
     """
     address = ipaddress.ip_address(text)
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:

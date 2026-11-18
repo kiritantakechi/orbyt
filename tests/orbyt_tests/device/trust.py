@@ -1,9 +1,10 @@
 """The router's trust in the session's own CA and release keys.
 
-The sandbox's CA (``orbyt_tests.sandbox.pki``) certifies the emulated internet's
-servers, and the session's release keys (``orbyt_tests.model.keys``) sign its
-build. The router trusts both for the session only: the CA beside the system's
-certificates, and the keys in place of the image's own trust anchors.
+The sandbox's CA (``orbyt_tests.sandbox.pki``) certifies the emulated
+internet's servers, and the session's release keys
+(``orbyt_tests.model.keys``) sign its build. The router trusts both for
+the session only: the CA beside the system's certificates, and the keys
+in place of the image's own trust anchors.
 """
 
 from typing import TYPE_CHECKING
@@ -16,7 +17,8 @@ if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.keys import Keys
 
-# Where the router trusts the CA, and its Go programs (podman, tailscale) find it.
+# Where the router trusts the CA, and its Go programs (podman,
+# tailscale) find it.
 CA_ON_ROUTER = "/etc/ssl/certs/orbyt-test-ca.crt"
 
 

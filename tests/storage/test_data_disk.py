@@ -1,12 +1,13 @@
 """storage/data-disk: the USB data disk, what waits for it, and what goes on without it.
 
-The module's data disk is a blank image made the data disk with ``orbyt-data init``
-(the ``data_disk`` fixture); the app Pod is declared on it, so that the container
-service has something to start. A spare disk comes and goes for the tests that
-need a second one. The tests that boot without the data disk come last: they
-share one boot, and the last of them plugs the disk back in. The data disk comes
-and goes only while the router is off, as a disk is best moved: pulled out while
-in use, it would lose what was not written out yet.
+The module's data disk is a blank image made the data disk with
+``orbyt-data init`` (the ``data_disk`` fixture); the app Pod is declared
+on it, so that the container service has something to start. A spare
+disk comes and goes for the tests that need a second one. The tests that
+boot without the data disk come last: they share one boot, and the last
+of them plugs the disk back in. The data disk comes and goes only while
+the router is off, as a disk is best moved: pulled out while in use, it
+would lose what was not written out yet.
 """
 
 import json
@@ -61,8 +62,8 @@ HEALTHCHECK = (
     " && uci commit orbyt-ab && orbyt-healthcheck"
 )
 HEALTH = "/var/run/orbyt-healthcheck.json"
-# honk's state database, in its data directory on the data disk or in RAM
-# (/var/lib/honk, which the kernel names by /var's target, /tmp).
+# honk's state database, in its data directory on the data disk or in
+# RAM (/var/lib/honk, which the kernel names by /var's target, /tmp).
 PROXY_STATE = {
     "data disk": f"{MOUNT}/honk/state/honk.db",
     "RAM": "/tmp/lib/honk/state/honk.db",  # noqa: S108 (a path on the router)
@@ -101,8 +102,8 @@ def rebooted(pod: Online) -> str:
 def _services(router: Router) -> dict[str, bool]:
     """Return which of the services on the data disk run.
 
-    Asking podman itself would have it create its storage wherever the data
-    disk is not: a running container is a conmon.
+    Asking podman itself would have it create its storage wherever the
+    data disk is not: a running container is a conmon.
     """
     return {
         "containers": router.returncode("pidof conmon >/dev/null") == 0,
@@ -224,9 +225,10 @@ def test_expired_snapshots_are_pruned(pod: Online) -> None:
     days = [f"{date:%Y%m%d}" for date in dates]
     try:
         for date, day in zip(dates, days, strict=True):
-            # Half a minute before the daily job (03:17). cron starts afresh at the
-            # new time and runs a job only when its minute begins, never late: a
-            # restart still running at 03:17:00 on a busy emulator would miss it.
+            # Half a minute before the daily job (03:17). cron starts
+            # afresh at the new time and runs a job only when its minute
+            # begins, never late: a restart still running at 03:17:00 on
+            # a busy emulator would miss it.
             router.run(
                 f"date -u -s '{date} 03:16:30' >/dev/null && /etc/init.d/cron restart"
             )
@@ -269,7 +271,8 @@ def test_nothing_written_without_the_disk_reaches_the_boot_disk(
             timeout=PLUG_TIMEOUT,
             what=f"{MOUNT} unmounted",
         )
-        # As a podman command that outlived the disk recreates its graph root.
+        # As a podman command that outlived the disk recreates its graph
+        # root.
         router.run(
             f"mkdir -p {MOUNT}/containers/storage && touch {MOUNT}/containers/storage/file"
         )
@@ -305,8 +308,8 @@ def test_boot_without_the_data_disk(without_disk: Online) -> None:
     resolved = client.probe("resolve", DIRECT_NAME, "--server", router.address)
     assert resolved["answers"] == [DIRECT_TARGET[0]]
     assert mount_options(router) is None
-    # The log service restarted without the disk (as any change to the system
-    # configuration does) still keeps its file off the boot disk.
+    # The log service restarted without the disk (as any change to the
+    # system configuration does) still keeps its file off the boot disk.
     router.run("/etc/init.d/log restart")
     services = _services(router)
     assert not any(services.values()), services
@@ -330,7 +333,8 @@ def test_the_proxy_keeps_its_state_in_ram_without_the_data_disk(
 @spec(CAPABILITY, "Data disk identified by UUID", "Insert another disk")
 def test_other_disk_is_not_mounted(without_disk: Online, spare: Disk) -> None:
     router = without_disk.router
-    # The same label as the data disk, and a filesystem of its own (another UUID).
+    # The same label as the data disk, and a filesystem of its own
+    # (another UUID).
     spare.plug(3)
     router.run(f"mkfs.btrfs -q -f -L orbytdata {device(router, spare)}", timeout=120)
     spare.unplug()
@@ -401,8 +405,8 @@ def test_snapshots_outlast_a_long_time_off(pod: Online) -> None:
         for line in router.run(f"cat {CRONTAB}").splitlines()
         if "orbyt-snap" in line
     ]
-    # The module's earlier tests left snapshots, of days still to come among them:
-    # the scenario starts without any.
+    # The module's earlier tests left snapshots, of days still to come
+    # among them: the scenario starts without any.
     router.run(
         f'for s in {SNAPSHOTS}/*/*; do [ ! -d "$s" ] || btrfs -q subvolume delete "$s"; done'
     )
@@ -411,7 +415,8 @@ def test_snapshots_outlast_a_long_time_off(pod: Online) -> None:
     back = dates[-1] + timedelta(days=DAYS_OFF + 1)
     try:
         for date in [*dates, back]:
-            # Off the job's own minute, so that cron does not run it meanwhile.
+            # Off the job's own minute, so that cron does not run it
+            # meanwhile.
             router.run(f"date -u -s '{date} 04:00:00' >/dev/null && {job}", timeout=120)
     finally:
         router.run(f"date -u -s @{int(time.time())} >/dev/null")

@@ -23,12 +23,13 @@ if TYPE_CHECKING:
 
 CAPABILITY = "quality/undefined-behavior"
 REVIEWED = "UB-indicative warnings fixed or reviewed"
-# The register reviews the builds that ship; UBSan's instrumentation changes what
-# GCC warns of.
+# The register reviews the builds that ship; UBSan's instrumentation
+# changes what GCC warns of.
 NOT_SHIPPED = "a ubsan build ships nothing; the register reviews the builds that do"
 # The shell's status of a command killed by SIGTRAP.
 TRAPPED = 128 + 5
-# The options that define away a class of undefined behavior instead of fixing it.
+# The options that define away a class of undefined behavior instead of
+# fixing it.
 MASKING = frozenset(
     {
         "-fwrapv",
@@ -66,12 +67,13 @@ def test_every_review_matches_a_warning(
 
 @spec(CAPABILITY, REVIEWED, "Package packed again without a compile")
 def test_a_package_packed_again_keeps_its_warnings(tmp_path: Path) -> None:
-    # OpenWrt rewrites a package's log whenever it runs its compile step: with
-    # nothing but the packing's lines when it packs the package again (its apk
-    # gone from the output directory, or its packaging rules changed), and with
-    # make's time line alone when it finds it up to date. The build's time log
-    # names neither as compiled; a host build of the package is a stage of its
-    # own (host-compile), whose log is another.
+    # OpenWrt rewrites a package's log whenever it runs its compile
+    # step: with nothing but the packing's lines when it packs the
+    # package again (its apk gone from the output directory, or its
+    # packaging rules changed), and with make's time line alone when it
+    # finds it up to date. The build's time log names neither as
+    # compiled; a host build of the package is a stage of its own
+    # (host-compile), whose log is another.
     logs, records = tmp_path / "logs", tmp_path / "records"
     for name, log in {
         "packed": "rstrip.sh: ipkg-aarch64_generic/packed/usr/bin/packed: executable\n"
@@ -108,8 +110,9 @@ def test_a_package_packed_again_keeps_its_warnings(tmp_path: Path) -> None:
 @spec(CAPABILITY, "No global masking of undefined behavior", "Check the shared flags")
 @pytest.mark.parametrize("key", ["cflags", "kernel_cflags"])
 def test_no_shared_flag_masks_undefined_behavior(key: str, manifest: Manifest) -> None:
-    # The flags every target package compiles with, and those the build adds to the
-    # kernel's own; a package's build may add such an option for itself.
+    # The flags every target package compiles with, and those the build
+    # adds to the kernel's own; a package's build may add such an option
+    # for itself.
     assert not MASKING & set(getattr(manifest, key))
 
 
@@ -117,12 +120,14 @@ def test_no_shared_flag_masks_undefined_behavior(key: str, manifest: Manifest) -
 def test_a_trap_fails_the_test_and_names_the_process(
     router: Router, ubsan_traps: Traps | None
 ) -> None:
-    # The probe overflows a signed integer; the harness reads the trap from the
-    # kernel log, as the router fixture does after every test, and fails with it.
+    # The probe overflows a signed integer; the harness reads the trap
+    # from the kernel log, as the router fixture does after every test,
+    # and fails with it.
     if ubsan_traps is None:
         pytest.skip("only a ubsan build traps")
-    # Run alone, the probe would be the session itself, whose death by a signal
-    # the SSH client reports as 255; the shell reports 128 + the signal instead.
+    # Run alone, the probe would be the session itself, whose death by a
+    # signal the SSH client reports as 255; the shell reports 128 + the
+    # signal instead.
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
     with pytest.raises(
         pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"
@@ -134,7 +139,8 @@ def test_a_trap_fails_the_test_and_names_the_process(
 def test_a_trap_before_a_reboot_fails_the_test(
     router: Router, ubsan_traps: Traps | None
 ) -> None:
-    # The reboot starts the kernel log anew; the console's record keeps the report.
+    # The reboot starts the kernel log anew; the console's record keeps
+    # the report.
     if ubsan_traps is None:
         pytest.skip("only a ubsan build traps")
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED

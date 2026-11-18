@@ -1,9 +1,10 @@
 """The one way to read a data file: through its schema (module-boundaries D7).
 
-``read_json`` reads a JSON document and ``read_toml`` the entries of a TOML
-file's array of tables, each as the schema it is given: pydantic models strict
-about unknown fields and types. Both raise ``DataError``, which names the file,
-the entry (its index) and the field of every problem.
+``read_json`` reads a JSON document and ``read_toml`` the entries of a
+TOML file's array of tables, each as the schema it is given: pydantic
+models strict about unknown fields and types. Both raise ``DataError``,
+which names the file, the entry (its index) and the field of every
+problem.
 """
 
 import tomllib
@@ -29,8 +30,9 @@ class DataError(ValueError):
 def _where(location: Location, entries: str | None) -> str:
     """Name where a problem lies: its field, after its entry in a file of entries.
 
-    ``entries`` names the entries of such a file by their index, as ``"[{}]"``
-    or ``"warning[{}]"`` do; it is None for a file that is one document.
+    ``entries`` names the entries of such a file by their index, as
+    ``"[{}]"`` or ``"warning[{}]"`` do; it is None for a file that is
+    one document.
     """
     if entries is None or not location:
         return ".".join(map(str, location)) or "(document)"
@@ -60,8 +62,8 @@ def read_json[T](path: Path, schema: type[T]) -> T:
 def write_json(path: Path, record: BaseModel) -> None:
     """Write ``record`` to ``path`` as a JSON document, as ``read_json`` reads it back.
 
-    The document replaces ``path`` whole, as a file of its own: a file linked to
-    the one it replaces keeps what that one held.
+    The document replaces ``path`` whole, as a file of its own: a file
+    linked to the one it replaces keeps what that one held.
     """
     staged = path.with_name(f".{path.name}.new")
     staged.write_text(

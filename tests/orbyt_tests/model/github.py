@@ -1,10 +1,11 @@
 """Run a CI script against a stand-in gh that answers for a repository described as data.
 
-The stand-in answers the gh calls of scripts/cache-room.sh, scripts/cache-prune.sh
-and scripts/release-publish.sh (build-integrity D5, D6; release-integrity D6;
-release-freshness D2) as GitHub's API would for the repository: its caches, which
-it deletes as they are deleted, so that a test reads which are left; its branches
-and their heads; how two commits compare. A release it is asked to create it
+The stand-in answers the gh calls of scripts/cache-room.sh,
+scripts/cache-prune.sh and scripts/release-publish.sh (build-integrity
+D5, D6; release-integrity D6; release-freshness D2) as GitHub's API
+would for the repository: its caches, which it deletes as they are
+deleted, so that a test reads which are left; its branches and their
+heads; how two commits compare. A release it is asked to create it
 records instead, its arguments in gh.args beside itself.
 """
 
@@ -23,8 +24,8 @@ if TYPE_CHECKING:
 SCRIPTS = REPO_DIR / "scripts"
 REPOSITORY = "owner/repository"
 MAIN = "refs/heads/main"
-# The commit a run is of, unless a test names another, and every branch's head
-# unless the repository names another.
+# The commit a run is of, unless a test names another, and every
+# branch's head unless the repository names another.
 HEAD = "a" * 40
 # The stand-in, which keeps the repository in github.json beside itself.
 GH = f"""#!{sys.executable} -I
@@ -94,11 +95,13 @@ class Repository:
     """A repository whose default branch is main: its branches, pull requests and caches."""
 
     branches: list[str] = field(default_factory=lambda: ["main"])
-    # How each branch compares with main, as the compare API's status names it.
+    # How each branch compares with main, as the compare API's status
+    # names it.
     compare: dict[str, str] = field(default_factory=dict)
     # Each pull request's state by its number: open or closed.
     pulls: dict[str, str] = field(default_factory=dict)
-    # Each branch's head commit, by its name; HEAD for a branch it does not name.
+    # Each branch's head commit, by its name; HEAD for a branch it does
+    # not name.
     heads: dict[str, str] = field(default_factory=dict)
     # How two commits compare, by the compare API's path for them
     # (compared): its status and the files between them.
@@ -135,8 +138,9 @@ def run_script(
 ) -> tuple[subprocess.CompletedProcess[str], list[tuple[str, str]]]:
     """Run ``script`` of scripts/ on ``ref`` against ``repository``.
 
-    The run is of the commit HEAD, unless ``env`` names another (GITHUB_SHA).
-    Return its result and the caches it left, as (ref, key) pairs.
+    The run is of the commit HEAD, unless ``env`` names another
+    (GITHUB_SHA). Return its result and the caches it left, as (ref,
+    key) pairs.
     """
     directory = install(workdir / "bin", repository)
     described = directory / "github.json"

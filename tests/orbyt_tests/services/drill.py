@@ -1,12 +1,12 @@
 """The upgrade drill (r4s-release-pipeline D5): what a bump passes before it may merge.
 
-The router as it booted (in CI's upgrade-drill job the latest stable release,
-here this build) gets a configuration pushed with config-push; then it syncs
-the signed candidate from the Releases stand-in with orbyt-sync, upgrades to it
-with orbyt-update and reboots into the other slot on trial. The drill passes when
-the health check confirms that slot and the configuration is still there; a
-candidate that never passes the health check is rolled back after the boot
-limit, and the drill fails.
+The router as it booted (in CI's upgrade-drill job the latest stable
+release, here this build) gets a configuration pushed with config-push;
+then it syncs the signed candidate from the Releases stand-in with
+orbyt-sync, upgrades to it with orbyt-update and reboots into the other
+slot on trial. The drill passes when the health check confirms that slot
+and the configuration is still there; a candidate that never passes the
+health check is rolled back after the boot limit, and the drill fails.
 """
 
 import re
@@ -33,24 +33,25 @@ PUBLISH = REPO_DIR / "scripts" / "release-publish.sh"
 # The candidate's repository at the Releases stand-in.
 REPOSITORY = "orbyt/drill"
 FAILING_CHECK = "/etc/healthcheck.d/99-drill-fails"
-# A health check quick enough for a drill that fails (r4s-ab-rollback D4). A drill
-# that is to pass keeps the image's own limits, as a router upgrades with them:
-# shortened, honk's start on CI's runners outlasted them, and the trial rolled
-# back although nothing was wrong (the false rollback D5 warns of).
+# A health check quick enough for a drill that fails (r4s-ab-rollback
+# D4). A drill that is to pass keeps the image's own limits, as a router
+# upgrades with them: shortened, honk's start on CI's runners outlasted
+# them, and the trial rolled back although nothing was wrong (the false
+# rollback D5 warns of).
 FAILING_HEALTH_LIMITS = {"total": 20, "interval": 5, "timeout": 5}
 # A limit as the image sets it.
 IMAGE_HEALTH_LIMIT = "$(uci -c /rom/etc/config get orbyt-ab.healthcheck.{name})"
 BOOT_LIMIT = 3
 SYNC_TIMEOUT = 600
 DRILL_TIMEOUT = 3600
-# What orbyt-update said, on the router: kept in RAM (/var), which the upgrade's
-# reboot empties, for a drill whose upgrade never started.
+# What orbyt-update said, on the router: kept in RAM (/var), which the
+# upgrade's reboot empties, for a drill whose upgrade never started.
 UPDATE_LOG = "/var/log/orbyt-update.log"
-# What the router's own console tells of a drill that ended neither way: the
-# slot's state, orbyt-update's output, what still runs (the health check starts
-# after every other service), the end of the log without tailscaled's chatter,
-# and the addresses. CI's run 37126344220 had a trial slot that booted and then
-# answered neither ssh nor the drill.
+# What the router's own console tells of a drill that ended neither way:
+# the slot's state, orbyt-update's output, what still runs (the health
+# check starts after every other service), the end of the log without
+# tailscaled's chatter, and the addresses. CI's run 37126344220 had a
+# trial slot that booted and then answered neither ssh nor the drill.
 CONSOLE_REPORT = (
     f"orbyt-slot status; cat {UPDATE_LOG} 2>/dev/null; ps w | grep -v ' \\['"
     "; logread | grep -v tailscaled | tail -n 80; ip -o addr"
@@ -84,7 +85,8 @@ def _status(router: Router) -> dict[str, str]:
 class Drill:
     """A drill of one candidate on the router of ``online``.
 
-    ``candidate`` holds the boards' signed builds, as the sign job hands them on.
+    ``candidate`` holds the boards' signed builds, as the sign job hands
+    them on.
     """
 
     online: Online
@@ -115,7 +117,8 @@ class Drill:
     def remember(self, pushed: Mapping[str, str]) -> None:
         """Record what the configuration push set, to find it after the upgrade.
 
-        Each entry is a command on the router and what it prints for the pushed state.
+        Each entry is a command on the router and what it prints for the
+        pushed state.
         """
         self.pushed.update(pushed)
 
@@ -140,13 +143,13 @@ class Drill:
         router = self.online.router
         tag = self.publish(workdir or self.candidate.parent)
         base = slot(router)
-        # The sandbox's CA is no configuration of the router's, and an earlier
-        # drill's upgrade kept none of it.
+        # The sandbox's CA is no configuration of the router's, and an
+        # earlier drill's upgrade kept none of it.
         trust_ca(router, self.online.network.workdir)
         if self.keys is not None:
-            # The slot booted from an image of this build, which trusts the
-            # build's own keys: in their place the test's release keys, as a
-            # release image trusts the release keys.
+            # The slot booted from an image of this build, which trusts
+            # the build's own keys: in their place the test's release
+            # keys, as a release image trusts the release keys.
             trust_keys(router, self.keys)
         limits = " && ".join(
             f"uci set orbyt-ab.healthcheck.{name}="
@@ -162,8 +165,8 @@ class Drill:
         console = router.emulator.console
         since = console.mark()
         router.detach(f"sleep 1; orbyt-update >{UPDATE_LOG} 2>&1")
-        # The other slot boots on trial: it is confirmed, or U-Boot rolls back
-        # after the boot limit.
+        # The other slot boots on trial: it is confirmed, or U-Boot
+        # rolls back after the boot limit.
         rolled_back = re.compile(rf"Bootlimit \({BOOT_LIMIT}\) exceeded")
         deadline = time.monotonic() + DRILL_TIMEOUT
         while not rolled_back.search(console.text(since)):

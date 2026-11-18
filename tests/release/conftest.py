@@ -1,10 +1,11 @@
 """Fixtures of the release tests: the upgrade drill (r4s-release-pipeline D5).
 
-The drill's router is online, resolves and trusts the emulated internet, and
-has a data disk for its local repository. Before the drill it gets the test
-configuration an administrator would push: the ISP account, honk, WireGuard's
-key and a share user, with config-push from a private repository of the test's
-own; the drill checks that it is still there on the upgraded slot.
+The drill's router is online, resolves and trusts the emulated internet,
+and has a data disk for its local repository. Before the drill it gets
+the test configuration an administrator would push: the ISP account,
+honk, WireGuard's key and a share user, with config-push from a private
+repository of the test's own; the drill checks that it is still there on
+the upgraded slot.
 """
 
 import hashlib

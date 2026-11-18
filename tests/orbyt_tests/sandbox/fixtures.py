@@ -1,8 +1,8 @@
 """The fixtures of the network around the board (module-boundaries D6).
 
-The sandbox's namespaces and bridges around the emulated board, the emulated
-ISP, the test app image in the emulated internet's registry, and the signed
-build's package repository on the runner's LAN address.
+The sandbox's namespaces and bridges around the emulated board, the
+emulated ISP, the test app image in the emulated internet's registry,
+and the signed build's package repository on the runner's LAN address.
 """
 
 import functools

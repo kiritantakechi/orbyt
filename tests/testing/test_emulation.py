@@ -34,11 +34,12 @@ if TYPE_CHECKING:
 CAPABILITY = "testing/emulation"
 DHCP_TIMEOUT = 60.0
 LAN = ipaddress.ip_network("10.0.0.0/24")
-# A return to the snapshot takes seconds, 16 s on four host cores that stress-ng
-# slows as CI's slow runners; a stale link-layer address for the router costs
-# half a minute more (snapshot-return D3).
+# A return to the snapshot takes seconds, 16 s on four host cores that
+# stress-ng slows as CI's slow runners; a stale link-layer address for
+# the router costs half a minute more (snapshot-return D3).
 RETURN_SECONDS = 25.0
-# How soon a wait on a console that ended fails: at once, not at its time limit.
+# How soon a wait on a console that ended fails: at once, not at its
+# time limit.
 CONSOLE_END_SECONDS = 5.0
 
 
@@ -58,7 +59,8 @@ def test_boots_the_shipped_artifacts(
         shipped = manifest.files[path.relative_to(source.build).as_posix()]
         assert sha256(path) == recorded == shipped
 
-    # U-Boot started the kernel of slot A's FIT, with the slot's command line.
+    # U-Boot started the kernel of slot A's FIT, with the slot's command
+    # line.
     boot_files(emulation_dir / "disk.raw", 1, ("kernel.img",), tmp_path)
     kernel = tmp_path / "kernel.img"
     extract_fit_image(
@@ -79,8 +81,8 @@ def test_board_name(router: Router, board: Board) -> None:
 
 @spec(CAPABILITY, "Instruction set matches the device", "Run userspace programs")
 def test_userspace_runs(router: Router) -> None:
-    # Programs built for the board's CPU from several packages and languages;
-    # an unsupported instruction would kill them with SIGILL.
+    # Programs built for the board's CPU from several packages and
+    # languages; an unsupported instruction would kill them with SIGILL.
     for program in (
         "busybox true",
         "ubus call system board",
@@ -102,7 +104,8 @@ def test_userspace_runs(router: Router) -> None:
 
 @spec(CAPABILITY, "The board's cores", "Read core capacities")
 def test_the_cores_are_the_board_s(router: Router, board: Board) -> None:
-    # The kernel scales the device tree's capacities so that the highest is 1024.
+    # The kernel scales the device tree's capacities so that the highest
+    # is 1024.
     listing = router.run("grep -H . /sys/devices/system/cpu/cpu[0-9]*/cpu_capacity")
     reported = {
         int(cpu): int(capacity)
@@ -142,7 +145,8 @@ def test_lan_ports_share_one_lan(
     del router  # requested for the booted router, whose LAN bridges the ports
     if len(board.lan) < 2:  # noqa: PLR2004
         pytest.skip(f"the {board.model} has one LAN port")
-    # client-a is on the first LAN port's segment, client-c on the second's.
+    # client-a is on the first LAN port's segment, client-c on the
+    # second's.
     address = _lease(network["client-a"])
     _lease(network["client-c"])
     network["client-c"].run("ping", "-c", "1", "-W", "2", address)
@@ -208,8 +212,9 @@ def test_usb_disk_hot_plug(router: Router, tmp_path: Path) -> None:
     try:
         path = device(router, disk)
         name = path.removeprefix("/dev/")
-        # Bound to uas, as the boards' data disks, at SuperSpeed: the SCSI device's USB
-        # interface is three levels up, the USB device four.
+        # Bound to uas, as the boards' data disks, at SuperSpeed: the
+        # SCSI device's USB interface is three levels up, the USB device
+        # four.
         usb = f"/sys/block/{name}/device/../../.."
         assert router.run(f"readlink -f {usb}/driver").endswith("/uas")
         assert router.run(f"cat {usb}/../speed") == "5000"
@@ -242,8 +247,8 @@ def test_a_power_cut_leaves_a_disk_plugged_in(router: Router, tmp_path: Path) ->
     "QEMU exits while a test waits for the console",
 )
 def test_a_wait_on_an_ended_console_fails_at_once(tmp_path: Path) -> None:
-    # The console as the emulator reads it: labgrid's QEMU console read, on a
-    # socket whose other end is QEMU's, which closes as QEMU exits.
+    # The console as the emulator reads it: labgrid's QEMU console read,
+    # on a socket whose other end is QEMU's, which closes as QEMU exits.
     ours, qemus = socket.socketpair()
     driver = cast("QEMUDriver", SimpleNamespace(_clientsocket=ours))
     console = Console(

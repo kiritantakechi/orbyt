@@ -1,10 +1,10 @@
 """The router online behind the emulated ISP, and what its datapath looks like.
 
-``Online`` is the router with its dial-up credentials pushed: its PPP session at
-the ISP, its WAN address, the LAN clients with their addresses, and a redial.
-The rest reads the datapath's state on the router: which programs sit on which
-tc hook of a device (``hooks``), and the configuration the transparent proxy, honk,
-runs with in the tests.
+``Online`` is the router with its dial-up credentials pushed: its PPP
+session at the ISP, its WAN address, the LAN clients with their
+addresses, and a redial. The rest reads the datapath's state on the
+router: which programs sit on which tc hook of a device (``hooks``), and
+the configuration the transparent proxy, honk, runs with in the tests.
 """
 
 import ipaddress
@@ -38,33 +38,34 @@ PROXY_TIMEOUT = 120
 # The programs of each component, as bpftool names them.
 EINAT = {"tcx/ingress": ["ingress_rev_snat"], "tcx/egress": ["egress_snat"]}
 QOSIFY = {"tcx/ingress": ["qosify_classify"], "tcx/egress": ["qosify_classify"]}
-# qosify without tcx (its option tcx set to 0): cls_bpf filters under clsact,
-# which bpftool shows by the filters' names.
+# qosify without tcx (its option tcx set to 0): cls_bpf filters under
+# clsact, which bpftool shows by the filters' names.
 QOSIFY_CLSACT = {
     "clsact/ingress": ["qosify_ingress_ip"],
     "clsact/egress": ["qosify_egress_ip"],
 }
 # pppoe-wan's programs in run order: einat's first, then qosify's.
 WAN = {hook: [*EINAT[hook], *QOSIFY[hook]] for hook in EINAT}
-# honk's LAN programs on a bridge (br-lan, podman0), and on a device without
-# Ethernet headers (tailscale0).
+# honk's LAN programs on a bridge (br-lan, podman0), and on a device
+# without Ethernet headers (tailscale0).
 PROXY_HOOKS_L2 = {"tcx/ingress": ["lan_ingress_l2"], "tcx/egress": ["lan_egress_l2"]}
 PROXY_HOOKS_L3 = {"tcx/ingress": ["lan_ingress_l3"], "tcx/egress": ["lan_egress_l3"]}
 # honk's own nftables table: the NFQUEUE hook of ambiguous LAN UDP.
 PROXY_NFQUEUE_TABLE = "inet honk_nfqueue"
 # honk's check for orbyt-healthcheck.
 PROXY_HEALTHCHECK = "/etc/healthcheck.d/50-honk"
-# The fw4 rules einat's instance brings (feed/net/einat/files/init): its nat rule
-# (no masquerade) and its rule (accept what it translated back). They come with a
-# firewall reload, after its programs are attached; fw4 names them after the
-# instance, "ubus:einat[instance1] nat 0".
+# The fw4 rules einat's instance brings (feed/net/einat/files/init): its
+# nat rule (no masquerade) and its rule (accept what it translated
+# back). They come with a firewall reload, after its programs are
+# attached; fw4 names them after the instance, "ubus:einat[instance1]
+# nat 0".
 EINAT_RULE = re.compile(r"ubus:einat\[\w+\] (nat|rule) \d+")
 LAN_CLIENTS = ("client-a", "client-b")
-# What a failure's report shows of the datapath (failure-diagnostics D3): each LAN
-# client's addresses and routes, the router's WAN and its log, honk's log without
-# its debug lines (the test configuration turns them on, and they bury the rest),
-# the kernel's storage messages (a full or failing overlay shows there), the
-# ISP's log.
+# What a failure's report shows of the datapath (failure-diagnostics
+# D3): each LAN client's addresses and routes, the router's WAN and its
+# log, honk's log without its debug lines (the test configuration turns
+# them on, and they bury the rest), the kernel's storage messages (a
+# full or failing overlay shows there), the ISP's log.
 CLIENT_STATE = (
     ("ip", "addr", "show", "dev", "eth0"),
     ("ip", "-4", "route"),
@@ -78,33 +79,36 @@ ROUTER_STATE = (
     "dmesg | grep -iE 'f2fs|mmc|I/O error|no space' | tail -n 20",
 )
 ISP_LOG_LINES = 40
-# What a wait for the datapath on pppoe-wan reports when it times out: which device
-# qosify took for each of its interfaces and whether it set it up, the device as
-# it is now, what tc holds on it, and the end of the log. tailscaled logs every
-# route change, and the emulated ISP advertises its prefixes every few seconds.
+# What a wait for the datapath on pppoe-wan reports when it times out:
+# which device qosify took for each of its interfaces and whether it set
+# it up, the device as it is now, what tc holds on it, and the end of
+# the log. tailscaled logs every route change, and the emulated ISP
+# advertises its prefixes every few seconds.
 WAN_STATE = (
     "{ ubus call qosify status; ip -o link show dev pppoe-wan; tc qdisc show dev pppoe-wan;"
     " tc filter show dev pppoe-wan ingress; tc filter show dev pppoe-wan egress;"
     " logread | grep -v tailscaled | tail -n 40; } 2>&1"
 )
-# How long a LAN client that is not set up is left before it asks for its lease
-# again: every request starts its DHCP client over, and a router that is slow to
-# answer would never see one through if asked more often.
+# How long a LAN client that is not set up is left before it asks for
+# its lease again: every request starts its DHCP client over, and a
+# router that is slow to answer would never see one through if asked
+# more often.
 RENEW_INTERVAL = 30.0
 
-# honk in the tests: the socks5 exit on the emulated internet is the only node;
-# PROXIED_TARGET goes through it, and so does the Releases stand-in, as GitHub
-# does for an administrator whose ISP reaches it badly (r4s-release-pipeline
-# D4); everything else goes direct. DNS goes to the resolver the ISP hands out.
-# Debug logging leaves the most for a failed test's report. honk drops new flows
-# to a node its health check finds dead, so the check asks the emulated
-# internet's HTTP server through the node rather than a public URL it does not
-# serve.
+# honk in the tests: the socks5 exit on the emulated internet is the
+# only node; PROXIED_TARGET goes through it, and so does the Releases
+# stand-in, as GitHub does for an administrator whose ISP reaches it
+# badly (r4s-release-pipeline D4); everything else goes direct. DNS goes
+# to the resolver the ISP hands out. Debug logging leaves the most for a
+# failed test's report. honk drops new flows to a node its health check
+# finds dead, so the check asks the emulated internet's HTTP server
+# through the node rather than a public URL it does not serve.
 PROXIED = (*PROXIED_TARGET, RELEASES[1])
 
 
-# The honk release the package pins, as honk names it: its tag without the v (the
-# package's version spells it as apk does, which honk does not); and einat's.
+# The honk release the package pins, as honk names it: its tag without
+# the v (the package's version spells it as apk does, which honk does
+# not); and einat's.
 PROXY_RELEASE = feed_variable("net/honk", "HONK_TAG").removeprefix("v")
 NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 
@@ -112,9 +116,10 @@ NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 def proxy_config(proxied: Sequence[str] = PROXIED, domains: Sequence[str] = ()) -> str:
     """Return honk's test configuration, with ``proxied`` (addresses) through the proxy.
 
-    ``domains`` (and their subdomains) go through the proxy too. A domain rule
-    leaves the route of a new direct UDP flow open until honk has seen its first
-    packet, which waits in honk's queue (NFQUEUE) for honk's decision.
+    ``domains`` (and their subdomains) go through the proxy too. A
+    domain rule leaves the route of a new direct UDP flow open until
+    honk has seen its first packet, which waits in honk's queue
+    (NFQUEUE) for honk's decision.
     """
     addresses = ", ".join(
         f"'{address}'" if ":" in address else address for address in proxied
@@ -158,8 +163,9 @@ routing {{
 
 PROXY_CONFIG = proxy_config()
 
-# honk's native API in the tests: token mode, as config-push lets it be, on every
-# address of the router; the zones' input policies leave it to the LAN.
+# honk's native API in the tests: token mode, as config-push lets it be,
+# on every address of the router; the zones' input policies leave it to
+# the LAN.
 NATIVE_API_PORT = 9527
 NATIVE_API_TOKEN = "orbyt-test-native-api-token-0123456789"  # noqa: S105 (the tests' own)
 NATIVE_API = f"""
@@ -179,11 +185,13 @@ def native_api(
 ) -> tuple[int, str]:
     """Ask honk's native API at the router's ``address`` from ``source``.
 
-    Return the HTTP status and the body; the status is 0 when no answer came at all.
+    Return the HTTP status and the body; the status is 0 when no answer
+    came at all.
     """
     header = () if token is None else ("-H", f"Authorization: Bearer {token}")
-    # curl fails without an answer, and prints the status 000 then. It takes the
-    # encodings a browser takes: honk stores its web UI compressed.
+    # curl fails without an answer, and prints the status 000 then. It
+    # takes the encodings a browser takes: honk stores its web UI
+    # compressed.
     result = subprocess.run(
         source.argv(
             "curl",
@@ -201,9 +209,9 @@ def native_api(
 def tc_programs(router: Router, device: str) -> list[dict[str, Any]]:
     """Return bpftool's records of the BPF programs on ``device``'s tc hooks, in run order.
 
-    Each names its hook ("kind": "tcx/ingress", "clsact/egress", ...) and its
-    program ("name", a cls_bpf filter's own), with the program's id ("prog_id"
-    on tcx, "id" on clsact).
+    Each names its hook ("kind": "tcx/ingress", "clsact/egress", ...)
+    and its program ("name", a cls_bpf filter's own), with the program's
+    id ("prog_id" on tcx, "id" on clsact).
     """
     (shown,) = json.loads(router.run(f"bpftool -j net show dev {device}"))
     return cast("list[dict[str, Any]]", shown["tc"])
@@ -225,8 +233,9 @@ def interface(router: Router, name: str) -> dict[str, Any]:
 def _usable_addresses(shown: str) -> tuple[str, str] | None:
     """Return the IPv4 address and global IPv6 address ``ip -o addr`` shows, once both are usable.
 
-    An IPv6 address is usable once duplicate address detection is done with it
-    (no longer tentative); before, no connection can take it as its source.
+    An IPv6 address is usable once duplicate address detection is done
+    with it (no longer tentative); before, no connection can take it as
+    its source.
     """
     lines = shown.splitlines()
     addresses = [
@@ -259,8 +268,9 @@ def dhcp_leases(router: Router) -> dict[str, int]:
 
 
 def _session(router: Router, isp: Isp, other_than: Session | None) -> Session | None:
-    # ifup reloads netifd first, which can leave a slow router's netifd without
-    # an answer for a while (CI's run 38138320189): no answer is no session yet.
+    # ifup reloads netifd first, which can leave a slow router's netifd
+    # without an answer for a while (CI's run 38138320189): no answer is
+    # no session yet.
     shown = router.poll("ifstatus wan")
     if shown is None:
         return None
@@ -291,8 +301,8 @@ class Online:
     network: Network
     session: Session
     recovery: float = 0.0
-    # The leases the LAN clients held when the router came back, which they
-    # renew, and when each client last asked for its lease.
+    # The leases the LAN clients held when the router came back, which
+    # they renew, and when each client last asked for its lease.
     stale_leases: dict[str, int] = field(default_factory=dict, repr=False)
     asked: dict[str, float] = field(default_factory=dict, repr=False)
 
@@ -300,10 +310,11 @@ class Online:
     def dial(cls, router: Router, isp: Isp, network: Network) -> Self:
         """Push the credentials and wait until the router is online.
 
-        The router has just jumped back to its snapshot, so the LAN clients
-        announce themselves again, as they would to a router that has come back:
-        a lease renewal (with their hostname) and a router solicitation. The
-        snapshot still holds their leases from the boot; they count once renewed.
+        The router has just jumped back to its snapshot, so the LAN
+        clients announce themselves again, as they would to a router
+        that has come back: a lease renewal (with their hostname) and a
+        router solicitation. The snapshot still holds their leases from
+        the boot; they count once renewed.
         """
         user, password = map(shlex.quote, LOGIN)
         router.run(
@@ -349,7 +360,8 @@ class Online:
     def reboot(self, *, while_off: Callable[[], object] | None = None) -> None:
         """Reboot the router and wait until it is online again, with the LAN clients.
 
-        ``while_off`` changes hardware while the router is off (Router.reboot).
+        ``while_off`` changes hardware while the router is off
+        (Router.reboot).
         """
         self.router.reboot(while_off=while_off)
         self.reconnected()
@@ -362,8 +374,8 @@ class Online:
     def reconnected(self) -> Session:
         """Wait for a new session (after the old one ended) and the datapath; return the old.
 
-        ``recovery`` is then how long einat and qosify took to attach to the new
-        pppoe-wan, counted from the session coming up.
+        ``recovery`` is then how long einat and qosify took to attach to
+        the new pppoe-wan, counted from the session coming up.
         """
         previous = self.session
         self.session = _wait_session(self.router, self.isp, previous)
@@ -408,10 +420,11 @@ class Online:
     def _lan_ready(self, name: str) -> bool:
         """Return whether a LAN client is set up and the router knows it.
 
-        That is: its addresses, an IPv6 default route, and a lease at the router,
-        with its hostname, newer than the one it had to renew. A client that is
-        not there yet asks again, as a host does when it (re)attaches: a router
-        solicitation, and a lease renewal once its last request had time.
+        That is: its addresses, an IPv6 default route, and a lease at
+        the router, with its hostname, newer than the one it had to
+        renew. A client that is not there yet asks again, as a host does
+        when it (re)attaches: a router solicitation, and a lease renewal
+        once its last request had time.
         """
         client = self.client(name)
         lease = dhcp_leases(self.router).get(name)
@@ -431,10 +444,10 @@ class Online:
     def state(self) -> str:
         """Return the datapath's state as text, for a failure's report (failure-diagnostics D3).
 
-        Each part is read on its own, and one that cannot be read says why. The
-        router is asked first whether it answers at all, so that a router that
-        does not costs seconds, not a connection's wait for each of its parts
-        (test-fidelity D10).
+        Each part is read on its own, and one that cannot be read says
+        why. The router is asked first whether it answers at all, so
+        that a router that does not costs seconds, not a connection's
+        wait for each of its parts (test-fidelity D10).
         """
         parts = [
             _part(
@@ -463,7 +476,8 @@ def _part(title: str, read: Callable[[], str | None]) -> str:
     """Return ``title`` and what ``read`` returns, or why it returned nothing."""
     try:
         shown = read()
-    # A report of a failure must not fail itself: any error is shown instead.
+    # A report of a failure must not fail itself: any error is shown
+    # instead.
     except Exception as error:  # noqa: BLE001
         shown = f"({type(error).__name__}: {error})"
     return f"--- {title}\n{'(no answer)' if shown is None else shown}"
@@ -474,9 +488,10 @@ def proxy_pid(router: Router) -> str:
     return router.run("pidof honk-core || true")
 
 
-# Whether honk's queue (NFQUEUE 320) is bound by a socket of process $pid: the
-# queue's peer port names a netfilter netlink socket (/proc/net/netlink: protocol
-# 12), whose inode the process holds among its descriptors.
+# Whether honk's queue (NFQUEUE 320) is bound by a socket of process
+# $pid: the queue's peer port names a netfilter netlink socket
+# (/proc/net/netlink: protocol 12), whose inode the process holds among
+# its descriptors.
 QUEUE_OWNED = (
     "port=$(awk '$1 == 320 { print $2 }' /proc/net/netfilter/nfnetlink_queue)"
     " && inode=$(awk -v port=\"$port\" '$2 == 12 && $3 == port { print $10 }' /proc/net/netlink)"
@@ -487,10 +502,11 @@ QUEUE_OWNED = (
 def wait_proxy(router: Router, *, replacing: str = "") -> None:
     """Wait until one honk, not the process ``replacing``, has set up its datapath.
 
-    That is its programs on br-lan, its NFQUEUE table and its own binding of the
-    queue: a honk that is stopping keeps its programs on br-lan for a while, a new
-    one installs its table a moment after its programs, and a honk that was killed
-    leaves its table behind (fail-closed) without a queue.
+    That is its programs on br-lan, its NFQUEUE table and its own
+    binding of the queue: a honk that is stopping keeps its programs on
+    br-lan for a while, a new one installs its table a moment after its
+    programs, and a honk that was killed leaves its table behind
+    (fail-closed) without a queue.
     """
 
     def up() -> bool:

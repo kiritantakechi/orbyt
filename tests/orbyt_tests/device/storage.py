@@ -1,12 +1,12 @@
 """The USB data disk in the emulator (r4s-services D1, D10).
 
 A disk is a sparse raw image on the runner that the tests plug into the
-emulator's xHCI controller as a UAS device. The router shows its SCSI product
-name as the disk's model, which is how the tests find its block device.
-``initialize`` runs ``orbyt-data init`` as an administrator would: the device, then
-its name typed again to confirm. ``announce`` has the kernel announce the disk's
-block device again, added or removed, as a plug or an unplug does, while the disk
-stays attached.
+emulator's xHCI controller as a UAS device. The router shows its SCSI
+product name as the disk's model, which is how the tests find its block
+device. ``initialize`` runs ``orbyt-data init`` as an administrator
+would: the device, then its name typed again to confirm. ``announce``
+has the kernel announce the disk's block device again, added or removed,
+as a plug or an unplug does, while the disk stays attached.
 """
 
 import shlex
@@ -22,7 +22,8 @@ if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
 MOUNT = "/mnt/data"
-# The boot disk's own directory under the mount point: the overlay's upper layer.
+# The boot disk's own directory under the mount point: the overlay's
+# upper layer.
 BOOT_DISK = f"/overlay/upper{MOUNT}"
 SUBVOLUMES = ("containers", "downloads", "shares", "logs")
 # Sparse: only what the router writes takes space on the runner.
@@ -86,8 +87,9 @@ def device(router: Router, disk: Disk) -> str:
 def removed(router: Router, disk: Disk) -> None:
     """Wait until ``disk``'s block device is gone from the router, after it was pulled out.
 
-    The kernel lets a USB disk go a little after QEMU has: until then, device()
-    could take the old block device for the one of the next plug (test-fidelity D8).
+    The kernel lets a USB disk go a little after QEMU has: until then,
+    device() could take the old block device for the one of the next
+    plug (test-fidelity D8).
     """
     until(
         lambda: router.run(_models(disk)) == "",
@@ -99,8 +101,9 @@ def removed(router: Router, disk: Disk) -> None:
 def announce(router: Router, disk: Disk, action: str) -> None:
     """Have the kernel announce ``action`` (add, remove) for ``disk``'s block device.
 
-    The hotplug handlers then mount or unmount it as they do for a plug or an
-    unplug; a removal is preceded by a sync, as nothing can write to it after.
+    The hotplug handlers then mount or unmount it as they do for a plug
+    or an unplug; a removal is preceded by a sync, as nothing can write
+    to it after.
     """
     name = device(router, disk).removeprefix("/dev/")
     router.run(f"sync && echo {shlex.quote(action)} >/sys/class/block/{name}/uevent")
@@ -129,7 +132,8 @@ def wait_mounted(router: Router) -> set[str]:
 def initialize(router: Router, disk: Disk, answer: str | None = None) -> int:
     """Run ``orbyt-data init`` on ``disk``, answering its question; return its exit status.
 
-    The answer is the device's own name unless ``answer`` says otherwise.
+    The answer is the device's own name unless ``answer`` says
+    otherwise.
     """
     path = device(router, disk)
     typed = shlex.quote(path if answer is None else answer)

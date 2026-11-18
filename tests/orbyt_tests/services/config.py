@@ -1,9 +1,10 @@
 """The private configuration and config-push, as the tests drive them (r4s-release-pipeline D6).
 
-``ConfigRepository.create`` runs scripts/config-init.sh with an age key of the
-test's own. Its secrets, honk's configuration and uci templates are then written
-the way an administrator does, sops encrypting each file for the recipient in
-.sops.yaml, and ``push`` runs scripts/config-push.sh against the router.
+``ConfigRepository.create`` runs scripts/config-init.sh with an age key
+of the test's own. Its secrets, honk's configuration and uci templates
+are then written the way an administrator does, sops encrypting each
+file for the recipient in .sops.yaml, and ``push`` runs
+scripts/config-push.sh against the router.
 """
 
 import json

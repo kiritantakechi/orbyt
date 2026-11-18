@@ -15,26 +15,28 @@ CAPABILITY = "firmware/health-check"
 RESULT = "/var/run/orbyt-healthcheck.json"
 CHECKS = "/etc/healthcheck.d"
 FAILING = "/tmp/demo-fails"  # noqa: S108 (a path on the router)
-# Limits short enough for a test and long enough for a check to fail twice. A
-# test sets them without committing them: they hold for the health check it
-# runs, which reads the changes in /tmp/.uci, and the boot it reboots into
-# checks with the image's limits.
+# Limits short enough for a test and long enough for a check to fail
+# twice. A test sets them without committing them: they hold for the
+# health check it runs, which reads the changes in /tmp/.uci, and the
+# boot it reboots into checks with the image's limits.
 LIMITS = {"total": 6, "interval": 3, "timeout": 3}
 QUICK = " && ".join(
     f"uci set orbyt-ab.healthcheck.{name}={value}" for name, value in LIMITS.items()
 )
-# Limits long enough for a check that fails after the clock was set, then passes.
+# Limits long enough for a check that fails after the clock was set,
+# then passes.
 SLOW = {"total": 60, "interval": 3, "timeout": 3}
 DAY = 86400
-# A directory ahead of the system's on PATH, holding a U-Boot tool that fails.
+# A directory ahead of the system's on PATH, holding a U-Boot tool that
+# fails.
 BROKEN = "/tmp/broken-tools"  # noqa: S108 (a path on the router)
 
 
 def _check(router: Router, broken: str | None = None) -> dict[str, object]:
     """Run the health check with short limits and return its recorded result.
 
-    With ``broken``, that U-Boot tool fails for the health check at once, before
-    it reads anything it is given.
+    With ``broken``, that U-Boot tool fails for the health check at
+    once, before it reads anything it is given.
     """
     path = ""
     if broken is not None:
@@ -104,7 +106,8 @@ def test_pass_confirms_the_slot(router: Router) -> None:
 def test_trial_failure_reboots(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
-    # Fails for this boot only: /tmp starts empty, so the next boot passes and confirms.
+    # Fails for this boot only: /tmp starts empty, so the next boot
+    # passes and confirms.
     router.run(f"touch {FAILING}")
     _register(router, "demo", f"[ ! -e {FAILING} ]")
     previous_boot = router.boot_id()
@@ -137,8 +140,9 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
         timeout=30,
         what="the health check running",
     )
-    # A day forward, as NTP sets a clock that lagged, while the check still fails
-    # for two more rounds; then it passes, well within the total time limit.
+    # A day forward, as NTP sets a clock that lagged, while the check
+    # still fails for two more rounds; then it passes, well within the
+    # total time limit.
     router.run(f"date -s @$(($(date +%s) + {DAY})) >/dev/null")
     router.run(f"sleep {2 * SLOW['interval']} && rm {FAILING}")
     confirmed = f"slot {running} passed its trial boot and is confirmed"
@@ -172,8 +176,8 @@ def test_a_switch_written_during_the_checks_stays(router: Router) -> None:
         timeout=30,
         what="the health check running",
     )
-    # The other slot made the trial slot, as orbyt-slot switch writes it before its
-    # reboot; then the check passes.
+    # The other slot made the trial slot, as orbyt-slot switch writes it
+    # before its reboot; then the check passes.
     setenv(router, boot_slot=other, upgrade_available=1, bootcount=0)
     router.run(f"rm {FAILING}")
     left = f"left the switch to slot {other} in place"

@@ -1,7 +1,7 @@
 """testing/harness: scenarios and tests, the toolchain, data schemas, waits, failure reports.
 
-And what bounds the harness's work on the router: commands and login sessions
-that end with their time limit, setups undone when they fail.
+And what bounds the harness's work on the router: commands and login
+sessions that end with their time limit, setups undone when they fail.
 """
 
 import json
@@ -117,8 +117,8 @@ def test_coverage_report(demo: tuple[Path, Path]) -> None:
     assert "MISSING    demo/widget / Demo / missing one" in result.stdout
     assert "demo-change: no test for demo/widget / Demo / missing one" in result.stderr
     assert result.returncode == 1
-    # Archived, the spec is the system as built: its scenarios need their tests
-    # without being named.
+    # Archived, the spec is the system as built: its scenarios need
+    # their tests without being named.
     change = openspec / "changes" / "demo-change"
     (change / "specs" / "demo").rename(openspec / "specs" / "demo")
     shutil.rmtree(change)
@@ -277,7 +277,8 @@ class _TomlFile:
         return f"{self.table}[0]: {field}"
 
 
-# Every data file the tests read (module-boundaries D7), a real one of each.
+# Every data file the tests read (module-boundaries D7), a real one of
+# each.
 DATA_FILES = {
     "board description": _JsonFile(
         BOARDS_DIR / "r4s.json", lambda p: read_json(p, Description)
@@ -319,7 +320,8 @@ def test_a_malformed_data_file_names_the_field(
     )
 
 
-# Every kind of empty answer a probe may give while its condition does not hold.
+# Every kind of empty answer a probe may give while its condition does
+# not hold.
 EMPTY_ANSWERS = (None, False, 0, "", (), frozenset())
 
 
@@ -343,7 +345,8 @@ def test_a_wait_without_an_answer_names_what_it_waited_for() -> None:
         until(_answers(*EMPTY_ANSWERS), timeout=0.2, what="listener", every=0.01)
 
 
-# A detached command that ends without the reboot the harness then waits for.
+# A detached command that ends without the reboot the harness then waits
+# for.
 NEVER_REBOOTING = "this command ends without a reboot"
 SECTION = re.compile(r"(?ms)^--- (.+?)\n(.*?)(?=^--- |\Z)")
 
@@ -421,8 +424,9 @@ def test_writes_are_unlimited_after_a_failure(router: Router) -> None:
     assert router.emulator.write_limit() == 0
 
 
-# The tests above reset the router after them; the ones below use the module's
-# router online, which a reset would take away (claim, test-fidelity D16).
+# The tests above reset the router after them; the ones below use the
+# module's router online, which a reset would take away (claim,
+# test-fidelity D16).
 
 
 def _call_report(
@@ -457,8 +461,9 @@ def test_a_failing_online_test_names_the_datapath(online: Online) -> None:
     assert _call_report(item, "passed").sections == []
 
 
-# A table of the test's own on the router, which drops new connections to SSH:
-# the router takes none, while the one open goes on (test-fidelity D14).
+# A table of the test's own on the router, which drops new connections
+# to SSH: the router takes none, while the one open goes on
+# (test-fidelity D14).
 NO_NEW_SSH = "orbyt_test_no_new_ssh"
 REPORT_SECONDS = 20.0
 

@@ -1,7 +1,8 @@
 """The fixtures of the router online and what runs on it (module-boundaries D6).
 
-A module dials in at the emulated ISP once; the transparent proxy (honk), the
-emulated internet's names and CA, and the test app's Pod build on that session.
+A module dials in at the emulated ISP once; the transparent proxy
+(honk), the emulated internet's names and CA, and the test app's Pod
+build on that session.
 """
 
 import subprocess
@@ -31,9 +32,10 @@ def pytest_runtest_makereport(
 ) -> Generator[None, pytest.TestReport, pytest.TestReport]:
     """Add the datapath's state to the report of a test that failed with the router online.
 
-    ``funcargs`` holds the values of the test's whole fixture closure, so a test
-    on a fixture built on ``online`` has it too (failure-diagnostics D3). A
-    teardown that fails, putting the router back, is such a failure as well.
+    ``funcargs`` holds the values of the test's whole fixture closure,
+    so a test on a fixture built on ``online`` has it too
+    (failure-diagnostics D3). A teardown that fails, putting the router
+    back, is such a failure as well.
     """
     del call
     report = yield
@@ -57,12 +59,12 @@ def online(module_router: Router, isp: Isp, network: Network) -> Online:
 def internet_zone(online: Online) -> Online:
     """Let the emulated internet's answers through dnsmasq's rebind protection.
 
-    Its addresses are documentation ranges, which the protection counts as
-    private; an operator lets a local domain through the same way. dnsmasq
-    restarts to take it after the reload has returned, the old instance
-    listening meanwhile, so the fixture waits for the router to answer a LAN
-    query with an address the protection held back (DNS to a private address
-    passes honk natively).
+    Its addresses are documentation ranges, which the protection counts
+    as private; an operator lets a local domain through the same way.
+    dnsmasq restarts to take it after the reload has returned, the old
+    instance listening meanwhile, so the fixture waits for the router to
+    answer a LAN query with an address the protection held back (DNS to
+    a private address passes honk natively).
     """
     router = online.router
     router.run(

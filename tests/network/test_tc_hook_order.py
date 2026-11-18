@@ -1,7 +1,7 @@
 """network/tc-hook-order: who attaches where on the ports, and who owns which mark bits.
 
-The emulator tests run with honk on, so all three components hold their hooks:
-einat and then qosify on tcx on pppoe-wan, honk alone on br-lan.
+The emulator tests run with honk on, so all three components hold their
+hooks: einat and then qosify on tcx on pppoe-wan, honk alone on br-lan.
 """
 
 import json
@@ -38,12 +38,13 @@ CAPABILITY = "network/tc-hook-order"
 MARKS_CHECK = Path(__file__).resolve().parents[2] / "scripts" / "marks-check.sh"
 # The bit honk keeps for its own sockets (config/marks.tsv).
 PROXY_BIT = "0x00000100"
-# pppoe-wan when qosify falls back to clsact: einat on tcx, qosify's filters after.
+# pppoe-wan when qosify falls back to clsact: einat on tcx, qosify's
+# filters after.
 FALLBACK = {**EINAT, **QOSIFY_CLSACT}
 SETTLE = 60
-# The ICMP test's pings: so many in so short a time that their replies stand out
-# from the WAN's background traffic, a few packets a second, which a quiet
-# window as long shows (test-fidelity D4).
+# The ICMP test's pings: so many in so short a time that their replies
+# stand out from the WAN's background traffic, a few packets a second,
+# which a quiet window as long shows (test-fidelity D4).
 PINGS = 200
 PING_INTERVAL = 0.01
 
@@ -78,8 +79,9 @@ def _set_tcx(router: Router, value: str) -> None:
 def _qosify_runs(router: Router, direction: str) -> int:
     """Return how often qosify's classifier on ``direction`` of pppoe-wan has run.
 
-    qosify's own counters (ubus get_stats) add up both directions, so this reads
-    the run count of the program instance on the hook (kernel.bpf_stats_enabled).
+    qosify's own counters (ubus get_stats) add up both directions, so
+    this reads the run count of the program instance on the hook
+    (kernel.bpf_stats_enabled).
     """
     (program,) = [
         found["prog_id"]
@@ -140,7 +142,8 @@ def test_icmp_reply_reaches_qosify_and_the_host(proxy: Online) -> None:
         assert received is not None, pinged
         replies = int(received[1])
         assert replies > PINGS // 2, pinged
-        # One run for each reply at least: the background alone makes far fewer.
+        # One run for each reply at least: the background alone makes
+        # far fewer.
         assert _qosify_runs(router, "ingress") - before >= replies
     finally:
         router.run("sysctl -qw kernel.bpf_stats_enabled=0")
@@ -156,8 +159,8 @@ def test_fragmented_reply_arrives_whole(proxy: Online) -> None:
 @spec(CAPABILITY, "Order independent of startup order", "After restarting components")
 def test_order_survives_restarts_and_a_redial(proxy: Online) -> None:
     router = proxy.router
-    # Each component's daemon: one that is stopping keeps its programs for a
-    # moment, so the order counts once the new one runs.
+    # Each component's daemon: one that is stopping keeps its programs
+    # for a moment, so the order counts once the new one runs.
     for step, process in (
         ("qosify", "qosify"),
         ("einat", "einat"),

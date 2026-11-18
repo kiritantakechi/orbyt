@@ -1,14 +1,14 @@
 """release/upstream-bump: the weekly bump of upstream.lock, merged only after the upgrade drill.
 
-scripts/upstream-bump.sh runs against local repositories standing in for the
-upstreams of upstream.lock; scripts/patch.sh against one the patch queue does not
-apply to.
-The bump workflow's step that opens the pull request runs in a clone of a local
-repository standing in for GitHub's, with a gh that records its calls; the
-drill check's step runs as build.yml has it.
-The drill tests (marked drill) are what CI's upgrade-drill job runs with the
-production keys and the latest stable release as the base; here, and in
-system-test, they run with the session's keys and this build as the base.
+scripts/upstream-bump.sh runs against local repositories standing in for
+the upstreams of upstream.lock; scripts/patch.sh against one the patch
+queue does not apply to. The bump workflow's step that opens the pull
+request runs in a clone of a local repository standing in for GitHub's,
+with a gh that records its calls; the drill check's step runs as
+build.yml has it. The drill tests (marked drill) are what CI's
+upgrade-drill job runs with the production keys and the latest stable
+release as the base; here, and in system-test, they run with the
+session's keys and this build as the base.
 """
 
 import hashlib
@@ -36,7 +36,8 @@ if TYPE_CHECKING:
 
 CAPABILITY = "release/upstream-bump"
 REPO = Path(__file__).resolve().parents[2]
-# The upstreams the bump checks: every repository of the lock, in its order.
+# The upstreams the bump checks: every repository of the lock, in its
+# order.
 NAMES = tuple(
     line.split()[0]
     for line in (REPO / "upstream.lock").read_text().splitlines()
@@ -48,16 +49,17 @@ WORKFLOWS = REPO / ".github" / "workflows"
 # The day a bump runs on, and so its branch.
 DAY = "2026-10-26"
 BRANCH = f"bump/{DAY}"
-# The secret the bot pushes and opens the pull request with (bump-branch-runs D2).
+# The secret the bot pushes and opens the pull request with
+# (bump-branch-runs D2).
 PUSH_CREDENTIAL = "secrets.BUMP_PUSH_TOKEN"
-# The condition that tells a bump pull request's run in build.yml, the same in
-# every place that tests it (bump-branch-runs D3).
+# The condition that tells a bump pull request's run in build.yml, the
+# same in every place that tests it (bump-branch-runs D3).
 BUMP_PULL_REQUEST = (
     "github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/')"
 )
-# Stand-ins for the bump's step: a date of DAY, and a gh that records its calls
-# in gh.calls, lists the pull requests that pulls holds, and creates none while
-# refuse exists.
+# Stand-ins for the bump's step: a date of DAY, and a gh that records
+# its calls in gh.calls, lists the pull requests that pulls holds, and
+# creates none while refuse exists.
 DATE = f"#!/bin/sh\necho {DAY}\n"
 GH_PULL_REQUESTS = """#!/bin/sh
 here=$(dirname "$0")
@@ -67,8 +69,9 @@ case "$1 $2" in
     "pr create") [ ! -e "$here/refuse" ] ;;
 esac
 """
-# A stand-in for gh: the latest release is latest.json beside it, or GitHub's
-# error in latest.error, and the release's assets are the files in assets/.
+# A stand-in for gh: the latest release is latest.json beside it, or
+# GitHub's error in latest.error, and the release's assets are the files
+# in assets/.
 GH = """#!/bin/sh
 here=$(dirname "$0")
 case "$1" in
@@ -194,8 +197,9 @@ def test_no_updates_make_nothing(tmp_path: Path) -> None:
 def _github(tmp_path: Path, *, branch_commits: int = 0) -> tuple[Path, Path]:
     """Make a repository standing in for GitHub's and a clone of it with a moved lock.
 
-    Its bump branch of the day exists when ``branch_commits`` makes commits on
-    it, as the maintainer would. Return the stand-in and the clone.
+    Its bump branch of the day exists when ``branch_commits`` makes
+    commits on it, as the maintainer would. Return the stand-in and the
+    clone.
     """
     origin = tmp_path / "origin.git"
     _git(tmp_path, "init", "-q", "--bare", "-b", "main", origin.name)
@@ -237,8 +241,8 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
     """Run bump.yml's step that opens the pull request; return its result and gh's calls.
 
-    ``has_token`` says whether the secret BUMP_PUSH_TOKEN is set; ``moved``
-    whether upstream moved, so that there is a description.
+    ``has_token`` says whether the secret BUMP_PUSH_TOKEN is set;
+    ``moved`` whether upstream moved, so that there is a description.
     """
     (step,) = [
         step for step in _bump_steps() if step.get("name") == "Open the pull request"
@@ -283,8 +287,9 @@ def test_a_pull_request_that_cannot_be_opened_leaves_the_checks_running(
     result, calls = _open_pull_request(tmp_path, clone, refused=True)
     assert result.returncode != 0
     assert f"cannot open the pull request of {BRANCH}" in result.stdout
-    # The branch is pushed with the new lock, which starts its build: nothing is
-    # dispatched, as a dispatched run counts for no pull request.
+    # The branch is pushed with the new lock, which starts its build:
+    # nothing is dispatched, as a dispatched run counts for no pull
+    # request.
     assert _git(origin, "show", f"{BRANCH}:upstream.lock") == "openwrt new"
     assert not [call for call in calls if call.startswith("workflow run")]
     assert calls[-1].startswith(f"pr create --base main --head {BRANCH} ")
@@ -292,8 +297,9 @@ def test_a_pull_request_that_cannot_be_opened_leaves_the_checks_running(
 
 @spec(CAPABILITY, "Weekly automated PR", "No token that starts workflows")
 def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
-    # The bot's checkout, so its push, and its gh take the secret; checkout falls
-    # back on the workflow's token, which is enough when there is nothing to push.
+    # The bot's checkout, so its push, and its gh take the secret;
+    # checkout falls back on the workflow's token, which is enough when
+    # there is nothing to push.
     steps = _bump_steps()
     (checkout,) = [
         step for step in steps if step.get("uses", "").startswith("actions/checkout@")
@@ -367,8 +373,8 @@ def test_a_push_to_a_bump_branch_runs_its_build() -> None:
 )
 def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -> None:
     jobs = _build_jobs()
-    # The host stage is skipped, and every job but the drill check needs it,
-    # directly or through sign, which no pull request's run reaches.
+    # The host stage is skipped, and every job but the drill check needs
+    # it, directly or through sign, which no pull request's run reaches.
     assert jobs["host-toolchain"]["if"] == f"${{{{ !({BUMP_PULL_REQUEST}) }}}}"
     assert "github.event_name != 'pull_request'" in jobs["sign"]["if"]
 
@@ -379,16 +385,16 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
         if name in {"host-toolchain", "upgrade-drill"}:
             continue
         assert reaches(name, "host-toolchain") or reaches(name, "sign"), name
-        # always() would run it whatever its needs did, unless it then asks for
-        # the host stage's success or excludes pull requests.
+        # always() would run it whatever its needs did, unless it then
+        # asks for the host stage's success or excludes pull requests.
         condition = str(job.get("if", ""))
         if "always()" in condition:
             assert (
                 "needs.host-toolchain.result == 'success'" in condition
                 or "github.event_name != 'pull_request'" in condition
             ), name
-    # The drill check runs in every run, under another name in this one, so
-    # main's required check waits for the bump branch's own run.
+    # The drill check runs in every run, under another name in this one,
+    # so main's required check waits for the bump branch's own run.
     check = jobs["upgrade-drill"]
     assert check["if"] == "always()"
     assert check["name"] == (
@@ -396,9 +402,9 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
     )
     (step,) = check["steps"]
     assert step["env"]["BUMP_PULL_REQUEST"] == f"${{{{ {BUMP_PULL_REQUEST} }}}}"
-    # The results such a run has: nothing built, tested or signed. In a bump's
-    # pull request the step names the run that reports the check; in another
-    # pull request's run the same results fail it.
+    # The results such a run has: nothing built, tested or signed. In a
+    # bump's pull request the step names the run that reports the check;
+    # in another pull request's run the same results fail it.
     results = {"SYSTEM_TEST": "skipped", "SIGN": "skipped", "DRILL": "skipped"}
     for bump in ("true", "false"):
         result = subprocess.run(
@@ -422,8 +428,9 @@ def _patch_step(
 ) -> subprocess.CompletedProcess[str]:
     """Run the patch step on a pinned openwrt commit that ``change`` made.
 
-    ``change`` changes the openwrt repository's tree, which is then committed; a
-    copy of this repository's scripts and patches pins that commit.
+    ``change`` changes the openwrt repository's tree, which is then
+    committed; a copy of this repository's scripts and patches pins that
+    commit.
     """
     _upstreams(tmp_path, commits=1)
     openwrt = tmp_path / "openwrt"
@@ -519,9 +526,9 @@ def _drill_base(
 ) -> subprocess.CompletedProcess[str]:
     """Run drill-base.sh for ``board`` beside this build's stand-in outputs, in ``root``.
 
-    ``latest`` is the latest release's tag, with its assets in ``root/gh/assets``,
-    or None when GitHub answers the lookup with ``error``: by default, that there
-    is no stable release.
+    ``latest`` is the latest release's tag, with its assets in
+    ``root/gh/assets``, or None when GitHub answers the lookup with
+    ``error``: by default, that there is no stable release.
     """
     ci = root / "work" / "out" / board.id / "ci"
     (ci / "targets").mkdir(parents=True)
@@ -557,8 +564,9 @@ def _release(
 ) -> None:
     """Put the board's set in the stand-in's release: its manifest and factory image.
 
-    The manifest lists ``listed`` (``image`` unless given) as the factory image. A
-    longer device name's image beside it must not be taken for the board's.
+    The manifest lists ``listed`` (``image`` unless given) as the
+    factory image. A longer device name's image beside it must not be
+    taken for the board's.
     """
     assets = root / "gh" / "assets"
     assets.mkdir(parents=True, exist_ok=True)
@@ -576,8 +584,9 @@ def _release(
 def _base(root: Path, board: Board) -> tuple[str, bytes]:
     """Return what the drill starts from: the run that built its image, and the image.
 
-    Its manifest is that build's, its profile drill-base, its files the image and
-    this build's emulator firmware, as emu-prepare checks them.
+    Its manifest is that build's, its profile drill-base, its files the
+    image and this build's emulator firmware, as emu-prepare checks
+    them.
     """
     base = root / "work" / "out" / board.id / "drill-base"
     (image,) = (base / "targets").iterdir()
@@ -603,7 +612,8 @@ def test_each_drill_starts_from_the_board_s_latest_release(tmp_path: Path) -> No
     assert result.returncode == 0, result.stderr
     assert f"drill base: {TAG}, the latest stable release" in result.stderr
     assert _base(tmp_path, board) == (RELEASED, b"the released factory image")
-    # A board that no stable release carries yet starts from this build...
+    # A board that no stable release carries yet starts from this
+    # build...
     result = _drill_base(tmp_path, other, TAG)
     assert result.returncode == 0, result.stderr
     assert f"carries no {other.id}" in result.stderr

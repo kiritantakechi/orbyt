@@ -1,13 +1,13 @@
 """The fixtures of the build under test, as data (module-boundaries D6).
 
-The emulator boots the build that emu-prepare recorded in its directory; its
-manifest names the board and the profile. The session signs that build with
-release keys of its own (the script CI signs releases with), and its router
-trusts those keys instead of the image's, as a release image trusts the release
-keys: upgrades and packages are the build's, signed. The upgrade drill
-(r4s-release-pipeline D5) instead names the production-signed candidate in
-$ORBYT_SIGNED; then nothing is signed here and the image's own trust anchors
-decide.
+The emulator boots the build that emu-prepare recorded in its directory;
+its manifest names the board and the profile. The session signs that
+build with release keys of its own (the script CI signs releases with),
+and its router trusts those keys instead of the image's, as a release
+image trusts the release keys: upgrades and packages are the build's,
+signed. The upgrade drill (r4s-release-pipeline D5) instead names the
+production-signed candidate in $ORBYT_SIGNED; then nothing is signed
+here and the image's own trust anchors decide.
 """
 
 import os

@@ -1,9 +1,10 @@
 """Fixtures of the services tests (r4s-services D10): what an administrator sets up.
 
-An SMB user, the WireGuard tunnel and the tailnet: each is written the way the
-config push or an administrator would, since the image presets none of it. A
-module's router returns to its snapshot afterwards, so only what lives outside
-it (wg-peer, ts-peer, headscale, the LAN host's server) is put back.
+An SMB user, the WireGuard tunnel and the tailnet: each is written the
+way the config push or an administrator would, since the image presets
+none of it. A module's router returns to its snapshot afterwards, so
+only what lives outside it (wg-peer, ts-peer, headscale, the LAN host's
+server) is put back.
 """
 
 import shlex

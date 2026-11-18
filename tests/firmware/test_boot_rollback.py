@@ -30,10 +30,11 @@ CAPABILITY = "firmware/boot-rollback"
 UBOOT_DIR = Path(__file__).resolve().parents[2] / "uboot"
 UBOOT_SECTOR = 16384
 UBOOT_BANNER = r"U-Boot 20\d\d\.\d\d"
-# Variables U-Boot itself defines for the slot logic, besides those of orbyt-ab.env.
+# Variables U-Boot itself defines for the slot logic, besides those of
+# orbyt-ab.env.
 LOGIC = ("bootcmd", "altbootcmd", "bootlimit")
-# The variables a stored environment may set, as both bootloaders' flags list
-# names them: the slot logic's state alone.
+# The variables a stored environment may set, as both bootloaders' flags
+# list names them: the slot logic's state alone.
 WRITABLE = '"boot_slot:sw,bootcount:dw,upgrade_available:dw"'
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 BOOT_LIMIT = 3
@@ -42,7 +43,8 @@ PANIC_REBOOT = 10.0
 HIJACK = "echo orbyt-hijacked"
 # A trial deadline short enough for three hung boots in a test.
 TRIAL_DEADLINE = 60
-# A uci-defaults script, which the boot script S10boot runs, and an upgrade carries.
+# A uci-defaults script, which the boot script S10boot runs, and an
+# upgrade carries.
 HANG = "/etc/uci-defaults/95-orbyt-test-hang"
 
 
@@ -133,8 +135,8 @@ def test_corrupted_environment_boots_slot_a(router: Router) -> None:
 def test_cut_short_write_keeps_the_previous_state(router: Router) -> None:
     running = slot(router)
     _trial(router)
-    # The confirmation, cut short: the copy it went to is corrupted, as a reset in
-    # the middle of writing it leaves it.
+    # The confirmation, cut short: the copy it went to is corrupted, as
+    # a reset in the middle of writing it leaves it.
     setenv(router, upgrade_available=0)
     _corrupt(router, newest_env_copy(router))
     router.reboot()
@@ -207,11 +209,13 @@ def test_the_first_boot_script_reads_the_environment(
     other = "b" if slot(router) == "a" else "a"
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    # No configuration kept: nothing carries the environment's access over.
+    # No configuration kept: nothing carries the environment's access
+    # over.
     router.detach(f"sleep 1; sysupgrade -n {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
     assert slot(router) == other
-    # orbyt-trial, the first boot script, names the trial only when it read it.
+    # orbyt-trial, the first boot script, names the trial only when it
+    # read it.
     assert f"orbyt-trial: slot {other} is on trial" in router.run("dmesg")
 
 
@@ -239,8 +243,8 @@ def test_stored_boot_command_is_ignored(router: Router) -> None:
 def test_rollback_after_three_unconfirmed_boots(
     router: Router, upgrade_image: Path
 ) -> None:
-    # The new slot inherits a configuration that keeps its web server off the LAN,
-    # so its health check fails every time, quickly.
+    # The new slot inherits a configuration that keeps its web server
+    # off the LAN, so its health check fails every time, quickly.
     router.run(
         "uci set uhttpd.main.listen_http=127.0.0.1:80"
         " && uci set orbyt-ab.healthcheck.total=10 && uci set orbyt-ab.healthcheck.interval=5"
@@ -271,8 +275,9 @@ def test_rollback_after_three_unconfirmed_boots(
 def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> None:
     running = slot(router)
     other = "b" if running == "a" else "a"
-    # A boot script that never returns on the trial slot, before the health check
-    # starts; on the original slot it ends at once and goes, as uci-defaults do.
+    # A boot script that never returns on the trial slot, before the
+    # health check starts; on the original slot it ends at once and
+    # goes, as uci-defaults do.
     hang = "\n".join(
         (
             ". /lib/functions/orbyt-ab.sh",
@@ -327,7 +332,8 @@ def test_fallback_within_one_power_cycle(router: Router) -> None:
     router.reboot()
     assert slot(router) == "a"
     assert getenv(router, "boot_slot") == "b"
-    # With neither slot loadable U-Boot gives up at its prompt, and stays there.
+    # With neither slot loadable U-Boot gives up at its prompt, and
+    # stays there.
     router.run(
         f"mount {partition(1)} /mnt && rm /mnt/kernel.img && umount /mnt && sync"
     )
@@ -412,8 +418,8 @@ def test_same_logic_in_both_bootloaders(
         name: qemu[name] for name in shared
     }
     assert constants <= shipped.keys() & qemu.keys()
-    # Each keeps both copies of its environment at the shared offsets of the MMC
-    # device its constants boot from...
+    # Each keeps both copies of its environment at the shared offsets of
+    # the MMC device its constants boot from...
     for name, environment in (("u-boot.config", shipped), ("u-boot-qemu.config", qemu)):
         config = _config(build_output / name)
         assert config.get("CONFIG_ENV_IS_IN_MMC") == "y", name
@@ -424,7 +430,8 @@ def test_same_logic_in_both_bootloaders(
         offsets = (config["CONFIG_ENV_OFFSET"], config["CONFIG_ENV_OFFSET_REDUND"])
         assert tuple(int(offset, 16) for offset in offsets) == ENV_COPIES, name
         assert int(config["CONFIG_ENV_SIZE"], 16) == ENV_SIZE, name
-        # The stored environment sets the slot logic's state and nothing else.
+        # The stored environment sets the slot logic's state and nothing
+        # else.
         assert config.get("CONFIG_ENV_WRITEABLE_LIST") == "y", name
         assert config.get("CONFIG_ENV_FLAGS_LIST_STATIC") == WRITABLE, name
     # ...which the board's device tree makes its boot disk's controller: an eMMC

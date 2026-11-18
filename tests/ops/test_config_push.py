@@ -1,12 +1,13 @@
 """ops/config-push: the private configuration, encrypted, pushed with config-push.
 
-The module's private repository is config-init's, filled in as an administrator
-fills it: the ISP account, WireGuard's key, the tailnet login (a preauth key of
-the emulated internet's headscale) and a share user in the encrypted secrets,
-honk's test configuration encrypted beside them. It is pushed once to the
-module's router, online and trusting the emulated internet, over SSH with the
-harness's key; each test pushes what it changed and discards it after. The
-upgrade to the other slot comes last.
+The module's private repository is config-init's, filled in as an
+administrator fills it: the ISP account, WireGuard's key, the tailnet
+login (a preauth key of the emulated internet's headscale) and a share
+user in the encrypted secrets, honk's test configuration encrypted
+beside them. It is pushed once to the module's router, online and
+trusting the emulated internet, over SSH with the harness's key; each
+test pushes what it changed and discards it after. The upgrade to the
+other slot comes last.
 """
 
 import hashlib
@@ -47,28 +48,30 @@ SHARE_USER = {"name": "pushed", "password": "pushed-secret-1"}
 ADDED_SHARE_USER = {"name": "added", "password": "added-secret-2"}
 # An address the LAN cannot come up with (netifd: INVALID_ADDRESS).
 BAD_LAN_ADDRESS = "10.0.0.300/24"
-# The requirement on honk's settings that the firmware sets, and config-push's refusal.
+# The requirement on honk's settings that the firmware sets, and
+# config-push's refusal.
 FIRMWARE_SETTINGS = "Proxy user config cannot set the firmware's settings"
 FIRMWARE_SETTINGS_REFUSAL = (
     "lan_interface, wan_interface and data_dir are the firmware's"
 )
 SERVICES = ("honk", "network", "smb", "tailscale")
-# The processes the services' reloads restart: honk's, the WAN's pppd, the SMB
-# server's and tailscaled.
+# The processes the services' reloads restart: honk's, the WAN's pppd,
+# the SMB server's and tailscaled.
 RESTARTED = ("honk-core", "pppd", "ksmbd.mountd", "tailscaled")
 ROOT_PASSWORD = "not-for-config-push"  # noqa: S105 (the test router's, for a password to refuse)
-# A password gitleaks' generic rule surely catches in plain text. A random one now
-# and then falls short of its entropy threshold, or holds one of its stop words.
+# A password gitleaks' generic rule surely catches in plain text. A
+# random one now and then falls short of its entropy threshold, or holds
+# one of its stop words.
 PLAIN_SECRET = "vZ8qK3wT9mX2pL7nR4cB"  # noqa: S105  # gitleaks:allow (only scanned for)
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 TAILSCALE_TIMEOUT = 180
-# Where the router records, while a push runs, the modes of its upload and the
-# command lines of its processes.
+# Where the router records, while a push runs, the modes of its upload
+# and the command lines of its processes.
 UPLOAD = "/tmp/orbyt-push"  # noqa: S108 (a path on the router)
 MODES = "/tmp/push-modes"  # noqa: S108 (a path on the router)
 COMMANDS = "/tmp/push-commands"  # noqa: S108 (a path on the router)
-# A fifth of a second: the router's BusyBox sleep takes whole seconds only, and
-# fails at once on a fraction.
+# A fifth of a second: the router's BusyBox sleep takes whole seconds
+# only, and fails at once on a fraction.
 PAUSE = "ucode -e 'sleep(200)'"
 WATCH = (
     f"while :; do ls -ldn {UPLOAD} 2>/dev/null; ls -lnR {UPLOAD}/new 2>/dev/null; {PAUSE};"
@@ -77,8 +80,9 @@ WATCH = (
 )
 # Modes of a file and of a directory that root alone can read.
 ROOT_ONLY = ("-rw-------", "drwx------")
-# The tailscale CLI and ksmbd.adduser, links to the binaries that act by the
-# name they run under, and where the arguments of their runs are recorded.
+# The tailscale CLI and ksmbd.adduser, links to the binaries that act by
+# the name they run under, and where the arguments of their runs are
+# recorded.
 TAILSCALE = "/usr/sbin/tailscale"
 TAILSCALE_ARGUMENTS = "/tmp/tailscale-arguments"  # noqa: S108 (a path on the router)
 ADDUSER = "/usr/sbin/ksmbd.adduser"
@@ -87,8 +91,9 @@ ADDUSER_ARGUMENTS = "/tmp/adduser-arguments"  # noqa: S108 (a path on the router
 REFUSED_KEY = "tskey-auth-refused-0000"
 # A docroot uhttpd refuses to start with.
 NO_DOCROOT = "/nonexistent"
-# A command procd runs ahead of uhttpd's reload, for longer than a daemon may
-# take to restart: procd runs its trigger commands one at a time.
+# A command procd runs ahead of uhttpd's reload, for longer than a
+# daemon may take to restart: procd runs its trigger commands one at a
+# time.
 AHEAD = "orbyt-test-ahead"
 AHEAD_SECONDS = 30
 # A group honk's configuration routes to and no group block declares.
@@ -142,9 +147,9 @@ def _secrets(
 def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
     """Have every run of ``program`` record its arguments in ``arguments`` meanwhile.
 
-    ``program`` is a link to a binary that acts by the name it runs under: a wrapper
-    in its place records the arguments, then runs the binary under that name with
-    the same standard input.
+    ``program`` is a link to a binary that acts by the name it runs
+    under: a wrapper in its place records the arguments, then runs the
+    binary under that name with the same standard input.
     """
     name = PurePosixPath(program).name
     real = f"/tmp/orbyt-test-{name}"  # noqa: S108 (a path on the router)
@@ -306,9 +311,10 @@ def test_a_repeated_push_restarts_nothing(pushed: Pushed) -> None:
 def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
     router = pushed.router
     key = shlex.quote(pushed.wireguard_key)
-    # The WireGuard key, changed on the router since the push: the network batch
-    # changes it again, though the push's files are as they were. uci records no
-    # change for a value an option already holds.
+    # The WireGuard key, changed on the router since the push: the
+    # network batch changes it again, though the push's files are as
+    # they were. uci records no change for a value an option already
+    # holds.
     router.run(
         "uci set network.wg0.private_key=changed-on-the-router && uci commit network"
     )
@@ -334,9 +340,9 @@ def test_a_push_beside_an_uncommitted_change_to_its_package_is_refused(
 ) -> None:
     router = pushed.router
     key = shlex.quote(pushed.wireguard_key)
-    # The WireGuard key, changed on the router since the push, for the network
-    # batch to change network; and an uncommitted change to it, as LuCI holds a
-    # change until it is saved.
+    # The WireGuard key, changed on the router since the push, for the
+    # network batch to change network; and an uncommitted change to it,
+    # as LuCI holds a change until it is saved.
     router.run(
         "uci set network.wg0.private_key=changed-on-the-router && uci commit network"
         " && uci set network.wan.mtu=1400"
@@ -364,7 +370,8 @@ def test_an_uncommitted_change_to_another_package_stays(pushed: Pushed) -> None:
     router = pushed.router
     committed = router.run("sha256sum /etc/config/system")
     router.run("uci set system.@system[0].description=uncommitted")
-    # A changed batch, of uhttpd's configuration, that sets uhttpd's home to what it is.
+    # A changed batch, of uhttpd's configuration, that sets uhttpd's
+    # home to what it is.
     home = router.run("uci get uhttpd.main.home")
     template = pushed.repository.directory / "uci" / "uhttpd.uci.tmpl"
     template.write_text(f"set uhttpd.main.home='{home}'\n")
@@ -389,8 +396,8 @@ def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
         router.run("uci get network.lan.ipaddr"),
         router.run("cat /etc/orbyt-config/network"),
     )
-    # A batch uci takes but the LAN cannot come up with: without the rollback,
-    # the router would be out of reach from the LAN.
+    # A batch uci takes but the LAN cannot come up with: without the
+    # rollback, the router would be out of reach from the LAN.
     template = pushed.repository.directory / "uci" / "network.uci.tmpl"
     template.write_text(
         f"{template.read_text()}set network.lan.ipaddr='{BAD_LAN_ADDRESS}'\n"
@@ -399,7 +406,8 @@ def test_a_service_that_fails_is_put_back(pushed: Pushed) -> None:
         result = pushed.push()
     finally:
         pushed.repository.discard()
-        # The LAN was gone for a while, and the harness's connection with it.
+        # The LAN was gone for a while, and the harness's connection
+        # with it.
         router.disconnect()
     _assert_put_back(result, "network")
     assert (
@@ -430,7 +438,8 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
         router.run(f"pkill -f '{MODES}' || true; pkill -f '{COMMANDS}' || true")
         pushed.repository.commit("another tailnet key and share user")
     assert result.returncode == 0, result.stderr
-    # The entries of the listings: a file's line starts with "-", a directory's with "d".
+    # The entries of the listings: a file's line starts with "-", a
+    # directory's with "d".
     modes = [
         line.split()[0]
         for line in router.run(f"cat {MODES}").splitlines()
@@ -441,11 +450,13 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     assert router.returncode(f"[ -e {UPLOAD} ]") != 0
     files = router.run("ls /etc/honk/* /etc/orbyt-config/tailscale.key").split()
     assert {router.run(f"ls -ln {file}").split()[0] for file in files} == {ROOT_ONLY[0]}
-    # The key reaches tailscale in its file, and no command line sampled holds it.
+    # The key reaches tailscale in its file, and no command line sampled
+    # holds it.
     assert "--auth-key=file:" in router.run(f"cat {TAILSCALE_ARGUMENTS}")
     assert auth_key not in router.run(f"cat {TAILSCALE_ARGUMENTS} {COMMANDS}")
-    # A share user's password reaches ksmbd.adduser on its standard input, never
-    # on a command line, and is the one it stores when given it as -p's argument.
+    # A share user's password reaches ksmbd.adduser on its standard
+    # input, never on a command line, and is the one it stores when
+    # given it as -p's argument.
     added, password = ADDED_SHARE_USER["name"], ADDED_SHARE_USER["password"]
     assert added in router.run(f"cat {ADDUSER_ARGUMENTS}").split()
     assert password not in router.run(f"cat {ADDUSER_ARGUMENTS} {COMMANDS}")
@@ -531,8 +542,9 @@ def test_a_service_that_stops_is_put_back(pushed: Pushed) -> None:
 def test_a_honk_that_was_off_is_put_back_off(pushed: Pushed) -> None:
     router = pushed.router
     router.run("/etc/init.d/honk disable && /etc/init.d/honk stop")
-    # A honk that does not come back while it starts at boot: its check fails
-    # then, and passes once it is off again, as its own check does.
+    # A honk that does not come back while it starts at boot: its check
+    # fails then, and passes once it is off again, as its own check
+    # does.
     router.run(
         f"cp {PROXY_HEALTHCHECK} {PROXY_HEALTHCHECK}.real && printf '%s\\n' '#!/bin/sh'"
         f" '/etc/init.d/honk enabled || exit 0' 'exit 1' >{PROXY_HEALTHCHECK}"
@@ -623,7 +635,8 @@ def test_the_native_api_takes_no_blank_token(pushed: Pushed) -> None:
 @spec(CAPABILITY, "SSH key authentication only", "No SSH key configured")
 def test_no_password_login(pushed: Pushed, tmp_path: Path) -> None:
     router = pushed.router
-    # A key the router does not know; root has a password it could log in with.
+    # A key the router does not know; root has a password it could log
+    # in with.
     unknown = tmp_path / "unknown"
     subprocess.run(
         ["ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-f", unknown], check=True
@@ -667,8 +680,9 @@ def test_the_configuration_survives_an_upgrade(
     router.put(upgrade_image, UPGRADE_IMAGE)
     router.reboot(f"sysupgrade {UPGRADE_IMAGE}")
     pushed.online.reconnected()
-    # The sandbox's CA is no configuration of the router's, and the upgrade
-    # kept none of it: it comes again, and tailscaled, which reads it once, anew.
+    # The sandbox's CA is no configuration of the router's, and the
+    # upgrade kept none of it: it comes again, and tailscaled, which
+    # reads it once, anew.
     trust_ca(router, pushed.online.network.workdir)
     router.run("/etc/init.d/tailscale restart")
     user, password = LOGIN

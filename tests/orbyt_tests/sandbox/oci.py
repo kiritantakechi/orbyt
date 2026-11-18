@@ -1,11 +1,12 @@
 """A container image made of the shipped firmware's own programs (r4s-services D10).
 
 The tests' app container serves HTTP with uhttpd and makes requests with
-busybox's nc and uclient-fetch, as the firmware's busybox has neither httpd nor
-wget. Its image comes from slot A's root filesystem of the factory disk, so it
-is arm64 like the router and needs no download: one layer with busybox and its
-applet links, uhttpd, uclient-fetch and the shared libraries they need, in an
-OCI image layout that skopeo copies to the emulated internet's registry.
+busybox's nc and uclient-fetch, as the firmware's busybox has neither
+httpd nor wget. Its image comes from slot A's root filesystem of the
+factory disk, so it is arm64 like the router and needs no download: one
+layer with busybox and its applet links, uhttpd, uclient-fetch and the
+shared libraries they need, in an OCI image layout that skopeo copies to
+the emulated internet's registry.
 """
 
 import gzip
@@ -34,11 +35,13 @@ LIBRARY_DIRECTORIES = ("lib", "usr/lib")
 # musl's dynamic loader is its libc.
 LOADER = ("lib/ld-musl-aarch64.so.1", "libc.so")
 MEDIA = "application/vnd.oci.image"
-# struct erofs_super_block at byte 1024: magic, then blkszbits at 12, blocks at 36.
+# struct erofs_super_block at byte 1024: magic, then blkszbits at 12,
+# blocks at 36.
 EROFS_SUPERBLOCK = 1024
 EROFS_FIELDS = struct.Struct("<I8xB23xI")
 EROFS_MAGIC = 0xE0F5E1E2
-# 64-bit little-endian ELF: the header up to e_phnum, program headers, dynamic entries.
+# 64-bit little-endian ELF: the header up to e_phnum, program headers,
+# dynamic entries.
 ELF_HEADER = struct.Struct("<4sB27xQ16xH")
 PROGRAM_HEADER = struct.Struct("<I4xQQ8xQ16x")
 DYNAMIC_ENTRY = struct.Struct("<qQ")
@@ -49,8 +52,8 @@ DT_NULL, DT_NEEDED, DT_STRTAB = 0, 1, 5
 def extract_root(disk: Path, output: Path) -> Path:
     """Extract slot A's root filesystem of a factory disk image into ``output``.
 
-    Only the EROFS image is copied out: its superblock gives its size, and the
-    rest of the partition is the overlay area.
+    Only the EROFS image is copied out: its superblock gives its size,
+    and the rest of the partition is the overlay area.
     """
     image = output.with_suffix(".erofs")
     with disk.open("rb") as raw, image.open("wb") as erofs:

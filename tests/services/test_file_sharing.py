@@ -1,7 +1,8 @@
 """services/file-sharing: ksmbd on the LAN only, SMB 3 with a password, shares on the data disk.
 
-smbclient connects from a LAN client, from the internet side, from wg-peer over
-WireGuard and from ts-peer over the tailnet; only the LAN gets an answer.
+smbclient connects from a LAN client, from the internet side, from
+wg-peer over WireGuard and from ts-peer over the tailnet; only the LAN
+gets an answer.
 """
 
 import json
@@ -32,20 +33,23 @@ CAPABILITY = "services/file-sharing"
 SHARE = "shares"
 LAN_ADDRESS = "10.0.0.1"
 SMB_TIMEOUT = 60
-# From the disk's removal to a stopped service, with nothing else for procd to
-# run: its unmount trigger comes a second after blockd's event, then the reload.
+# From the disk's removal to a stopped service, with nothing else for
+# procd to run: its unmount trigger comes a second after blockd's event,
+# then the reload.
 STOP_TIMEOUT = 30
-# What the disk's return sets off, for procd to run one at a time: the restarts
-# of the services on it among them.
+# What the disk's return sets off, for procd to run one at a time: the
+# restarts of the services on it among them.
 QUEUE_TIMEOUT = 180
-# A mount hotplug script that asks for a reload and holds the unmount up for as
-# long as it can: blockd waits for the scripts before it answers block, which
-# unmounts then, after 3 s at the most. The reload starts a second after it is
-# asked for, and looks at the mount points about a second later.
+# A mount hotplug script that asks for a reload and holds the unmount up
+# for as long as it can: blockd waits for the scripts before it answers
+# block, which unmounts then, after 3 s at the most. The reload starts a
+# second after it is asked for, and looks at the mount points about a
+# second later.
 SLOW_SCRIPT = "/etc/hotplug.d/mount/00-slow"
 SLOW_SECONDS = 3
 RELOAD_EVENT = json.dumps({"type": "config.change", "data": {"package": "ksmbd"}})
-# Mount points within one another, in fstab but mounted by the test alone (tmpfs).
+# Mount points within one another, in fstab but mounted by the test
+# alone (tmpfs).
 OUTER = "/tmp/outer"  # noqa: S108 (a path on the router)
 INNER = f"{OUTER}/inner"
 NESTED_SHARE = "nested"
@@ -78,7 +82,8 @@ def _sharing_state(router: Router) -> str:
         "grep -w ksmbd /proc/modules",
         "pidof ksmbd.mountd",
         "logread -e ksmbd | tail -n 20",
-        # procd runs one trigger command at a time: one that hangs holds up the rest.
+        # procd runs one trigger command at a time: one that hangs holds
+        # up the rest.
         "ubus call service trigger_commands",
         'ubus call service list \'{"name": "ksmbd", "verbose": true}\'',
     )
@@ -133,7 +138,8 @@ def test_lan_sees_the_shares(sharing: Online, smb_user: tuple[str, str]) -> None
     code, output = _list(sharing.client(), LAN_ADDRESS, smb_user)
     assert code == 0, output
     assert SHARE in output.split()
-    # The image (/rom) holds no share user: the test added the one there is.
+    # The image (/rom) holds no share user: the test added the one there
+    # is.
     assert sharing.router.returncode("test -s /rom/etc/ksmbd/ksmbdpwd.db") != 0
     # SMB 3 end to end: into the share.
     code, output = _smbclient(
@@ -266,8 +272,9 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
             timeout=STOP_TIMEOUT,
             what="the disk unmounted",
         )
-        # The reload came while the disk was still mounted; once it is gone, the
-        # service must be too, with nothing written where the disk was.
+        # The reload came while the disk was still mounted; once it is
+        # gone, the service must be too, with nothing written where the
+        # disk was.
         _wait_stopped(router)
         assert boot_disk_entries(router) == []
     finally:

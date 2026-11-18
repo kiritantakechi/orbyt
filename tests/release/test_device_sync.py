@@ -1,12 +1,13 @@
 """release/device-sync: the router's local repository of releases, which orbyt-sync keeps.
 
-The module's router is online, resolves and trusts the emulated internet, and
-runs honk with the test configuration, which routes the Releases stand-in
-through the proxy as an administrator routes GitHub. The releases are the
-session's signed build, assembled once (release-publish.sh) and published under
-a new tag for each release in the stand-in's repository orbyt/sync, where
-orbyt-sync is pointed. The test without a data disk comes first: the data disk
-comes with the first test that asks for it and stays for the module.
+The module's router is online, resolves and trusts the emulated
+internet, and runs honk with the test configuration, which routes the
+Releases stand-in through the proxy as an administrator routes GitHub.
+The releases are the session's signed build, assembled once
+(release-publish.sh) and published under a new tag for each release in
+the stand-in's repository orbyt/sync, where orbyt-sync is pointed. The
+test without a data disk comes first: the data disk comes with the first
+test that asks for it and stays for the module.
 """
 
 import io
@@ -54,13 +55,15 @@ CUT = 1 << 20
 # The byte a tampered image has changed.
 TAMPERED = 1 << 20
 SYNC_TIMEOUT = 900
-# What the router logged around a failed sync: the container's fetch goes through
-# podman's network and honk, either of which can refuse it (EPERM).
+# What the router logged around a failed sync: the container's fetch
+# goes through podman's network and honk, either of which can refuse it
+# (EPERM).
 SYNC_LOG = "logread | grep -E 'orbyt-sync|podman|netavark|honk' | tail -n 40"
-# Release names that are no plain file name, as a misbehaving service could give.
+# Release names that are no plain file name, as a misbehaving service
+# could give.
 NOT_FILE_NAMES = ("..", "r1/../..", "it's")
-# What a package archive must not carry beside the packages: a manifest, an
-# upgrade image, a link out of the repository, of either kind.
+# What a package archive must not carry beside the packages: a manifest,
+# an upgrade image, a link out of the repository, of either kind.
 NOT_PACKAGES = (
     ("manifest.json", tarfile.REGTYPE),
     ("targets/r1-sysupgrade.tar.gz", tarfile.REGTYPE),
@@ -230,8 +233,8 @@ def test_a_file_that_does_not_match_is_refused(
 ) -> None:
     del data_disk  # the local repository's place
     previous = stand_in.synced()
-    # The release is complete and its manifest is signed, but its upgrade image
-    # is not the one the manifest lists.
+    # The release is complete and its manifest is signed, but its
+    # upgrade image is not the one the manifest lists.
     release = linked_copy(stand_in.assembled, tmp_path / "release")
     (image,) = release.glob("*-sysupgrade.tar.gz")
     changed = bytearray(image.read_bytes())
@@ -360,7 +363,8 @@ def test_a_tampered_image_is_refused(
         _flip_a_bit(router, image, TAMPERED)
         tampered = router.run("orbyt-update 2>&1 || true", timeout=300)
         assert "Image check failed" in tampered, tampered
-        # An image without a signature is refused as well: this build's own.
+        # An image without a signature is refused as well: this build's
+        # own.
         router.put(unsigned, image)
         refused = router.run("orbyt-update 2>&1 || true", timeout=300)
         assert "Image check failed" in refused, refused
@@ -378,8 +382,8 @@ def test_the_upgrade_takes_the_manifest_s_image(
     router = stand_in.router
     stand_in.synced()
     (image,) = router.run(f"ls {LOCAL}/current/{UPGRADE}").split()
-    # A validly signed image, as another release's would be, under a name that
-    # sorts after the release's own.
+    # A validly signed image, as another release's would be, under a
+    # name that sorts after the release's own.
     beside = f"{LOCAL}/current/targets/zz-sysupgrade.tar.gz"
     router.run(f"cp {image} {beside}")
     try:
@@ -429,8 +433,9 @@ def test_a_release_of_several_boards(
     stand_in: Releases, data_disk: Disk, board: Board, tmp_path: Path
 ) -> None:
     del data_disk  # the local repository's place
-    # The release carries this board's set and, under another board's device
-    # name, a set that is no build at all: the router must not even fetch it.
+    # The release carries this board's set and, under another board's
+    # device name, a set that is no build at all: the router must not
+    # even fetch it.
     other = next(other for other in load_all() if other.id != board.id)
     release = linked_copy(stand_in.assembled, tmp_path / "release")
     for asset in [path for path in release.iterdir() if board.device in path.name]:
@@ -448,7 +453,8 @@ def test_a_release_of_several_boards(
     fetched = releases.downloads(stand_in.root, REPOSITORY, tag)
     assert fetched
     assert all(board.device in name for name in fetched), fetched
-    # The upgrade command takes the board's own image, which passes its checks.
+    # The upgrade command takes the board's own image, which passes its
+    # checks.
     router = stand_in.router
     (image,) = router.run(f"ls {LOCAL}/current/{UPGRADE}").split()
     assert f"-{board.device}-" in image
@@ -469,7 +475,8 @@ def test_another_board_s_build_is_refused(
             "naming another board in a signed manifest needs the session's release keys"
         )
     previous = stand_in.synced()
-    # Under the device's name, a validly signed manifest of another board's build.
+    # Under the device's name, a validly signed manifest of another
+    # board's build.
     other = next(other for other in load_all() if other.id != board.id)
     release = linked_copy(stand_in.assembled, tmp_path / "release")
     manifest = release / f"{board.device}-manifest.json"
@@ -508,8 +515,8 @@ def test_a_release_survives_a_power_cut(
     stand_in.online.reconnected()
     wait_mounted(router)
     assert stand_in.current() == tag
-    # The sums in a file first: a helper that failed must not leave sha256sum
-    # nothing to check, and so nothing to fail.
+    # The sums in a file first: a helper that failed must not leave
+    # sha256sum nothing to check, and so nothing to fail.
     checked = router.run(
         f"/usr/libexec/orbyt-sync/manifest checksums {LOCAL}/current/manifest.json {board.device}"
         f" >/tmp/sums && cd {LOCAL}/current && sha256sum -c /tmp/sums 2>&1; echo exit=$?",

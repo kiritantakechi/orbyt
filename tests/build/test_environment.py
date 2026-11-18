@@ -86,7 +86,8 @@ def test_failed_step_stops_the_build(tmp_path: Path) -> None:
 @pytest.mark.parametrize("shape", ["a command after a blank", "a quote"])
 def test_an_argument_reaches_its_script_whole(tmp_path: Path, shape: str) -> None:
     justfile = REPO / "justfile"
-    # No recipe pastes an argument into its command line: just passes them on.
+    # No recipe pastes an argument into its command line: just passes
+    # them on.
     dump = subprocess.run(
         ["just", "--justfile", justfile, "--dump", "--dump-format", "json"],
         capture_output=True,
@@ -101,7 +102,8 @@ def test_an_argument_reaches_its_script_whole(tmp_path: Path, shape: str) -> Non
         if any(not isinstance(fragment, str) for fragment in line)
     ]
     assert pasted == []
-    # A board's name with more after it reaches boards.sh as one argument.
+    # A board's name with more after it reaches boards.sh as one
+    # argument.
     ran = tmp_path / "ran"
     board = load_all()[0].id
     argument = (
@@ -130,7 +132,8 @@ def series(tmp_path: Path) -> Series:
 @spec(CAPABILITY, "Rebuild only what changed", "Re-apply an unchanged series")
 def test_reapplied_series_writes_nothing(series: Series) -> None:
     head = series.head
-    # Ignored build output stays, time included; an untracked file of no commit goes.
+    # Ignored build output stays, time included; an untracked file of no
+    # commit goes.
     (series.repo / "po2lmo.o").write_bytes(b"built")
     (series.repo / "stray.patch").write_text("a patch a package would apply\n")
     before = series.age()
@@ -146,7 +149,8 @@ def test_reapplied_series_writes_nothing(series: Series) -> None:
 def test_changed_patch_rewrites_its_files_only(series: Series) -> None:
     before = series.age()
     patch = series.patch(2)
-    # The second patch changes b.txt another way and no longer adds d.txt.
+    # The second patch changes b.txt another way and no longer adds
+    # d.txt.
     head, *diffs = (
         patch.read_text()
         .replace("+two, patched", "+two, patched again")

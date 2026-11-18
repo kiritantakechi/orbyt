@@ -1,12 +1,14 @@
 """The supported boards (board-model D1): one description per board under ``boards/``.
 
-A description declares every fact that differs between boards: the OpenWrt
-device and board name, the SoC with its loader and its cores, the CPU tuning, the
-U-Boot variant, the boot disk, the ports with their roles and drivers, and how
-the emulator stands in for the board. The board's id is the file's name.
+A description declares every fact that differs between boards: the
+OpenWrt device and board name, the SoC with its loader and its cores,
+the CPU tuning, the U-Boot variant, the boot disk, the ports with their
+roles and drivers, and how the emulator stands in for the board. The
+board's id is the file's name.
 
-``Board`` is their schema, strict about unknown fields and types. ``board-check``
-(``just check boards``) checks every description with it.
+``Board`` is their schema, strict about unknown fields and types.
+``board-check`` (``just check boards``) checks every description with
+it.
 """
 
 import argparse
@@ -36,8 +38,9 @@ class Loader(_Facts):
 class Soc(_Facts):
     """The SoC: its device-tree compatible, the loader its boot ROM runs, and its cores.
 
-    ``cores`` holds each core's capacity, in CPU order, as the SoC's device tree
-    gives it (``capacity-dmips-mhz``): the big cores are those of the highest.
+    ``cores`` holds each core's capacity, in CPU order, as the SoC's
+    device tree gives it (``capacity-dmips-mhz``): the big cores are
+    those of the highest.
     """
 
     compatible: str

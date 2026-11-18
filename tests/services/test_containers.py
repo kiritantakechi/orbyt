@@ -1,8 +1,9 @@
 """services/containers: podman on the data disk, behind fw4, einat and honk like the LAN.
 
-The app Pod (orbyt_tests.services.app) runs from the test image in the emulated internet's
-registry: uhttpd serving a page of the data disk, at a fixed address. Probes
-from inside it use busybox's nc against the probe servers, and its nslookup.
+The app Pod (orbyt_tests.services.app) runs from the test image in the
+emulated internet's registry: uhttpd serving a page of the data disk, at
+a fixed address. Probes from inside it use busybox's nc against the
+probe servers, and its nslookup.
 """
 
 import json
@@ -36,23 +37,26 @@ if TYPE_CHECKING:
 
 CAPABILITY = "services/containers"
 STORAGE = f"{MOUNT}/containers/storage"
-# How long orbyt-sync may take to give up on a release service it cannot reach.
+# How long orbyt-sync may take to give up on a release service it cannot
+# reach.
 SYNC_TIMEOUT = 300
 EINAT_PORTS = range(20000, 30000)
 EXPOSED_PORT = 8080
 FIREWALL_TIMEOUT = 30
 # Nothing of an app may be in the image (the app containers' spec).
 NATIVE_APPS = ("qbittorrent", "libtorrent", "qt6", "qt5", "qtbase")
-# podman commands started at once, how many each runs in a row, and how often,
-# each time on a storage of their own whose run root does not exist yet, as the
-# configured one after a boot (device-robustness D4). A concurrent command that
-# creates the run root changes how its path resolves between podman's two
-# resolutions of it, a window too short to hit by chance. So a symlink on the
-# path keeps changing its target, swapped atomically (rename), between two names
-# of one directory (a bind mount): the path resolves now to one name, now to the
-# other, while every file under it stays the same. Commands in a row keep the
-# starts and ends of some, which bind and unmount the storage's home, overlapping
-# with the others' work through a round (container-storage-probes D3).
+# podman commands started at once, how many each runs in a row, and how
+# often, each time on a storage of their own whose run root does not
+# exist yet, as the configured one after a boot (device-robustness D4).
+# A concurrent command that creates the run root changes how its path
+# resolves between podman's two resolutions of it, a window too short to
+# hit by chance. So a symlink on the path keeps changing its target,
+# swapped atomically (rename), between two names of one directory (a
+# bind mount): the path resolves now to one name, now to the other,
+# while every file under it stays the same. Commands in a row keep the
+# starts and ends of some, which bind and unmount the storage's home,
+# overlapping with the others' work through a round
+# (container-storage-probes D3).
 AT_ONCE = 8
 IN_A_ROW = 3
 ROUNDS = 10
@@ -63,10 +67,11 @@ TOGGLE = (
     " for (let target in ['a', 'b']) {"
     f" fs.symlink(target, '{SCRATCH}/next'); fs.rename('{SCRATCH}/next', '{SCRATCH}/link'); }}"
 )
-# The storage probes some kernel features with mounts under its home when it is
-# first asked about them, unless the run root records the answers, as it does not
-# for the first commands after a boot. Removing the records as they appear keeps
-# every command probing (container-storage-probes D3).
+# The storage probes some kernel features with mounts under its home
+# when it is first asked about them, unless the run root records the
+# answers, as it does not for the first commands after a boot. Removing
+# the records as they appear keeps every command probing
+# (container-storage-probes D3).
 FEATURES = ("idmapped-lower-dir", "volatile")
 FORGET = (
     "import * as fs from 'fs';"
@@ -130,8 +135,9 @@ def test_pull_goes_to_the_data_disk(registry: tuple[Online, str]) -> None:
         f"podman image inspect --format '{{{{.GraphDriver.Data.UpperDir}}}}' {image}"
     )
     assert layer.startswith(f"{STORAGE}/")
-    # The boot disk's overlay took no part of it: what little came there since came
-    # from elsewhere (ksmbd starting on the same mount writes a few bytes).
+    # The boot disk's overlay took no part of it: what little came there
+    # since came from elsewhere (ksmbd starting on the same mount writes
+    # a few bytes).
     image = int(router.run(f"podman image inspect --format '{{{{.Size}}}}' {image}"))
     written = router.run(
         f"find /overlay/upper -newer {mark} -type f -exec cat {{}} + | wc -c"
@@ -149,12 +155,13 @@ def test_ruleset_is_fw4_only(pod: Online, lan_host: Netns) -> None:
     ruleset = router.run("nft list ruleset")
     assert "netavark" not in ruleset
     assert "chain forward_podman" in ruleset
-    # The zone: the LAN reaches containers, containers never reach the LAN.
+    # The zone: the LAN reaches containers, containers never reach the
+    # LAN.
     assert _fetch(pod.client("client-b"), f"http://{app.ADDRESS}/") == f"{app.POD}\n"
     lan = pod.addresses("client-a")[0]
     assert pod.client("client-b").probe("tcp", lan)["address"]  # the LAN host answers
-    # The same nc of the container connects where it may, the internet's probe
-    # server, and not to the LAN host.
+    # The same nc of the container connects where it may, the internet's
+    # probe server, and not to the LAN host.
     assert _from_container(pod, DIRECT_TARGET[0])["address"] == pod.wan_address
     refused = router.returncode(
         f"podman exec {app.CONTAINER} nc {lan} {PORT} </dev/null"
@@ -166,7 +173,8 @@ def test_ruleset_is_fw4_only(pod: Online, lan_host: Netns) -> None:
 def test_container_reaches_the_internet(pod: Online) -> None:
     seen = _from_container(pod, DIRECT_TARGET[0])
     assert seen["address"] == pod.wan_address
-    # einat's port, not the container's own (masquerade would keep that one).
+    # einat's port, not the container's own (masquerade would keep that
+    # one).
     assert seen["port"] in EINAT_PORTS
 
 
@@ -220,7 +228,8 @@ def test_container_reaches_a_proxied_target(pod: Online) -> None:
 def test_honk_restarts_beside_the_pods(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
-    # Registered before honk started (the module's fixtures start it second).
+    # Registered before honk started (the module's fixtures start it
+    # second).
     before = _netns(router)
     _restart_proxy(router)
     assert router.returncode(f"test -e {before}") == 0, router.run("ls -la /run/netns")
@@ -239,10 +248,10 @@ def test_unchanged_declaration_is_not_rebuilt(pod: Online) -> None:
     router = pod.router
     before = app.wait_running(router)
     since = app.started(router)
-    # What a mount of the data disk triggers: it stops the Pods, then starts the
-    # startup flow, which procd runs after the script returned. A new start
-    # shows the flow ran; the same container, that it rebuilt nothing
-    # (test-fidelity D7).
+    # What a mount of the data disk triggers: it stops the Pods, then
+    # starts the startup flow, which procd runs after the script
+    # returned. A new start shows the flow ran; the same container, that
+    # it rebuilt nothing (test-fidelity D7).
     router.run("/etc/init.d/orbyt-containers restart")
     until(
         lambda: app.started(router) != since and app.running(router),
@@ -260,8 +269,8 @@ def test_unchanged_declaration_is_not_rebuilt(pod: Online) -> None:
 def test_a_declaration_that_cannot_start_keeps_no_other_down(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
-    # Before the app's by name, a Pod of an image no registry has: nothing listens
-    # at its registry's port.
+    # Before the app's by name, a Pod of an image no registry has:
+    # nothing listens at its registry's port.
     missing = "a-missing"
     declared = f"{app.PODS}/{missing}.yaml"
     router.run(
@@ -295,8 +304,9 @@ def _service_running(router: Router, name: str) -> bool:
 def test_the_network_s_dns_outlives_a_service_s_container(pod: Online) -> None:
     router = pod.router
     app.wait_running(router)
-    # orbyt-sync runs a container on podman's network, and ends with it; procd then
-    # kills what is left in the service's cgroup. Nothing can be fetched here.
+    # orbyt-sync runs a container on podman's network, and ends with it;
+    # procd then kills what is left in the service's cgroup. Nothing can
+    # be fetched here.
     router.run("/etc/init.d/orbyt-sync restart")
     until(
         lambda: not _service_running(router, "orbyt-sync"),
@@ -306,7 +316,8 @@ def test_the_network_s_dns_outlives_a_service_s_container(pod: Online) -> None:
     router.run(f"podman pod stop {app.POD} >/dev/null", timeout=120)
     router.run(f"podman pod start {app.POD} >/dev/null", timeout=120)
     app.wait_running(router)
-    # The network's DNS answers the Pod: its own name resolves inside it.
+    # The network's DNS answers the Pod: its own name resolves inside
+    # it.
     answer = router.run(f"podman exec {app.CONTAINER} nslookup {app.POD} {app.GATEWAY}")
     assert app.ADDRESS in answer, answer
 
@@ -339,10 +350,11 @@ def test_runtime_commands_at_the_same_time(online: Online, data_disk: Disk) -> N
     # Through /run -> /var/run -> /tmp/run, then the changing symlink.
     runroot = "/run/concurrency/link/runroot"
     podman = f"podman --root {root} --runroot {runroot} info >/dev/null"
-    # What is mounted under the scratch storage: nothing, once every command has
-    # cleaned up after itself.
+    # What is mounted under the scratch storage: nothing, once every
+    # command has cleaned up after itself.
     mounted = f"grep -F ' {root}/' /proc/self/mountinfo"
-    # Whatever a round left, so that every round starts on a clean scratch storage.
+    # Whatever a round left, so that every round starts on a clean
+    # scratch storage.
     cleanup = (
         f"{mounted} | cut -d' ' -f5 | sort -r | xargs -rn1 umount -l;"
         f" umount {SCRATCH}/b 2>/dev/null; rm -rf {root} {SCRATCH} {SCRATCH}.*"

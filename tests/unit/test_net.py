@@ -1,7 +1,7 @@
 """Unit tests of orbyt_tests.sandbox.net: the sandbox topology, built without the emulator.
 
-The addresses and routes are those of r4s-ebpf-datapath design D11, written out
-here rather than read back from ``TOPOLOGY``.
+The addresses and routes are those of r4s-ebpf-datapath design D11,
+written out here rather than read back from ``TOPOLOGY``.
 """
 
 from typing import TYPE_CHECKING
@@ -13,7 +13,8 @@ from orbyt_tests.sandbox.net import ip
 if TYPE_CHECKING:
     from orbyt_tests.sandbox.net import Network
 
-# namespace -> (addresses on eth1 for isp / eth0 otherwise, default gateways)
+# namespace -> (addresses on eth1 for isp / eth0 otherwise, default
+# gateways)
 INTERNET = {
     "isp": (
         (

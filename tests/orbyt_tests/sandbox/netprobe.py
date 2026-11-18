@@ -1,32 +1,34 @@
 """netprobe: the probes the tests run inside the sandbox's namespaces (r4s-ebpf-datapath D11).
 
-``serve`` runs on the emulated internet and reports what it sees of a flow, on
-port PORT of every address, IPv4 and IPv6:
+``serve`` runs on the emulated internet and reports what it sees of a
+flow, on port PORT of every address, IPv4 and IPv6:
 
-- TCP: one JSON line with the peer's address and port and the MSS option of its
-  SYN as it arrived, then it closes; on HTTP_PORT the same as the body of an HTTP
-  response, for clients that speak only HTTP (the router's uclient-fetch);
-- UDP: a JSON datagram with the peer's address and port; a datagram ``big`` gets
-  the same answer padded to BIG bytes, which the way back has to fragment;
-- ESP (IP protocol 50, raw sockets, no xfrm): every packet is answered to its
-  source with the same SPI and the next sequence number, the payload being
-  the JSON of the source address.
+- TCP: one JSON line with the peer's address and port and the MSS option
+  of its SYN as it arrived, then it closes; on HTTP_PORT the same as the
+  body of an HTTP response, for clients that speak only HTTP (the
+  router's uclient-fetch);
+- UDP: a JSON datagram with the peer's address and port; a datagram
+  ``big`` gets the same answer padded to BIG bytes, which the way back
+  has to fragment;
+- ESP (IP protocol 50, raw sockets, no xfrm): every packet is answered
+  to its source with the same SPI and the next sequence number, the
+  payload being the JSON of the source address.
 
-UDP and ESP answer from the address they were sent to, as a reply must to get
-back through a stateful NAT.
+UDP and ESP answer from the address they were sent to, as a reply must
+to get back through a stateful NAT.
 
-Every other command is a client and prints one JSON object: ``tcp``, ``udp`` and
-``esp`` what the server saw; ``connect`` whether any TCP server accepted a
-connection, refused it or never answered; ``greeting`` the first line a TCP
-server that speaks first sends (SSH's banner); ``listen`` the first datagram it
-receives; ``send`` the port it sent one from; ``resolve`` the answers of a DNS
-server;
-``solicit-prefix`` what a DHCPv6 server offers for prefix delegation;
-``solicit-router`` that it asked the routers on a link for an advertisement, as a
-host does when it attaches; ``inject`` the size of the Ethernet frame it put on
-a segment, bypassing routing (a spoofed packet); ``flows`` how many new UDP flows
-it started, one datagram each, at a steady rate, from fresh source ports or from a
-pool of them in turn.
+Every other command is a client and prints one JSON object: ``tcp``,
+``udp`` and ``esp`` what the server saw; ``connect`` whether any TCP
+server accepted a connection, refused it or never answered; ``greeting``
+the first line a TCP server that speaks first sends (SSH's banner);
+``listen`` the first datagram it receives; ``send`` the port it sent one
+from; ``resolve`` the answers of a DNS server; ``solicit-prefix`` what a
+DHCPv6 server offers for prefix delegation; ``solicit-router`` that it
+asked the routers on a link for an advertisement, as a host does when it
+attaches; ``inject`` the size of the Ethernet frame it put on a segment,
+bypassing routing (a spoofed packet); ``flows`` how many new UDP flows
+it started, one datagram each, at a steady rate, from fresh source ports
+or from a pool of them in turn.
 """
 
 import argparse
@@ -48,15 +50,15 @@ PORT = 8007
 HTTP_PORT = 80
 BIG = 3000
 TIMEOUT = 5.0
-# The first source port of a pool of them (``flows --sources``), below the kernel's
-# ephemeral ports (32768-60999).
+# The first source port of a pool of them (``flows --sources``), below
+# the kernel's ephemeral ports (32768-60999).
 FLOW_SOURCE_BASE = 20000
 ESP_HEADER = struct.Struct("!II")
-# Linux's TCP_SAVE_SYN and TCP_SAVED_SYN (linux/tcp.h), which the socket module
-# does not name: a listening socket keeps each SYN's headers, which the accepted
-# socket returns, network header first. TCP_MAXSEG would give the MSS that the
-# server sends with instead, the SYN's less the options of every segment
-# (test-fidelity D1).
+# Linux's TCP_SAVE_SYN and TCP_SAVED_SYN (linux/tcp.h), which the socket
+# module does not name: a listening socket keeps each SYN's headers,
+# which the accepted socket returns, network header first. TCP_MAXSEG
+# would give the MSS that the server sends with instead, the SYN's less
+# the options of every segment (test-fidelity D1).
 TCP_SAVE_SYN = 27
 TCP_SAVED_SYN = 28
 SAVED_SYN_SIZE = 512
@@ -77,12 +79,14 @@ DHCP6_SERVERS = "ff02::1:2"
 ROUTERS = "ff02::2"
 ROUTER_SOLICITATION = 133
 DHCP6_OPTION = struct.Struct("!HH")
-# DHCPv6 message types and options (RFC 8415), as far as a Solicit needs them.
+# DHCPv6 message types and options (RFC 8415), as far as a Solicit needs
+# them.
 SOLICIT, ADVERTISE = 1, 2
 CLIENT_ID, ORO, ELAPSED_TIME, DNS_SERVERS, IA_PD, IA_PREFIX = 1, 6, 8, 23, 25, 26
 
 type Seen = dict[str, object]
-# A command line argument: its name or flag, and the keywords of add_argument.
+# A command line argument: its name or flag, and the keywords of
+# add_argument.
 type Argument = tuple[str, dict[str, Any]]
 
 
@@ -151,8 +155,9 @@ async def _http(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> N
         pass
     body = _peer(writer)
     head = f"HTTP/1.0 200 OK\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n"
-    # A HEAD response has the GET's head and no body (RFC 9110, 9.3.2): a health
-    # check that sends HEAD, then GET on the same connection, reads the GET's.
+    # A HEAD response has the GET's head and no body (RFC 9110, 9.3.2):
+    # a health check that sends HEAD, then GET on the same connection,
+    # reads the GET's.
     writer.write(head.encode() + (b"" if method == b"HEAD" else body))
     await writer.drain()
     writer.close()
@@ -184,7 +189,8 @@ def _from(family: socket.AddressFamily, local: str) -> list[tuple[int, int, byte
 def _listening(family: socket.AddressFamily, port: int) -> socket.socket:
     """Return a TCP socket listening on every address of ``family`` that keeps each SYN.
 
-    It keeps them from before it listens, so that no connection comes without.
+    It keeps them from before it listens, so that no connection comes
+    without.
     """
     sock = socket.socket(family, socket.SOCK_STREAM)
     sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -202,8 +208,9 @@ def _answering(
 ) -> socket.socket:
     """Return a socket that learns where each datagram was sent, to answer from there.
 
-    A host with several addresses would otherwise answer from its first one, and
-    a stateful firewall on the way back rightly takes that for another flow.
+    A host with several addresses would otherwise answer from its first
+    one, and a stateful firewall on the way back rightly takes that for
+    another flow.
     """
     raw = kind == socket.SOCK_RAW
     sock = socket.socket(family, kind, socket.IPPROTO_ESP if raw else 0)
@@ -280,7 +287,8 @@ def greeting(host: str, port: int) -> Seen:
 def udp(host: str, port: int, *, source_port: int = 0, big: bool = False) -> Seen:
     """Send one datagram (from ``source_port``) and return what the server saw.
 
-    ``size`` and ``from`` describe the answer: its length and its source.
+    ``size`` and ``from`` describe the answer: its length and its
+    source.
     """
     with socket.socket(_family(host), socket.SOCK_DGRAM) as sock:
         sock.settimeout(TIMEOUT)
@@ -295,11 +303,12 @@ def flows(
 ) -> Seen:
     """Start ``rate`` new UDP flows a second for ``seconds``: a datagram from a socket each.
 
-    Every flow starts on its schedule, the flow after ``n`` of them ``n / rate``
-    seconds after the first, and one that falls behind starts as soon as it can,
-    so their number is ``rate * seconds`` however busy the host. Each flow has a
-    fresh source port, or with ``sources`` one of that many in turn, each time to
-    the next destination port: every flow is still a new five-tuple, and an
+    Every flow starts on its schedule, the flow after ``n`` of them ``n
+    / rate`` seconds after the first, and one that falls behind starts
+    as soon as it can, so their number is ``rate * seconds`` however
+    busy the host. Each flow has a fresh source port, or with
+    ``sources`` one of that many in turn, each time to the next
+    destination port: every flow is still a new five-tuple, and an
     endpoint-independent NAT maps no more than ``sources`` ports.
     """
     family = _family(host)
@@ -393,8 +402,8 @@ def _skip_name(message: bytes, offset: int) -> int:
 def _exchange(sock: socket.socket, query: bytes, address: tuple[str, int]) -> bytes:
     """Send ``query`` and return the answer, retrying the same query as a stub resolver does.
 
-    dnsmasq, with strict-order, moves on to its next server only when a client
-    asks again.
+    dnsmasq, with strict-order, moves on to its next server only when a
+    client asks again.
     """
     for _ in range(RESOLVE_ATTEMPTS - 1):
         sock.sendto(query, address)

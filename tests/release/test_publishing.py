@@ -1,9 +1,10 @@
 """release/publishing: the boards' signed builds, assembled into a release that names its sources.
 
-scripts/release-publish.sh assembles the session's signed build (conftest), as
-the sign job hands it on (board-model D10); its upload is judged by what it hands
-to gh, a stand-in on PATH (orbyt_tests.model.github) that records its arguments
-and answers for the branch it publishes from. The workflow checks read
+scripts/release-publish.sh assembles the session's signed build
+(conftest), as the sign job hands it on (board-model D10); its upload is
+judged by what it hands to gh, a stand-in on PATH
+(orbyt_tests.model.github) that records its arguments and answers for
+the branch it publishes from. The workflow checks read
 .github/workflows/build.yml.
 """
 
@@ -38,13 +39,13 @@ LOCK = REPO / "upstream.lock"
 FACTORY = "-factory.img.gz"
 UPGRADE = "-sysupgrade.tar.gz"
 KMODS = "targets/packages/packages.adb"
-# The commit the builds an upload publishes name, clean, and another one their
-# branch moved to; the branch a run publishes from.
+# The commit the builds an upload publishes name, clean, and another one
+# their branch moved to; the branch a run publishes from.
 BUILT = "c" * 40
 NEWER = "d" * 40
 BRANCH = "refs/heads/main"
-# Files of commits that run no build (build.yml's paths): documentation, a
-# document renamed among them.
+# Files of commits that run no build (build.yml's paths): documentation,
+# a document renamed among them.
 DOCUMENTATION = (
     {"filename": "docs/ci.md"},
     {"filename": "openspec/changes/a-change/tasks.md"},
@@ -76,10 +77,10 @@ def _publish(
 ) -> subprocess.CompletedProcess[str]:
     """Run release-publish.sh on the boards ``signed`` holds, or on every board.
 
-    ``every_board`` leaves ``--boards`` out, for the script's default of every
-    board; with ``gh``, the stand-in's directory goes first on PATH, and it
-    answers for ``branch`` as the branch the run publishes from, as the run's
-    environment names it, not CI's own.
+    ``every_board`` leaves ``--boards`` out, for the script's default of
+    every board; with ``gh``, the stand-in's directory goes first on
+    PATH, and it answers for ``branch`` as the branch the run publishes
+    from, as the run's environment names it, not CI's own.
     """
     environment = {
         name: value
@@ -112,7 +113,8 @@ def gh(tmp_path: Path) -> Path:
 def _built(signed: Path, target: Path, **fields: str) -> Path:
     """Copy the boards' signed builds in ``signed`` to ``target``, their manifests changed.
 
-    Each manifest names the commit BUILT, clean, and ``fields`` as given.
+    Each manifest names the commit BUILT, clean, and ``fields`` as
+    given.
     """
     linked_copy(signed, target)
     for manifest in target.glob(f"*/{MANIFEST_FILE}"):
@@ -148,7 +150,8 @@ def test_release_contents(board: Board, signed_boards: Path, tmp_path: Path) -> 
         check=False,
     )
     assert sums.returncode == 0
-    # The kmods in the repository depend on the kernel the manifest names.
+    # The kmods in the repository depend on the kernel the manifest
+    # names.
     manifest = read_json(release / f"{device}-{MANIFEST_FILE}", Manifest)
     with tarfile.open(release / f"{device}-repo.tar") as repo:
         repo.extract(KMODS, tmp_path / "repo", filter="data")
@@ -181,13 +184,14 @@ def test_nothing_is_published_without_the_drill(
     results: tuple[str, str, str], *, passes: bool
 ) -> None:
     jobs = cast("dict[str, Any]", yaml.safe_load(BUILD.read_text()))["jobs"]
-    # publish runs only after every board's drill and the check succeeded (no
-    # always() or failure()).
+    # publish runs only after every board's drill and the check
+    # succeeded (no always() or failure()).
     assert jobs["publish"]["needs"] == ["drill", "upgrade-drill"]
     assert "if" not in jobs["publish"]
     assert "--upload" in jobs["publish"]["steps"][-1]["run"]
     assert "sign" in jobs["drill"]["needs"]
-    # The check main's rules require judges the results of the jobs it needs.
+    # The check main's rules require judges the results of the jobs it
+    # needs.
     check = jobs["upgrade-drill"]
     assert check["needs"] == ["system-test", "sign", "drill"]
     assert check["if"] == "always()"
@@ -217,7 +221,8 @@ def test_a_bump_is_a_candidate(signed_boards: Path, tmp_path: Path, gh: Path) ->
     args = _gh_args(gh)
     assert args[:2] == ["release", "create"]
     assert {"--prerelease", "--latest=false"} <= set(args)
-    # Only main's build is published as stable: a bump branch's is a candidate.
+    # Only main's build is published as stable: a bump branch's is a
+    # candidate.
     publish = yaml.safe_load(BUILD.read_text())["jobs"]["publish"]["steps"][-1]
     assert publish["env"]["CANDIDATE"] == (
         "${{ github.ref != 'refs/heads/main' && '--prerelease' || '' }}"
@@ -245,7 +250,8 @@ def test_main_is_a_stable_release(
 def test_a_release_carries_every_board(
     board: Board, signed_boards: Path, tmp_path: Path, gh: Path
 ) -> None:
-    # The session has this board's build alone, and boards/ describes more.
+    # The session has this board's build alone, and boards/ describes
+    # more.
     others = sorted(other.id for other in load_all() if other.id != board.id)
     assert others
     result = _publish(
@@ -298,8 +304,9 @@ def test_release_notes_name_the_sources(
 def test_boards_from_different_sources_are_not_mixed(
     board: Board, signed_repo: Path, tmp_path: Path, gh: Path, field: str
 ) -> None:
-    # Beside the build under test, a build of another board from other sources:
-    # a copy of it, whose manifest names that board and another source.
+    # Beside the build under test, a build of another board from other
+    # sources: a copy of it, whose manifest names that board and another
+    # source.
     other = next(other for other in load_all() if other.id != board.id)
     signed = tmp_path / "signed"
     signed.mkdir()

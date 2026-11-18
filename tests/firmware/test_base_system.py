@@ -29,17 +29,19 @@ EXCLUDED_PACKAGES = (
 # The interfaces an LRNG kernel adds, and the standard one beside them.
 LRNG_INTERFACES = ("/proc/lrng_type", "/proc/sys/kernel/random/lrng_type")
 RANDOM_CONTROL = "/proc/sys/kernel/random/boot_id"
-# Where the image keeps executables and libraries, and the mark of one UPX packed.
+# Where the image keeps executables and libraries, and the mark of one
+# UPX packed.
 EXECUTABLE_DIRS = ("bin", "sbin", "usr/bin", "usr/sbin", "lib", "usr/lib")
 UPX_MAGIC = b"UPX!"
 UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
-# Every ucode file of the root filesystem compiled by the image's ucode, as ucode
-# loads it: a template (*.ut, fw4's templates, a file that starts with a
-# template block or whose interpreter line asks for one) as a template, a module
-# (an export at its top level) as a module, any other *.uc file and every
-# executable whose interpreter line names ucode as a script. Only the first line
-# of an executable is read: reading them whole takes minutes under emulation.
-# A line per file: "ok <path>", or "failed <path>: <the error>".
+# Every ucode file of the root filesystem compiled by the image's ucode,
+# as ucode loads it: a template (*.ut, fw4's templates, a file that
+# starts with a template block or whose interpreter line asks for one)
+# as a template, a module (an export at its top level) as a module, any
+# other *.uc file and every executable whose interpreter line names
+# ucode as a script. Only the first line of an executable is read:
+# reading them whole takes minutes under emulation. A line per file: "ok
+# <path>", or "failed <path>: <the error>".
 UCODE_CHECK = r"""
 {
     find / -xdev -type f \( -name '*.uc' -o -name '*.ut' \)
@@ -57,9 +59,9 @@ UCODE_CHECK = r"""
     fi
 done
 """
-# One file of each kind, so that a check that finds no files fails: a template,
-# one that starts with a template block, a module and a script by its
-# interpreter line.
+# One file of each kind, so that a check that finds no files fails: a
+# template, one that starts with a template block, a module and a script
+# by its interpreter line.
 UCODE_KINDS = {
     "/usr/share/firewall4/templates/ruleset.uc",
     "/usr/share/ucode/node-exporter/metrics.uc",
@@ -101,8 +103,8 @@ def test_failsafe_address(router: Router) -> None:
 @spec(CAPABILITY, "Default LAN address", "Config-preserving upgrade")
 def test_upgrade_keeps_the_lan_address(router: Router, upgrade_image: Path) -> None:
     router.run("uci set network.lan.ipaddr=10.0.0.3/24 && uci commit network")
-    # The zram defaults are only filled in while unset (uci-defaults), so an
-    # administrator's value survives the upgrade as well.
+    # The zram defaults are only filled in while unset (uci-defaults),
+    # so an administrator's value survives the upgrade as well.
     router.run("uci set system.@system[0].zram_size_mb=512 && uci commit system")
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
@@ -126,8 +128,8 @@ def test_a_fresh_install_is_named_orbyt(router: Router) -> None:
 
 @spec(CAPABILITY, "Web management interface", "Open the management interface")
 def test_luci_in_simplified_chinese(router: Router) -> None:
-    # LuCI keeps lang 'auto' and follows the browser; without a session it answers
-    # with its login page and 403 (login required).
+    # LuCI keeps lang 'auto' and follows the browser; without a session
+    # it answers with its login page and 403 (login required).
     status, page = router.http(
         "/cgi-bin/luci/", headers={"Accept-Language": "zh-CN,zh;q=0.9"}
     )
@@ -184,7 +186,8 @@ def test_zram_swap(router: Router) -> None:
 
 @spec(CAPABILITY, "No preset password", "Check shadow file")
 def test_no_preset_root_password(router: Router) -> None:
-    # /rom holds the image as shipped, whatever the administrator set since.
+    # /rom holds the image as shipped, whatever the administrator set
+    # since.
     assert router.run("awk -F: '$1 == \"root\" { print $2 }' /rom/etc/shadow") == ""
 
 
@@ -193,12 +196,14 @@ def test_excluded_components(
     router: Router, emulation_dir: Path, tmp_path: Path
 ) -> None:
     assert _installed(router, *EXCLUDED_PACKAGES) == set()
-    # Each of LRNG's interfaces on its own; the standard one beside them is there.
+    # Each of LRNG's interfaces on its own; the standard one beside them
+    # is there.
     assert router.returncode(f"[ -e {RANDOM_CONTROL} ]") == 0
     for interface in LRNG_INTERFACES:
         assert router.returncode(f"[ -e {interface} ]") != 0, interface
-    # The image's executables and libraries, read from its root filesystem here:
-    # grepping them on the emulated router outlasts any timeout under TCG.
+    # The image's executables and libraries, read from its root
+    # filesystem here: grepping them on the emulated router outlasts any
+    # timeout under TCG.
     root = extract_root(emulation_dir / "disk.raw", tmp_path / "root")
     packed = [
         str(path.relative_to(root))
@@ -210,7 +215,8 @@ def test_excluded_components(
         and UPX_MAGIC in path.read_bytes()
     ]
     assert packed == []
-    # Nothing keeps opkg's directory: the firmware keys are usign's (/etc/usign/keys).
+    # Nothing keeps opkg's directory: the firmware keys are usign's
+    # (/etc/usign/keys).
     assert not (root / "etc" / "opkg").exists()
 
 

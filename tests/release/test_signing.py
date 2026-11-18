@@ -1,10 +1,10 @@
 """release/signing: a job of its own signs with keys only it sees; devices trust only them.
 
-The workflow checks read .github/workflows, and run the sign job's script with a
-stand-in nix that records what it would sign. Signing runs
-scripts/release-sign.sh, the script the sign job runs, with the session's release
-keys; the router trusts those keys (conftest), as a release image trusts the
-production ones.
+The workflow checks read .github/workflows, and run the sign job's
+script with a stand-in nix that records what it would sign. Signing runs
+scripts/release-sign.sh, the script the sign job runs, with the
+session's release keys; the router trusts those keys (conftest), as a
+release image trusts the production ones.
 """
 
 import os
@@ -37,8 +37,8 @@ SECRETS = ("RELEASE_APK_KEY", "RELEASE_FW_KEY")
 ENVIRONMENT = "release-signing"
 INDEX = "targets/packages/packages.adb"
 ON_ROUTER = "/tmp/packages.adb"  # noqa: S108 (a path on the router)
-# The only actions the sign job may use: the checkout, the pinned Nix and the
-# artifacts.
+# The only actions the sign job may use: the checkout, the pinned Nix
+# and the artifacts.
 SIGN_ACTIONS = {"actions/checkout", "./.github/actions/nix"} | {
     f"actions/{verb}-artifact" for verb in ("download", "upload")
 }
@@ -146,8 +146,8 @@ def test_each_build_is_signed_as_its_artifact_s_board(
     tmp_path: Path, artifact: str, named: str
 ) -> None:
     signed, made = _sign_job(tmp_path, artifact, named)
-    # Only a board of boards/ whose manifest says so is signed, into its own
-    # directory of the signed builds.
+    # Only a board of boards/ whose manifest says so is signed, into its
+    # own directory of the signed builds.
     if artifact == named:
         assert signed
         build = tmp_path / "unsigned" / f"firmware-unsigned-{BOARD}"
@@ -167,7 +167,8 @@ def test_each_build_is_signed_as_its_artifact_s_board(
 def test_a_file_out_of_the_build_is_not_signed(
     build_output: Path, release_keys: Keys, tmp_path: Path, name: str
 ) -> None:
-    # A package index beside the build, which the manifest names with its hash.
+    # A package index beside the build, which the manifest names with
+    # its hash.
     outside = tmp_path / "outside" / "packages.adb"
     outside.parent.mkdir()
     shutil.copy(build_output / INDEX, outside)

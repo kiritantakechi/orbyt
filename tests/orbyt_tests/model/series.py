@@ -16,7 +16,8 @@ GIT_IDENTITY = {
     "GIT_COMMITTER_NAME": "test",
     "GIT_COMMITTER_EMAIL": "test@localhost",
 }
-# A time no file of a fresh checkout has: a file git writes again gets a new one.
+# A time no file of a fresh checkout has: a file git writes again gets a
+# new one.
 OLD = 1_000_000_000 * 1_000_000_000
 
 
@@ -26,7 +27,8 @@ class Series:
     def __init__(self, root: Path) -> None:
         """Create the repository under ``root``, its base commit and the two patches.
 
-        The first patch changes a.txt; the second changes b.txt and adds d.txt.
+        The first patch changes a.txt; the second changes b.txt and adds
+        d.txt.
         """
         self.repo = root / "repo"
         self.patches = root / "patches"
