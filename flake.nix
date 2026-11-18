@@ -3,7 +3,7 @@
 
   inputs = {
     # Stable base for the build environment: the host tools behind the cached toolchain.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
     # Newest uv and emulator tools (qemu, dtc, u-boot-tools); never part of the build.
     nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
   };
