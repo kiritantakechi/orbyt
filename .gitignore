@@ -1,17 +1,15 @@
-# Build working tree lives outside the repo ($ORBYT_WORKDIR); never commit build output.
-/work/
-/out/
+# What runs inside the checkout leaves there; the build's tree and its outputs
+# live outside it ($ORBYT_WORKDIR).
+# nix build's links to its results
 /result
 /result-*
-/.direnv/
-*.ext4
-*.img
-*.img.gz
-*.apk
+# Claude Code's worktrees of this repository
+/.claude/worktrees/
 .DS_Store
-# Python tooling state of the tests project (uv, pytest, ruff, ty).
+# The tests project's Python state: uv's environment when uv runs there without
+# the one use_tests_venv names, bytecode, pytest's and ruff's caches, and the
+# reports of the runs.
 /tests/.venv/
-/tests/.venv-*/
 __pycache__/
 .pytest_cache/
 .ruff_cache/

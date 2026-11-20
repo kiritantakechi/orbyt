@@ -1,8 +1,5 @@
 {
   "Exclude": [
-    "^patches/",
-    "^docs/upstream/",
-    "^\\.claude/",
     "\\.lock$"
   ],
   "Disable": {

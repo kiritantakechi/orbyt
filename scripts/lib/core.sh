@@ -132,6 +132,9 @@ ensure_fhs() {
 
 # repo_files: files of the repository (tracked and new, not ignored) that follow
 # its code standards; upstream-format patches and generated tool files do not.
+# The one list of what is exempt: every check takes its files from here, and
+# editorconfig-checker's own configuration exempts only the generated lock
+# files, which the other checks read as they are.
 repo_files() (
 	git -C "${REPO_DIR}" ls-files --cached --others --exclude-standard |
 		grep -vE '^(patches|docs/upstream|\.claude)/' |
