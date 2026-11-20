@@ -1,8 +1,8 @@
-# A/B sysupgrade (r4s-ab-rollback design D6). sysupgrade and its
-# second stage source every /lib/upgrade/*.sh in name order, so the definitions
-# below replace the whole-disk ones of the rockchip platform.sh, and anything
-# else defined there, only as the last file: hence the name's z- (orbyt-brand
-# D1). An upgrade writes only the slot that is not running, then makes it the
+# A/B sysupgrade (r4s-ab-rollback design D6): the upgrade steps that the
+# target's platform.sh hands to the slots by name (firmware-hygiene D1), as
+# upstream's legacy_sdcard_* and emmc_* are handed theirs. Every name here is
+# orbyt_ab_'s own, so the order sysupgrade reads /lib/upgrade/*.sh in does not
+# matter. An upgrade writes only the slot that is not running, then makes it the
 # trial slot.
 
 # shellcheck source=../functions/orbyt-ab.sh
@@ -45,9 +45,9 @@ orbyt_ab_write() {
 	)
 }
 
-# orbyt_ab_copy_config <boot device>: put the configuration backup on the new
+# orbyt_ab_put_config <boot device>: put the configuration backup on the new
 # slot's boot partition, where its preinit (79_move_config) picks it up.
-orbyt_ab_copy_config() {
+orbyt_ab_put_config() {
 	mount -o rw,noatime "/dev/$1" /mnt || return 1
 	# shellcheck disable=SC2154 # set by sysupgrade
 	cp -af "${UPGRADE_BACKUP}" "/mnt/${BACKUP_FILE}" && sync
@@ -64,13 +64,13 @@ orbyt_ab_erofs_size() {
 	echo "$((orbyt_blocks << orbyt_bits))"
 }
 
-# platform_check_image <image>: accept only a single-slot upgrade image, a tar of
+# orbyt_ab_check_image <image>: accept only a single-slot upgrade image, a tar of
 # CONTROL, kernel (the boot partition) and root (EROFS), on a system running A/B
 # that can write the U-Boot environment where its bootloader reads it: one
 # whose bootloader named no environment has none configured (its preinit), and
 # refuses before anything is written (trial-boot-resilience D3); and not while
 # the running slot is on trial (trial-guards D3).
-platform_check_image() {
+orbyt_ab_check_image() {
 	if ! orbyt_ab_dir "$1" >/dev/null; then
 		orbyt_listed=$(orbyt_ab_members "$1" | tr '\n' ' ') || orbyt_listed=
 		echo "Not a single-slot upgrade image (members: ${orbyt_listed:-none})"
@@ -97,12 +97,12 @@ platform_check_image() {
 	fi
 }
 
-# platform_do_upgrade <image>: write the inactive slot, give it a fresh overlay
+# orbyt_ab_do_upgrade <image>: write the inactive slot, give it a fresh overlay
 # and the configuration backup (sysupgrade's UPGRADE_BACKUP), and only once all
 # of it is written, make it the slot U-Boot tries next, as a trial. Stage 2
 # reboots whatever this returns: after a failure, into the running slot
 # (device-integrity D2).
-platform_do_upgrade() {
+orbyt_ab_do_upgrade() {
 	orbyt_dir=$(orbyt_ab_dir "$1") || {
 		echo "Not a single-slot upgrade image"
 		return 1
@@ -113,12 +113,13 @@ platform_do_upgrade() {
 	}
 	orbyt_target=$(orbyt_ab_other "${orbyt_running}")
 	orbyt_partitions=$(orbyt_ab_partitions "${orbyt_target}")
-	# shellcheck disable=SC2086 # the boot and root partition numbers
-	set -- "$1" ${orbyt_partitions}
+	read -r orbyt_boot_part orbyt_root_part <<EOF
+${orbyt_partitions}
+EOF
 	orbyt_boot_dev='' orbyt_root_dev=''
 	if ! export_bootdevice ||
-		! export_partdevice orbyt_boot_dev "$2" ||
-		! export_partdevice orbyt_root_dev "$3"; then
+		! export_partdevice orbyt_boot_dev "${orbyt_boot_part}" ||
+		! export_partdevice orbyt_root_dev "${orbyt_root_part}"; then
 		echo "Unable to find the partitions of slot ${orbyt_target}"
 		return 1
 	fi
@@ -140,7 +141,7 @@ platform_do_upgrade() {
 
 	# The configuration before the switch: a power cut in between must not boot
 	# the new slot without it.
-	if [ -n "${UPGRADE_BACKUP:-}" ] && ! orbyt_ab_copy_config "${orbyt_boot_dev}"; then
+	if [ -n "${UPGRADE_BACKUP:-}" ] && ! orbyt_ab_put_config "${orbyt_boot_dev}"; then
 		echo "Copying the configuration to slot ${orbyt_target} failed; slot ${orbyt_running} stays"
 		return 1
 	fi
@@ -148,8 +149,8 @@ platform_do_upgrade() {
 	orbyt_ab_setenv boot_slot "${orbyt_target}" upgrade_available 1 bootcount 0
 }
 
-# platform_copy_config: platform_do_upgrade has put the configuration on the new
-# slot already, before the switch; this replaces the platform's whole-disk copy.
-platform_copy_config() {
+# orbyt_ab_copy_config: nothing left to do. orbyt_ab_do_upgrade has put the
+# configuration on the new slot already, before the switch.
+orbyt_ab_copy_config() {
 	:
 }

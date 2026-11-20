@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 12:00:00 +0800
+Subject: [PATCH] rockchip: hand the upgrade to the A/B slots
+
+Orbyt's boards boot from two slots (patch 0004's images), and orbyt-ab
+writes an upgrade to the slot that is not running. The platform's three
+upgrade steps call orbyt-ab's by name, as other layouts' are called
+(legacy_sdcard_*, emmc_*, nand_*), instead of being defined again in a
+file that sysupgrade reads after this one: which definition ran
+depended on the order of /lib/upgrade's files, and a renamed file made
+the whole-disk check refuse every upgrade image. The metadata check
+stays the platform's.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Inappropriate [Orbyt's A/B slot layout]
+---
+ .../armv8/base-files/lib/upgrade/platform.sh       | 14 +++++---------
+ 1 file changed, 5 insertions(+), 9 deletions(-)
+
+diff --git a/target/linux/rockchip/armv8/base-files/lib/upgrade/platform.sh b/target/linux/rockchip/armv8/base-files/lib/upgrade/platform.sh
+index 1a7d501..cb0ae7a 100644
+--- a/target/linux/rockchip/armv8/base-files/lib/upgrade/platform.sh
++++ b/target/linux/rockchip/armv8/base-files/lib/upgrade/platform.sh
+@@ -1,19 +1,15 @@
+ REQUIRE_IMAGE_METADATA=1
+ 
++# The A/B slots (orbyt-ab) take the upgrade: it writes the slot that is not
++# running, and carries the configuration over before it switches to it.
+ platform_check_image() {
+-	legacy_sdcard_check_image "$1"
++	orbyt_ab_check_image "$1"
+ }
+ 
+ platform_copy_config() {
+-	local partdev
+-
+-	if export_partdevice partdev 1; then
+-		mount -o rw,noatime "/dev/$partdev" /mnt
+-		cp -af "$UPGRADE_BACKUP" "/mnt/$BACKUP_FILE"
+-		umount /mnt
+-	fi
++	orbyt_ab_copy_config
+ }
+ 
+ platform_do_upgrade() {
+-	legacy_sdcard_do_upgrade "$1"
++	orbyt_ab_do_upgrade "$1"
+ }

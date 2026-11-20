@@ -6,7 +6,7 @@
 
   Verify: `spec-coverage --change firmware-hygiene` reports it covered; on the emulated R4S it fails before 1.2 (the stock whole-disk check refuses the valid image) and passes after.
 
-- [ ] 1.2 Rename `z-orbyt-ab.sh` to `orbyt-ab.sh` with its functions as `orbyt_ab_check_image`, `orbyt_ab_do_upgrade` and `orbyt_ab_copy_config`; make patch 0004 change rockchip's `platform.sh` into the hand-off, keeping `REQUIRE_IMAGE_METADATA=1`; update docs/ab-layout.md, docs/patches.md's 0004 entry and orbyt-brand D1's citation.
+- [ ] 1.2 Rename `z-orbyt-ab.sh` to `orbyt-ab.sh` with its functions as `orbyt_ab_check_image`, `orbyt_ab_do_upgrade` and `orbyt_ab_copy_config`; add patch 0050 making rockchip's `platform.sh` the hand-off, keeping `REQUIRE_IMAGE_METADATA=1`; the tests source the upgrade files as sysupgrade does; update docs/ab-layout.md and orbyt-brand D1's citation.
 
   Verify: `just patch` applies; `firmware/test_ab_upgrade.py`, `test_boot_rollback.py` and the release suite's upgrade from local files pass on the emulated R4S.
 
@@ -26,9 +26,9 @@
 
 ## 3. Defaults, helpers and layout facts (D5, D6, D7)
 
-- [ ] 3.1 Move each option default into the code that reads it and drop the copies from the shipped config files (orbyt-sync, orbyt-ab, einat); name `bootlimit` in `uboot/orbyt-ab.env` and read it in `orbyt-slot`.
+- [ ] 3.1 Drop the code's copies of the shipped values (orbyt-sync; einat's init and health check), failing on a missing option; bind the trial deadline's and the health check's safety fallbacks, and `orbyt-slot`'s boot limit, to their sources by a unit test.
 
-  Verify: `just check`; the health check, device-sync and NAT tests pass on the emulator; `orbyt-slot` prints the bootlimit U-Boot uses.
+  Verify: `just check`; the unit test passes and fails when one value is changed; the health check, device-sync and NAT tests pass on the emulator.
 
 - [ ] 3.2 Export the result path and the monotonic clock from `orbyt.ab` and use them; use `orbyt_data_mounted` and `ORBYT_DATA` wherever the test or the path is spelled out; run the health check's checks as argument vectors, after checking how the image's ucode reports a killed child.
 
@@ -42,7 +42,7 @@
 
   Verify: the image's sysupgrade.conf list holds the same paths as before; the ubsan and ci profiles merge to the same `.config` as before; the unit tests pass.
 
-- [ ] 3.5 orbyt-data writes its fstab stub alone; ksmbd's hardening through its UCI options or an owned template.
+- [ ] 3.5 orbyt-data writes its fstab stub alone (`80-orbyt-data`); ksmbd's hardening in its template (packages/0015); the data disk's paths from orbyt-data's library.
 
   Verify: the file-sharing and data-disk suites pass on the emulator; the image's ksmbd.conf is unchanged.
 

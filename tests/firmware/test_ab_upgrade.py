@@ -37,6 +37,11 @@ HOOK = ". /lib/functions.sh && include /lib/upgrade"
 # tar.
 BROKEN_IMAGE = "/tmp/broken-image.tar"  # noqa: S108 (a path on the router)
 BACKUP = "/tmp/backup.tgz"  # noqa: S108 (a path on the router)
+# The A/B upgrade's file, renamed to be read first; an image for another
+# device and the metadata it is given.
+FIRST_FILE = "/lib/upgrade/0-orbyt-ab.sh"
+OTHER_IMAGE = "/tmp/other-device.tar.gz"  # noqa: S108 (a path on the router)
+METADATA = "/tmp/meta.json"  # noqa: S108 (a path on the router)
 # What the A/B switch writes, as it was before an upgrade.
 SWITCH = ("boot_slot", "upgrade_available", "bootcount")
 # How long the upgrade hook may take to write a slot.
@@ -213,9 +218,9 @@ def test_image_for_another_board_is_rejected(
     # board only.
     other = next(other for other in load_all() if other.id != board.id)
     router.run(
-        f"fwtool -q -t -i /tmp/meta.json {UPGRADE_IMAGE}"
-        f" && sed -i 's/{board.board_name}/{other.board_name}/' /tmp/meta.json"
-        f" && fwtool -I /tmp/meta.json {UPGRADE_IMAGE}"
+        f"fwtool -q -t -i {METADATA} {UPGRADE_IMAGE}"
+        f" && sed -i 's/{board.board_name}/{other.board_name}/' {METADATA}"
+        f" && fwtool -I {METADATA} {UPGRADE_IMAGE}"
     )
     before = (slot_sha256(router, "a"), slot_sha256(router, "b"))
     previous_boot = router.boot_id()
@@ -224,6 +229,39 @@ def test_image_for_another_board_is_rejected(
     assert output.endswith("exit=1")
     assert router.boot_id() == previous_boot
     assert (slot_sha256(router, "a"), slot_sha256(router, "b")) == before
+
+
+@spec(
+    CAPABILITY,
+    "The platform hands the upgrade to the A/B slots",
+    "The A/B upgrade's file read first",
+)
+def test_the_upgrade_holds_whatever_its_file_is_named(
+    router: Router, board: Board, upgrade_image: Path
+) -> None:
+    # The file that defines the A/B upgrade, found by what it defines,
+    # renamed so that sysupgrade reads it before every other file.
+    router.run(f'mv "$(grep -l "^orbyt_ab_dir()" /lib/upgrade/*.sh)" {FIRST_FILE}')
+    router.put(upgrade_image, UPGRADE_IMAGE)
+    other = next(other for other in load_all() if other.id != board.id)
+    router.run(
+        f"cp {UPGRADE_IMAGE} {OTHER_IMAGE}"
+        f" && fwtool -q -t -i {METADATA} {OTHER_IMAGE}"
+        f" && sed -i 's/{board.board_name}/{other.board_name}/' {METADATA}"
+        f" && fwtool -I {METADATA} {OTHER_IMAGE}"
+    )
+    before = (slot_sha256(router, "a"), slot_sha256(router, "b"))
+    refused = router.run(f"sysupgrade {OTHER_IMAGE} 2>&1; echo exit=$?", timeout=120)
+    assert "not supported by this image" in refused
+    assert refused.endswith("exit=1")
+    assert (slot_sha256(router, "a"), slot_sha256(router, "b")) == before
+    boot_area = boot_area_sha256(router)
+    _upgrade(router, upgrade_image)
+    assert slot(router) == "b"
+    assert (slot_sha256(router, "a"), boot_area_sha256(router)) == (
+        before[0],
+        boot_area,
+    )
 
 
 @spec(CAPABILITY, "Manual slot switch", "Manually roll back to the previous version")
