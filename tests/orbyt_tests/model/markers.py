@@ -2,8 +2,9 @@
 
 ``@spec`` names the scenario a test verifies; ``drill`` marks the
 upgrade drill, which CI's upgrade-drill job runs (r4s-release-pipeline
-D5). ``tests/pytest.toml`` loads this module as a plugin, so that
-``--strict-markers`` accepts both. See design D13.
+D5); ``build_tree`` a test that reads the build tree, which runs where
+the tree is (test-hygiene D8). ``tests/pytest.toml`` loads this module
+as a plugin, so that ``--strict-markers`` accepts them. See design D13.
 """
 
 # A runtime import: pluggy evaluates the annotations of hook
@@ -25,4 +26,8 @@ def pytest_configure(config: pytest.Config) -> None:
     config.addinivalue_line(
         "markers",
         "drill: the upgrade drill, CI's upgrade-drill job (r4s-release-pipeline D5)",
+    )
+    config.addinivalue_line(
+        "markers",
+        "build_tree: reads the build tree, so runs where it is (test-hygiene D8)",
     )

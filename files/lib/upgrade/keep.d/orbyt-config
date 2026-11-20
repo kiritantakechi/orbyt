@@ -1,5 +1,2 @@
-/etc/honk/
-/etc/rc.d/S99honk
-/etc/rc.d/K01honk
 /etc/tailscale/
 /etc/orbyt-config/

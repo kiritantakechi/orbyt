@@ -1,5 +1,0 @@
-# The release pipeline on the device (r4s-release-pipeline D4): ucert checks the
-# signature of every upgrade image; orbyt-sync keeps the local repository of
-# releases on the data disk, from which apk installs and orbyt-update upgrades.
-CONFIG_PACKAGE_ucert=y
-CONFIG_PACKAGE_orbyt-sync=y

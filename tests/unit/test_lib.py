@@ -376,6 +376,47 @@ def test_a_later_seed_replaces_an_earlier_line(tmp_path: Path) -> None:
     )
 
 
+def test_a_seed_appends_to_a_string_option(tmp_path: Path) -> None:
+    # The appended text joins the value so far, where the append stands.
+    (tmp_path / "a.seed").write_text('CONFIG_C="-O2 -pipe"\nCONFIG_D=m\n')
+    (tmp_path / "b.seed").write_text('# b\nCONFIG_C+=" -fsanitize=undefined"\n')
+    result = awk_program("merge-seeds.awk", "a.seed", "b.seed", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert (
+        result.stdout == 'CONFIG_D=m\n# b\nCONFIG_C="-O2 -pipe -fsanitize=undefined"\n'
+    )
+
+
+def test_a_name_with_a_plus_is_no_append(tmp_path: Path) -> None:
+    (tmp_path / "a.seed").write_text("# CONFIG_PACKAGE_g++ is not set\n")
+    (tmp_path / "b.seed").write_text("CONFIG_PACKAGE_g++=y\n")
+    result = awk_program("merge-seeds.awk", "a.seed", "b.seed", cwd=tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == "CONFIG_PACKAGE_g++=y\n"
+
+
+@pytest.mark.parametrize("earlier", ["", "CONFIG_C=y\n", "# CONFIG_C is not set\n"])
+def test_an_append_to_no_string_value_fails(earlier: str, tmp_path: Path) -> None:
+    (tmp_path / "a.seed").write_text(earlier)
+    (tmp_path / "b.seed").write_text('CONFIG_C+=" -O3"\n')
+    result = awk_program("merge-seeds.awk", "a.seed", "b.seed", cwd=tmp_path)
+    assert result.returncode != 0
+    assert "CONFIG_C appends to no string value" in result.stderr
+
+
+def test_the_ubsan_profile_sanitizes_the_toolchain_s_flags(tmp_path: Path) -> None:
+    def optimization(profile: str) -> str:
+        composed = _compose(profile, "r4s", tmp_path)
+        found = re.search(
+            r'^CONFIG_TARGET_OPTIMIZATION="(.*)"$', composed, re.MULTILINE
+        )
+        assert found is not None, profile
+        return str(found[1])
+
+    sanitizers = " -fsanitize=undefined -fsanitize-trap=undefined"
+    assert optimization("ubsan") == optimization("dev") + sanitizers
+
+
 @pytest.mark.parametrize("profile", PROFILES)
 def test_a_composed_seed_holds_one_line_per_option(
     profile: str, tmp_path: Path
@@ -395,13 +436,9 @@ def test_board_only_seeds_leave_the_toolchain_alone(tmp_path: Path) -> None:
 
 
 def test_board_only_seeds_build_apart(tmp_path: Path) -> None:
-    # The ubsan seed's flags replace the toolchain seed's, the board's
-    # -mcpu still comes last, and the build has directories of its own.
+    # The board's -mcpu still comes last, after the ubsan seed's flags,
+    # and the build has directories of its own.
     seed = _compose("ubsan", "r4s", tmp_path).splitlines()
-    ubsan = (REPO / "config" / "ubsan.seed").read_text().splitlines()
-    assert [
-        line for line in seed if line.startswith("CONFIG_TARGET_OPTIMIZATION=")
-    ] == [line for line in ubsan if line.startswith("CONFIG_TARGET_OPTIMIZATION=")]
     assert (
         'CONFIG_EXTRA_OPTIMIZATION="-fno-caller-saves -fno-plt -O3 -mcpu='
         in "\n".join(seed)
@@ -409,21 +446,6 @@ def test_board_only_seeds_build_apart(tmp_path: Path) -> None:
     assert 'CONFIG_BUILD_SUFFIX="r4s_ubsan"' in seed
     assert f'CONFIG_BINARY_FOLDER="{tmp_path / "openwrt"}/bin/r4s_ubsan"' in seed
     assert 'CONFIG_BUILD_SUFFIX="r4s"' in _compose("dev", "r4s", tmp_path).splitlines()
-
-
-def test_the_ubsan_seed_extends_the_toolchain_seed() -> None:
-    # It replaces the option's value whole: what the toolchain seed
-    # holds, then UBSan.
-    def value(seed: str) -> str:
-        text = (REPO / "config" / f"{seed}.seed").read_text()
-        found = re.search(r'^CONFIG_TARGET_OPTIMIZATION="(.*)"$', text, re.MULTILINE)
-        assert found
-        return str(found[1])
-
-    assert (
-        value("ubsan")
-        == f"{value('toolchain')} -fsanitize=undefined -fsanitize-trap=undefined"
-    )
 
 
 def _paths(event: str) -> list[str]:
