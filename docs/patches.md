@@ -37,19 +37,17 @@ The write-ups follow, by where their patch lives, each in its file's order; ever
 
 ## The openwrt series
 
-### qosify stays unconfigured after a slow start
+### qosify configured whenever its daemon comes up
 
 Patch: `patches/openwrt/0006-qosify-configure-the-daemon-whenever-it-comes-up.patch`, for openwrt/openwrt.
 
-Problem: qosify's init script waits 10 seconds for the daemon's ubus object and, if it has not appeared by then, gives up on configuring it: no shaping and no classification until the next reload, with only "Command failed: Request timed out" in the log. The daemon registers once its BPF programs are loaded, which on a busy boot takes longer; the emulator hit it on every boot.
+Problem: qosify's init script configures the daemon in `service_running`, which rc.common runs for the `running` action, a status query, and not when the service starts: the daemon gets its configuration from a configuration change, which its reload trigger acts on, and none at boot or after procd respawned it. The function also waited only 10 seconds for the daemon's ubus object, which a busy boot can take longer to register. Upstream's umdns and bridger configure their daemons the same way.
 
-Why it matters here: qosify shapes and classifies the WAN of every image (network/qos).
+Why it matters here: qosify shapes and classifies the WAN of every image (network/qos), from boot on.
 
-What the patch does: `service_running` waits in the background, so the boot does not wait along, for as long as procd runs the daemon, and configures it once it appears; it then returns whether procd runs the daemon, as the `running` action expects. A first version waited two minutes; with every CPU of the test VM kept busy the daemon took longer, and stayed unconfigured. `PKG_RELEASE` goes to 2.
+What the patch does: qosify's init reloads the daemon whenever its ubus object appears (`procd_add_reload_object_trigger qosify`, patch 0054): at boot, at a start and after a respawn. `service_running` is rc.common's again, which tells whether the service runs. `PKG_RELEASE` goes to 2. Until 2026-11-21 the patch waited for the object from `service_running` in the background (patch-hygiene D1).
 
-Verification log: 2026-09-29, in the emulator qosify now attaches cake and its classifiers to pppoe-wan at boot (`tests/network/test_qos.py`, `test_tc_hook_order.py`). 2026-10-01, with every CPU of the VM kept busy, the daemon took up to three minutes to come up after a restart, and was configured every time, over eight rounds of restarts and redials.
-
-2026-10-05, with `service_running` returning whether procd runs the daemon: `tests/network/test_qos.py` and `test_tc_hook_order.py` pass on both boards' `-O3` builds.
+Verification log: 2026-11-21, the series applies.
 
 ### rockchip: IRQ affinity for every net device
 
@@ -534,6 +532,18 @@ Why it matters here: ksmbd leaves a share out unless the mount points its path l
 What the patch does: the list is split on lines, once `procd_get_mountpoints` has run, since `config_foreach` splits its list of sections on `IFS`; the field is unescaped, and the mount point reaches awk through the environment, which leaves it as it is.
 
 Verification log: 2026-10-26, `procd_mountpoints_ready` false for a path under a mount point that is not mounted inside one that is (device-integrity D7). The R4S's suites then found the services on the data disk started without it: that version split the list with a newline `IFS`, under which `config_foreach` took the whole list of sections for one and `procd_get_mountpoints` found no mount point, so every path counted as mounted. In a chroot of the R4S's root filesystem with its BusyBox and the VM's `/proc`, the current version: `/mnt/data/shares` not mounted, `/proc/self` mounted, a path no fstab mount point holds mounted, and `/proc/self` with `/mnt/data/logs` not mounted; the awk alone found mount points with a space, a tab and a backslash in `/proc/mounts`' escapes.
+
+### procd: a service acting when a ubus object appears
+
+Patch: `patches/openwrt/0054-procd-let-a-service-act-when-a-ubus-object-appears.patch` (adds the procd patch `package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch`), for procd and openwrt/openwrt.
+
+Problem: procd listens to `ubus.object.add` only to subscribe to the objects services watch; its service triggers never see it, so an init script cannot act when its daemon's object appears, once the daemon has started or procd has respawned it, and waits for it instead (`ubus wait_for`), or acts on a status query, as qosify's, umdns's and bridger's do.
+
+Why it matters here: qosify takes its configuration over ubus once its daemon is up (patch 0006).
+
+What the patch does: procd passes every `ubus.object.add` to the triggers too, and `procd.sh` gains `procd_add_object_trigger <object> <command>...` and `procd_add_reload_object_trigger <object>`, which run a command, or reload the init script, whenever the object of that path appears, after procd's usual reload delay. `PKG_RELEASE` goes to 11.
+
+Verification log: 2026-11-21, the series applies.
 
 ## The packages series
 

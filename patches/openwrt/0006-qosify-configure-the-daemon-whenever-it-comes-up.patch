@@ -3,24 +3,24 @@ From: kiritantakechi <kiritantakechi@gmail.com>
 Date: Tue, 29 Sep 2026 06:30:00 +0800
 Subject: [PATCH] qosify: configure the daemon whenever it comes up
 
-service_running waited 10 seconds for the daemon's ubus object and, if
-it had not appeared by then, left qosify unconfigured until the next
-reload: no shaping and no classification, with only a "Request timed
-out" in the log. The daemon registers once its BPF programs are loaded,
-which on a busy boot can take far longer than that.
+qosify's init configured the daemon in service_running, which
+rc.common runs for the running action, a status query, and not at a
+start: the daemon got its configuration from a configuration change,
+which its reload trigger acts on, and not at boot or after procd
+respawned it. The function also waited only 10 seconds for the
+daemon's object, which a busy boot can take longer to register.
 
-Wait in the background instead, so that the boot does not wait along,
-and for as long as procd runs the daemon; then configure it.
-
-service_running still tells whether procd runs the daemon, as the
-running action expects.
+Reload the daemon whenever its ubus object appears, with
+procd_add_reload_object_trigger (patch 0054), and leave rc.common's
+service_running, which tells whether the service runs, as it is. umdns
+and bridger configure their daemons the same way.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
- package/network/config/qosify/Makefile          |  2 +-
- package/network/config/qosify/files/qosify.init | 12 ++++++++++--
- 2 files changed, 11 insertions(+), 3 deletions(-)
+ package/network/config/qosify/Makefile          | 2 +-
+ package/network/config/qosify/files/qosify.init | 8 +++-----
+ 2 files changed, 4 insertions(+), 6 deletions(-)
 
 diff --git a/package/network/config/qosify/Makefile b/package/network/config/qosify/Makefile
 index ef47351..4f4d345 100644
@@ -36,23 +36,25 @@ index ef47351..4f4d345 100644
  PKG_LICENSE:=GPL-2.0
  PKG_MAINTAINER:=Felix Fietkau <nbd@nbd.name>
 diff --git a/package/network/config/qosify/files/qosify.init b/package/network/config/qosify/files/qosify.init
-index 9bff6be..737a474 100644
+index 9bff6be..4ef5c40 100644
 --- a/package/network/config/qosify/files/qosify.init
 +++ b/package/network/config/qosify/files/qosify.init
-@@ -167,6 +167,14 @@ start_service() {
+@@ -157,6 +157,9 @@ reload_service() {
+ 
+ service_triggers() {
+ 	procd_add_reload_trigger qosify
++	# The daemon takes its configuration over ubus, once it is up: whenever its
++	# object appears, at boot, at a start and after procd respawns it.
++	procd_add_reload_object_trigger qosify
  }
  
- service_running() {
+ start_service() {
+@@ -165,8 +168,3 @@ start_service() {
+ 	procd_set_param respawn
+ 	procd_close_instance
+ }
+-
+-service_running() {
 -	ubus -t 10 wait_for qosify
 -	[ $? = 0 ] && reload_service
-+	# The daemon appears on ubus once its BPF programs are loaded, which can
-+	# take minutes on a busy boot. Configure it once it is up, without holding
-+	# up the boot meanwhile, as long as procd runs it.
-+	(
-+		until ubus -t 30 wait_for qosify; do
-+			procd_running qosify || exit 0
-+		done
-+		reload_service
-+	) >/dev/null 2>&1 &
-+	procd_running qosify
- }
+-}

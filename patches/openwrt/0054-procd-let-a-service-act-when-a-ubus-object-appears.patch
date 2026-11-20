@@ -1,0 +1,124 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 16:00:00 +0800
+Subject: [PATCH] procd: let a service act when a ubus object appears
+
+procd listens to ubus.object.add only to subscribe to the objects
+services watch; its service triggers never see it, so an init script
+cannot act when its daemon's object appears, as once the daemon has
+started or procd has respawned it, and waits for it instead (ubus
+wait_for), or acts on a status query.
+
+Carry the procd patch that passes every ubus.object.add to the
+triggers too, and add procd_add_object_trigger and
+procd_add_reload_object_trigger to procd.sh, which run a command, or
+reload the init script, whenever the object of a given path appears.
+The procd patch is meant for procd upstream.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile                 |  2 +-
+ package/system/procd/files/procd.sh           | 34 +++++++++++++++++++
+ ...object-registrations-to-the-triggers.patch | 27 +++++++++++++++
+ 3 files changed, 62 insertions(+), 1 deletion(-)
+ create mode 100644 package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index 3c9191f..e3f6bc6 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=10
++PKG_RELEASE:=11
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
+index 7ac2a24..a30ab73 100644
+--- a/package/system/procd/files/procd.sh
++++ b/package/system/procd/files/procd.sh
+@@ -310,6 +310,38 @@ _procd_add_reload_interface_trigger() {
+ 	_procd_close_trigger
+ }
+ 
++# _procd_add_object_trigger <object> <command>...: run <command> whenever the ubus
++# object <object> appears, as when its daemon starts or procd respawns it.
++_procd_add_object_trigger() {
++	json_add_array
++	_procd_add_array_data "ubus.object.add"
++
++	json_add_array
++	_procd_add_array_data "if"
++
++	json_add_array
++	_procd_add_array_data "eq" "path" "$1"
++	shift
++	json_close_array
++
++	json_add_array
++	_procd_add_array_data "run_script" "$@"
++	json_close_array
++
++	json_close_array
++	_procd_add_timeout
++	json_close_array
++}
++
++_procd_add_reload_object_trigger() {
++	local script=$(readlink "$initscript")
++	local name=$(basename ${script:-$initscript})
++
++	_procd_open_trigger
++	_procd_add_object_trigger $1 /etc/init.d/$name reload
++	_procd_close_trigger
++}
++
+ _procd_add_data_trigger() {
+ 	json_add_array
+ 	_procd_add_array_data "service.data.update"
+@@ -783,6 +815,8 @@ _procd_wrapper \
+ 	procd_add_reload_trigger \
+ 	procd_add_reload_data_trigger \
+ 	procd_add_reload_interface_trigger \
++	procd_add_object_trigger \
++	procd_add_reload_object_trigger \
+ 	procd_add_action_mount_trigger \
+ 	procd_add_reload_mount_trigger \
+ 	procd_add_restart_mount_trigger \
+diff --git a/package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch b/package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch
+new file mode 100644
+index 0000000..b7a8cc3
+--- /dev/null
++++ b/package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch
+@@ -0,0 +1,27 @@
++From: kiritantakechi <kiritantakechi@gmail.com>
++Subject: [PATCH] service: pass object registrations to the triggers
++
++watch_subscribe_cb took ubus.object.add events only to subscribe to the
++objects services watch. Pass each to trigger_event as well, so that a
++service's trigger can act when an object appears, as when its daemon
++has started or been respawned.
++
++Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
++---
++ service/watch.c | 3 +++
++ 1 file changed, 3 insertions(+)
++
++diff --git a/service/watch.c b/service/watch.c
++index da0723d..004f811 100644
++--- a/service/watch.c
+++++ b/service/watch.c
++@@ -44,6 +44,9 @@ static void watch_subscribe_cb(struct ubus_context *ctx, struct ubus_event_handl
++ 	if (strcmp(type, "ubus.object.add") != 0)
++ 		return;
++ 
+++	/* A service may act when an object appears (procd_add_object_trigger). */
+++	trigger_event(type, msg);
+++
++ 	blobmsg_parse(&policy, 1, &attr, blob_data(msg), blob_len(msg));
++ 	if (!attr)
++ 		return;
