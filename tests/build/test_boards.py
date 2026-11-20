@@ -335,13 +335,23 @@ def _rust_std_hash() -> str:
     return hashlib.sha256(listing.encode()).hexdigest()
 
 
-# The fingerprint of a host environment other than the tests' own.
+# The fingerprints of the host environment the tests' scripts run in,
+# whatever the tests themselves run in, and of another one.
+ENVIRONMENT = "0000000000000000000000000000000b-orbyt-build-inputs"
 OTHER_ENVIRONMENT = "0000000000000000000000000000000a-orbyt-build-inputs"
 
 
-def _environment() -> str:
-    """Return the tests' host environment, as the record names it."""
-    return os.environ["ORBYT_BUILD_INPUTS"].rsplit("/", 1)[-1]
+def _script_env(workdir: Path, **extra: str) -> dict[str, str]:
+    """Return the environment of a build script run on ``workdir``.
+
+    Its host environment is ENVIRONMENT.
+    """
+    return {
+        **os.environ,
+        "ORBYT_WORKDIR": str(workdir),
+        "ORBYT_BUILD_INPUTS": f"/nix/store/{ENVIRONMENT}",
+        **extra,
+    }
 
 
 def _neutral_record() -> ToolchainRecord:
@@ -350,7 +360,7 @@ def _neutral_record() -> ToolchainRecord:
         {
             "cflags": NEUTRAL_CFLAGS,
             "libc": hashlib.sha256(LIBC).hexdigest(),
-            "environment": _environment(),
+            "environment": ENVIRONMENT,
             "rust_std": _rust_std_hash(),
         }
     )
@@ -554,7 +564,7 @@ def _tree_to_build_toolchain(
                 {
                     "cflags": found.cflags,
                     "libc": digest,
-                    "environment": found.environment or _environment(),
+                    "environment": found.environment or ENVIRONMENT,
                     "rust_std": _rust_std_hash(),
                 }
             ),
@@ -583,7 +593,7 @@ def _tree_to_build_toolchain(
 def _toolchain_build(tree: Path, **env: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [REPO / "scripts" / "toolchain-build.sh"],
-        env={**os.environ, "ORBYT_WORKDIR": str(tree.parent), **env},
+        env=_script_env(tree.parent, **env),
         capture_output=True,
         text=True,
         check=False,
@@ -790,7 +800,7 @@ def test_a_board_toolchain_is_refused(
     tree = _tree_with_toolchain(tmp_path, board, record)
     result = subprocess.run(
         [REPO / "scripts" / "build.sh", board.id],
-        env={**os.environ, "ORBYT_WORKDIR": str(tmp_path)},
+        env=_script_env(tmp_path),
         capture_output=True,
         text=True,
         check=False,
@@ -810,11 +820,7 @@ def test_a_board_build_that_compiles_the_toolchain_fails(tmp_path: Path) -> None
     tree = _tree_with_toolchain(tmp_path, board, _neutral_record())
     result = subprocess.run(
         [REPO / "scripts" / "build.sh", board.id],
-        env={
-            **os.environ,
-            "ORBYT_WORKDIR": str(tmp_path),
-            "COMPILED": "package/feeds/packages/rust",
-        },
+        env=_script_env(tmp_path, COMPILED="package/feeds/packages/rust"),
         capture_output=True,
         text=True,
         check=False,

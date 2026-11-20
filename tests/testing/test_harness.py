@@ -527,10 +527,15 @@ def test_a_report_of_an_unreachable_router_is_quick(online: Online) -> None:
 def test_a_setup_that_fails_halfway_leaves_no_tunnel(online: Online) -> None:
     peer = online.network["wg-peer"]
     # A route the peer refuses, after its tunnel exists.
-    with pytest.raises(subprocess.CalledProcessError, match="no-such-route"):
-        WireGuard.connect(online, ["no-such-route"])
+    with (
+        pytest.raises(subprocess.CalledProcessError, match="no-such-route"),
+        WireGuard.connect(online, ["no-such-route"]),
+    ):
+        pass
     assert peer.run("ip", "-o", "link", "show", "type", "wireguard") == ""
-    WireGuard.connect(online, [LAN_PREFIX]).disconnect()
+    with WireGuard.connect(online, [LAN_PREFIX]):
+        pass
+    assert peer.run("ip", "-o", "link", "show", "type", "wireguard") == ""
 
 
 @spec(CAPABILITY, "Fixtures by layer", "A test that would reset a module's router")

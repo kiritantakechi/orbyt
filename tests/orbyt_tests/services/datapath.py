@@ -571,3 +571,17 @@ def proxy_start(router: Router, config: str = PROXY_CONFIG) -> None:
         " && /etc/init.d/honk enable && /etc/init.d/honk restart"
     )
     wait_proxy(router, replacing=running)
+
+
+def proxy_stop(router: Router) -> None:
+    """Stop and disable honk; return once it is gone.
+
+    Gone is its process and its programs on br-lan, which a honk that
+    is stopping keeps for a while.
+    """
+    router.run("/etc/init.d/honk stop && /etc/init.d/honk disable")
+    until(
+        lambda: not proxy_pid(router) and not hooks(router, "br-lan"),
+        timeout=PROXY_TIMEOUT,
+        what="honk gone",
+    )

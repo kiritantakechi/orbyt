@@ -35,7 +35,7 @@
 
 ### D3. Setups undone
 
-`Network.__enter__` builds in a local `ExitStack` and keeps it with `pop_all()` only on success; `Netns` kills its holder before raising. `WireGuard.connect` and `Tailnet.join` are context managers that undo what they did when they fail; the proxy's fixture calls `proxy_start` and a new `proxy_stop`. Each sandbox daemon declares how it is ready (a port it listens on, a file it writes); `_daemon` waits for that with `until` and fails at once, with its output, if the process exits.
+`Network.__enter__` closes its stack when the setup fails halfway, as Python calls no `__exit__` for an `__enter__` that raised; `Netns` kills its holder before raising. `WireGuard.connect` and `Tailnet.join` are context managers whose end, or a failure on the way, undoes what they did (wg-peer's tunnel; ts-peer's login and the tailnet's nodes); the router's side goes back with its snapshot. The proxy's fixture calls `proxy_start` and a new `proxy_stop`, which waits until honk's process and programs are gone. The toolchain tests run their scripts in a host environment of their own, so that collecting them needs no build environment. Each sandbox daemon declares how it is ready (a port it listens on, a file it writes); `_daemon` waits for that with `until` and fails at once, with its output, if the process exits.
 
 ### D4. Independent tests
 

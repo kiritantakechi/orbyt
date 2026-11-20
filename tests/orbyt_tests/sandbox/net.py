@@ -39,13 +39,15 @@ from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox import internet, isp, netprobe
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
     from types import TracebackType
 
     from orbyt_tests.model.boards import Board
 
 UDHCPC_SCRIPT = Path(__file__).with_name("udhcpc.sh")
 RUNNER_ADDRESS = "10.0.0.2"
+# How long a daemon may take to be ready, and how long one with no
+# readiness of its own must run to count as started.
+DAEMON_READY_TIMEOUT = 30
 DAEMON_SETTLE = 0.5
 # How long a new namespace's holder may take to unshare.
 NAMESPACE_TIMEOUT = 5
@@ -60,6 +62,9 @@ PROXIED_TARGET = ("203.0.113.20", "2001:db8:ffff::20")
 PROXY_GATEWAY = ("198.51.100.1", "2001:db8:53::1")
 PROXY = ("198.51.100.53", "2001:db8:53::53")
 PROXY_PORT = 1080
+# The ports of the internet's DNS and HTTPS servers.
+DNS_PORT = 53
+HTTPS_PORT = 443
 IPERF_PORTS = (5201, 5202)
 
 
@@ -88,20 +93,50 @@ class Port:
 
 
 @dataclass(frozen=True, slots=True)
+class Daemon:
+    """A daemon of a namespace, and how it shows that it is ready.
+
+    ``listening`` are the ``ss`` arguments that list the socket it
+    serves on, ``makes`` a file it makes; ``{workdir}`` in either, and
+    in the command, is replaced with a private directory of the
+    namespace. With neither, the tests wait for its service themselves
+    (the ISP's sessions), and the sandbox sees only that it does not
+    exit at once (test-hygiene D3).
+    """
+
+    command: tuple[str, ...]
+    listening: tuple[str, ...] = ()
+    makes: str | None = None
+
+
+def _socket(port: int, address: str | None) -> str:
+    """Return the ``ss`` filter of a socket on a port and address."""
+    return f"sport = :{port}" if address is None else f"src {address}:{port}"
+
+
+def _tcp(port: int, address: str | None = None) -> tuple[str, ...]:
+    """Return the ``ss`` arguments of a listening TCP socket."""
+    return ("-Hltn", _socket(port, address))
+
+
+def _udp(port: int, address: str | None = None) -> tuple[str, ...]:
+    """Return the ``ss`` arguments of a bound UDP socket."""
+    return ("-Hlun", _socket(port, address))
+
+
+@dataclass(frozen=True, slots=True)
 class Namespace:
     """A network namespace; its ports are eth0, eth1, ... in order.
 
     ``sysctls`` are ``key=value`` settings of the namespace, ``routes``
-    are ``ip route add`` arguments. ``daemons`` are command lines
-    started inside the namespace; ``{workdir}`` in an argument is
-    replaced with a private directory of that namespace.
+    are ``ip route add`` arguments, ``daemons`` what runs inside it.
     """
 
     name: str
     ports: tuple[Port, ...]
     sysctls: tuple[str, ...] = ()
     routes: tuple[str, ...] = ()
-    daemons: tuple[tuple[str, ...], ...] = ()
+    daemons: tuple[Daemon, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,19 +172,21 @@ UPSTREAM = (
             "net.ipv6.conf.default.accept_dad=0",
         ),
         daemons=(
-            (
-                "pppoe-server",
-                "-F",
-                "-I",
-                "eth0",
-                "-L",
-                isp.BRAS_ADDRESS,
-                "-R",
-                isp.POOL_START,
-                "-N",
-                str(isp.POOL_SIZE),
-                "-O",
-                "/etc/ppp/pppoe-server-options",
+            Daemon(
+                (
+                    "pppoe-server",
+                    "-F",
+                    "-I",
+                    "eth0",
+                    "-L",
+                    isp.BRAS_ADDRESS,
+                    "-R",
+                    isp.POOL_START,
+                    "-N",
+                    str(isp.POOL_SIZE),
+                    "-O",
+                    "/etc/ppp/pppoe-server-options",
+                ),
             ),
         ),
     ),
@@ -170,57 +207,83 @@ UPSTREAM = (
         ),
         routes=tuple(f"default via {gateway}" for gateway in INET_GATEWAY),
         daemons=(
-            (
-                sys.executable,
-                "-m",
-                "orbyt_tests.sandbox.netprobe",
-                "serve",
-                "--port",
-                str(netprobe.PORT),
-            ),
-            (
-                "dnsmasq",
-                "--keep-in-foreground",
-                "--conf-file=/dev/null",
-                # Empty user and group: keep the sandbox's identity;
-                # setgroups is not allowed in a user namespace.
-                "--user=",
-                "--group=",
-                "--log-facility=-",
-                "--log-queries",
-                "--pid-file=",
-                "--bind-interfaces",
-                *(f"--listen-address={address}" for address in isp.DNS),
-                "--no-resolv",
-                "--no-hosts",
-                # The one zone the internet serves, anything else is
-                # NXDOMAIN (host records win over address rules). Every
-                # name under any.example.net resolves, so each test
-                # query can be one no cache has seen. Not a .test zone:
-                # the router's dnsmasq keeps RFC 6761 names local and
-                # never forwards them.
-                "--address=/#/",
-                f"--address=/any.example.net/{DIRECT_TARGET[0]}",
-                f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
-                "--host-record=proxied.example.net,{},{}".format(*PROXIED_TARGET),
-                *(
-                    f"--host-record={name},{address}"
-                    for name, address in internet.SERVERS
-                ),
-            ),
-            *(("iperf3", "--server", "--port", str(port)) for port in IPERF_PORTS),
-            ("registry", "serve", "{workdir}/registry.yml"),
-            ("headscale", "serve", "--config", "{workdir}/headscale.yaml"),
-            (
-                *(
+            Daemon(
+                (
                     sys.executable,
                     "-m",
-                    "orbyt_tests.sandbox.releases",
-                    "{workdir}/releases",
+                    "orbyt_tests.sandbox.netprobe",
+                    "serve",
+                    "--port",
+                    str(netprobe.PORT),
                 ),
-                *("--address", internet.RELEASES[1], "--name", internet.RELEASES[0]),
-                "--certificate={workdir}/../pki/server.crt",
-                "--key={workdir}/../pki/server.key",
+                listening=_tcp(netprobe.PORT),
+            ),
+            Daemon(
+                (
+                    "dnsmasq",
+                    "--keep-in-foreground",
+                    "--conf-file=/dev/null",
+                    # Empty user and group: keep the sandbox's identity;
+                    # setgroups is not allowed in a user namespace.
+                    "--user=",
+                    "--group=",
+                    "--log-facility=-",
+                    "--log-queries",
+                    "--pid-file=",
+                    "--bind-interfaces",
+                    *(f"--listen-address={address}" for address in isp.DNS),
+                    "--no-resolv",
+                    "--no-hosts",
+                    # The one zone the internet serves, anything else
+                    # is NXDOMAIN (host records win over address
+                    # rules). Every name under any.example.net
+                    # resolves, so each test query can be one no cache
+                    # has seen. Not a .test zone: the router's dnsmasq
+                    # keeps RFC 6761 names local and never forwards
+                    # them.
+                    "--address=/#/",
+                    f"--address=/any.example.net/{DIRECT_TARGET[0]}",
+                    f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
+                    "--host-record=proxied.example.net,{},{}".format(*PROXIED_TARGET),
+                    *(
+                        f"--host-record={name},{address}"
+                        for name, address in internet.SERVERS
+                    ),
+                ),
+                listening=_udp(DNS_PORT, isp.DNS[0]),
+            ),
+            *(
+                Daemon(
+                    ("iperf3", "--server", "--port", str(port)), listening=_tcp(port)
+                )
+                for port in IPERF_PORTS
+            ),
+            Daemon(
+                ("registry", "serve", "{workdir}/registry.yml"),
+                listening=_tcp(HTTPS_PORT, internet.REGISTRY[1]),
+            ),
+            Daemon(
+                ("headscale", "serve", "--config", "{workdir}/headscale.yaml"),
+                listening=_tcp(HTTPS_PORT, internet.HEADSCALE[1]),
+            ),
+            Daemon(
+                (
+                    *(
+                        sys.executable,
+                        "-m",
+                        "orbyt_tests.sandbox.releases",
+                        "{workdir}/releases",
+                    ),
+                    *(
+                        "--address",
+                        internet.RELEASES[1],
+                        "--name",
+                        internet.RELEASES[0],
+                    ),
+                    "--certificate={workdir}/../pki/server.crt",
+                    "--key={workdir}/../pki/server.key",
+                ),
+                listening=_tcp(HTTPS_PORT, internet.RELEASES[1]),
             ),
         ),
     ),
@@ -236,7 +299,12 @@ UPSTREAM = (
             ),
         ),
         routes=tuple(f"default via {gateway}" for gateway in PROXY_GATEWAY),
-        daemons=(("microsocks", "-i", "::", "-p", str(PROXY_PORT)),),
+        daemons=(
+            Daemon(
+                ("microsocks", "-i", "::", "-p", str(PROXY_PORT)),
+                listening=_tcp(PROXY_PORT),
+            ),
+        ),
     ),
     # A remote WireGuard device; the tests make its tunnel, a wireguard
     # link of the host kernel, with the keys they push to the router.
@@ -268,15 +336,18 @@ UPSTREAM = (
         ),
         routes=tuple(f"default via {gateway}" for gateway in INET_GATEWAY),
         daemons=(
-            (
-                "env",
-                "SSL_CERT_FILE={workdir}/../pki/ca.crt",
-                "tailscaled",
-                "--no-logs-no-support",
-                "--statedir={workdir}",
-                "--socket={workdir}/tailscaled.sock",
-                "--tun=tailscale0",
-                "--port=41641",
+            Daemon(
+                (
+                    "env",
+                    "SSL_CERT_FILE={workdir}/../pki/ca.crt",
+                    "tailscaled",
+                    "--no-logs-no-support",
+                    "--statedir={workdir}",
+                    "--socket={workdir}/tailscaled.sock",
+                    "--tun=tailscale0",
+                    "--port=41641",
+                ),
+                makes="{workdir}/tailscaled.sock",
             ),
         ),
     ),
@@ -440,20 +511,27 @@ class Network(AbstractContextManager["Network"]):
     def __enter__(self) -> Self:
         """Create bridges, taps and namespaces, then start services.
 
-        The services are the DHCP clients and the daemons.
+        The services are the DHCP clients and the daemons. A setup that
+        fails halfway stops what it started before it fails: Python
+        calls no ``__exit__`` for an ``__enter__`` that raised
+        (test-hygiene D3).
         """
-        self._isolate()
-        ip("link", "set", "lo", "up")
-        for bridge in self.topology.bridges:
-            ip("link", "add", "name", bridge.name, "type", "bridge")
-            if bridge.tap is not None:
-                ip("tuntap", "add", "dev", bridge.tap, "mode", "tap")
-                ip("link", "set", bridge.tap, "master", bridge.name, "up")
-            ip("link", "set", bridge.name, "up")
-            if bridge.address is not None:
-                ip("addr", "add", bridge.address, "dev", bridge.name)
-        for namespace in self.topology.namespaces:
-            self.add(namespace)
+        try:
+            self._isolate()
+            ip("link", "set", "lo", "up")
+            for bridge in self.topology.bridges:
+                ip("link", "add", "name", bridge.name, "type", "bridge")
+                if bridge.tap is not None:
+                    ip("tuntap", "add", "dev", bridge.tap, "mode", "tap")
+                    ip("link", "set", bridge.tap, "master", bridge.name, "up")
+                ip("link", "set", bridge.name, "up")
+                if bridge.address is not None:
+                    ip("addr", "add", bridge.address, "dev", bridge.name)
+            for namespace in self.topology.namespaces:
+                self.add(namespace)
+        except BaseException:
+            self._stack.close()
+            raise
         return self
 
     def _isolate(self) -> None:
@@ -501,7 +579,7 @@ class Network(AbstractContextManager["Network"]):
         workdir = self.workdir / namespace.name
         workdir.mkdir(parents=True, exist_ok=True)
         for daemon in namespace.daemons:
-            self._daemon(netns, tuple(arg.format(workdir=workdir) for arg in daemon))
+            self._daemon(netns, daemon, workdir)
         return netns
 
     def _connect(self, netns: Netns, device: str, port: Port) -> None:
@@ -534,21 +612,13 @@ class Network(AbstractContextManager["Network"]):
                 *(("nodad",) if ":" in address else ()),
             )
         if port.dhcp:
+            # A lease is the client's service, which the tests await.
+            client = (
+                *("udhcpc", "-f", "-i", device, "-s", str(UDHCPC_SCRIPT), "-A", "3"),
+                *("-x", f"hostname:{netns.name}"),
+            )
             self._dhcp[netns.name] = self._daemon(
-                netns,
-                (
-                    *(
-                        "udhcpc",
-                        "-f",
-                        "-i",
-                        device,
-                        "-s",
-                        str(UDHCPC_SCRIPT),
-                        "-A",
-                        "3",
-                    ),
-                    *("-x", f"hostname:{netns.name}"),
-                ),
+                netns, Daemon(client), self.workdir / netns.name
             )
 
     def renew(self, name: str) -> None:
@@ -558,16 +628,41 @@ class Network(AbstractContextManager["Network"]):
         """
         self._dhcp[name].send_signal(signal.SIGUSR1)
 
-    def _daemon(self, netns: Netns, command: Sequence[str]) -> subprocess.Popen[bytes]:
+    def _daemon(
+        self, netns: Netns, daemon: Daemon, workdir: Path
+    ) -> subprocess.Popen[bytes]:
+        """Start ``daemon`` in ``netns``; return it once it is ready.
+
+        A daemon that exits while it starts fails the setup at once; its
+        output is the test run's.
+        """
+        command = tuple(argument.format(workdir=workdir) for argument in daemon.command)
         process = netns.spawn(*command)
         self._stack.callback(process.wait)
         self._stack.callback(process.terminate)
-        try:
-            code = process.wait(timeout=DAEMON_SETTLE)
-        except subprocess.TimeoutExpired:
-            return process
-        msg = f"{netns.name}: {command[0]} exited with {code} right after starting"
-        raise RuntimeError(msg)
+
+        def ready() -> bool:
+            if (code := process.poll()) is not None:
+                msg = f"{netns.name}: {command[0]} exited with {code} while starting"
+                raise RuntimeError(msg)
+            if daemon.listening:
+                return bool(netns.run("ss", *daemon.listening).strip())
+            if daemon.makes is not None:
+                return Path(daemon.makes.format(workdir=workdir)).exists()
+            # Its service, the tests await themselves.
+            try:
+                process.wait(timeout=DAEMON_SETTLE)
+            except subprocess.TimeoutExpired:
+                return True
+            return False
+
+        until(
+            ready,
+            timeout=DAEMON_READY_TIMEOUT,
+            every=0.1,
+            what=f"{command[0]} ready in {netns.name}",
+        )
+        return process
 
     @override
     def __exit__(

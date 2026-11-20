@@ -73,14 +73,12 @@ def wireguard(online: Online) -> Iterator[WireGuard]:
 
     Both go through the tunnel.
     """
-    tunnel = WireGuard.connect(online, [LAN_PREFIX, f"{PROXIED_TARGET[0]}/32"])
-    yield tunnel
-    tunnel.disconnect()
+    with WireGuard.connect(online, [LAN_PREFIX, f"{PROXIED_TARGET[0]}/32"]) as tunnel:
+        yield tunnel
 
 
 @pytest.fixture(scope="module")
 def tailnet(trusted_ca: Online) -> Iterator[Tailnet]:
     """Log the router and ts-peer into headscale."""
-    joined = Tailnet.join(trusted_ca)
-    yield joined
-    joined.leave()
+    with Tailnet.join(trusted_ca) as joined:
+        yield joined

@@ -13,6 +13,7 @@ and headscale approves both, as an administrator would.
 import json
 import shlex
 import subprocess
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self, cast
 
@@ -21,7 +22,7 @@ from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.internet import HEADSCALE
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Generator, Sequence
 
     from orbyt_tests.device.router import Router
     from orbyt_tests.sandbox.net import Netns, Network
@@ -56,14 +57,16 @@ class WireGuard:
     peer: Netns
 
     @classmethod
-    def connect(cls, online: Online, routes: Sequence[str]) -> Self:
-        """Key both ends and bring the tunnel up.
+    @contextmanager
+    def connect(cls, online: Online, routes: Sequence[str]) -> Generator[Self]:
+        """Key both ends and bring the tunnel up for the context.
 
         wg-peer routes ``routes`` through it.
 
-        A failure on the way takes wg-peer's tunnel down again, so that
-        the session's namespace holds none for the next one
-        (test-fidelity D11).
+        The context's end takes wg-peer's tunnel down again, as does a
+        failure on the way, so that the session's namespace holds none
+        for the next one (test-hygiene D3). The router's end goes back
+        with its snapshot.
         """
         router_private, router_public = key_pair()
         peer_private, peer_public = key_pair()
@@ -110,22 +113,14 @@ class WireGuard:
                     f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}",
                 ],
             )
-        except BaseException:
-            tunnel.disconnect()
-            raise
-        return tunnel
+            yield tunnel
+        finally:
+            peer.run("ip", "link", "del", "wg0")
 
     def handshaken(self) -> bool:
         """Return whether wg-peer has handshaken with the router."""
         handshakes = self.peer.run("wg", "show", "wg0", "latest-handshakes").split()
         return len(handshakes) == 2 and handshakes[1] != "0"  # noqa: PLR2004
-
-    def disconnect(self) -> None:
-        """Remove wg-peer's end.
-
-        The router's goes back with its snapshot.
-        """
-        self.peer.run("ip", "link", "del", "wg0")
 
 
 def _headscale(network: Network, *args: str) -> Any:  # noqa: ANN401 (JSON)
@@ -147,6 +142,13 @@ def _node(network: Network, name: str) -> int:
         if name in (node.get("given_name"), node.get("name"))
     )
     return int(node["id"])
+
+
+def _peer_tailscale(network: Network, *args: str, timeout: float = 60) -> str:
+    socket = network.workdir / "ts-peer" / "tailscaled.sock"
+    return network["ts-peer"].run(
+        "tailscale", f"--socket={socket}", *args, timeout=timeout
+    )
 
 
 def clear(network: Network) -> None:
@@ -201,19 +203,29 @@ class Tailnet:
 
     def peer_tailscale(self, *args: str, timeout: float = 60) -> str:
         """Run the tailscale CLI against ts-peer's tailscaled."""
-        socket = self.network.workdir / "ts-peer" / "tailscaled.sock"
-        return self.peer.run("tailscale", f"--socket={socket}", *args, timeout=timeout)
+        return _peer_tailscale(self.network, *args, timeout=timeout)
 
     @classmethod
-    def join(cls, online: Online) -> Self:
-        """Log the router and ts-peer into the tailnet.
+    @contextmanager
+    def join(cls, online: Online) -> Generator[Self]:
+        """Log the router and ts-peer into the tailnet for the context.
 
         The router is a subnet router and exit node.
 
         The tailnet starts empty: a node an earlier module left behind
-        goes first.
+        goes first. The context's end logs ts-peer out and empties the
+        tailnet again, as does a failure on the way (test-hygiene D3).
+        The router's login goes back with its snapshot.
         """
         clear(online.network)
+        try:
+            yield cls._log_in(online)
+        finally:
+            _peer_tailscale(online.network, "logout")
+            clear(online.network)
+
+    @classmethod
+    def _log_in(cls, online: Online) -> Self:
         key = preauth_key(online.network)
         login = (
             f"--login-server={HEADSCALE_URL}",
@@ -287,8 +299,3 @@ class Tailnet:
         With ``on`` false, it stops.
         """
         self.peer_tailscale("set", f"--exit-node={self.router_address if on else ''}")
-
-    def leave(self) -> None:
-        """Log ts-peer out and remove both nodes from headscale."""
-        self.peer_tailscale("logout")
-        clear(self.network)

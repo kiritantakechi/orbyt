@@ -17,7 +17,7 @@ from orbyt_tests.device.trust import trust_ca
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET
 from orbyt_tests.services import app
-from orbyt_tests.services.datapath import Online, proxy_start
+from orbyt_tests.services.datapath import Online, proxy_start, proxy_stop
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -103,7 +103,7 @@ def proxy(online: Online) -> Iterator[Online]:
     """
     proxy_start(online.router)
     yield online
-    online.router.run("/etc/init.d/honk stop; /etc/init.d/honk disable")
+    proxy_stop(online.router)
 
 
 @pytest.fixture(scope="module")
