@@ -29,13 +29,13 @@ import signal
 import string
 import subprocess
 import sys
-import time
 from contextlib import AbstractContextManager, ExitStack
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast, override
 
 from orbyt_tests.model import process
+from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox import internet, isp, netprobe
 
 if TYPE_CHECKING:
@@ -47,6 +47,8 @@ if TYPE_CHECKING:
 UDHCPC_SCRIPT = Path(__file__).with_name("udhcpc.sh")
 RUNNER_ADDRESS = "10.0.0.2"
 DAEMON_SETTLE = 0.5
+# How long a new namespace's holder may take to unshare.
+NAMESPACE_TIMEOUT = 5
 # The emulated internet: probe targets the tests route differently
 # (direct or through the proxy), the ISP's resolver, and the socks5
 # exit.
@@ -344,12 +346,19 @@ class Netns(AbstractContextManager["Netns"]):
         self.name = name
         own = Path("/proc/self/ns/net").stat().st_ino
         self._holder = subprocess.Popen(["unshare", "--net", "--", "sleep", "infinity"])
-        deadline = time.monotonic() + 5
-        while Path(self.path).stat().st_ino == own:
-            if time.monotonic() > deadline:
-                msg = f"namespace {name} did not come up"
-                raise TimeoutError(msg)
-            time.sleep(0.01)
+        try:
+            until(
+                lambda: Path(self.path).stat().st_ino != own,
+                timeout=NAMESPACE_TIMEOUT,
+                every=0.01,
+                what=f"namespace {name}",
+            )
+        except BaseException:
+            # What a setup starts, it ends when it fails
+            # (test-hygiene D3).
+            self._holder.kill()
+            self._holder.wait()
+            raise
 
     @property
     def path(self) -> str:

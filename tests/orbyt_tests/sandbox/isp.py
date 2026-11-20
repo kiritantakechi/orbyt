@@ -31,10 +31,11 @@ import json
 import os
 import shutil
 import signal
-import time
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -101,13 +102,13 @@ class Isp:
 
     def session(self, peer: str) -> Session:
         """Return the session that gave ``peer`` its address."""
-        deadline = time.monotonic() + SESSION_TIMEOUT
-        while not (found := [s for s in self.sessions() if s.peer == peer]):
-            if time.monotonic() > deadline:
-                msg = f"the ISP has no session for {peer}: {self.sessions()}"
-                raise TimeoutError(msg)
-            time.sleep(0.5)
-        return found[0]
+        return until(
+            lambda: next((s for s in self.sessions() if s.peer == peer), None),
+            timeout=SESSION_TIMEOUT,
+            every=0.5,
+            what=f"session of the ISP's for {peer}",
+            notes=lambda: [f"the ISP's sessions: {self.sessions()}"],
+        )
 
     @contextmanager
     def blocking(self, destination: str) -> Generator[None]:
@@ -130,12 +131,12 @@ class Isp:
         pppd sends LCP terminate and PADT.
         """
         os.kill(session.pid, signal.SIGTERM)
-        deadline = time.monotonic() + SESSION_TIMEOUT
-        while (self.registry / str(session.pid)).exists():
-            if time.monotonic() > deadline:
-                msg = f"session {session} did not end"
-                raise TimeoutError(msg)
-            time.sleep(0.2)
+        until(
+            lambda: not (self.registry / str(session.pid)).exists(),
+            timeout=SESSION_TIMEOUT,
+            every=0.2,
+            what=f"end of session {session}",
+        )
 
 
 def _tool(name: str) -> str:

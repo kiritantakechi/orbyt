@@ -413,16 +413,15 @@ class Online:
         the LAN clients.
         """
         start = time.monotonic()
-        try:
-            until(
-                lambda: hooks(self.router, "pppoe-wan") == WAN,
-                timeout=ONLINE_TIMEOUT,
-                what="einat and qosify on pppoe-wan",
-            )
-        except TimeoutError as error:
-            error.add_note(f"pppoe-wan holds {hooks(self.router, 'pppoe-wan')}")
-            error.add_note(self.router.run(WAN_STATE))
-            raise
+        until(
+            lambda: hooks(self.router, "pppoe-wan") == WAN,
+            timeout=ONLINE_TIMEOUT,
+            what="einat and qosify on pppoe-wan",
+            notes=lambda: [
+                f"pppoe-wan holds {hooks(self.router, 'pppoe-wan')}",
+                self.router.run(WAN_STATE),
+            ],
+        )
         self.recovery = time.monotonic() - start
         until(
             lambda: (

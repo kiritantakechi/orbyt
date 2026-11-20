@@ -128,16 +128,15 @@ def _einat_rules(online: Online) -> bool:
 
 
 def _einat_attached(online: Online) -> None:
-    try:
-        until(
-            lambda: hooks(online.router, PPP_DEVICE) == WAN,
-            timeout=RECOVERY,
-            what=f"einat on {PPP_DEVICE}, before qosify",
-        )
-    except TimeoutError as error:
-        error.add_note(f"{PPP_DEVICE} holds {hooks(online.router, PPP_DEVICE)}")
-        error.add_note(online.router.run("logread -e einat -e procd | tail -n 20"))
-        raise
+    until(
+        lambda: hooks(online.router, PPP_DEVICE) == WAN,
+        timeout=RECOVERY,
+        what=f"einat on {PPP_DEVICE}, before qosify",
+        notes=lambda: [
+            f"{PPP_DEVICE} holds {hooks(online.router, PPP_DEVICE)}",
+            online.router.run("logread -e einat -e procd | tail -n 20"),
+        ],
+    )
 
 
 @pytest.fixture

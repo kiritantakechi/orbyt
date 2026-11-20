@@ -380,7 +380,7 @@ def test_a_reboot_that_does_not_come_names_its_command(router: Router) -> None:
     previous_boot = router.boot_id()
     command = f"echo '{NEVER_REBOOTING}'; exit 3"
     router.detach(command)
-    with pytest.raises(TimeoutError, match="the router never rebooted") as raised:
+    with pytest.raises(TimeoutError, match="no reboot of the router") as raised:
         router.wait_rebooted(previous_boot, timeout=10)
     command_note, output_note, console_note = raised.value.__notes__
     assert command_note == f"the reboot was to follow: {command}"

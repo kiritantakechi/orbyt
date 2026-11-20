@@ -224,7 +224,7 @@ def test_the_first_boot_script_reads_the_environment(
     previous_boot = router.boot_id()
     # No configuration kept: nothing carries the environment's access
     # over.
-    router.detach(f"sleep 1; sysupgrade -n {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade -n {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
     assert slot(router) == other
     # orbyt-trial, the first boot script, names the trial only when it
@@ -267,7 +267,7 @@ def test_rollback_after_three_unconfirmed_boots(
     console = router.emulator.console
     since = console.mark()
     router.put(upgrade_image, UPGRADE_IMAGE)
-    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
     console.wait_for(rf"Bootlimit \({BOOT_LIMIT}\) exceeded", since=since, timeout=1800)
     router.wait_ssh()
     router.wait_ready()
@@ -309,7 +309,7 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
     console = router.emulator.console
     since = console.mark()
     router.put(upgrade_image, UPGRADE_IMAGE)
-    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
     console.wait_for(rf"Bootlimit \({BOOT_LIMIT}\) exceeded", since=since, timeout=1800)
     router.wait_ssh()
     router.wait_ready()
@@ -354,7 +354,7 @@ def test_fallback_within_one_power_cycle(router: Router) -> None:
         f"mount {partition(1)} /mnt && rm /mnt/kernel.img && umount /mnt && sync"
     )
     since = emulator.console.mark()
-    router.detach("sleep 1; reboot")
+    router.detach("reboot")
     emulator.console.wait_for(
         "neither slot boots, stopping at the prompt", since=since, timeout=300
     )
@@ -369,7 +369,7 @@ def test_panic_reboots_and_counts(router: Router) -> None:
     console = router.emulator.console
     previous_boot = router.boot_id()
     since = console.mark()
-    router.detach("sleep 1; echo c > /proc/sysrq-trigger")
+    router.detach("echo c > /proc/sysrq-trigger")
     console.wait_for(r"Kernel panic", since=since, timeout=60)
     panicked = time.monotonic()
     console.wait_for(UBOOT_BANNER, since=console.mark(), timeout=15)

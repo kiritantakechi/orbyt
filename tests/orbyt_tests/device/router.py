@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, cast
 
 from labgrid.driver import ExecutionError
 
+from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import ip
 
 if TYPE_CHECKING:
@@ -56,6 +57,8 @@ REACHABLE_TIMEOUT = 5
 # How long a new connection is tried: the emulator stops answering while
 # the disk it runs from catches up with a burst of writes.
 RECONNECT_TIMEOUT = 60.0
+# How long a file's copy to the router may take.
+COPY_TIMEOUT = 600
 # How long an interactive login may take: zsh's first start after a boot
 # builds its completion dump in /tmp, 21 to 26 s under TCG on an idle
 # host and several times that on a busy one (2026-10-03); later logins
@@ -92,11 +95,6 @@ READ_CLOCK = "ucode -e 'printf(\"%d.%09d\", ...clock())'"
 # come shows (failure-diagnostics D1, D2).
 DETACHED_LOG = "/tmp/orbyt-detached.log"  # noqa: S108 (a path on the router)
 CONSOLE_LINES = 60
-
-
-def _check(deadline: float, message: str) -> None:
-    if time.monotonic() > deadline:
-        raise TimeoutError(message)
 
 
 def _port_open(address: str, port: int) -> bool:
@@ -349,33 +347,44 @@ class Router:
         dropbear has no sftp server.
 
         A connection the router does not take is tried again for a
-        while.
+        while; any other failure fails at once.
         """
-        deadline = time.monotonic() + RECONNECT_TIMEOUT
-        while True:
+        refused: list[str] = []
+
+        def copied() -> bool:
             with local.open("rb") as source:
                 copy = subprocess.run(
                     [*self._ssh(), f"cat > {shlex.quote(remote)}"],
                     stdin=source,
                     stderr=subprocess.PIPE,
                     check=False,
-                    timeout=600,
+                    timeout=COPY_TIMEOUT,
                 )
-            if copy.returncode == 0:
-                return
-            if copy.returncode != SSH_FAILED or time.monotonic() > deadline:
+            said = copy.stderr.decode(errors="replace").strip()
+            if copy.returncode not in {0, SSH_FAILED}:
                 failure = subprocess.CalledProcessError(copy.returncode, copy.args)
-                failure.add_note(copy.stderr.decode(errors="replace").strip())
+                failure.add_note(said)
                 raise failure
-            time.sleep(2)
+            refused[:] = [said]
+            return copy.returncode == 0
+
+        until(
+            copied,
+            timeout=RECONNECT_TIMEOUT,
+            every=2,
+            what=f"copy of {local.name} to the router",
+            notes=lambda: refused,
+        )
 
     def wait_ssh(self, timeout: float = BOOT_TIMEOUT) -> None:
         """Wait until the router answers on SSH in any mode."""
-        deadline = time.monotonic() + timeout
         self.disconnect()
-        while not _port_open(self.address, SSH_PORT):
-            _check(deadline, f"{self.address}:{SSH_PORT} never opened")
-            time.sleep(2)
+        until(
+            lambda: _port_open(self.address, SSH_PORT),
+            timeout=timeout,
+            every=2,
+            what=f"SSH at {self.address}:{SSH_PORT}",
+        )
 
     def wait_ready(self, timeout: float = BOOT_TIMEOUT) -> None:
         """Wait until SSH answers and procd has run every init script.
@@ -386,9 +395,12 @@ class Router:
         self.wait_ssh(timeout)
         # procd logs through ulog, which writes to logd (not the kernel
         # log) once logd runs, as it does long before init completes.
-        while self.returncode(f"logread | grep -qF -- '{READY_MARK}'") != 0:
-            _check(deadline, "procd never reported init complete")
-            time.sleep(2)
+        until(
+            lambda: self.returncode(f"logread | grep -qF -- '{READY_MARK}'") == 0,
+            timeout=deadline - time.monotonic(),
+            every=2,
+            what="procd's report of init complete",
+        )
         self.set_clock()
 
     def clock_reading(self) -> ClockReading:
@@ -474,12 +486,18 @@ class Router:
 
         Such commands are reboot, sysupgrade and the like.
 
-        Its output goes to a file on the router, which the reboot it
-        leads to clears; a command that does not reboot the router
-        leaves it for the wait to show (failure-diagnostics D1).
+        It starts once the shell that started it has exited, so that
+        the command's answer is back over SSH before what it does to the
+        router cuts the connection (test-hygiene D2). Its output goes to
+        a file on the router, which the reboot it leads to clears; a
+        command that does not reboot the router leaves it for the wait
+        to show (failure-diagnostics D1).
         """
         self.detached = Detached(command, self.address, self.emulator.console.mark())
-        self.run(f"({command}) >{DETACHED_LOG} 2>&1 </dev/null &")
+        self.run(
+            f"(while kill -0 $$ 2>/dev/null; do sleep 1; done; {command})"
+            f" >{DETACHED_LOG} 2>&1 </dev/null &"
+        )
 
     def trigger_commands(self) -> list[dict[str, object]]:
         """Return the commands procd's triggers queued and not ended."""
@@ -502,14 +520,13 @@ class Router:
         starts then, never on the old one.
         """
         deadline = time.monotonic() + timeout
-        try:
-            while (boot := self.poll(BOOT_ID)) is None or boot == previous_boot:
-                _check(deadline, "the router never rebooted")
-                time.sleep(2)
-        except TimeoutError as error:
-            for note in self._detached_notes():
-                error.add_note(note)
-            raise
+        until(
+            lambda: (boot := self.poll(BOOT_ID)) is not None and boot != previous_boot,
+            timeout=timeout,
+            every=2,
+            what="reboot of the router",
+            notes=self._detached_notes,
+        )
         self.wait_ready(deadline - time.monotonic())
 
     def _detached_notes(self) -> list[str]:
@@ -545,7 +562,7 @@ class Router:
         """
         console = self.emulator.console
         since = console.mark()
-        self.detach("sleep 1; reboot")
+        self.detach("reboot")
         console.wait_for(FAILSAFE_PROMPT, since=since, timeout=BOOT_TIMEOUT)
         self.emulator.send_keys("f\n")
         console.wait_for(FAILSAFE_MARK, since=since, timeout=FAILSAFE_TIMEOUT)
@@ -564,7 +581,7 @@ class Router:
         """
         previous_boot = self.boot_id()
         mark = self.emulator.console.mark()
-        self.detach(f"sleep 1; {command}")
+        self.detach(command)
         if while_off is not None:
             self.emulator.console.wait_for(
                 RESTART_MARK, since=mark, timeout=BOOT_TIMEOUT

@@ -99,20 +99,17 @@ class WireGuard:
             peer.run("ip", "link", "set", "wg0", "up")
             for route in routes:
                 peer.run("ip", "route", "add", route, "dev", "wg0")
-            try:
-                until(
-                    tunnel.handshaken,
-                    timeout=HANDSHAKE_TIMEOUT,
-                    what="a WireGuard handshake",
-                )
-            except TimeoutError as error:
-                # Both ends as they stand, their private keys hidden by
-                # wg.
-                error.add_note(f"wg-peer:\n{peer.run('wg', 'show', 'wg0')}")
-                error.add_note(
-                    f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}"
-                )
-                raise
+            # Past the limit, both ends as they stand, their private
+            # keys hidden by wg.
+            until(
+                tunnel.handshaken,
+                timeout=HANDSHAKE_TIMEOUT,
+                what="a WireGuard handshake",
+                notes=lambda: [
+                    f"wg-peer:\n{peer.run('wg', 'show', 'wg0')}",
+                    f"router:\n{online.router.run('wg show wg0; ifstatus wg0')}",
+                ],
+            )
         except BaseException:
             tunnel.disconnect()
             raise
@@ -253,20 +250,17 @@ class Tailnet:
             *("--accept-routes", "--netfilter-mode=off"),
             timeout=TAILSCALE_TIMEOUT,
         )
-        try:
-            until(
-                lambda: (
-                    LAN_PREFIX in tailnet.peer.run("ip", "route", "show", "table", "52")
-                ),
-                timeout=TAILSCALE_TIMEOUT,
-                what="the LAN route at ts-peer",
-            )
-        except TimeoutError as error:
-            error.add_note(tailnet.peer_tailscale("status"))
-            error.add_note(
-                json.dumps(_headscale(online.network, "nodes", "list-routes"))
-            )
-            raise
+        until(
+            lambda: (
+                LAN_PREFIX in tailnet.peer.run("ip", "route", "show", "table", "52")
+            ),
+            timeout=TAILSCALE_TIMEOUT,
+            what="the LAN route at ts-peer",
+            notes=lambda: [
+                tailnet.peer_tailscale("status"),
+                json.dumps(_headscale(online.network, "nodes", "list-routes")),
+            ],
+        )
         # A route is not yet a path: the first packets wait for the
         # tunnel.
         until(

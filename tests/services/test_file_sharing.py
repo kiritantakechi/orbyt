@@ -104,11 +104,7 @@ def _wait(
     router: Router, probe: Callable[[], object], *, timeout: float, what: str
 ) -> None:
     """Wait for ``probe``; if it times out, show the SMB state."""
-    try:
-        until(probe, timeout=timeout, what=what)
-    except TimeoutError as error:
-        error.add_note(_sharing_state(router))
-        raise
+    until(probe, timeout=timeout, what=what, notes=lambda: [_sharing_state(router)])
 
 
 def _wait_stopped(router: Router) -> None:

@@ -52,7 +52,7 @@ def _upgrade(router: Router, image: Path, *options: str) -> None:
     """Run sysupgrade with ``image``; wait until the router is back."""
     router.put(image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    router.detach(f"sleep 1; sysupgrade {' '.join(options)} {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {' '.join(options)} {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
 
 
@@ -101,7 +101,7 @@ def test_power_loss_keeps_slot_a(router: Router, upgrade_image: Path) -> None:
     router.put(upgrade_image, UPGRADE_IMAGE)
     with emulator.throttled_writes(THROTTLED_WRITE):
         since = emulator.console.mark()
-        router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+        router.detach(f"sysupgrade {UPGRADE_IMAGE}")
         emulator.console.wait_for("Writing slot b", since=since, timeout=300)
         router.disconnect()
         emulator.power_cut()
@@ -269,7 +269,7 @@ def test_manual_switch_back_to_slot_a(router: Router, upgrade_image: Path) -> No
     _upgrade(router, upgrade_image)
     _confirmed(router, "b")
     previous_boot = router.boot_id()
-    router.detach("sleep 1; orbyt-slot switch")
+    router.detach("orbyt-slot switch")
     router.wait_rebooted(previous_boot)
     assert slot(router) == "a"
     _confirmed(router, "a")

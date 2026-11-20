@@ -114,7 +114,7 @@ def test_upgrade_keeps_the_lan_address(router: Router, upgrade_image: Path) -> N
     router.run("uci set system.@system[0].zram_size_mb=512 && uci commit system")
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
     with router.moved_to("10.0.0.3"):
         router.wait_rebooted(previous_boot)
         assert router.run("uci get network.lan.ipaddr") == "10.0.0.3/24"

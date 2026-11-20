@@ -51,6 +51,7 @@ from orbyt_tests.model.outputs import (
     EmulationSource,
     Manifest,
 )
+from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import segments, taps
 
 if TYPE_CHECKING:
@@ -705,12 +706,12 @@ class Emulator:
         self.qemu.monitor_command("device_del", {"id": f"{name}-uas"})
         # The drive is free once the disk device has let it go, which
         # QEMU finishes a little after the device is gone.
-        deadline = time.monotonic() + UNPLUG_TIMEOUT
-        while self._drive_in_use(name):
-            if time.monotonic() > deadline:
-                msg = f"{name} was not unplugged"
-                raise TimeoutError(msg)
-            time.sleep(0.2)
+        until(
+            lambda: not self._drive_in_use(name),
+            timeout=UNPLUG_TIMEOUT,
+            every=0.2,
+            what=f"unplug of {name}",
+        )
         self.qemu.monitor_command("blockdev-del", {"node-name": name})
 
     def _drive_in_use(self, name: str) -> bool:

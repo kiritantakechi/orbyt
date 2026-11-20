@@ -77,7 +77,7 @@ def test_upgrade_keeps_the_pushed_configuration(
     router.run("uci commit")
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
     assert {key: router.run(f"uci get {key}") for key in changes} == changes
 

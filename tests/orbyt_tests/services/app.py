@@ -94,10 +94,9 @@ def wait_running(router: Router) -> str:
 
     Fail with orbyt-containers' log if it does not.
     """
-    try:
-        return until(
-            lambda: running(router), timeout=START_TIMEOUT, what=f"{CONTAINER} running"
-        )
-    except TimeoutError as error:
-        error.add_note(router.run("logread -e orbyt-containers | tail -n 20"))
-        raise
+    return until(
+        lambda: running(router),
+        timeout=START_TIMEOUT,
+        what=f"{CONTAINER} running",
+        notes=lambda: [router.run("logread -e orbyt-containers | tail -n 20")],
+    )

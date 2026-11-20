@@ -154,7 +154,7 @@ def test_an_administrators_theme_survives_an_upgrade(
     router.run(f"uci set luci.main.mediaurlbase={STOCK} && uci commit luci")
     router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    router.detach(f"sleep 1; sysupgrade {UPGRADE_IMAGE}")
+    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
     router.wait_rebooted(previous_boot)
     assert router.run("uci get luci.main.mediaurlbase") == STOCK
 

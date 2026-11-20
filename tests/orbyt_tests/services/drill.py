@@ -12,13 +12,13 @@ health check is rolled back after the boot limit, and the drill fails.
 """
 
 import re
-import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from orbyt_tests.device.ab import slot
 from orbyt_tests.device.trust import trust_ca, trust_keys
 from orbyt_tests.model import process
+from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox import releases
 from orbyt_tests.sandbox.internet import RELEASES
@@ -186,25 +186,27 @@ class Drill:
         assert f"{tag} is current" in synced, synced  # noqa: S101
         console = router.emulator.console
         since = console.mark()
-        router.detach(f"sleep 1; orbyt-update >{UPDATE_LOG} 2>&1")
+        router.detach(f"orbyt-update >{UPDATE_LOG} 2>&1")
         # The other slot boots on trial: it is confirmed, or U-Boot
         # rolls back after the boot limit.
         rolled_back = re.compile(rf"Bootlimit \({BOOT_LIMIT}\) exceeded")
-        deadline = time.monotonic() + DRILL_TIMEOUT
-        while not rolled_back.search(console.text(since)):
+
+        def ended() -> bool:
+            if rolled_back.search(console.text(since)):
+                return True
             status = _status(router)
-            if (
+            return (
                 status.get("slot") not in {None, base}
                 and status.get("state") == "confirmed"
-            ):
-                break
-            if time.monotonic() > deadline:
-                msg = (
-                    f"the drill of {tag} ended neither confirmed nor rolled back;"
-                    f" the router's console:\n{_console_report(router)}"
-                )
-                raise TimeoutError(msg)
-            time.sleep(5)
+            )
+
+        until(
+            ended,
+            timeout=DRILL_TIMEOUT,
+            every=5,
+            what=f"end of the drill of {tag}, confirmed or rolled back",
+            notes=lambda: [f"the router's console:\n{_console_report(router)}"],
+        )
         router.wait_ready()
         self.online.reconnected()
         status = _status(router)
