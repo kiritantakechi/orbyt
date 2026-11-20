@@ -1,0 +1,38 @@
+# uv's cache of the tests' environment: the interpreter, and the distributions
+# built from source for it, once per lock (python-style D1). A job restores it
+# before it syncs the environment, and saves it, once, where the restore missed:
+# only what was built from source stays, the rest downloads again
+# (tooling-hygiene D2).
+name: uv cache
+description: Restore uv's cache of the tests' environment, or prune and save it.
+inputs:
+  save:
+    description: Prune and save the cache instead of restoring it.
+    default: "false"
+outputs:
+  cache-hit:
+    description: Whether the restore found the cache of this lock.
+    value: ${{ steps.restore.outputs.cache-hit }}
+runs:
+  using: composite
+  steps:
+    - id: restore
+      if: inputs.save != 'true'
+      uses: actions/cache/restore@v6
+      with:
+        path: |
+          ~/.cache/uv
+          ~/.local/share/uv/python
+        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
+
+    - if: inputs.save == 'true'
+      shell: bash
+      run: nix develop .#quality -c uv cache prune --ci
+
+    - if: inputs.save == 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: |
+          ~/.cache/uv
+          ~/.local/share/uv/python
+        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}

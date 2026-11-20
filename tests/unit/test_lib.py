@@ -480,11 +480,10 @@ def _github_reads(patterns: list[str], path: str) -> bool:
     return runs
 
 
-@pytest.mark.parametrize("event", ["push", "pull_request"])
-def test_the_library_holds_the_workflow_s_paths(event: str) -> None:
+def test_the_library_reads_the_workflow_s_paths() -> None:
     result = library("runs", "build_paths")
     assert result.returncode == 0, result.stderr
-    assert result.stdout.splitlines() == _paths(event)
+    assert result.stdout.splitlines() == _paths("push") == _paths("pull_request")
 
 
 # Paths in and out of each pattern of the workflow's list.

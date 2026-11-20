@@ -31,6 +31,8 @@
           just
           git
           jq
+          # the build workflow's path list, which scripts/lib/runs.sh reads
+          yq-go
           shellcheck
           shfmt
           nixfmt
@@ -182,6 +184,9 @@
         ]
         ++ (with pkgs; [
           stdenv.cc.cc.lib
+          # the build workflow's path list, which scripts/lib/runs.sh reads for
+          # the release and cache scripts the tests run
+          yq-go
           # boot partition reading (debugfs) and the network sandbox
           e2fsprogs
           iproute2

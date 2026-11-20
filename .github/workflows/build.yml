@@ -29,12 +29,12 @@ name: build
 
 # Code changes run it, and so do the documents system tests read (release-integrity
 # D7; tests/build/test_ci.py holds the list to them); other documentation does not.
-# scripts/lib/runs.sh holds the same list for the scripts that ask which commits
-# a run of it builds (release-freshness D1).
+# One list for pushes and pull requests, which scripts/lib/runs.sh reads for the
+# scripts that ask which commits a run of it builds (release-freshness D1).
 on:
   push:
     branches: [main, "bump/**"]
-    paths:
+    paths: &build-paths
       - "**"
       - "!openspec/**"
       - "!docs/**"
@@ -42,13 +42,7 @@ on:
       - docs/patches.md
       - docs/services.md
   pull_request:
-    paths:
-      - "**"
-      - "!openspec/**"
-      - "!docs/**"
-      - "!**/*.md"
-      - docs/patches.md
-      - docs/services.md
+    paths: *build-paths
   workflow_dispatch:
 
 permissions:
@@ -85,11 +79,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare runner
-        # Before Nix is installed, so the script runs directly rather than via just.
-        run: scripts/runner-prepare.sh
-
       - uses: ./.github/actions/nix
+        with:
+          prepare-runner: true
 
       - name: Boards
         id: boards
@@ -113,12 +105,17 @@ jobs:
 
       # On a miss only, and read-only: the firmware jobs save the download cache,
       # and one saved first here would lack the target's sources under its key.
+      - name: Download cache key
+        if: steps.cache.outputs.cache-hit != 'true'
+        id: download-key
+        run: nix develop .#build -c just download-key >> "$GITHUB_OUTPUT"
+
       - name: Restore download cache
         if: steps.cache.outputs.cache-hit != 'true'
         uses: actions/cache/restore@v6
         with:
-          key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
-          restore-keys: dl-
+          key: ${{ steps.download-key.outputs.key }}
+          restore-keys: ${{ steps.download-key.outputs.prefix }}
           path: ${{ env.ORBYT_WORKDIR }}/dl
 
       # The host stage's own compiler cache (build-acceleration D6): what an
@@ -187,20 +184,22 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare runner
-        # Before Nix is installed, so the script runs directly rather than via just.
-        run: scripts/runner-prepare.sh
-
       - uses: ./.github/actions/nix
+        with:
+          prepare-runner: true
 
       - name: Fetch, patch and configure
         run: nix develop .#build -c just fetch patch config "$BOARD" ci
 
+      - name: Download cache key
+        id: download-key
+        run: nix develop .#build -c just download-key >> "$GITHUB_OUTPUT"
+
       - name: Restore download cache
         uses: actions/cache/restore@v6
         with:
-          key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
-          restore-keys: dl-
+          key: ${{ steps.download-key.outputs.key }}
+          restore-keys: ${{ steps.download-key.outputs.prefix }}
           path: ${{ env.ORBYT_WORKDIR }}/dl
 
       # Every language's compiler cache in one (build-acceleration D6), the
@@ -243,13 +242,7 @@ jobs:
         # Its recipe's dependencies are this job's steps before it.
         run: nix develop .#build -c just --no-deps build "$BOARD" ci
 
-      - name: Restore uv cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/uv
-            ~/.local/share/uv/python
-          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
+      - uses: ./.github/actions/uv-cache
 
       # The tests that read the build tree, which only this job has; the system
       # tests run on the build's outputs (test-hygiene D8).
@@ -272,7 +265,7 @@ jobs:
         if: always() && steps.download.outcome == 'success' && steps.room.outputs.save == 'true'
         uses: actions/cache/save@v6
         with:
-          key: dl-${{ hashFiles('upstream.lock', 'feed/**/Makefile') }}
+          key: ${{ steps.download-key.outputs.key }}
           path: ${{ env.ORBYT_WORKDIR }}/dl
 
       - name: Save compiler cache
@@ -358,11 +351,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare runner
-        # Before Nix is installed, so the script runs directly rather than via just.
-        run: scripts/runner-prepare.sh
-
       - uses: ./.github/actions/nix
+        with:
+          prepare-runner: true
 
       - uses: actions/download-artifact@v8
         with:
@@ -374,34 +365,18 @@ jobs:
           nix develop -c just env-report | tee env-report.txt
           { echo '### Host environment'; echo '```'; cat env-report.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
-      # uv's cache of the tests' environment: the interpreter, and the
-      # distributions built from source for it, once per lock (python-style D1).
-      - name: Restore uv cache
-        id: uv-cache
-        uses: actions/cache/restore@v6
-        with:
-          path: |
-            ~/.cache/uv
-            ~/.local/share/uv/python
-          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
+      - id: uv-cache
+        uses: ./.github/actions/uv-cache
 
       # The tests that read the build tree ran in the firmware job, where the
       # tree is (test-hygiene D8).
       - name: System tests
         run: nix develop -c just test "$BOARD" ci ${{ matrix.suite.paths }} -m "not build_tree" -rs
 
-      # Only what was built from source stays: the rest downloads again.
-      - name: Save uv cache
-        if: always() && steps.uv-cache.outputs.cache-hit != 'true'
-        run: |
-          nix develop -c uv cache prune --ci
       - if: always() && steps.uv-cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v6
+        uses: ./.github/actions/uv-cache
         with:
-          path: |
-            ~/.cache/uv
-            ~/.local/share/uv/python
-          key: ${{ steps.uv-cache.outputs.cache-primary-key }}
+          save: true
 
       - name: Test report
         if: always()
@@ -488,11 +463,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Prepare runner
-        # Before Nix is installed, so the script runs directly rather than via just.
-        run: scripts/runner-prepare.sh
-
       - uses: ./.github/actions/nix
+        with:
+          prepare-runner: true
 
       - uses: actions/download-artifact@v8
         with:
@@ -503,6 +476,9 @@ jobs:
         with:
           name: firmware-signed
           path: ${{ env.ORBYT_WORKDIR }}/signed
+
+      - id: uv-cache
+        uses: ./.github/actions/uv-cache
 
       - name: Drill base
         env:

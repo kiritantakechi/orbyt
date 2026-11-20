@@ -4,17 +4,10 @@
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
 
-# build_paths: build.yml's paths, the same for pushes and pull requests, one a
-# line in their order; tests/unit/test_lib.py holds them to the workflow's.
+# build_paths: build.yml's paths, one list for pushes and pull requests, one a
+# line in their order.
 build_paths() {
-	cat <<-'PATHS'
-		**
-		!openspec/**
-		!docs/**
-		!**/*.md
-		docs/patches.md
-		docs/services.md
-	PATHS
+	yq -r '.on.push.paths[]' "${REPO_DIR}/.github/workflows/build.yml"
 }
 
 # build_reads <path>: whether a change to the repository's file <path> runs the

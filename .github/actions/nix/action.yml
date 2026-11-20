@@ -1,11 +1,22 @@
 # Nix for every job (release-integrity D3): the Determinate installer of one
 # known release, so that what runs with the release keys, and every build, gets
 # the Nix of a known version. A newer installer is a change of source-tag here.
+# A job that builds or emulates prepares the runner first, before Nix is
+# installed, so that the script runs directly rather than through just
+# (tooling-hygiene D2).
 name: Nix
 description: Install Nix with the pinned Determinate installer.
+inputs:
+  prepare-runner:
+    description: Prepare the runner for builds and the emulator first (scripts/runner-prepare.sh).
+    default: "false"
 runs:
   using: composite
   steps:
+    - if: inputs.prepare-runner == 'true'
+      shell: bash
+      run: scripts/runner-prepare.sh
+
     - uses: DeterminateSystems/nix-installer-action@v23
       with:
         source-tag: v3.23.3

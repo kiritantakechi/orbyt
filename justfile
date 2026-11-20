@@ -131,6 +131,11 @@ runner-prepare:
 toolchain-key profile="dev":
     scripts/toolchain-key.sh "$@"
 
+# Print the download cache's key
+[group('ci')]
+download-key:
+    scripts/download-key.sh
+
 # Print the compiler cache key of a stage (host, or a board)
 [group('ci')]
 compiler-cache-key stage:
