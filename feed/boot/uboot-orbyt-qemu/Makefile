@@ -40,7 +40,7 @@ UBOOT_CUSTOMIZE_CONFIG := \
 	--disable TOOLS_MKEFICAPSULE \
 	--set-str MKIMAGE_DTC_PATH $(PKG_BUILD_DIR)/scripts/dtc/dtc
 
-$(eval $(call OrbytAB/Build,qemu,board/emulation/qemu-arm))
+$(eval $(call OrbytAB/Build,qemu,board/emulation/qemu-arm,$(call OrbytAB/config,qemu)))
 
 define Build/InstallDev
 	$(INSTALL_DIR) $(STAGING_DIR_IMAGE)

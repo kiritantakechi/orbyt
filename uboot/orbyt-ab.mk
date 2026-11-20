@@ -9,21 +9,23 @@ ORBYT_AB_DIR := $(TOPDIR)/env/uboot
 # U-Boot tree> (scripts/lib/boards.sh writes them from boards/*.json).
 include $(TOPDIR)/env/orbyt-boards.mk
 
-# OrbytAB/config <board>: the configuration fragments after the defconfig in
-# UBOOT_CONFIG.
-OrbytAB/config = orbyt-ab board-$(1)
+# OrbytAB/config <board>[,<family>]: the configuration fragments after the
+# defconfig in UBOOT_CONFIG: the slot logic's, the one the board's family
+# shares, then the board's own.
+OrbytAB/config = orbyt-ab $(2) board-$(1)
 
-# OrbytAB/Build <board>,<environment directory in the U-Boot tree>: build the
-# package's variant with the slot logic. Preparing it puts the fragments where
-# U-Boot finds them, and writes the board constants followed by the shared
-# logic as the variant's default environment, orbyt.env (ENV_SOURCE_FILE).
+# OrbytAB/Build <board>,<environment directory in the U-Boot tree>,<fragments>:
+# build the package's variant with the slot logic. Preparing it puts the
+# fragments where U-Boot finds them, and writes the board constants followed by
+# the shared logic as the variant's default environment, orbyt.env
+# (ENV_SOURCE_FILE).
 define OrbytAB/Build
 PKG_FILE_DEPENDS += $(ORBYT_AB_DIR)/
 
 define Build/Prepare
 	$$(call Build/Prepare/Default)
 	$$(INSTALL_DIR) $$(PKG_BUILD_DIR)/board/orbyt
-	$$(CP) $(ORBYT_AB_DIR)/orbyt-ab.config $(ORBYT_AB_DIR)/board-$(1).config $$(PKG_BUILD_DIR)/board/orbyt/
+	$$(CP) $(foreach fragment,$(3),$(ORBYT_AB_DIR)/$(fragment).config) $$(PKG_BUILD_DIR)/board/orbyt/
 	cat $(ORBYT_AB_DIR)/board-$(1).env $(ORBYT_AB_DIR)/orbyt-ab.env >$$(PKG_BUILD_DIR)/$(2)/orbyt.env
 endef
 endef
@@ -37,7 +39,7 @@ endef
 # after its last, and the package the slot logic.
 ORBYT_AB_BOARD := $(subst :, ,$(filter $(BUILD_VARIANT):%,$(ORBYT_AB_BOARDS)))
 ifneq ($(ORBYT_AB_BOARD),)
-ORBYT_AB_CONFIG := $(call OrbytAB/config,$(word 2,$(ORBYT_AB_BOARD)))
+ORBYT_AB_CONFIG := $(call OrbytAB/config,$(word 2,$(ORBYT_AB_BOARD)),rockchip)
 U-Boot/$(BUILD_VARIANT) += $(OrbytAB/newline)UBOOT_CONFIG += $(ORBYT_AB_CONFIG)
-$(eval $(call OrbytAB/Build,$(word 2,$(ORBYT_AB_BOARD)),$(word 3,$(ORBYT_AB_BOARD))))
+$(eval $(call OrbytAB/Build,$(word 2,$(ORBYT_AB_BOARD)),$(word 3,$(ORBYT_AB_BOARD)),$(ORBYT_AB_CONFIG)))
 endif
