@@ -6,6 +6,8 @@
 
   Verify: the record in docs/patches.md's 0006 entry states what was seen (expected: unconfigured in both cases until a reload).
 
+  Seen 2026-11-21: configured in both cases, by procd's own `running` call (design, "D1's premise, disproved"); the maintainer chooses how D1 goes on.
+
 - [ ] 1.2 Add the two QoS scenarios to `tests/network/test_qos.py` (a boot with no change; the daemon killed and respawned).
 
   Verify: `spec-coverage --change patch-hygiene` covers them; they fail on the current image.

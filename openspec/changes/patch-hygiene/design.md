@@ -29,6 +29,10 @@ A procd patch passes every `ubus.object.add` event to the service triggers as we
 
 Alternatives: `service_started` with the wait (misses a respawn, and still waits); the daemon reading its configuration itself (qosify takes it over ubus only, built by the init from UCI).
 
+### D1's premise, disproved (2026-11-21)
+
+Task 1.1's pin on the emulated R4S, on an image whose series still had the old 0006 (build of 5c52747), with qosify's init logging each run and its caller: procd itself runs `/etc/init.d/qosify running` right after the boot's start (`boot by 1 /sbin/procd`, then `running by 1 /sbin/procd`, the same second) and again after the daemon was killed and respawned (`running by 1 /sbin/procd`, 98 s later). Upstream procd calls `rc(name, "running")` after a `service set` that adds instances (service/service.c) and after an instance starts again (service/instance.c, twice). So the old 0006, which configures the daemon from `service_running` once its object is up, did configure qosify at boot, at a start and after a respawn: both of 1.2's scenarios pass on that image (`test_a_boot_shapes_the_upload`, `test_a_respawned_daemon_shapes_the_upload_again`). D1's premise, that nothing calls `service_running` at a start, was a reading of rc.common alone. The choice between keeping D1's object trigger (0054 and the rewritten 0006) and returning to the old 0006 is the maintainer's; until then the series stays as committed.
+
 ### D2. One fault per patch
 
 - 0035 keeps the mount trigger on unmounts; the three `procd.sh` fixes become 0051 to 0053, after it, as a number is an identity and a gap stays one; each raises procd's `PKG_RELEASE`.
