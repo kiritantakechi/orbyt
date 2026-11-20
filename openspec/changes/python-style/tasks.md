@@ -10,7 +10,7 @@
 
 - [ ] 1.2 Cache uv's cache in CI's jobs that sync the tests' environment.
 
-  Verify: the second run on the same lock builds no distribution.
+  Verify: the release run saves uv's cache under the lock's key; a run after it on the same lock (the check workflow's on the same push, or the next) restores it and builds no distribution.
 
 - [x] 1.3 Take the standard's `ruff.toml` and `ty.toml`, with the project's documented exceptions.
 
@@ -32,7 +32,7 @@
 
   Verify: `ruff check` and `ty` pass.
 
-  Result: 13 `pytest.raises` with a `match` on the failure they expect, 4 split strings in collections parenthesized, the unused `noqa`s dropped; ty needed one rule renamed (`unsound-return`) and labgrid's attrs-declared `Environment` one targeted ignore.
+  Result: 13 `pytest.raises` with a `match`, 8 on the failure they expect; the 5 on `CalledProcessError` match only "non-zero exit status", which every such error says, as the harness's commands carry no output on failure (test-hygiene D1 gives them their failure's own text); 4 split strings in collections parenthesized, the unused `noqa`s dropped; ty needed one rule renamed (`unsound-return`) and labgrid's attrs-declared `Environment` one targeted ignore.
 
 ## 3. Threads and tasks (design D4)
 
@@ -54,10 +54,10 @@
 
   Verify: all pass.
 
-- [ ] 4.2 Run CI's build on this change's branch for both boards.
+- [ ] 4.2 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: every job passes; the run is recorded in `docs/ci.md`.
+  Verify: every job passes; the run is recorded in `docs/ci.md` for this change.
 
 ## Workflow follow-up
 
-- After nixpkgs-2605 is merged: merge main into this branch, sync the delta, archive, merge and push Codeberg first, then GitHub.
+- The stack (orbyt-brand, orbyt-theme, nixpkgs-2605, python-style, then firmware-, patch-, test- and tooling-hygiene) is verified locally on its final head, then archived change by change in that order there; main fast-forwards to it and is pushed, Codeberg first, then GitHub, whose run on main is the release verification.
