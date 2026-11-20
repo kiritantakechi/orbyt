@@ -1,6 +1,6 @@
-"""Unit tests of orbyt_tests.sandbox.releases.
+"""Unit tests of orbyt_tests.sandbox.releases and releases_api.
 
-The module is the emulated internet's Releases API stand-in.
+They are the emulated internet's Releases API stand-in and its store.
 """
 
 import json

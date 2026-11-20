@@ -4,11 +4,11 @@
 
 inet also serves a container registry (distribution), a tailnet's
 control server (headscale, with its embedded DERP relay) and a stand-in
-for GitHub's Releases API (orbyt_tests.sandbox.releases), all over TLS
-with a certificate of the sandbox's test CA. ``configure`` writes their
-configuration, the CA, and the sandbox's own hosts file, which names
-them for the processes of the sandbox (the router resolves them over DNS
-like any other name).
+for GitHub's Releases API (orbyt_tests.sandbox.releases_api), all over
+TLS with a certificate of the sandbox's test CA. ``configure`` writes
+their configuration, the CA, and the sandbox's own hosts file, which
+names them for the processes of the sandbox (the router resolves them
+over DNS like any other name).
 """
 
 import json

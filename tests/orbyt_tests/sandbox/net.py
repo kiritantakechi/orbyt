@@ -279,7 +279,7 @@ UPSTREAM = (
                     *(
                         sys.executable,
                         "-m",
-                        "orbyt_tests.sandbox.releases",
+                        "orbyt_tests.sandbox.releases_api",
                         "{workdir}/releases",
                     ),
                     *(
