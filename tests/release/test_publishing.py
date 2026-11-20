@@ -200,16 +200,12 @@ def test_nothing_is_published_without_the_drill(
     check = jobs["upgrade-drill"]
     assert check["needs"] == ["system-test", "sign", "drill"]
     assert check["if"] == "always()"
-    (step,) = check["steps"]
+    (step,) = [step for step in check["steps"] if "run" in step]
     names = ("SYSTEM_TEST", "SIGN", "DRILL")
     assert set(names) <= set(step["env"])
+    assert '"$SYSTEM_TEST" "$SIGN" "$DRILL"' in step["run"]
     result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", step["run"]],
-        env={
-            **os.environ,
-            **dict(zip(names, results, strict=True)),
-            "BUMP_PULL_REQUEST": "false",
-        },
+        [REPO_DIR / "scripts" / "drill-check.sh", *results],
         capture_output=True,
         check=False,
     )

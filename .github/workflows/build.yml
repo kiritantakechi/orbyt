@@ -240,7 +240,8 @@ jobs:
         env:
           # The board's own cache: it keeps what this build used (scripts/build.sh).
           ORBYT_COMPILER_CACHE_TRIM: 1
-        run: nix develop .#build -c scripts/build.sh "$BOARD" ci
+        # Its recipe's dependencies are this job's steps before it.
+        run: nix develop .#build -c just --no-deps build "$BOARD" ci
 
       - name: Restore uv cache
         uses: actions/cache/restore@v6
@@ -315,12 +316,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: ./.github/actions/nix
+
       - name: Prune caches
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           TOOLCHAIN: ${{ needs.host-toolchain.outputs.key }}
-        run: scripts/cache-prune.sh "$TOOLCHAIN"
+        run: nix develop .#quality -c just cache-prune "$TOOLCHAIN"
 
   system-test:
     needs: [host-toolchain, firmware]
@@ -581,5 +584,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           CANDIDATE: ${{ github.ref != 'refs/heads/main' && '--prerelease' || '' }}
         run: >-
-          nix develop .#quality -c scripts/release-publish.sh "$RUNNER_TEMP/signed" "$RUNNER_TEMP/release"
+          nix develop .#quality -c just release-publish "$RUNNER_TEMP/signed" "$RUNNER_TEMP/release"
           ${CANDIDATE:+"$CANDIDATE"} --upload

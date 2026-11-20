@@ -3,7 +3,7 @@
 ## ADDED Requirements
 
 ### Requirement: The workflows run recipes
-Every step of the workflows SHALL run a `just` recipe or a pinned action; what a step decides (which boards may be signed, whether the drill check passes, the pull request a bump opens) SHALL live in a script that the tests can run outside CI. What runs the build workflow, and each cache key, SHALL be written once, where the workflow and the scripts read it.
+Every step of the workflows SHALL run a `just` recipe or a pinned action, but for the runner's preparation, which comes before Nix, and the sign job, which runs the pinned signing tools alone (release/signing); what a step decides (which boards may be signed, whether the drill check passes, the pull request a bump opens) SHALL live in a script that the tests can run outside CI. What runs the build workflow, and each cache key, SHALL be written once, where the workflow and the scripts read it.
 
 #### Scenario: The drill check's decision
 - **WHEN** the tests run the drill check's script with each combination of the system tests', the signing's and the drills' results
