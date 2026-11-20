@@ -78,10 +78,10 @@ FLOW_SOURCES = 1000
 # a second the emulated router fell behind activating them one by one,
 # and honk exited within minutes (honk 005).
 STREAM_SECONDS = 180
-# Restarts of a pinned honk: the old honk's exit could race the new
-# start and leave one in ten unpinned (procd replaced the cgroup the
-# init had set up).
-PINNED_RESTARTS = 10
+# Restarts of a pinned honk: an old honk that exits before procd has
+# the new instance has procd free the service, its cgroup with it, about
+# one restart in eight on the emulated R4S (firmware-hygiene D4).
+PINNED_RESTARTS = 20
 # How soon new UDP flows go direct again once the flows that waited have
 # been decided: honk drops a flow it cannot decide in time, and a client
 # retries.

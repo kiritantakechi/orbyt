@@ -20,9 +20,9 @@
 
   Verify: the device-sync scenario "The sync starts before the proxy" passes on the emulator (the sync started with honk stopped sends nothing until honk holds the bridge); the release suite passes.
 
-- [ ] 2.3 Pin procd's removal of a replaced service's cgroup on the emulator (the window the honk init's comment describes), fix it in procd, and drop honk's `service_started` setup.
+- [ ] 2.3 Pin procd's removal of a replaced service's cgroup on the emulator (the window the honk init's comment describes), have honk's instance set its cgroup up itself (`honk-start`), and drop honk's `service_started` setup.
 
-  Verify: with every CPU busy, 20 rounds of `/etc/init.d/honk restart` keep honk's cpuset; the transparent proxy suite passes; docs/patches.md records the window and the evidence.
+  Verify: the pin's record in design D4 (seen 2026-11-21: 4 of 30 restarts unpinned without the setup, each where procd freed the service); 20 restarts of a pinned honk keep its cpuset; the transparent proxy suite passes.
 
 ## 3. Defaults, helpers and layout facts (D5, D6, D7)
 

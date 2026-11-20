@@ -104,8 +104,9 @@ HONK_START:=$(shell sed -n 's/^START=//p' ./files/init)
 HONK_STOP:=$(shell sed -n 's/^STOP=//p' ./files/init)
 
 define Package/honk/install
-	$(INSTALL_DIR) $(1)/usr/bin $(1)/etc/config $(1)/etc/honk $(1)/etc/init.d $(1)/etc/healthcheck.d $(1)/lib/functions $(1)/lib/upgrade/keep.d
+	$(INSTALL_DIR) $(1)/usr/bin $(1)/usr/libexec $(1)/etc/config $(1)/etc/honk $(1)/etc/init.d $(1)/etc/healthcheck.d $(1)/lib/functions $(1)/lib/upgrade/keep.d
 	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/bin/honk-core $(1)/usr/bin/
+	$(INSTALL_BIN) ./files/honk-start $(1)/usr/libexec/honk-start
 	$(INSTALL_CONF) ./files/uci-config $(1)/etc/config/honk
 	$(INSTALL_CONF) ./files/config.dae $(1)/etc/honk/config.dae
 	$(INSTALL_BIN) ./files/init $(1)/etc/init.d/honk

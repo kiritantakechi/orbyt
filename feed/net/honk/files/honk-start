@@ -1,0 +1,20 @@
+#!/bin/sh
+# honk-start: honk's instance, its service cgroup set up from inside it before
+# honk-core runs (firmware-hygiene D4).
+# Usage: honk-start <honk-core's arguments>   (procd's command for honk)
+# procd starts the instance in services/honk/honk, and from then on the service
+# cgroup exists for it: set up here, it holds whatever procd's restart of the
+# service does around it. Set up before procd took the instance, it could go
+# with the old instance's service, which procd frees when the old honk exits
+# before the new one is set.
+
+# shellcheck source=/dev/null # the image's
+. /lib/functions.sh
+# shellcheck source=./honk.sh
+. /lib/functions/honk.sh
+
+config_load honk
+config_get_bool cpu_pinning config cpu_pinning 0
+# shellcheck disable=SC2154 # config_get_bool assigns cpu_pinning
+honk_setup_cgroup "${cpu_pinning}"
+exec /usr/bin/honk-core "$@"

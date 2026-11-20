@@ -42,9 +42,11 @@ A test reads the image's rc.d links and asserts `S00orbyt-trial` is the first bo
 
 honk's package gains a readiness test of its own, `honk_holds <device>` in `/lib/functions/honk.sh`: whether honk's programs are attached to the device, as `50-honk` checks for `podman0` (which then calls it). Before starting the sync's container, `orbyt-sync` waits for it on `podman0`, bounded, when honk is enabled; with honk disabled nothing waits. `fetch` keeps a retry for requests that fail in transit, with a comment saying that is what it is for, and no longer explains it with honk's start.
 
-### D4. honk's cgroup, once
+### D4. honk's cgroup, set up by its instance
 
-The race is procd's: freeing the old instance of a replaced service removes the cgroup directory the new service's instance is about to use. procd's patch (folded into 0047's procd patch file as a second commit, or a patch of its own if it is independent) removes a freed instance's cgroup only when no service of that name holds it. honk's init then sets the cgroup up in `start_service` only, before the instance starts, so honk starts pinned; `service_started` goes. Verified by the transparent proxy's restart test (the cpuset kept across `/etc/init.d/honk restart`) run in a loop on the emulator.
+`/etc/init.d/honk restart` deletes the service and sets it again, and procd frees the old instance when the old honk exits. When it exits before the new `service set` arrives, procd frees the service as well and removes its cgroup, `services/honk`, which `start_service` had just set up, and the new instance gets a fresh one, unpinned and without the memory controller. Pinned on the emulated R4S (2026-11-21) with the init's `service_started` setup removed: 4 of 30 restarts left honk unpinned, each one exactly where procd emitted `service.stop` and `service.start` around it; in the other 26 procd kept the service, and the cgroup with it.
+
+The plan was a procd patch removing a freed instance's cgroup only while no service of that name holds it, but at that moment none does. So the instance sets its cgroup up itself: procd runs `honk-start`, which sets up `services/honk` from inside the instance's own cgroup (memory down to the instance, cpuset and the pin) and then executes honk-core, so the cgroup exists whenever honk runs, whatever procd's restart does around it. The cgroup functions move to `/lib/functions/honk.sh`, which the init's reload uses to pin anew; `service_started` goes. The maintainer chose this over a procd patch keeping every service's cgroup. Verified by the transparent proxy's restart test, 20 restarts of a pinned honk.
 
 ### D5. The shipped configuration declares the values
 
