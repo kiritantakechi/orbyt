@@ -1,16 +1,13 @@
 """Run a CI script against a stand-in gh, with a repository as data.
 
-The stand-in answers the gh calls of scripts/cache-room.sh,
-scripts/cache-prune.sh and scripts/release-publish.sh (build-integrity
-D5, D6; release-integrity D6; release-freshness D2) as GitHub's API
-would for the repository: its caches, which it deletes as they are
-deleted, so that a test reads which are left; its branches and their
-heads; how two commits compare. A release it is asked to create it
-records instead, its arguments in gh.args beside itself.
+The stand-in (``orbyt_tests.model.fake_gh``) answers for the
+repository as GitHub's API would; a test reads what the script left of
+it afterwards.
 """
 
 import json
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import asdict, dataclass, field
@@ -27,76 +24,12 @@ MAIN = "refs/heads/main"
 # The commit a run is of, unless a test names another, and every
 # branch's head unless the repository names another.
 HEAD = "a" * 40
-# The stand-in, which keeps the repository in github.json beside itself.
-GH = f"""#!{sys.executable} -I
-import json, subprocess, sys
-from pathlib import Path
-
-described = Path(__file__).with_name("github.json")
-github = json.loads(described.read_text())
-args = sys.argv[1:]
+# The stand-in gh, which keeps the repository in github.json beside
+# itself.
+FAKE_GH = "orbyt_tests.model.fake_gh"
 
 
-def option(name):
-    return args[args.index(name) + 1] if name in args else None
-
-
-def answer(value):
-    jq = option("--jq")
-    if jq is None:
-        print(json.dumps(value))
-    else:
-        subprocess.run(["jq", "-r", jq], input=json.dumps(value), text=True, check=True)
-
-
-def caches(ref):
-    found = [cache for cache in github["caches"] if ref is None or cache["ref"] == ref]
-    return sorted(found, key=lambda cache: cache["id"], reverse=True)
-
-
-match args[:2]:
-    case ["cache", "list"]:
-        answer(caches(option("--ref")))
-    case ["cache", "delete"] if "--all" in args:
-        gone = {{cache["id"] for cache in caches(option("--ref"))}}
-        github["caches"] = [
-            cache for cache in github["caches"] if cache["id"] not in gone
-        ]
-    case ["cache", "delete"]:
-        github["caches"] = [
-            cache for cache in github["caches"] if str(cache["id"]) != args[2]
-        ]
-    case ["api", *_]:
-        path = [arg for arg in args[1:] if not arg.startswith("--")][0]
-        base = f"repos/{{github['repository']}}"
-        if path == base:
-            answer({{"default_branch": "main"}})
-        elif path == f"{{base}}/actions/cache/usage":
-            size = sum(c["size"] for c in github["caches"])
-            answer({{"active_caches_size_in_bytes": size}})
-        elif path == f"{{base}}/branches":
-            answer([{{"name": name}} for name in github["branches"]])
-        elif path.startswith(f"{{base}}/git/ref/heads/"):
-            name = path.removeprefix(f"{{base}}/git/ref/heads/")
-            answer({{"object": {{"sha": github["heads"].get(name, "{HEAD}")}}}})
-        elif path.startswith(f"{{base}}/compare/main..."):
-            answer({{"status": github["compare"][path.split("...", 1)[1]]}})
-        elif path.startswith(f"{{base}}/compare/") and path in github["changes"]:
-            answer(github["changes"][path])
-        elif path.startswith(f"{{base}}/pulls/"):
-            answer({{"state": github["pulls"][path.rsplit("/", 1)[1]]}})
-        else:
-            sys.exit(f"no answer for {{path}}")
-    case ["release", "create"]:
-        text = "".join(f"{{arg}}\\n" for arg in args)
-        described.with_name("gh.args").write_text(text)
-    case _:
-        sys.exit(f"unexpected gh {{args}}")
-described.write_text(json.dumps(github))
-"""
-
-
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class Repository:
     """A repository: its branches, pull requests and caches.
 
@@ -140,10 +73,13 @@ def install(directory: Path, repository: Repository) -> Path:
     It answers for ``repository``.
     """
     directory.mkdir(exist_ok=True)
-    (directory / "gh").write_text(GH, encoding="utf-8")
+    described = directory / "github.json"
+    command = shlex.join([sys.executable, "-I", "-m", FAKE_GH, str(described)])
+    (directory / "gh").write_text(f'#!/bin/sh\nexec {command} "$@"\n')
     (directory / "gh").chmod(0o755)
-    (directory / "github.json").write_text(
-        json.dumps({"repository": REPOSITORY, **asdict(repository)}), encoding="utf-8"
+    described.write_text(
+        json.dumps({"repository": REPOSITORY, "head": HEAD, **asdict(repository)}),
+        encoding="utf-8",
     )
     return directory
 
