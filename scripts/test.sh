@@ -7,8 +7,9 @@
 # host changes and no real root is needed. The emulator's files go to
 # $ORBYT_TESTDIR/emu and pytest's own, disks and signed builds among them, to
 # $ORBYT_TESTDIR/test/<board>, which each run empties first: /tmp may be memory,
-# and a run's files would stay there. $ORBYT_TESTDIR is the work directory unless
-# set: a disk slow to flush stalls the emulator (docs/dev-setup.md).
+# and a run's files would stay there. $ORBYT_TESTDIR is off the work volume by
+# default, in the user's cache: a disk slow to flush stalls the emulator
+# (docs/dev-setup.md).
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
@@ -26,7 +27,7 @@ shift
 [ "$#" -eq 0 ] || shift
 
 out="${ORBYT_WORKDIR}/out/${board}/${profile}"
-testdir=${ORBYT_TESTDIR:-${ORBYT_WORKDIR}}
+testdir=${ORBYT_TESTDIR:-${XDG_CACHE_HOME:-${HOME}/.cache}/orbyt/test}
 set -- "$@" --junitxml "${REPO_DIR}/tests/.reports/emulation.xml" \
 	--basetemp "${testdir}/test/${board}"
 [ -f "${out}/manifest.json" ] || die "no build outputs in ${out}; run 'just build ${board} ${profile}' first"

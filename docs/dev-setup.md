@@ -10,7 +10,7 @@ You need an OrbStack NixOS virtual machine named `nixos` (currently NixOS 25.11,
 orb create nixos nixos      # skip if it already exists
 ```
 
-The macOS `/Users` and `/Volumes` directories appear in the VM at the same paths, and external drives are at `/mnt/mac/Volumes/<name>`. So this repository has the same path in the VM as on macOS.
+The macOS `/Users` and `/Volumes` directories appear in the VM at the same paths, and external drives are at `/mnt/mac/Volumes/<name>`. So this repository has the same path in the VM as on macOS; below, `<repo>` is that path, `<user>` the VM's user and `<volume>` the external SSD's name.
 
 Flakes are not enabled in the VM by default. You can enable them temporarily by setting an environment variable before each command:
 
@@ -33,25 +33,25 @@ One-time setup:
 ```sh
 # on macOS: stop Spotlight from indexing the volume, then allocate the image.
 # HFS+ has no sparse files, so mkfile writes all 112 GiB (takes a while).
-touch /Volumes/SSD/.metadata_never_index
-mkfile -n 112g /Volumes/SSD/orbyt-work.ext4
+touch /Volumes/<volume>/.metadata_never_index
+mkfile -n 112g /Volumes/<volume>/orbyt-work.ext4
 
-# in the VM (creates the filesystem once, owned by kiritan, then mounts it):
-orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-mount.sh --format --owner kiritan
+# in the VM (creates the filesystem once, owned by <user>, then mounts it):
+orb -m nixos -u root <repo>/scripts/workdir-mount.sh --format --owner <user> /mnt/mac/Volumes/<volume>/orbyt-work.ext4
 ```
 
 After each VM restart, mount it again (the script can be run repeatedly and never reformats):
 
 ```sh
-orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-mount.sh
+orb -m nixos -u root <repo>/scripts/workdir-mount.sh /mnt/mac/Volumes/<volume>/orbyt-work.ext4
 ```
 
-By default, the image file is `/mnt/mac/Volumes/SSD/orbyt-work.ext4` and the mount point is `/mnt/orbyt`. Its owner is set once, when the filesystem is created, and kept in it: as root, the VM sees the Mac's files as root's own, so the owner has to be named then.
+The image file is the argument, or else `ORBYT_WORKDIR_IMAGE`, and the mount point is `/mnt/orbyt`. Its owner is set once, when the filesystem is created, and kept in it: as root, the VM sees the Mac's files as root's own, so the owner has to be named then.
 
 Notes:
 
 - Do not unplug the SSD or let the Mac sleep while it is mounted, or the ext4 file system may be corrupted.
-- Before unplugging the drive, run `orb -m nixos -u root /Users/kiritan/Projects/orbyt/scripts/workdir-unmount.sh` in the VM.
+- Before unplugging the drive, run `orb -m nixos -u root <repo>/scripts/workdir-unmount.sh` in the VM.
 - The current SSD's measured sequential write speed is about 75 MB/s (2026-09-28, `dd` writing 2 GiB with `fdatasync`). This is the upper bound on local build I/O; the timings of the first full build are recorded in `docs/ci.md`.
 
 ## 3. PPP for the test sandbox
@@ -59,7 +59,7 @@ Notes:
 The emulated ISP runs pppd inside the test sandbox, which needs the `ppp_generic` and `ppp_async` modules and a `/dev/ppp` open to regular users; the WireGuard peer needs the `wireguard` module. After each VM restart, run (the OrbStack NixOS VM has no `modprobe` on its path, so kmod comes from nixpkgs):
 
 ```sh
-orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flakes" nix shell nixpkgs#kmod -c /Users/kiritan/Projects/orbyt/scripts/sandbox-prepare.sh'
+orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flakes" nix shell nixpkgs#kmod -c <repo>/scripts/sandbox-prepare.sh'
 ```
 
 `just env-report` fails with this hint when PPP is not ready. CI runs the same script from `runner-prepare.sh`.
@@ -69,10 +69,11 @@ orb -m nixos -u root sh -c 'NIX_CONFIG="experimental-features = nix-command flak
 Every build is for one board, named by its description under `boards/`: `r4s` (NanoPi R4S) or `r6s` (NanoPi R6S). In the VM, run:
 
 ```sh
-cd /Users/kiritan/Projects/orbyt
+cd <repo>
 export NIX_CONFIG="experimental-features = nix-command flakes"
 export ORBYT_WORKDIR=/mnt/orbyt
-export ORBYT_TESTDIR=/home/kiritan/orbyt-test  # the emulator's and the tests' files, on the VM's own disk
+# The emulator's and the tests' files are on the VM's own disk, in ~/.cache/orbyt/test
+# unless ORBYT_TESTDIR names another directory.
 nix develop -c just build r4s dev  # check the board, fetch, patch, toolchain, config, build
 ```
 
@@ -103,7 +104,7 @@ Notes:
 - Commands that need an FHS environment enter it themselves; you do not need to enter it manually. Build-related commands enter `orbyt-build-fhs`; tests and `env-report` enter `orbyt-test-fhs` (which contains all the tools of the build environment).
 - Running these commands directly on macOS fails immediately with a hint and creates no directories.
 - `just check` and `just fmt` run on any host; see `docs/conventions.md` for the rules.
-- Keep the tests off the work volume: set `ORBYT_TESTDIR` to a directory on the VM's own disk (its default is `$ORBYT_WORKDIR`). The loop-mounted volume reaches its SSD through the host, and a flush there waits until the host has written everything it holds for the volume, a minute for a gigabyte. ext4 flushes with every journal commit, so a test's burst of writes stalls every writer on the volume for seconds, the emulator with its disks too, and the router then misses its network deadlines. The VM's own disk flushes the same gigabyte in half a second. `scripts/workdir-mount.sh` also has the loop device use direct I/O, so the VM does not cache the volume a second time, and small dirty-page limits in the VM (`vm.dirty_bytes` of 256 MB, `vm.dirty_background_bytes` of 64 MB, in `/etc/nixos/configuration.nix`) keep writes from piling up in it.
+- Keep the tests off the work volume: `ORBYT_TESTDIR`, by default `~/.cache/orbyt/test`, is a directory on the VM's own disk. The loop-mounted volume reaches its SSD through the host, and a flush there waits until the host has written everything it holds for the volume, a minute for a gigabyte. ext4 flushes with every journal commit, so a test's burst of writes stalls every writer on the volume for seconds, the emulator with its disks too, and the router then misses its network deadlines. The VM's own disk flushes the same gigabyte in half a second. `scripts/workdir-mount.sh` also has the loop device use direct I/O, so the VM does not cache the volume a second time, and small dirty-page limits in the VM (`vm.dirty_bytes` of 256 MB, `vm.dirty_background_bytes` of 64 MB, in `/etc/nixos/configuration.nix`) keep writes from piling up in it.
 - Run one heavy job on the VM at a time: a build, or one board's tests.
 
 Flakes cannot see new files that are not yet committed to the repository (by default they use only files tracked by git). Until you commit, use `nix develop path:.` instead of `nix develop`.

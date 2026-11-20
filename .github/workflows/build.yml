@@ -61,6 +61,8 @@ defaults:
 
 env:
   ORBYT_WORKDIR: /mnt/orbyt
+  # The runner's large disk holds the tests' files as well.
+  ORBYT_TESTDIR: /mnt/orbyt
 
 jobs:
   host-toolchain:
@@ -444,8 +446,8 @@ jobs:
           name: system-test-console-${{ matrix.board }}-${{ matrix.suite.name }}
           # QEMU's log names a reset the console does not explain (trial-boot-resilience D5).
           path: |
-            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
-            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
+            ${{ env.ORBYT_TESTDIR }}/test/${{ matrix.board }}/emulator*/console.log
+            ${{ env.ORBYT_TESTDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
           if-no-files-found: ignore
 
   # The keys exist only in the release-signing environment, whose reviewers
@@ -565,8 +567,8 @@ jobs:
           name: drill-console-${{ matrix.board }}
           # QEMU's log names a reset the console does not explain (trial-boot-resilience D5).
           path: |
-            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/console.log
-            ${{ env.ORBYT_WORKDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
+            ${{ env.ORBYT_TESTDIR }}/test/${{ matrix.board }}/emulator*/console.log
+            ${{ env.ORBYT_TESTDIR }}/test/${{ matrix.board }}/emulator*/qemu*.log
           if-no-files-found: ignore
 
   # The check main's rules require (board-model D9), under the name it always

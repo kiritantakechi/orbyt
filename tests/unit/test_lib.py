@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 import yaml
 
+from orbyt_tests.model import git
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.shell import awk_program, library
@@ -524,3 +525,33 @@ def test_build_reads_answers_as_github_does() -> None:
         "README.md",
         "feed/utils/orbyt-ab/README.md",
     }
+
+
+def _repository_of(clone: Path, **env: str) -> subprocess.CompletedProcess[str]:
+    """Run github_repository on ``clone``, as outside CI."""
+    environment = {
+        name: value for name, value in os.environ.items() if name != "GITHUB_REPOSITORY"
+    }
+    return library(
+        "github", 'github_repository "$1"', str(clone), env={**environment, **env}
+    )
+
+
+def test_the_github_repository_is_the_clone_s_own(tmp_path: Path) -> None:
+    clone = tmp_path / "clone"
+    clone.mkdir()
+    git.run(clone, "init", "-q")
+    # A clone with no remote on GitHub names none.
+    git.run(
+        clone, "remote", "add", "codeberg", "https://codeberg.org/someone/orbyt.git"
+    )
+    without = _repository_of(clone)
+    assert without.returncode != 0
+    assert "GITHUB_REPOSITORY" in without.stderr
+    # A fork's clone names the fork, by either form of URL.
+    git.run(clone, "remote", "add", "origin", "https://github.com/someone/fork.git")
+    assert _repository_of(clone).stdout.strip() == "someone/fork"
+    git.run(clone, "remote", "set-url", "origin", "git@github.com:someone/fork")
+    assert _repository_of(clone).stdout.strip() == "someone/fork"
+    # CI says which.
+    assert _repository_of(clone, GITHUB_REPOSITORY="ci/run").stdout.strip() == "ci/run"

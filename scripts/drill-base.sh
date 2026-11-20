@@ -14,7 +14,7 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
-use boards manifest
+use boards github manifest
 
 board=${1:-}
 
@@ -23,7 +23,7 @@ workdir_tree >/dev/null
 device=$(board_field "${board}" .device)
 ci="${ORBYT_WORKDIR}/out/${board}/ci"
 base="${ORBYT_WORKDIR}/out/${board}/drill-base"
-repository=${GITHUB_REPOSITORY:-kiritantakechi/orbyt}
+repository=$(github_repository)
 [ -f "${ci}/manifest.json" ] || die "no build outputs in ${ci}"
 
 work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-drill-base.XXXXXX")

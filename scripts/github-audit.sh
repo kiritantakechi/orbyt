@@ -15,8 +15,9 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
+use github
 
-repository=${1:-${GITHUB_REPOSITORY:-kiritantakechi/orbyt}}
+repository=${1:-$(github_repository)}
 ENVIRONMENT=release-signing
 # The branches that may deploy to it, as gh lists them: sorted, one line.
 BRANCHES="bump/* main"

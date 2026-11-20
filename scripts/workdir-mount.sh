@@ -1,7 +1,8 @@
 #!/bin/sh
 # workdir-mount: loop-mount the ext4 build volume inside the Linux VM.
 # Usage: scripts/workdir-mount.sh [--format [--owner user]] [image] [mountpoint]   (as root)
-# The image file lives on the external SSD (design D9). Mounting twice is a no-op.
+# The image file lives on an external SSD (design D9), named by the argument or
+# by ORBYT_WORKDIR_IMAGE. Mounting twice is a no-op.
 # --format creates the filesystem once (never over one) and gives its top
 # directory to --owner, else to sudo's caller, else to the owner of this
 # repository. The filesystem keeps its owner, so a later mount changes nothing:
@@ -25,8 +26,10 @@ while [ "$#" -gt 0 ]; do
 	esac
 	shift
 done
-image=${1:-/mnt/mac/Volumes/SSD/orbyt-work.ext4}
+image=${1:-${ORBYT_WORKDIR_IMAGE:-}}
 mountpoint=${2:-/mnt/orbyt}
+
+[ -n "${image}" ] || die "usage: workdir-mount [--format [--owner user]] <image> [mountpoint] (or ORBYT_WORKDIR_IMAGE set)"
 
 require_linux
 uid=$(id -u)
