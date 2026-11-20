@@ -36,10 +36,11 @@
 
 ## 4. Verification
 
-- [ ] 4.1 Run CI's build on this change's branch for both boards.
+- [ ] 4.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: every job passes; the run is recorded in `docs/ci.md`.
+  Verify: every job passes; the run is recorded in `docs/ci.md` for this change.
 
 ## Workflow follow-up
 
-- After orbyt-brand is merged: rebase onto main, sync the delta spec, archive, merge and push Codeberg first, then GitHub; then dynamic-dns, rebased onto the renamed main.
+- The stack (orbyt-brand, orbyt-theme, nixpkgs-2605, python-style, then firmware-, patch-, test- and tooling-hygiene) is verified locally on its final head, then archived change by change in that order there; main fast-forwards to it and is pushed, Codeberg first, then GitHub, whose run on main is the release verification.
+- Then dynamic-dns, rebased onto the renamed main.
