@@ -46,7 +46,7 @@ while [ "$#" -ge 2 ]; do
 	shift 2
 done
 [ "$#" -eq 0 ] && [ -n "${board}" ] && [ -n "${apk_key}" ] && [ -n "${fw_key}" ] || usage
-board_field "${board}" .device >/dev/null
+require_board "${board}"
 manifest="${build}/manifest.json"
 [ -f "${manifest}" ] || die "no manifest.json in ${build}"
 jq -e --arg board "${board}" '.board == $board' "${manifest}" >/dev/null ||
@@ -58,33 +58,32 @@ keyring=$(realpath "${keyring}")
 apk_keys="${keyring}/etc/apk/keys"
 fw_keys="${keyring}/etc/usign/keys"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-sign.XXXXXX")
-trap 'rm -rf "${work}"' EXIT INT TERM
+scratch_dir orbyt-sign
 
-manifest_checksums "${manifest}" >"${work}/expected"
-(cd "${build}" && sha256sum --check --quiet --strict "${work}/expected") ||
+manifest_checksums "${manifest}" >"${scratch}/expected"
+(cd "${build}" && sha256sum --check --quiet --strict "${scratch}/expected") ||
 	die "artifacts do not match manifest.json; nothing signed"
 info "every artifact matches manifest.json"
 
 fw_id=$(usign -F -s "${fw_key}")
 [ -f "${fw_keys}/${fw_id}" ] || die "firmware key ${fw_id} is not in ${fw_keys}"
-ucert -I -c "${work}/fw.ucert" -p "${fw_keys}/${fw_id}" -s "${fw_key}" ||
+ucert -I -c "${scratch}/fw.ucert" -p "${fw_keys}/${fw_id}" -s "${fw_key}" ||
 	die "cannot issue a certificate for firmware key ${fw_id}"
 
-jq -r '.files | keys[]' "${manifest}" >"${work}/files"
+jq -r '.files | keys[]' "${manifest}" >"${scratch}/files"
 while IFS= read -r file; do
 	mkdir -p "$(dirname -- "${signed}/${file}")"
 	cp -- "${build}/${file}" "${signed}/${file}"
-done <"${work}/files"
+done <"${scratch}/files"
 
 # sign_image <file>: a usign signature under the key's certificate, in the
 # fwtool trailer. ucert -A reports failure after appending (it returns the
 # write's true), so the verification below is what decides.
 sign_image() {
-	usign -S -m "$1" -s "${fw_key}" -x "${work}/image.sig"
-	cp "${work}/fw.ucert" "${work}/image.ucert"
-	ucert -A -c "${work}/image.ucert" -x "${work}/image.sig" || true
-	fwtool -S "${work}/image.ucert" "$1"
+	usign -S -m "$1" -s "${fw_key}" -x "${scratch}/image.sig"
+	cp "${scratch}/fw.ucert" "${scratch}/image.ucert"
+	ucert -A -c "${scratch}/image.ucert" -x "${scratch}/image.sig" || true
+	fwtool -S "${scratch}/image.ucert" "$1"
 }
 
 while IFS= read -r file; do
@@ -102,26 +101,21 @@ while IFS= read -r file; do
 			sign_image "${path}"
 			# The chain against the firmware keys, as sysupgrade checks it
 			# (fwtool_check_signature).
-			rm -f "${work}/check.ucert"
-			fwtool -q -s "${work}/check.ucert" "${path}" || die "${file} has no signature"
+			rm -f "${scratch}/check.ucert"
+			fwtool -q -s "${scratch}/check.ucert" "${path}" || die "${file} has no signature"
 			fwtool -q -T -s /dev/null "${path}" |
-				ucert -V -q -m - -c "${work}/check.ucert" -P "${fw_keys}" ||
+				ucert -V -q -m - -c "${scratch}/check.ucert" -P "${fw_keys}" ||
 				die "${file} does not verify with ${fw_keys}"
 			info "signed ${file}"
 			;;
 	esac
-done <"${work}/files"
+done <"${scratch}/files"
 
 # The manifest with the signed files' hashes, signed; SHA256SUMS of everything.
-while IFS= read -r file; do
-	sum=$(sha256sum "${signed}/${file}")
-	printf '%s\t%s\n' "${file}" "${sum%% *}"
-done <"${work}/files" |
-	jq -R -n '[inputs | split("\t") | {(.[0]): .[1]}] | add' >"${work}/hashes"
-jq --slurpfile hashes "${work}/hashes" '.files = $hashes[0]' "${manifest}" >"${signed}/manifest.json"
+manifest_write "${signed}" "${scratch}/files" <"${manifest}"
 usign -S -m "${signed}/manifest.json" -s "${fw_key}" -x "${signed}/manifest.json.sig"
 usign -V -q -m "${signed}/manifest.json" -P "${fw_keys}" ||
 	die "manifest.json does not verify with ${fw_keys}"
-(cd "${signed}" && find . -type f | sed 's|^\./||' | sort | xargs sha256sum) >"${work}/sums"
-mv "${work}/sums" "${signed}/SHA256SUMS"
+(cd "${signed}" && find . -type f | sed 's|^\./||' | sort | xargs sha256sum) >"${scratch}/sums"
+mv "${scratch}/sums" "${signed}/SHA256SUMS"
 info "signed release in ${signed}"

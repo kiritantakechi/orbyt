@@ -32,8 +32,8 @@ build_files=$(git -C "${tree}" rev-parse HEAD:rules.mk HEAD:include HEAD:scripts
 # it: every seed of the profile and every board's device (board-model D2). Its
 # options alone, set or not set, as merge-seeds.awk reads them: a comment of a
 # seed changes no tool.
-configuration=$(mktemp)
-trap 'rm -f "${configuration}"' EXIT INT TERM
+scratch_dir orbyt-toolchain-key
+configuration="${scratch}/configuration"
 compose_seeds "${tree}" "${profile}" "" "${configuration}"
 seed=$(grep -E '^(CONFIG_[^= ]+=|# CONFIG_[^ ]+ is not set$)' "${configuration}" | sha256sum)
 # The target and subtarget the configuration selects, by their makefiles, which

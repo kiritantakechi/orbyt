@@ -37,8 +37,8 @@ done
 # Of the host packages' build directories, only the stamps that tell make they
 # are built: their empty dot files (.prepared*, .configured, .built*). Rust's
 # build tree alone takes 20 GB, and nothing reads it once Rust is installed.
-stamps=$(mktemp)
-trap 'rm -f "${stamps}"' EXIT INT TERM
+scratch_dir orbyt-toolchain-pack
+stamps="${scratch}/stamps"
 if [ -d build_dir/hostpkg ]; then
 	find build_dir/hostpkg -mindepth 2 -maxdepth 2 -type f -name '.*' -size 0 >"${stamps}"
 fi

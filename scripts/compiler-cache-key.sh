@@ -15,7 +15,7 @@ use boards
 stage=${1:-}
 
 [ -n "${stage}" ] || die "usage: compiler-cache-key <stage>"
-[ "${stage}" = host ] || board_field "${stage}" .device >/dev/null
+[ "${stage}" = host ] || require_board "${stage}"
 
 settings=$(grep -Ev '^[[:space:]]*(#|$)' "${REPO_DIR}/config/ccache.conf" | sha256sum)
 prefix="compiler-cache-${stage}-${settings%% *}-"

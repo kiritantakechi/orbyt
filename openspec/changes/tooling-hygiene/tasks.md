@@ -28,7 +28,7 @@
 
 ## 4. Helpers and errors (D5, D6)
 
-- [ ] 4.1 `scratch_dir`, `build_jobs`, `require_board`, `manifest_write`, `toolchain_record_state`, used by every script that spelled them out.
+- [ ] 4.1 `scratch_dir`, `build_jobs`, `require_board`, `manifest_write`, `toolchain_record_differs`, used by every script that spelled them out.
 
   Verify: the unit suite's library tests (dead code included) pass; `just build r4s dev` with nothing changed rebuilds nothing; a build's manifest is unchanged.
 

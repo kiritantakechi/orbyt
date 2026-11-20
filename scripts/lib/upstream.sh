@@ -65,10 +65,10 @@ fetch_locked() (
 # or otherwise change it (release-integrity D8). Dies naming the first patch
 # that does not apply, and saying so when it applies in reverse: upstream has
 # its change, and the patch can go (upstreamed-patches D1).
+# shellcheck disable=SC2154 # scratch, which scratch_dir sets
 series_commit() (
 	dir=$1 repository=$2 commit=$3
-	scratch=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-series.XXXXXX")
-	trap 'rm -rf "${scratch}"' EXIT
+	scratch_dir orbyt-series
 	export GIT_INDEX_FILE="${scratch}/index" GIT_CONFIG_GLOBAL=/dev/null GIT_CONFIG_NOSYSTEM=1 \
 		GIT_COMMITTER_NAME=orbyt GIT_COMMITTER_EMAIL=orbyt@localhost
 	git -C "${repository}" read-tree "${commit}"

@@ -1,11 +1,14 @@
 """The shell library's modules (scripts/lib/).
 
-They are tree, caches, toolchain, seeds and runs.
+They are core, tree, caches, toolchain, seeds, runs, github and
+manifest.
 """
 
 import hashlib
+import json
 import os
 import re
+import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -555,3 +558,152 @@ def test_the_github_repository_is_the_clone_s_own(tmp_path: Path) -> None:
     assert _repository_of(clone).stdout.strip() == "someone/fork"
     # CI says which.
     assert _repository_of(clone, GITHUB_REPOSITORY="ci/run").stdout.strip() == "ci/run"
+
+
+def _environment(**env: str) -> dict[str, str]:
+    """Return this process's environment, without a work directory.
+
+    ``env`` is added to it.
+    """
+    environment = {
+        name: value for name, value in os.environ.items() if name != "ORBYT_WORKDIR"
+    }
+    return {**environment, **env}
+
+
+def test_a_scratch_directory_goes_with_its_shell(tmp_path: Path) -> None:
+    # The directory is made in $TMPDIR, the command runs before it goes,
+    # and an interrupt ends the shell rather than leaving it to go on
+    # without its directory.
+    command = (
+        'scratch_dir orbyt-test "echo left > $1/left"; echo "${scratch}"; '
+        'touch "${scratch}/file"; kill -INT $$; echo "went on"'
+    )
+    result = library("", command, str(tmp_path), env=_environment(TMPDIR=str(tmp_path)))
+    assert result.returncode == 130, result.stderr
+    scratch = Path(result.stdout.splitlines()[0])
+    assert scratch.parent == tmp_path
+    assert scratch.name.startswith("orbyt-test.")
+    assert not scratch.exists()
+    assert "went on" not in result.stdout
+    assert (tmp_path / "left").read_text() == "left\n"
+
+
+def test_a_scratch_directory_is_on_the_work_volume(tmp_path: Path) -> None:
+    # The VM's /tmp is memory: with a work directory, its tmp/ holds the
+    # files, and a subshell's directory is its own.
+    workdir = tmp_path / "work"
+    workdir.mkdir()
+    command = (
+        'scratch_dir outer; ( scratch_dir inner; echo "${scratch}" ); '
+        '[ -d "${scratch}" ] && echo "${scratch}"'
+    )
+    result = library("", command, env=_environment(ORBYT_WORKDIR=str(workdir)))
+    assert result.returncode == 0, result.stderr
+    inner, outer = (Path(line) for line in result.stdout.splitlines())
+    assert inner.parent == outer.parent == workdir / "tmp"
+    assert not inner.exists()
+    assert not outer.exists()
+
+
+def test_the_manifest_lists_its_directory_s_files(tmp_path: Path) -> None:
+    # Every file but the manifest itself, or the files a list names.
+    build = tmp_path / "build"
+    (build / "targets").mkdir(parents=True)
+    (build / "targets" / "image.img.gz").write_bytes(b"image")
+    (build / "diffconfig").write_bytes(b"config")
+    (build / "manifest.json").write_text("{}")
+
+    def sha256(data: bytes) -> str:
+        return hashlib.sha256(data).hexdigest()
+
+    result = library(
+        "manifest",
+        'echo \'{"board": "r4s"}\' | manifest_write "$1"',
+        str(build),
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads((build / "manifest.json").read_text()) == {
+        "board": "r4s",
+        "files": {
+            "diffconfig": sha256(b"config"),
+            "targets/image.img.gz": sha256(b"image"),
+        },
+    }
+    (tmp_path / "list").write_text("targets/image.img.gz\n")
+    result = library(
+        "manifest",
+        'manifest_write "$1" "$2" <"$1/manifest.json"',
+        str(build),
+        str(tmp_path / "list"),
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads((build / "manifest.json").read_text()) == {
+        "board": "r4s",
+        "files": {"targets/image.img.gz": sha256(b"image")},
+    }
+
+
+def test_a_name_sha256sum_escapes_is_not_listed(tmp_path: Path) -> None:
+    build = tmp_path / "build"
+    build.mkdir()
+    (build / "a\\b").write_bytes(b"file")
+    result = library("manifest", 'echo "{}" | manifest_write "$1"', str(build))
+    assert result.returncode != 0
+    assert "backslash" in result.stderr
+    assert not (build / "manifest.json").exists()
+
+
+def test_a_fact_the_build_did_not_leave_fails(tmp_path: Path) -> None:
+    fact = tmp_path / "kernel.version"
+    read = 'manifest_fact "$1" "kernel version"'
+    for contents in (None, ""):
+        if contents is not None:
+            fact.write_text(contents)
+        result = library("manifest", read, str(fact))
+        assert result.returncode != 0
+        assert f"the build left no kernel version in {fact}" in result.stderr
+    fact.write_text("6.18.60~hash-r1")
+    result = library("manifest", read, str(fact))
+    assert (result.returncode, result.stdout) == (0, "6.18.60~hash-r1")
+
+
+def _bin(tmp_path: Path, *tools: str) -> str:
+    """Return a PATH of ``tools`` alone, linked into ``tmp_path``."""
+    directory = tmp_path / "bin"
+    directory.mkdir()
+    for tool in tools:
+        found = shutil.which(tool)
+        assert found is not None, tool
+        (directory / tool).symlink_to(found)
+    return str(directory)
+
+
+@pytest.mark.parametrize(
+    ("option", "command"),
+    [("CONFIG_CCACHE", "ccache_run"), ("CONFIG_RUST_SCCACHE", "sccache_run")],
+)
+def test_a_selected_compiler_cache_that_is_missing_fails(
+    option: str, command: str, tmp_path: Path
+) -> None:
+    tree = tmp_path / "openwrt"
+    tree.mkdir()
+    (tree / ".config").write_text("")
+    env = _environment(PATH=_bin(tmp_path, "sh", "dirname", "grep"))
+    run = f'{command} "$1" --version'
+    result = library("cache", run, str(tree), env=env)
+    assert (result.returncode, result.stdout) == (0, ""), result.stderr
+    (tree / ".config").write_text(f"{option}=y\n")
+    result = library("cache", run, str(tree), env=env)
+    assert result.returncode != 0
+    assert "the configuration selects" in result.stderr
+
+
+def test_a_first_build_starts_without_its_ccache(tmp_path: Path) -> None:
+    # ccache is one of the tree's tools, which its first build builds.
+    tree = tmp_path / "openwrt"
+    tree.mkdir()
+    (tree / ".config").write_text("CONFIG_CCACHE=y\n")
+    result = library("cache", 'compiler_cache_start "$1"', str(tree))
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip().isdigit()

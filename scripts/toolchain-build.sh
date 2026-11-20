@@ -49,29 +49,33 @@ toolchain_dir=$(make -C "${tree}" -s val.TOOLCHAIN_DIR)
 record="${toolchain_dir}/orbyt-toolchain.json"
 cflags=$(make -C "${tree}" -s val.TARGET_CFLAGS)
 environment=$(toolchain_environment)
-recorded=$(jq -r '.environment // ""' "${record}" 2>/dev/null) || recorded=
-if [ -d "${toolchain_dir}" ] && [ "${recorded}" != "${environment}" ]; then
-	info "the host side was built in another environment: building it anew"
-	rm -rf "${toolchain_dir:?}" "${tree:?}"/build_dir/toolchain-* "${tree:?}/build_dir/host" \
-		"${tree:?}/staging_dir/host" "${tree:?}/build_dir/hostpkg" "${tree:?}/staging_dir/hostpkg"
-fi
-# Rust's standard library has C parts compiled with the target's flags, so it
-# goes with the C toolchain whenever that is built anew.
-if [ -d "${toolchain_dir}" ]; then
-	recorded=$(jq -r '[.cflags, .libc] | map(. // "") | join(" | ")' "${record}" 2>/dev/null) || recorded=
-	libc=$(toolchain_libc "${toolchain_dir}")
-	if [ "${recorded}" != "${cflags} | ${libc}" ] || [ -z "${libc}" ]; then
+# What the record no longer names is built anew, and what is built on it: the
+# host side (a toolchain without a record predates it), or the C toolchain, and
+# Rust's standard library with it, whose C parts are compiled with the target's
+# flags, or Rust's library alone.
+differs=$(toolchain_record_differs "${tree}" "${toolchain_dir}" "${cflags}")
+case "${differs}" in
+	record | environment)
+		if [ -d "${toolchain_dir}" ]; then
+			info "the host side was built in another environment: building it anew"
+			rm -rf "${toolchain_dir:?}" "${tree:?}"/build_dir/toolchain-* "${tree:?}/build_dir/host" \
+				"${tree:?}/staging_dir/host" "${tree:?}/build_dir/hostpkg" "${tree:?}/staging_dir/hostpkg"
+		fi
+		;;
+	toolchain)
 		info "the toolchain in ${toolchain_dir} is not the one its record names: building it anew"
 		rm -rf "${toolchain_dir}" "${tree}"/build_dir/toolchain-*
 		make -C "${tree}" package/feeds/packages/rust/host/clean >/dev/null
-	fi
-fi
-recorded=$(jq -r '.rust_std // ""' "${record}" 2>/dev/null) || recorded=
-rust_std=$(toolchain_rust_std "${tree}")
-if [ -n "${rust_std}" ] && [ "${rust_std}" != "${recorded}" ]; then
-	info "Rust's standard library is not the one the record names: building it anew"
-	make -C "${tree}" package/feeds/packages/rust/host/clean >/dev/null
-fi
+		;;
+	rust)
+		rust_std=$(toolchain_rust_std "${tree}")
+		if [ -n "${rust_std}" ]; then
+			info "Rust's standard library is not the one the record names: building it anew"
+			make -C "${tree}" package/feeds/packages/rust/host/clean >/dev/null
+		fi
+		;;
+	*) ;;
+esac
 # write_record <rust_std>: what this configuration built, or found built as
 # recorded; Rust's library only once there is one.
 write_record() {
@@ -82,7 +86,7 @@ write_record() {
 		>"${record}"
 }
 
-jobs=${ORBYT_JOBS:-$(nproc)}
+jobs=$(build_jobs)
 log=$(time_log "${tree}" host)
 start=$(compiler_cache_start "${tree}")
 status=0

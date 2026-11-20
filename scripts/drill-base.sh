@@ -26,15 +26,14 @@ base="${ORBYT_WORKDIR}/out/${board}/drill-base"
 repository=$(github_repository)
 [ -f "${ci}/manifest.json" ] || die "no build outputs in ${ci}"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-drill-base.XXXXXX")
-trap 'rm -rf "${work}"' EXIT INT TERM
+scratch_dir orbyt-drill-base
 rm -rf "${base}"
 mkdir -p "${base}/targets"
 
-if gh api "repos/${repository}/releases/latest" >"${work}/release.json" 2>"${work}/error"; then
-	tag=$(jq -r .tag_name "${work}/release.json")
+if gh api "repos/${repository}/releases/latest" >"${scratch}/release.json" 2>"${scratch}/error"; then
+	tag=$(jq -r .tag_name "${scratch}/release.json")
 else
-	error=$(cat "${work}/error")
+	error=$(cat "${scratch}/error")
 	case "${error}" in
 		*"HTTP 404"*) tag= ;;
 		*) die "cannot look up the latest release of ${repository}: ${error}" ;;
@@ -42,19 +41,19 @@ else
 fi
 manifest="${device}-manifest.json"
 if [ -n "${tag}" ] &&
-	jq -e --arg name "${manifest}" 'any(.assets[]; .name == $name)' "${work}/release.json" >/dev/null; then
-	gh release download "${tag}" --repo "${repository}" --pattern "${manifest}" --dir "${work}" ||
+	jq -e --arg name "${manifest}" 'any(.assets[]; .name == $name)' "${scratch}/release.json" >/dev/null; then
+	gh release download "${tag}" --repo "${repository}" --pattern "${manifest}" --dir "${scratch}" ||
 		die "cannot download ${manifest} of ${tag}"
-	manifest_files_check "${work}/${manifest}"
-	manifest_checksums "${work}/${manifest}" '^targets/[^/]+-factory\.img\.gz$' >"${work}/factory.sha256"
-	images=$(wc -l <"${work}/factory.sha256")
+	manifest_files_check "${scratch}/${manifest}"
+	manifest_checksums "${scratch}/${manifest}" '^targets/[^/]+-factory\.img\.gz$' >"${scratch}/factory.sha256"
+	images=$(wc -l <"${scratch}/factory.sha256")
 	[ "${images}" -eq 1 ] || die "${manifest} of ${tag} does not name one factory image"
-	read -r _ image <"${work}/factory.sha256"
+	read -r _ image <"${scratch}/factory.sha256"
 	gh release download "${tag}" --repo "${repository}" --pattern "${image#targets/}" \
 		--dir "${base}/targets" || die "cannot download ${image#targets/} of ${tag}"
-	(cd "${base}" && sha256sum --check --quiet --strict "${work}/factory.sha256") ||
+	(cd "${base}" && sha256sum --check --quiet --strict "${scratch}/factory.sha256") ||
 		die "${image#targets/} of ${tag} does not match ${manifest}"
-	built="${work}/${manifest}"
+	built="${scratch}/${manifest}"
 	info "drill base: ${tag}, the latest stable release"
 else
 	if [ -n "${tag}" ]; then
@@ -67,7 +66,4 @@ else
 	info "drill base: this build (${reason})"
 fi
 cp "${ci}/u-boot-qemu.bin" "${base}/"
-(cd "${base}" && sha256sum targets/*-factory.img.gz u-boot-qemu.bin) >"${work}/base.sha256"
-jq -R -n --slurpfile built "${built}" \
-	'$built[0] + {profile: "drill-base", files: [inputs | split("  ") | {(.[1]): .[0]}] | add}' \
-	<"${work}/base.sha256" >"${base}/manifest.json"
+jq '. + {profile: "drill-base"}' "${built}" | manifest_write "${base}"

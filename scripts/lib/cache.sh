@@ -5,26 +5,29 @@
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
 
 # ccache_run <tree> <args>: the ccache that OpenWrt builds (tools/ccache), on the
-# cache the tree links to. OpenWrt prints the cache's statistics after a build
-# itself, but only into its silenced output.
+# cache the tree links to, when the configuration selects it (CONFIG_CCACHE);
+# nothing when it does not, and a failure when it does and the tree has not
+# built it. OpenWrt prints the cache's statistics after a build itself, but only
+# into its silenced output.
 ccache_run() (
 	[ -d "$1" ] || die "ccache_run: no build tree at $1"
 	tree=$1
 	shift
 	grep -qx 'CONFIG_CCACHE=y' "${tree}/.config" || return 0
 	ccache="${tree}/staging_dir/host/bin/ccache"
-	[ -x "${ccache}" ] || return 0
+	[ -x "${ccache}" ] || die "the configuration selects ccache, and the tree has built none (${ccache})"
 	CCACHE_DIR="${tree}/.ccache" "${ccache}" "$@"
 )
 
 # sccache_run <tree> <args>: sccache, on the cache the tree links to, when Rust
-# packages use it (CONFIG_RUST_SCCACHE).
+# packages use it (CONFIG_RUST_SCCACHE); nothing when they do not, and a failure
+# when they do and the environment has no sccache.
 sccache_run() (
 	[ -d "$1" ] || die "sccache_run: no build tree at $1"
 	tree=$1
 	shift
 	grep -qx 'CONFIG_RUST_SCCACHE=y' "${tree}/.config" || return 0
-	command -v sccache >/dev/null || return 0
+	command -v sccache >/dev/null || die "the configuration selects sccache, and the environment has none"
 	SCCACHE_DIR="${tree}/.sccache" sccache "$@"
 )
 
@@ -73,8 +76,15 @@ trim_unused() (
 # compiler_cache_report stops it.
 compiler_cache_start() (
 	[ -d "$1" ] || die "compiler_cache_start: no build tree at $1"
-	ccache_run "$1" --zero-stats >/dev/null
+	# A tree that has not built its tools yet has no ccache to zero, and its
+	# first build's report counts what the cache held before as well.
+	if [ -x "$1/staging_dir/host/bin/ccache" ]; then
+		ccache_run "$1" --zero-stats >/dev/null
+	fi
 	export SCCACHE_IDLE_TIMEOUT=0
+	# sccache, when selected, is there; a server that was not running fails to
+	# stop, and one that is fails to start.
+	sccache_run "$1" --version >/dev/null
 	sccache_run "$1" --stop-server >/dev/null 2>&1 || true
 	sccache_run "$1" --start-server >/dev/null 2>&1 || true
 	date +%s

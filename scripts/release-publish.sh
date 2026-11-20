@@ -65,8 +65,7 @@ while [ "$#" -gt 0 ]; do
 done
 [ ! -e "${release}" ] || die "${release} exists already"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-release.XXXXXX")
-trap 'rm -rf "${work}"' EXIT INT TERM
+scratch_dir orbyt-release
 
 # Each board's build is one build: every image and package index is the one its
 # manifest lists.
@@ -82,14 +81,14 @@ for build in "${signed}"/*/; do
 	[ "${built}" = "${board} ${device}" ] ||
 		die "${build} holds the build of ${built}, not of ${board} ${device}"
 	manifest_files_check "${manifest}"
-	manifest_checksums "${manifest}" '^targets/.*\.gz$|/packages\.adb$' >"${work}/expected"
-	(cd "${build}" && sha256sum --check --quiet --strict "${work}/expected") ||
+	manifest_checksums "${manifest}" '^targets/.*\.gz$|/packages\.adb$' >"${scratch}/expected"
+	(cd "${build}" && sha256sum --check --quiet --strict "${scratch}/expected") ||
 		die "the images and the package repository of ${board} are not all from the build of its manifest.json"
 	boards="${boards:+${boards} }${board}"
 done
 [ -n "${boards}" ] || die "no signed builds in ${signed}"
 for board in ${wanted}; do
-	board_field "${board}" .device >/dev/null
+	require_board "${board}"
 done
 held=$(printf '%s\n' "${boards}" | tr ' ' '\n' | sort | tr '\n' ' ')
 asked=$(printf '%s\n' "${wanted}" | sort | tr '\n' ' ')
@@ -128,10 +127,10 @@ for board in ${boards}; do
 	cp "${build}/manifest.json" "${release}/${device}-manifest.json"
 	cp "${build}/manifest.json.sig" "${release}/${device}-manifest.json.sig"
 done
-(cd "${release}" && sha256sum -- *) >"${work}/sums"
-mv "${work}/sums" "${release}/SHA256SUMS"
+(cd "${release}" && sha256sum -- *) >"${scratch}/sums"
+mv "${scratch}/sums" "${release}/SHA256SUMS"
 
-notes="${work}/notes.md"
+notes="${scratch}/notes.md"
 patches_sha256=$(jq -r .patches_sha256 "${signed}/${first}/manifest.json")
 kernel=$(jq -r .kernel_version "${signed}/${first}/manifest.json")
 # Every source the lock pins, in its order.
@@ -154,8 +153,8 @@ NOTES
 	jq -R -n --arg tag "${tag}" --argjson prerelease "${prerelease}" --rawfile notes "${notes}" \
 		--arg boards "${boards}" \
 		'{tag: $tag, prerelease: $prerelease, notes: $notes, boards: ($boards | split(" ")),
-		assets: [inputs]}' >"${work}/release.json"
-mv "${work}/release.json" "${release}/release.json"
+		assets: [inputs]}' >"${scratch}/release.json"
+mv "${scratch}/release.json" "${release}/release.json"
 info "release ${tag} assembled in ${release}"
 
 [ "${upload}" -eq 1 ] || exit 0

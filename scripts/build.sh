@@ -41,20 +41,18 @@ for other in ${ids}; do
 		*) ;;
 	esac
 done
+differs=$(toolchain_record_differs "${tree}" "${toolchain_dir}")
+case "${differs}" in
+	environment) die "the toolchain was built in another host environment; run 'just toolchain-build'" ;;
+	toolchain) die "the toolchain's C library is not the one its record names; run 'just toolchain-build'" ;;
+	rust) die "Rust's standard library is not the one the toolchain's record names; run 'just toolchain-build'" ;;
+	*) ;;
+esac
+# What the board's build must leave as it found it.
 libc=$(toolchain_libc "${toolchain_dir}")
-recorded=$(jq -r .libc "${record}")
-[ "${libc}" = "${recorded}" ] ||
-	die "the toolchain's C library is not the one its record names; run 'just toolchain-build'"
-environment=$(toolchain_environment)
-recorded=$(jq -r '.environment // ""' "${record}")
-[ "${recorded}" = "${environment}" ] ||
-	die "the toolchain was built in another host environment; run 'just toolchain-build'"
 rust_std=$(toolchain_rust_std "${tree}")
-recorded=$(jq -r '.rust_std // ""' "${record}")
-[ "${rust_std}" = "${recorded}" ] ||
-	die "Rust's standard library is not the one the toolchain's record names; run 'just toolchain-build'"
 
-jobs=${ORBYT_JOBS:-$(nproc)}
+jobs=$(build_jobs)
 # Build times depend on the CPU, which differs between CI runners. lscpu names some
 # cores (Apple's) only by their vendor.
 cpu=$(lscpu | awk -F ': *' '
@@ -205,8 +203,8 @@ lock=$(lock_sha256)
 commit=$(source_commit "${REPO_DIR}")
 patches_sha256=$(cat "${REPO_DIR}"/patches/*/*.patch | sha256sum)
 openwrt_head=$(git -C "${tree}" rev-parse HEAD)
-kernel_version=$(cat "${staging_dir}/kernel.version" 2>/dev/null || true)
-vermagic=$(cat "${kernel}/.vermagic")
+kernel_version=$(manifest_fact "${staging_dir}/kernel.version" "kernel version")
+vermagic=$(manifest_fact "${kernel}/.vermagic" vermagic)
 cflags=$(make -C "${tree}" -s val.TARGET_CFLAGS)
 # The flags the kernel build adds (KCFLAGS of include/kernel.mk), as the target's
 # makefile evaluates them, without the maps of the build's paths.
@@ -214,16 +212,7 @@ target=$(make -C "${tree}" -s val.BOARD)
 kernel_cflags=$(make -C "${tree}/target/linux/${target}" -s TOPDIR="${tree}" val.KERNEL_MAKE_FLAGS |
 	sed -n 's/^KCFLAGS="\([^"]*\)".*/\1/p' | tr ' ' '\n' | grep -v -e '-prefix-map=' -e '^$' | paste -sd ' ' -)
 [ -n "${kernel_cflags}" ] || die "found no kernel flags in target/linux/${target}'s KERNEL_MAKE_FLAGS"
-# sha256sum escapes a name with a backslash or a line break, and starts its
-# line with a backslash, which the capture below would misread: no such name is
-# listed, signed or published. Names that are no plain paths fail the check
-# after it.
-hashes=$(cd "${out}" && find . -type f -exec sha256sum -- {} + | sed 's|  \./|  |' | LC_ALL=C sort -k 2)
-case "${hashes}" in
-	*\\*) die "an output's name holds a backslash or a line break: ${hashes}" ;;
-	*) ;;
-esac
-printf '%s\n' "${hashes}" | jq -R -n \
+jq -n \
 	--arg board "${board}" \
 	--arg device "${device}" \
 	--arg run "${run}" \
@@ -252,8 +241,6 @@ printf '%s\n' "${hashes}" | jq -R -n \
 		commit: $commit,
 		openwrt_head: $head,
 		kernel_version: $kernel,
-		vermagic: $vermagic,
-		files: [inputs | capture("^(?<sha>[0-9a-f]+)  (?<path>.+)$") | {(.path): .sha}] | add
-	}' >"${out}/manifest.json"
-manifest_files_check "${out}/manifest.json"
+		vermagic: $vermagic
+	}' | manifest_write "${out}"
 info "outputs in ${out}"

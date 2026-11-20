@@ -19,7 +19,7 @@ tree=$(workdir_tree)
 ensure_fhs build "$@"
 
 [ -n "${board}" ] || die "usage: config <board> [profile]"
-board_field "${board}" .device >/dev/null
+require_board "${board}"
 [ -f "${tree}/feeds.conf" ] || die "no source tree; run 'just fetch' and 'just patch' first"
 
 link_tree "${tree}"

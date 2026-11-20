@@ -23,8 +23,7 @@ if [ "${1:-}" = --lock ]; then
 fi
 [ -f "${LOCK_FILE}" ] || die "no lock file ${LOCK_FILE}"
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-bump.XXXXXX")
-trap 'rm -rf "${work}"' EXIT INT TERM
+scratch_dir orbyt-bump
 names=$(lock_names)
 moved=
 
@@ -36,16 +35,16 @@ for name in ${names}; do
 	[ -n "${head}" ] || die "cannot read the head of ${url}"
 	[ "${head}" != "${old}" ] || continue
 	# The commits since the pinned one: a shallow fetch back to its time.
-	git init -q --bare "${work}/${name}"
-	git -C "${work}/${name}" fetch -q --shallow-since="$((epoch - 1))" "${url}" "${head}" ||
+	git init -q --bare "${scratch}/${name}"
+	git -C "${scratch}/${name}" fetch -q --shallow-since="$((epoch - 1))" "${url}" "${head}" ||
 		die "cannot fetch ${url}"
-	new_epoch=$(git -C "${work}/${name}" log -1 --format=%ct "${head}")
+	new_epoch=$(git -C "${scratch}/${name}" log -1 --format=%ct "${head}")
 	awk -v name="${name}" -v sha="${head}" -v epoch="${new_epoch}" '
 		$1 == name && !/^[[:space:]]*#/ { sub($3, sha); sub($4 "$", epoch) }
 		{ print }
-	' "${LOCK_FILE}" >"${work}/lock"
-	cat "${work}/lock" >"${LOCK_FILE}"
-	count=$(git -C "${work}/${name}" rev-list --count "${old}..${head}" 2>/dev/null) || count=unknown
+	' "${LOCK_FILE}" >"${scratch}/lock"
+	cat "${scratch}/lock" >"${LOCK_FILE}"
+	count=$(git -C "${scratch}/${name}" rev-list --count "${old}..${head}" 2>/dev/null) || count=unknown
 	heading="${name}: ${count} commits"
 	case ${count} in
 		unknown) ;;
@@ -57,11 +56,11 @@ for name in ${names}; do
 	esac
 	{
 		printf '\n### %s\n\n```\n' "${heading}"
-		git -C "${work}/${name}" log --oneline --no-decorate "${old}..${head}" 2>/dev/null |
+		git -C "${scratch}/${name}" log --oneline --no-decorate "${old}..${head}" 2>/dev/null |
 			head -n "${SUMMARY}" || true
 		printf '```\n'
-	} >"${work}/${name}.log"
-	echo "| ${name} | \`${old}\` | \`${head}\` |" >>"${work}/table"
+	} >"${scratch}/${name}.log"
+	echo "| ${name} | \`${old}\` | \`${head}\` |" >>"${scratch}/table"
 	moved="${moved} ${name}"
 done
 
@@ -75,9 +74,9 @@ today=$(date -u +%Y-%m-%d)
 	printf 'The weekly bump of upstream.lock. It merges once its candidate passed\n'
 	printf 'the upgrade drill (docs/release-flow.md).\n\n'
 	printf '| repository | from | to |\n|---|---|---|\n'
-	cat "${work}/table"
+	cat "${scratch}/table"
 	for name in ${moved}; do
-		cat "${work}/${name}.log"
+		cat "${scratch}/${name}.log"
 	done
 } >"${description}"
 info "upstream moved:${moved}"

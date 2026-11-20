@@ -52,15 +52,18 @@ router() {
 	ssh "$@"
 }
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-push.XXXXXX")
-# The router's copy once uploaded, then the local one, however the push ends.
+# leave_router: remove the router's copy, once uploaded; the local one goes as
+# well, however the push ends.
+leave_router() {
+	# shellcheck disable=SC2310 # router's status is ssh's alone
+	[ "${uploaded}" = 0 ] || router "rm -rf /tmp/orbyt-push" || true
+}
 uploaded=0
-trap '[ "${uploaded}" = 0 ] || router "rm -rf /tmp/orbyt-push" || true; rm -rf "${work}"' EXIT
-trap 'exit 1' INT TERM
-new="${work}/new"
+scratch_dir orbyt-push leave_router
+new="${scratch}/new"
 mkdir -p "${new}"
 
-sops decrypt --output-type json "${config}/secrets/secrets.enc.yaml" >"${work}/secrets.json" ||
+sops decrypt --output-type json "${config}/secrets/secrets.enc.yaml" >"${scratch}/secrets.json" ||
 	die "cannot decrypt the secrets (is the age key in \$SOPS_AGE_KEY_FILE?)"
 
 # honk replaced dae, and its files moved with it (honk-datapath D5): a
@@ -99,9 +102,9 @@ if [ -d "${new}/honk" ]; then
 				value = tolower(value)
 			print key "=" value
 		}
-	' "${new}"/honk/*.dae >"${work}/native-api"
+	' "${new}"/honk/*.dae >"${scratch}/native-api"
 	# The booleans some file sets in a spelling other than false's, by name.
-	on=$(grep -E '^(enabled|password_auth|allow_anonymous_loopback|config_write)=' "${work}/native-api" |
+	on=$(grep -E '^(enabled|password_auth|allow_anonymous_loopback|config_write)=' "${scratch}/native-api" |
 		grep -Evx '[a-z_]+=(false|no|0|off)' | cut -d= -f1 | sort -u | tr '\n' ' ')
 	for key in password_auth allow_anonymous_loopback; do
 		case " ${on}" in
@@ -113,10 +116,10 @@ if [ -d "${new}/honk" ]; then
 		*" config_write "*) die "honk's native API: configuration writes stay off, as the configuration's canonical copy is this repository (honk-datapath D8)" ;;
 		*) ;;
 	esac
-	! grep -Eq '^secret=[[:space:]]*$' "${work}/native-api" ||
+	! grep -Eq '^secret=[[:space:]]*$' "${scratch}/native-api" ||
 		die "honk's native API: its secret is blank; set a token or remove the setting"
 	case " ${on}" in
-		*" enabled "*) grep -q '^secret=' "${work}/native-api" || die "honk's native API needs a token: set its secret" ;;
+		*" enabled "*) grep -q '^secret=' "${scratch}/native-api" || die "honk's native API needs a token: set its secret" ;;
 		*) ;;
 	esac
 fi
@@ -128,7 +131,7 @@ for template in "${config}"/uci/*.uci.tmpl; do
 	name=${template##*/}
 	name=${name%.uci.tmpl}
 	mkdir -p "${new}/${name}"
-	jq -r -n --rawfile template "${template}" --slurpfile secrets "${work}/secrets.json" \
+	jq -r -n --rawfile template "${template}" --slurpfile secrets "${scratch}/secrets.json" \
 		--arg quote "'" --arg quoted "'\\''" '
 		$template | split("\n") | map(select(test("^\\s*(#|$)") | not)) | join("\n")
 		| gsub("@(?<path>[a-z0-9_.]+)@";
@@ -140,15 +143,15 @@ done
 
 # The auth key in a file of its own, which tailscale reads (--auth-key=file:):
 # never on a command line.
-auth_key=$(jq -r '.tailscale.auth_key // ""' "${work}/secrets.json")
+auth_key=$(jq -r '.tailscale.auth_key // ""' "${scratch}/secrets.json")
 if [ -n "${auth_key}" ]; then
 	mkdir -p "${new}/tailscale"
 	printf '%s\n' "${auth_key}" >"${new}/tailscale/auth_key"
 	jq -r '(if (.tailscale.login_server // "") != "" then "--login-server=\(.tailscale.login_server) " else "" end)
-		+ "--advertise-routes=10.0.0.0/24 --accept-dns=false"' "${work}/secrets.json" \
+		+ "--advertise-routes=10.0.0.0/24 --accept-dns=false"' "${scratch}/secrets.json" \
 		>"${new}/tailscale/options"
 fi
-users=$(jq -r '.smb.users // [] | .[] | "\(.name) \(.password)"' "${work}/secrets.json")
+users=$(jq -r '.smb.users // [] | .[] | "\(.name) \(.password)"' "${scratch}/secrets.json")
 if [ -n "${users}" ]; then
 	mkdir -p "${new}/smb"
 	printf '%s\n' "${users}" >"${new}/smb/users"
@@ -179,13 +182,13 @@ router ucode - validate <"${device}" ||
 	die "the configuration does not validate; ${host} is unchanged"
 info "the configuration validates"
 
-router ucode - hashes <"${device}" >"${work}/pushed"
+router ucode - hashes <"${device}" >"${scratch}/pushed"
 status=0
 for service in "${new}"/*/; do
 	service=${service%/}
 	name=${service##*/}
 	sum=$(cat "${service}.sha256")
-	if grep -qx "${name} ${sum}" "${work}/pushed"; then
+	if grep -qx "${name} ${sum}" "${scratch}/pushed"; then
 		info "${name}: unchanged"
 		continue
 	fi

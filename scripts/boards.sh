@@ -11,7 +11,7 @@ set -eu
 use boards
 
 for board in "$@"; do
-	board_field "${board}" .device >/dev/null
+	require_board "${board}"
 done
 ids=$(board_ids)
 [ "$#" -eq 0 ] || ids=$(printf '%s\n' "$@")

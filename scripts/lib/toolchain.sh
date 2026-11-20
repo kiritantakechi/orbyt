@@ -1,5 +1,6 @@
 # toolchain: what a toolchain was built with: the host environment, its C library
-# and Rust's standard libraries, and the stages of a build that built any of it.
+# and Rust's standard libraries, whether its record still names them, and the
+# stages of a build that built any of it.
 # Usage: use toolchain   (POSIX sh; sourced)
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
@@ -34,6 +35,39 @@ toolchain_rust_std() (
 	[ -n "${rlibs}" ] || return 0
 	sum=$(printf '%s\n' "${rlibs}" | xargs sha256sum | sha256sum)
 	echo "${sum%% *}"
+)
+
+# toolchain_record_differs <tree> <toolchain dir> [cflags]: the first part of the
+# toolchain that its record (orbyt-toolchain.json) no longer names, as one word:
+# record (there is none), environment (the host side is another environment's),
+# toolchain (another C library, or flags other than <cflags> when given) or rust
+# (another standard library of Rust); nothing while the record names the
+# toolchain as it is. build.sh refuses a toolchain this names a part of, and
+# toolchain-build.sh builds that part anew (tooling-hygiene D5).
+toolchain_record_differs() (
+	tree=$1 toolchain=$2 cflags=${3:-}
+	record="${toolchain}/orbyt-toolchain.json"
+	if [ ! -f "${record}" ]; then
+		echo record
+		exit 0
+	fi
+	environment=$(toolchain_environment)
+	recorded=$(jq -r '.environment // ""' "${record}")
+	if [ "${recorded}" != "${environment}" ]; then
+		echo environment
+		exit 0
+	fi
+	libc=$(toolchain_libc "${toolchain}")
+	recorded=$(jq -r '.libc // ""' "${record}")
+	recorded_cflags=$(jq -r '.cflags // ""' "${record}")
+	if [ -z "${libc}" ] || [ "${recorded}" != "${libc}" ] ||
+		{ [ -n "${cflags}" ] && [ "${recorded_cflags}" != "${cflags}" ]; }; then
+		echo toolchain
+		exit 0
+	fi
+	rust_std=$(toolchain_rust_std "${tree}")
+	recorded=$(jq -r '.rust_std // ""' "${record}")
+	[ "${recorded}" = "${rust_std}" ] || echo rust
 )
 
 # toolchain_stages <time log>: the stages of a build's time log that built part of

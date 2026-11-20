@@ -23,29 +23,28 @@ for tool in fsck.erofs apk; do
 	[ -x "${host_bin}/${tool}" ] || die "${host_bin}/${tool} missing; build the tree first"
 done
 
-work=$(mktemp -d "${TMPDIR:-/tmp}/orbyt-audit.XXXXXX")
-trap 'rm -rf "${work}"' EXIT INT TERM
+scratch_dir orbyt-audit
 
 case "${image}" in
 	*.gz)
 		# Images with fwtool metadata after the gzip stream make gzip report
 		# "trailing garbage ignored" with exit status 2, which is expected.
 		rc=0
-		gzip -dc "${image}" >"${work}/disk.img" 2>/dev/null || rc=$?
+		gzip -dc "${image}" >"${scratch}/disk.img" 2>/dev/null || rc=$?
 		[ "${rc}" -eq 0 ] || [ "${rc}" -eq 2 ] || die "cannot decompress ${image}"
 		;;
-	*) cp "${image}" "${work}/disk.img" ;;
+	*) cp "${image}" "${scratch}/disk.img" ;;
 esac
 
 # Slot A's root filesystem is MBR partition 2: an EROFS image followed by the
 # overlay area.
-table=$(sfdisk -d "${work}/disk.img")
+table=$(sfdisk -d "${scratch}/disk.img")
 root_start=$(printf '%s\n' "${table}" | awk -F'[=,]' '/img2 /{ gsub(/ /, "", $2); print $2 }')
 [ -n "${root_start}" ] || die "no second partition in ${image}"
-dd if="${work}/disk.img" of="${work}/root.erofs" bs=512 skip="${root_start}" status=none
-"${host_bin}/fsck.erofs" --extract="${work}/root" "${work}/root.erofs" >/dev/null ||
+dd if="${scratch}/disk.img" of="${scratch}/root.erofs" bs=512 skip="${root_start}" status=none
+"${host_bin}/fsck.erofs" --extract="${scratch}/root" "${scratch}/root.erofs" >/dev/null ||
 	die "partition 2 is not a readable EROFS image"
-root="${work}/root"
+root="${scratch}/root"
 
 failed=0
 pass() { printf 'ok    %s\n' "$*"; }

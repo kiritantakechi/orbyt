@@ -4,8 +4,8 @@
 # Usage: . "$(dirname -- "$0")/lib/core.sh", then use <module>...   (POSIX sh; sourced)
 # POSIX sh has no local variables. So the functions that compute, print or write
 # run in a subshell, ( ... ), and their variables never reach the caller's; only
-# use, ensure_fhs, use_tests_venv and quality_prelude change the caller, as their
-# names say.
+# use, ensure_fhs, scratch_dir, use_tests_venv and quality_prelude change the
+# caller, as their names say.
 # shellcheck shell=sh
 
 REPO_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
@@ -76,6 +76,39 @@ workdir_tree() (
 		*) ;;
 	esac
 	printf '%s\n' "${ORBYT_WORKDIR}/openwrt"
+)
+
+# scratch_dir <name> [command]: make a directory for this shell's temporary
+# files, <name>.XXXXXX, and set scratch to it; when the shell exits, however it
+# ends, <command> runs, if given, and the directory is removed. It is made on the
+# work volume when ORBYT_WORKDIR is set, as the VM's /tmp is memory, else in
+# $TMPDIR. One for each shell: the exit trap is the shell's own, and a subshell,
+# a function in ( ... ) as well, starts without its parent's.
+scratch_dir() {
+	if [ -n "${ORBYT_WORKDIR:-}" ]; then
+		[ -d "${ORBYT_WORKDIR}" ] || die "ORBYT_WORKDIR does not exist: ${ORBYT_WORKDIR}"
+		scratch_root="${ORBYT_WORKDIR}/tmp"
+		mkdir -p "${scratch_root}"
+	else
+		scratch_root=${TMPDIR:-/tmp}
+	fi
+	# shellcheck disable=SC2034 # the caller's
+	scratch=$(mktemp -d "${scratch_root%/}/$1.XXXXXX") ||
+		die "cannot make a scratch directory in ${scratch_root}"
+	# shellcheck disable=SC2064 # the directory as it is now
+	trap "${2:+$2; }rm -rf '${scratch}'" EXIT
+	trap 'exit 130' INT
+	trap 'exit 143' TERM
+}
+
+# build_jobs: how many jobs a build runs at once: ORBYT_JOBS, else one for each
+# CPU.
+build_jobs() (
+	if [ -n "${ORBYT_JOBS:-}" ]; then
+		printf '%s\n' "${ORBYT_JOBS}"
+	else
+		nproc
+	fi
 )
 
 # ensure_fhs <build|test> [args]: re-execute the calling script inside the Nix FHS

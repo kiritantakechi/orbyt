@@ -22,7 +22,7 @@ require_linux
 workdir_tree >/dev/null
 ensure_fhs test "$@"
 [ -n "${board}" ] || die "usage: test <board> [profile] [pytest args]"
-board_field "${board}" .device >/dev/null
+require_board "${board}"
 shift
 [ "$#" -eq 0 ] || shift
 

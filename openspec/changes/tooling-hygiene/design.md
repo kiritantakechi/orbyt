@@ -49,11 +49,11 @@ The host stage builds the flake's emulator package (the patched QEMU) and saves 
 
 ### D5. Helpers
 
-`core.sh`: `scratch_dir` (made under `ORBYT_WORKDIR`'s `tmp/` when set, else `$TMPDIR`; removed on exit), `build_jobs`; `boards.sh`: `require_board`. `lib/manifest.sh`: `manifest_write`, the writer beside the readers. `lib/toolchain.sh`: `toolchain_record_state`, returning which part of the record differs, used by `build.sh` to refuse and by `toolchain-build.sh` to rebuild.
+`core.sh`: `scratch_dir <name> [command]` sets `scratch` to a directory made under `ORBYT_WORKDIR`'s `tmp/` when set, else `$TMPDIR`, and removes it when the shell exits, after `command` (config-push's removal of the router's copy); an interrupt or a termination exits, where the scripts' `trap … EXIT INT TERM` ran the cleanup and went on without the directory. One for each shell: a subshell's trap is its own, so `series_commit` has its own beside its caller's. `build_jobs`; `boards.sh`: `require_board`. `lib/manifest.sh`: `manifest_write <dir> [list]`, the writer beside the readers: the object on the standard input with the hashes of the files listed, or of every file in the directory, for `build.sh`, `drill-base.sh` and `release-sign.sh`. `lib/toolchain.sh`: `toolchain_record_differs`, naming the part of the toolchain its record no longer names (record, environment, toolchain, rust), used by `build.sh` to refuse and by `toolchain-build.sh` to rebuild that part.
 
 ### D6. Errors that matter
 
-`build.sh` fails when the kernel version is absent or empty, as it does for the vermagic. `ccache_run` and `sccache_run` return 0 only when the configuration does not select their cache, and fail when it does and the binary is missing.
+`build.sh` fails when the kernel version is absent or empty, as it does for the vermagic. `ccache_run` and `sccache_run` return 0 only when the configuration does not select their cache, and fail when it does and the binary is missing. ccache is one of the tree's tools, so a tree's first build starts without it: the start zeroes its statistics only once the tree has built it, and checks sccache, a tool of the environment, at once.
 
 ### D7. Names and documents
 

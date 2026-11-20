@@ -26,8 +26,8 @@ fi
 
 branch="bump/$(date -u +%Y-%m-%d)"
 title=$(head -n 1 "${description}")
-body=$(mktemp)
-trap 'rm -f "${body}"' EXIT INT TERM
+scratch_dir orbyt-bump-open
+body="${scratch}/body"
 tail -n +3 "${description}" >"${body}"
 
 if git ls-remote --exit-code --heads origin "${branch}" >/dev/null; then

@@ -27,6 +27,11 @@ board_field() (
 	jq -er "$2" "${description}" || die "boards/$1.json has no $2"
 )
 
+# require_board <board>: fail unless boards/ describes the board.
+require_board() (
+	board_field "$1" .device >/dev/null
+)
+
 # write_board_table <tree>: each board's U-Boot variant, id and environment
 # directory, and its device, for the A/B hooks of uboot-rockchip and of the image
 # recipe (env/orbyt-boards.mk, board-model D3 and D4).

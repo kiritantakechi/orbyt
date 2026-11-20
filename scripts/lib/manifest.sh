@@ -1,4 +1,5 @@
-# manifest: the files a build's manifest lists, as build.sh writes them and the release scripts read them.
+# manifest: the files a build's manifest lists, written by build.sh, drill-base.sh
+# and release-sign.sh and read by the release scripts.
 # Usage: use manifest   (POSIX sh; sourced)
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
@@ -11,6 +12,41 @@ source_commit() (
 	commit=$(git -C "$1" rev-parse HEAD)
 	changes=$(git -C "$1" status --porcelain)
 	echo "${commit}${changes:+-dirty}"
+)
+
+# manifest_write <dir> [<list>]: write <dir>/manifest.json, the object on the
+# standard input with files the sha256 of each file <list> names, one path in
+# <dir> on each line, or of every file in <dir> but the manifest itself, and
+# check it (manifest_files_check). sha256sum escapes a name with a backslash or
+# a line break, and starts its line with a backslash, which the capture below
+# would misread: no such name is listed. Names that are no plain paths fail the
+# check.
+manifest_write() (
+	dir=$1 list=${2:-}
+	fields=$(cat)
+	if [ -n "${list}" ]; then
+		[ -s "${list}" ] || die "manifest_write: ${list} names no file"
+		hashes=$(cd "${dir}" && xargs sha256sum -- <"${list}")
+	else
+		hashes=$(cd "${dir}" && find . -type f ! -path ./manifest.json -exec sha256sum -- {} + |
+			sed 's|  \./|  |')
+	fi
+	case "${hashes}" in
+		*\\*) die "a file's name holds a backslash or a line break: ${hashes}" ;;
+		*) ;;
+	esac
+	printf '%s\n' "${hashes}" | LC_ALL=C sort -k 2 | jq -R -n --argjson fields "${fields}" '
+		$fields + {files: [inputs | capture("^(?<sha>[0-9a-f]+)  (?<path>.+)$") | {(.path): .sha}] | add}
+	' >"${dir}/manifest.json"
+	manifest_files_check "${dir}/manifest.json"
+)
+
+# manifest_fact <file> <what>: a fact of the build for its manifest, the contents
+# of <file>, which the build leaves; a failure naming <what> when the file is
+# missing or empty.
+manifest_fact() (
+	[ -s "$1" ] || die "the build left no $2 in $1"
+	cat "$1"
 )
 
 # manifest_files_check <manifest.json>: fail unless the manifest lists files, each

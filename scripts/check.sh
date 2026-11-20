@@ -56,12 +56,9 @@ forbidden_patterns() {
 # (exactly repo_files, so ignored build and tool directories are never scanned).
 secrets() {
 	gitleaks git --no-banner --redact --log-level warn || return 1
-	snapshot=$(mktemp -d)
-	printf '%s\n' "${files}" | tar -cf - -T - | tar -xf - -C "${snapshot}"
-	gitleaks dir --no-banner --redact --log-level warn "${snapshot}"
-	status=$?
-	rm -rf "${snapshot}"
-	return "${status}"
+	scratch_dir orbyt-secrets
+	printf '%s\n' "${files}" | tar -cf - -T - | tar -xf - -C "${scratch}"
+	gitleaks dir --no-banner --redact --log-level warn "${scratch}"
 }
 
 nl='
