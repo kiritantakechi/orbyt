@@ -15,7 +15,10 @@
 # the record names: one without a record predates the board model, one with
 # another library was rebuilt by a board's build with that board's flags, and
 # one of other flags would build packages that keep objects of the old ones, so
-# each is built anew.
+# each is built anew. The record names the host environment too, as CI's key
+# does (toolchain-key.sh): the host tools, the toolchains and the host packages
+# link that environment's libraries, so a new one builds them all anew
+# (nixpkgs-2605 D4).
 # The tree is left configured without a board; config configures it for one.
 # make world skips toolchain/compile only while the toolchain's compile stamp is up
 # to date, and toolchain/install does not write it. The packed archive has no
@@ -45,6 +48,13 @@ configure_tree "${tree}" "${wanted}"
 toolchain_dir=$(make -C "${tree}" -s val.TOOLCHAIN_DIR)
 record="${toolchain_dir}/orbyt-toolchain.json"
 cflags=$(make -C "${tree}" -s val.TARGET_CFLAGS)
+environment=$(toolchain_environment)
+recorded=$(jq -r '.environment // ""' "${record}" 2>/dev/null) || recorded=
+if [ -d "${toolchain_dir}" ] && [ "${recorded}" != "${environment}" ]; then
+	info "the host side was built in another environment: building it anew"
+	rm -rf "${toolchain_dir:?}" "${tree:?}"/build_dir/toolchain-* "${tree:?}/build_dir/host" \
+		"${tree:?}/staging_dir/host" "${tree:?}/build_dir/hostpkg" "${tree:?}/staging_dir/hostpkg"
+fi
 # Rust's standard library has C parts compiled with the target's flags, so it
 # goes with the C toolchain whenever that is built anew.
 if [ -d "${toolchain_dir}" ]; then
@@ -65,8 +75,10 @@ fi
 # write_record <rust_std>: what this configuration built, or found built as
 # recorded; Rust's library only once there is one.
 write_record() {
-	jq -n --arg cflags "${cflags}" --arg libc "${libc}" --arg rust_std "$1" \
-		'{cflags: $cflags, libc: $libc} + if $rust_std == "" then {} else {rust_std: $rust_std} end' \
+	jq -n --arg cflags "${cflags}" --arg libc "${libc}" --arg environment "${environment}" \
+		--arg rust_std "$1" \
+		'{cflags: $cflags, libc: $libc, environment: $environment}
+			+ if $rust_std == "" then {} else {rust_std: $rust_std} end' \
 		>"${record}"
 }
 

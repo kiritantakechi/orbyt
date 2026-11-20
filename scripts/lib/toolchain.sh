@@ -1,8 +1,16 @@
-# toolchain: what a toolchain was built with: its C library and Rust's standard
-# libraries, and the stages of a build that built any of it.
+# toolchain: what a toolchain was built with: the host environment, its C library
+# and Rust's standard libraries, and the stages of a build that built any of it.
 # Usage: use toolchain   (POSIX sh; sourced)
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
+
+# toolchain_environment: the host environment the host side is built in, by its
+# fingerprint (flake.nix: buildInputsId), which CI's key and the toolchain's
+# record name (nixpkgs-2605 D4).
+toolchain_environment() (
+	[ -n "${ORBYT_BUILD_INPUTS:-}" ] || die "ORBYT_BUILD_INPUTS is not set; the build environment is too old"
+	echo "${ORBYT_BUILD_INPUTS##*/}"
+)
 
 # toolchain_libc <toolchain dir>: the hash of the toolchain's C library, or
 # nothing when it has none (board-model D2: the record in orbyt-toolchain.json

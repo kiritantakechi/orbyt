@@ -14,13 +14,19 @@
 
   Verify: the shell's `fsck.erofs` is 1.9.4; `unit/test_oci.py` passes, which failed with 26.05's 1.9.1.
 
-## 2. Verification (design D2)
+## 2. The local host side (design D4)
 
-- [ ] 2.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
+- [ ] 2.0 Record the host environment in the toolchain's record; build the host side anew when it changes, and refuse a toolchain of another environment in `build`.
+
+  Verify: the toolchain tests of `build/test_boards.py`, the new environment's among them, pass; the R4S's local build on 26.05 rebuilds the tools and the toolchains and builds its image.
+
+## 3. Verification (design D2)
+
+- [ ] 3.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
   Verify: the host stage builds anew; every job passes; the run is recorded in `docs/ci.md` for this change.
 
-- [ ] 2.2 After orbyt-brand's and orbyt-theme's local tests, build the toolchain and the R4S on the VM from this branch.
+- [ ] 3.2 After orbyt-brand's and orbyt-theme's local tests, build the toolchain and the R4S on the VM from this branch.
 
   Verify: the toolchain builds anew with the new environment, and the R4S's image builds.
 

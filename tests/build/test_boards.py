@@ -277,12 +277,22 @@ def _rust_std_hash() -> str:
     return hashlib.sha256(listing.encode()).hexdigest()
 
 
+# The fingerprint of a host environment other than the tests' own.
+OTHER_ENVIRONMENT = "0000000000000000000000000000000a-orbyt-build-inputs"
+
+
+def _environment() -> str:
+    """Return the host environment the tests run in, as the record names it."""
+    return os.environ["ORBYT_BUILD_INPUTS"].rsplit("/", 1)[-1]
+
+
 def _neutral_record() -> ToolchainRecord:
     """Return the record of a board-neutral toolchain, with the stand-in libraries."""
     return ToolchainRecord.model_validate(
         {
             "cflags": NEUTRAL_CFLAGS,
             "libc": hashlib.sha256(LIBC).hexdigest(),
+            "environment": _environment(),
             "rust_std": _rust_std_hash(),
         }
     )
@@ -310,6 +320,11 @@ def _board_toolchains() -> list[tuple[str, ToolchainRecord | None, str | None]]:
             "other-rust-std",
             neutral.model_copy(update={"rust_std": "0" * 64}),
             "Rust's standard library is not the one the toolchain's record names",
+        ),
+        (
+            "other-environment",
+            neutral.model_copy(update={"environment": OTHER_ENVIRONMENT}),
+            "built in another host environment",
         ),
     ]
 
@@ -410,18 +425,25 @@ def _target_built(tree: Path, board: str) -> bool:
     )
 
 
-def _tree_to_build_toolchain(
-    workdir: Path,
-    libc: bytes | None,
-    record: bytes | None,
-    *,
-    cflags: str = NEUTRAL_CFLAGS,
-    rust_std: bytes = RUST_STD_CONTENT,
-) -> Path:
-    """Write a stand-in tree whose toolchain holds ``libc``, recorded as ``record``'s.
+@dataclass(frozen=True)
+class Found:
+    """A toolchain toolchain-build finds, recorded with LIBC, and what it should build."""
 
-    The record names ``cflags`` and the stand-in Rust library, which the tree
-    holds as ``rust_std``. The tree's Makefile answers toolchain-build.sh's val.*
+    libc: bytes | None = LIBC
+    cflags: str = NEUTRAL_CFLAGS
+    rust_std: bytes = RUST_STD_CONTENT
+    environment: str | None = None
+    rebuilt: bool = False
+    rust_rebuilt: bool = False
+
+
+def _tree_to_build_toolchain(workdir: Path, found: Found, *, recorded: bool = True) -> Path:
+    """Write a stand-in tree whose toolchain is ``found``'s.
+
+    The toolchain holds ``found.libc``, and when ``recorded`` a record of
+    LIBC's, which names ``found.cflags``, ``found.environment`` (the
+    tests' own unless given) and the stand-in Rust library, which the
+    tree holds as ``found.rust_std``. The tree's Makefile answers toolchain-build.sh's val.*
     queries, builds a toolchain with LIBC for its C library only where there is
     none, and installs the Rust library only where there is none, as make does;
     it marks the tree when it builds either. RUST_FAILS (from the environment)
@@ -436,18 +458,23 @@ def _tree_to_build_toolchain(
     neutral.write_bytes(LIBC)
     neutral_std = workdir / "neutral-libstd.rlib"
     neutral_std.write_bytes(RUST_STD_CONTENT)
-    if libc is not None:
+    if found.libc is not None:
         (toolchain / "lib").mkdir(parents=True)
-        (toolchain / "lib" / "libc.so").write_bytes(libc)
+        (toolchain / "lib" / "libc.so").write_bytes(found.libc)
     (rustlib / RUST_STD).parent.mkdir(parents=True)
-    (rustlib / RUST_STD).write_bytes(rust_std)
-    if record is not None:
+    (rustlib / RUST_STD).write_bytes(found.rust_std)
+    if recorded:
         toolchain.mkdir(parents=True, exist_ok=True)
-        digest = hashlib.sha256(record).hexdigest()
+        digest = hashlib.sha256(LIBC).hexdigest()
         write_json(
             toolchain / TOOLCHAIN_FILE,
             ToolchainRecord.model_validate(
-                {"cflags": cflags, "libc": digest, "rust_std": _rust_std_hash()}
+                {
+                    "cflags": found.cflags,
+                    "libc": digest,
+                    "environment": found.environment or _environment(),
+                    "rust_std": _rust_std_hash(),
+                }
             ),
         )
     (tree / "Makefile").write_text(
@@ -479,17 +506,6 @@ def _toolchain_build(tree: Path, **env: str) -> subprocess.CompletedProcess[str]
     )
 
 
-@dataclass(frozen=True)
-class Found:
-    """A toolchain toolchain-build finds, recorded with LIBC, and what it should build."""
-
-    libc: bytes | None = LIBC
-    cflags: str = NEUTRAL_CFLAGS
-    rust_std: bytes = RUST_STD_CONTENT
-    rebuilt: bool = False
-    rust_rebuilt: bool = False
-
-
 @spec(CAPABILITY, "One toolchain for every board", "Rebuild a changed toolchain")
 @pytest.mark.parametrize(
     "found",
@@ -508,16 +524,23 @@ class Found:
             Found(rust_std=b"a Rust library built with a board's -mcpu", rust_rebuilt=True),
             id="other Rust library",
         ),
+        pytest.param(
+            Found(environment=OTHER_ENVIRONMENT, rebuilt=True, rust_rebuilt=True),
+            id="other environment",
+        ),
     ],
 )
 def test_a_changed_toolchain_is_built_anew(found: Found, tmp_path: Path) -> None:
-    tree = _tree_to_build_toolchain(
-        tmp_path, found.libc, LIBC, cflags=found.cflags, rust_std=found.rust_std
-    )
+    tree = _tree_to_build_toolchain(tmp_path, found)
+    # A host tool, which only a build in another environment removes.
+    tool = tree / "staging_dir" / "host" / "bin" / "bison"
+    tool.parent.mkdir(parents=True)
+    tool.touch()
     result = _toolchain_build(tree)
     assert result.returncode == 0, result.stderr
     assert (tree / "built").exists() == found.rebuilt, result.stderr
     assert (tree / "rust-built").exists() == found.rust_rebuilt, result.stderr
+    assert tool.exists() == (found.environment is None), result.stderr
     toolchain = tree / "staging_dir" / "toolchain"
     assert (toolchain / "lib" / "libc.so").read_bytes() == LIBC
     assert read_json(toolchain / TOOLCHAIN_FILE, ToolchainRecord) == _neutral_record()
@@ -525,7 +548,7 @@ def test_a_changed_toolchain_is_built_anew(found: Found, tmp_path: Path) -> None
 
 @spec(CAPABILITY, "One toolchain for every board", "Keep the cross toolchain when Go or Rust fails")
 def test_a_failed_rust_build_keeps_the_cross_toolchain(tmp_path: Path) -> None:
-    tree = _tree_to_build_toolchain(tmp_path, None, None)
+    tree = _tree_to_build_toolchain(tmp_path, Found(libc=None), recorded=False)
     record = tree / "staging_dir" / "toolchain" / TOOLCHAIN_FILE
     cross = _neutral_record().model_copy(update={"rust_std": None})
     failed = _toolchain_build(tree, RUST_FAILS="1")
