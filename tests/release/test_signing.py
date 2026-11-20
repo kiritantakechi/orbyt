@@ -9,7 +9,6 @@ session's release keys; the router trusts those keys (conftest), as a
 release image trusts the production ones.
 """
 
-import os
 import re
 import shutil
 import subprocess
@@ -46,14 +45,10 @@ ON_ROUTER = scratch("packages.adb")
 SIGN_ACTIONS = {"actions/checkout", "./.github/actions/nix"} | {
     f"actions/{verb}-artifact" for verb in ("download", "upload")
 }
-# A board of boards/, whose build the sign job tests sign.
+# A board of boards/.
 BOARD = load_all()[0].id
 # What signing adds to a build's files.
 SIGNING = {MANIFEST_FILE, f"{MANIFEST_FILE}.sig", "SHA256SUMS"}
-# A stand-in for nix that records its arguments, one call per line.
-NIX = """#!/bin/sh
-printf '%s\\n' "$*" >>"$NIX_CALLS"
-"""
 
 
 def _jobs() -> dict[str, tuple[str, dict[str, Any]]]:
@@ -106,66 +101,29 @@ def test_a_changed_artifact_is_not_signed(
     assert not (tmp_path / "signed").exists()
 
 
-def _sign_job(tmp_path: Path, artifact: str, board: str) -> tuple[bool, list[str]]:
-    """Run the sign job's script on a ``board`` artifact.
-
-    The artifact's manifest names ``board``.
-
-    Return whether it succeeded and what it had nix run.
-    """
-    (step,) = [step for step in _jobs()["build/sign"][1]["steps"] if "run" in step]
-    build = tmp_path / "unsigned" / f"firmware-unsigned-{artifact}"
-    build.mkdir(parents=True)
-    (build / MANIFEST_FILE).write_text(f'{{"board": "{board}"}}\n', encoding="utf-8")
-    directory = tmp_path / "bin"
-    directory.mkdir()
-    (directory / "nix").write_text(NIX, encoding="utf-8")
-    (directory / "nix").chmod(0o755)
-    calls = tmp_path / "nix.calls"
-    result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", step["run"]],
-        cwd=REPO_DIR,
-        capture_output=True,
-        check=False,
-        env={
-            **os.environ,
-            "PATH": f"{directory}{os.pathsep}{os.environ['PATH']}",
-            "RUNNER_TEMP": str(tmp_path),
-            "APK_KEY": "apk",
-            "FW_KEY": "firmware",
-            "NIX_CALLS": str(calls),
-        },
-    )
-    made = calls.read_text(encoding="utf-8").splitlines() if calls.exists() else []
-    return result.returncode == 0, made
-
-
 @spec(CAPABILITY, "Signing targets", "A build of another board")
 @pytest.mark.parametrize(
-    ("artifact", "named"),
+    ("board", "named"),
     [
         pytest.param("..", BOARD, id="artifact of no board"),
         pytest.param(BOARD, f"../{BOARD}", id="manifest of another board"),
-        pytest.param(BOARD, BOARD, id="the board's own"),
     ],
 )
-def test_each_build_is_signed_as_its_artifact_s_board(
-    tmp_path: Path, artifact: str, named: str
+def test_a_build_is_signed_only_as_its_artifact_s_board(
+    build_output: Path, release_keys: Keys, tmp_path: Path, board: str, named: str
 ) -> None:
-    signed, made = _sign_job(tmp_path, artifact, named)
-    # Only a board of boards/ whose manifest says so is signed, into its
-    # own directory of the signed builds.
-    if artifact == named:
-        assert signed
-        build = tmp_path / "unsigned" / f"firmware-unsigned-{BOARD}"
-        (call,) = made
-        assert call.startswith(
-            f"run .#sign-tools -- scripts/release-sign.sh {build}"
-            f" {tmp_path}/signed/{BOARD} "
-        )
-    else:
-        assert not signed
-        assert made == []
+    # The sign job signs each artifact as the board it is named after.
+    (step,) = [step for step in _jobs()["build/sign"][1]["steps"] if "run" in step]
+    assert "board=${build##*/firmware-unsigned-}" in step["run"]
+    assert '--board "$board"' in step["run"]
+    build = linked_copy(build_output, tmp_path / "build")
+    manifest = read_json(build / MANIFEST_FILE, Manifest)
+    write_json(build / MANIFEST_FILE, manifest.model_copy(update={"board": named}))
+    with pytest.raises(
+        subprocess.CalledProcessError, match=r"no board|names another board"
+    ):
+        sign(build, tmp_path / "signed", release_keys, board)
+    assert not (tmp_path / "signed").exists()
 
 
 @spec(CAPABILITY, "Signing targets", "Manifest that names a path outside the build")

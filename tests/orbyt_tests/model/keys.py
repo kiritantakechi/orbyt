@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Self
 
 from orbyt_tests.model import process
+from orbyt_tests.model.data import read_json
+from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
 from orbyt_tests.model.repository import REPO_DIR
 
 RELEASE_SIGN = REPO_DIR / "scripts" / "release-sign.sh"
@@ -95,13 +97,16 @@ class Keys:
                 shutil.copy(key, self.keyring / anchors / key.name)
 
 
-def sign(build: Path, signed: Path, keys: Keys) -> Path:
+def sign(build: Path, signed: Path, keys: Keys, board: str | None = None) -> Path:
     """Sign ``build``'s outputs into ``signed``; return ``signed``.
 
-    release-sign.sh does the signing.
+    release-sign.sh does the signing, as of ``board``, by default the
+    one the build's manifest names.
     """
+    if board is None:
+        board = read_json(build / MANIFEST_FILE, Manifest).board
     _run(
-        *(RELEASE_SIGN, build, signed),
+        *(RELEASE_SIGN, build, signed, "--board", board),
         *("--apk-key", keys.apk, "--fw-key", keys.firmware, "--keyring", keys.keyring),
     )
     return signed

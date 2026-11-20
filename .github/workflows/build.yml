@@ -453,16 +453,13 @@ jobs:
           umask 077
           printf '%s\n' "$APK_KEY" >"$RUNNER_TEMP/apk.key"
           printf '%s\n' "$FW_KEY" >"$RUNNER_TEMP/fw.key"
-          # Each build is the board its artifact is named after, a board of
-          # boards/, whose manifest must say so (release-integrity D2).
+          # Each build as the board its artifact is named after, which
+          # release-sign checks (release-integrity D2).
           for build in "$RUNNER_TEMP"/unsigned/firmware-unsigned-*/; do
             build=${build%/}
             board=${build##*/firmware-unsigned-}
-            [ -f "boards/$board.json" ] || { echo "::error::$board is no board of boards/"; exit 1; }
-            jq -e --arg board "$board" '.board == $board' "$build/manifest.json" >/dev/null ||
-              { echo "::error::the manifest of $board's build names another board"; exit 1; }
             nix run .#sign-tools -- scripts/release-sign.sh "$build" "$RUNNER_TEMP/signed/$board" \
-              --apk-key "$RUNNER_TEMP/apk.key" --fw-key "$RUNNER_TEMP/fw.key"
+              --board "$board" --apk-key "$RUNNER_TEMP/apk.key" --fw-key "$RUNNER_TEMP/fw.key"
           done
 
       - uses: actions/upload-artifact@v7

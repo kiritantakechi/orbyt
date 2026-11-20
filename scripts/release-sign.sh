@@ -1,10 +1,11 @@
 #!/bin/sh
 # release-sign: sign the outputs of one build for release (r4s-release-pipeline D2).
-# Usage: scripts/release-sign.sh <build> <signed> --apk-key <file> --fw-key <file> [--keyring <dir>]
+# Usage: scripts/release-sign.sh <build> <signed> --board <board> --apk-key <file> --fw-key <file> [--keyring <dir>]
 # Runs with the pinned signing tools only (nix run .#sign-tools -- ...), never in
-# a job that builds. <build> is the unsigned output of one build: manifest.json
-# and the files it lists. <signed> receives it signed, the listed files and
-# nothing else (release-integrity D2):
+# a job that builds. <build> is the unsigned output of one build of <board>, a
+# board of boards/: manifest.json, which must name that board, and the files it
+# lists (release-integrity D2). <signed> receives it signed, the listed files
+# and nothing else:
 #  - every listed file must be a plain path inside <build> and match its sha256
 #    in manifest.json, or nothing is signed;
 #  - every package index is signed with the apk key, its build key's signature
@@ -20,21 +21,23 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
-use manifest
+use boards manifest
 
 usage() {
-	die "usage: release-sign <build> <signed> --apk-key <file> --fw-key <file> [--keyring <dir>]"
+	die "usage: release-sign <build> <signed> --board <board> --apk-key <file> --fw-key <file> [--keyring <dir>]"
 }
 
 [ "$#" -ge 2 ] || usage
 build=$1
 signed=$2
 shift 2
+board=
 apk_key=
 fw_key=
 keyring="${REPO_DIR}/feed/utils/orbyt-keyring/files"
 while [ "$#" -ge 2 ]; do
 	case "$1" in
+		--board) board=$2 ;;
 		--apk-key) apk_key=$2 ;;
 		--fw-key) fw_key=$2 ;;
 		--keyring) keyring=$2 ;;
@@ -42,9 +45,12 @@ while [ "$#" -ge 2 ]; do
 	esac
 	shift 2
 done
-[ "$#" -eq 0 ] && [ -n "${apk_key}" ] && [ -n "${fw_key}" ] || usage
+[ "$#" -eq 0 ] && [ -n "${board}" ] && [ -n "${apk_key}" ] && [ -n "${fw_key}" ] || usage
+board_field "${board}" .device >/dev/null
 manifest="${build}/manifest.json"
 [ -f "${manifest}" ] || die "no manifest.json in ${build}"
+jq -e --arg board "${board}" '.board == $board' "${manifest}" >/dev/null ||
+	die "the manifest of ${board}'s build names another board"
 [ ! -e "${signed}" ] || die "${signed} exists already"
 manifest_files_check "${manifest}"
 # apk reads its keys directory relative to its root, /.
