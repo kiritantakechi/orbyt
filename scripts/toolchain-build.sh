@@ -50,17 +50,20 @@ record="${toolchain_dir}/orbyt-toolchain.json"
 cflags=$(make -C "${tree}" -s val.TARGET_CFLAGS)
 environment=$(toolchain_environment)
 # What the record no longer names is built anew, and what is built on it: the
-# host side (a toolchain without a record predates it), or the C toolchain, and
-# Rust's standard library with it, whose C parts are compiled with the target's
-# flags, or Rust's library alone.
+# host side, or the C toolchain, and Rust's standard library with it, whose C
+# parts are compiled with the target's flags, or Rust's library alone. Without a
+# record nothing there is known: a toolchain predates the record, and a Rust
+# library is one no record names.
 differs=$(toolchain_record_differs "${tree}" "${toolchain_dir}" "${cflags}")
+rust_std=$(toolchain_rust_std "${tree}")
+if [ "${differs}" = record ] && [ ! -d "${toolchain_dir}" ]; then
+	differs=rust
+fi
 case "${differs}" in
 	record | environment)
-		if [ -d "${toolchain_dir}" ]; then
-			info "the host side was built in another environment: building it anew"
-			rm -rf "${toolchain_dir:?}" "${tree:?}"/build_dir/toolchain-* "${tree:?}/build_dir/host" \
-				"${tree:?}/staging_dir/host" "${tree:?}/build_dir/hostpkg" "${tree:?}/staging_dir/hostpkg"
-		fi
+		info "the host side was built in another environment, or before its record: building it anew"
+		rm -rf "${toolchain_dir:?}" "${tree:?}"/build_dir/toolchain-* "${tree:?}/build_dir/host" \
+			"${tree:?}/staging_dir/host" "${tree:?}/build_dir/hostpkg" "${tree:?}/staging_dir/hostpkg"
 		;;
 	toolchain)
 		info "the toolchain in ${toolchain_dir} is not the one its record names: building it anew"
@@ -68,7 +71,6 @@ case "${differs}" in
 		make -C "${tree}" package/feeds/packages/rust/host/clean >/dev/null
 		;;
 	rust)
-		rust_std=$(toolchain_rust_std "${tree}")
 		if [ -n "${rust_std}" ]; then
 			info "Rust's standard library is not the one the record names: building it anew"
 			make -C "${tree}" package/feeds/packages/rust/host/clean >/dev/null

@@ -522,11 +522,11 @@ def _tree_to_build_toolchain(
     of LIBC's, which names ``found.cflags``, ``found.environment`` (the
     tests' own unless given) and the stand-in Rust library, which the
     tree holds as ``found.rust_std``. The tree's Makefile answers
-    toolchain-build.sh's val.* queries, builds a toolchain with LIBC for
-    its C library only where there is none, and installs the Rust
-    library only where there is none, as make does; it marks the tree
-    when it builds either. RUST_FAILS (from the environment) fails
-    Rust's build.
+    toolchain-build.sh's val.* queries, installs a stand-in ccache with
+    the tools, builds a toolchain with LIBC for its C library only where
+    there is none, and installs the Rust library only where there is
+    none, as make does; it marks the tree when it builds either.
+    RUST_FAILS (from the environment) fails Rust's build.
     """
     tree = workdir / "openwrt"
     toolchain = tree / "staging_dir" / "toolchain"
@@ -537,6 +537,8 @@ def _tree_to_build_toolchain(
     neutral.write_bytes(LIBC)
     neutral_std = workdir / "neutral-libstd.rlib"
     neutral_std.write_bytes(RUST_STD_CONTENT)
+    ccache = workdir / "ccache"
+    ccache.write_text("#!/bin/sh\n")
     if found.libc is not None:
         (toolchain / "lib").mkdir(parents=True)
         (toolchain / "lib" / "libc.so").write_bytes(found.libc)
@@ -561,7 +563,9 @@ def _tree_to_build_toolchain(
         f"RUSTLIB := {rustlib}\n"
         f"TARGET_CFLAGS := {NEUTRAL_CFLAGS}\n"
         "val.%:\n\t@echo '$($*)'\n"
-        "defconfig tools/install package/feeds/packages/golang/host/compile:\n\t@:\n"
+        "defconfig package/feeds/packages/golang/host/compile:\n\t@:\n"
+        "tools/install:\n"
+        f"\t@install -D -m 755 {ccache} $(CURDIR)/staging_dir/host/bin/ccache\n"
         "toolchain/install:\n"
         "\t@[ -f $(TOOLCHAIN_DIR)/lib/libc.so ] || { mkdir -p $(TOOLCHAIN_DIR)/lib"
         f" && cp {neutral} $(TOOLCHAIN_DIR)/lib/libc.so && touch $(CURDIR)/built; }}\n"
