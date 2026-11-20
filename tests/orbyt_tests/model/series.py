@@ -6,7 +6,7 @@ The series is applied as patch.sh applies a patch queue.
 import os
 from typing import TYPE_CHECKING
 
-from orbyt_tests.model import process
+from orbyt_tests.model import git
 from orbyt_tests.model.shell import library
 
 if TYPE_CHECKING:
@@ -14,12 +14,6 @@ if TYPE_CHECKING:
     from collections.abc import Mapping
     from pathlib import Path
 
-GIT_IDENTITY = {
-    "GIT_AUTHOR_NAME": "test",
-    "GIT_AUTHOR_EMAIL": "test@localhost",
-    "GIT_COMMITTER_NAME": "test",
-    "GIT_COMMITTER_EMAIL": "test@localhost",
-}
 # A time no file of a fresh checkout has: a file git writes again gets a
 # new one.
 OLD = 1_000_000_000 * 1_000_000_000
@@ -57,15 +51,8 @@ class Series:
         self.git("checkout", "-q", "--detach", self.base)
 
     def git(self, *args: str) -> str:
-        """Run git in the repository.
-
-        It sees the test's identity and its configuration alone.
-        """
-        return process.run(
-            "git",
-            *("-C", self.repo, *args),
-            env={**os.environ, **GIT_IDENTITY, "GIT_CONFIG_GLOBAL": os.devnull},
-        ).strip()
+        """Run git in the repository, as the tests run it."""
+        return git.run(self.repo, *args)
 
     @property
     def head(self) -> str:

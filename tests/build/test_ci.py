@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 from orbyt_tests import spec
+from orbyt_tests.model import git
 from orbyt_tests.model.boards import load
 from orbyt_tests.model.github import HEAD, MAIN, Repository, run_script
 from orbyt_tests.model.outputs import MANIFEST_FILE, sha256
@@ -96,15 +97,6 @@ def test_the_manifest_describes_the_build(
     assert all(vermagic in kernel for kernel in kernels), kernels
 
 
-def _git(repository: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", str(repository), *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
-
-
 # A checkout's change since its commit: the files written, whether they
 # are staged, and whether the commit a build names is then -dirty.
 CHANGES = {
@@ -122,11 +114,11 @@ def test_the_commit_a_build_names(tmp_path: Path, change: str) -> None:
     written, staged, dirty = CHANGES[change]
     repository = tmp_path / "repository"
     repository.mkdir()
-    _git(repository, "init", "-q")
+    git.run(repository, "init", "-q")
     (repository / ".gitignore").write_text("ignored\n")
     (repository / "tracked").write_text("committed\n")
-    _git(repository, "add", ".")
-    _git(
+    git.run(repository, "add", ".")
+    git.run(
         repository,
         "-c",
         "user.name=test",
@@ -136,11 +128,11 @@ def test_the_commit_a_build_names(tmp_path: Path, change: str) -> None:
         "-qm",
         "1",
     )
-    commit = _git(repository, "rev-parse", "HEAD")
+    commit = git.run(repository, "rev-parse", "HEAD")
     for name in written:
         (repository / name).write_text("written\n")
     if staged:
-        _git(repository, "add", *written)
+        git.run(repository, "add", *written)
     result = library("manifest", 'source_commit "$1"', str(repository))
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"{commit}{'-dirty' if dirty else ''}\n"

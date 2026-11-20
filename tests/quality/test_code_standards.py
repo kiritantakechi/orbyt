@@ -16,34 +16,14 @@ import pytest
 
 import orbyt_tests
 from orbyt_tests import spec
-from orbyt_tests.model.repository import REPO_DIR
+from orbyt_tests.model import git
+from orbyt_tests.model.repository import REPO_DIR, repository_files
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 CAPABILITY = "quality/code-standards"
 SYMMETRIC_VERBS = (("mount", "unmount"), ("pack", "unpack"))
-
-
-def _files() -> list[str]:
-    listing = subprocess.run(
-        [
-            "git",
-            "-C",
-            str(REPO_DIR),
-            "ls-files",
-            "-z",
-            "--cached",
-            "--others",
-            "--exclude-standard",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
-    return [
-        name for name in listing.split("\0") if name and (REPO_DIR / name).is_file()
-    ]
 
 
 @pytest.fixture
@@ -53,10 +33,10 @@ def repo(tmp_path: Path) -> Path:
     The copy is a git work tree with nothing committed.
     """
     copy = tmp_path / "repo"
-    for name in _files():
+    for name in repository_files():
         (copy / name).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(REPO_DIR / name, copy / name)
-    subprocess.run(["git", "init", "-q", str(copy)], check=True)
+    git.run(copy, "init", "-q")
     return copy
 
 

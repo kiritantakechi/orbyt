@@ -15,7 +15,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
-from orbyt_tests.model import process
+from orbyt_tests.model import git, process
 from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 SCRIPTS = REPO_DIR / "scripts"
 PUSH_TIMEOUT = 900
-GIT_IDENTITY = ("-c", "user.name=orbyt", "-c", "user.email=orbyt@localhost")
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,15 +79,12 @@ class ConfigRepository:
 
     def commit(self, message: str) -> None:
         """Commit everything, as an administrator does after editing."""
-        git = ("git", "-C", str(self.directory), *GIT_IDENTITY)
-        process.run(*git, "add", "-A")
-        process.run(*git, "commit", "-q", "-m", message)
+        git.commit(self.directory, message)
 
     def discard(self) -> None:
         """Drop every change since the last commit."""
-        git = ("git", "-C", str(self.directory))
-        process.run(*git, "reset", "-q", "--hard")
-        process.run(*git, "clean", "-q", "-d", "--force")
+        git.run(self.directory, "reset", "-q", "--hard")
+        git.run(self.directory, "clean", "-q", "-d", "--force")
 
     def push(self, host: str, identity: Path) -> subprocess.CompletedProcess[str]:
         """Run config-push against ``host`` with ``identity``."""

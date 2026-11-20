@@ -23,6 +23,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.trust import trust_ca
+from orbyt_tests.model import git
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.isp import LOGIN
 from orbyt_tests.services.config import ConfigRepository
@@ -268,9 +269,7 @@ def test_no_secret_in_the_history(pushed: Pushed, tmp_path: Path) -> None:
     assert leaks(repository.directory) is None
     # The scanner does find a secret that went in plain.
     plain = ConfigRepository(tmp_path / "plain", repository.age_key)
-    subprocess.run(
-        ["git", "clone", "-q", repository.directory, plain.directory], check=True
-    )
+    git.run(tmp_path, "clone", "-q", str(repository.directory), str(plain.directory))
     (plain.directory / "secrets" / "pppoe.yaml").write_text(
         f"password: '{PLAIN_SECRET}'\n"
     )

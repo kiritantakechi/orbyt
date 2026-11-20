@@ -6,8 +6,7 @@ See docs/patches.md.
 import itertools
 import re
 
-from orbyt_tests.model import process
-from orbyt_tests.model.repository import REPO_DIR
+from orbyt_tests.model.repository import REPO_DIR, repository_files
 
 DOC = REPO_DIR / "docs" / "patches.md"
 # OpenEmbedded's vocabulary (docs/patches.md).
@@ -84,11 +83,9 @@ def without_patch(patches: dict[str, str | None], titles: dict[str, str]) -> lis
 
 def repository_patches() -> dict[str, str | None]:
     """Return every patch file of the repository and its status."""
-    listed = process.run("git", "-C", REPO_DIR, "ls-files", "-z", "*.patch", "*.diff")
     return {
         path: upstream_status((REPO_DIR / path).read_text())
-        for path in sorted(listed.split("\0"))
-        if path
+        for path in sorted(repository_files("*.patch", "*.diff"))
     }
 
 

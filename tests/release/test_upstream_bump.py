@@ -24,6 +24,7 @@ import pytest
 import yaml
 
 from orbyt_tests import spec
+from orbyt_tests.model import git
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
@@ -104,30 +105,14 @@ NOT_FOUND = "gh: Not Found (HTTP 404)"
 RELEASED = "37000000001-1"
 THIS_BUILD = "37000000002-1"
 TAG = "r20260930-23fd10a-7"
-GIT_IDENTITY = {
-    "GIT_AUTHOR_NAME": "upstream",
-    "GIT_AUTHOR_EMAIL": "upstream@example.net",
-    "GIT_COMMITTER_NAME": "upstream",
-    "GIT_COMMITTER_EMAIL": "upstream@example.net",
-}
-
-
-def _git(repository: Path, *args: str) -> str:
-    return subprocess.run(
-        ["git", "-C", repository, *args],
-        capture_output=True,
-        text=True,
-        check=True,
-        env={**os.environ, **GIT_IDENTITY},
-    ).stdout.strip()
 
 
 def _commit(repository: Path, message: str) -> str:
     """Add one commit to a working repository; return its SHA."""
     (repository / "log").open("a").write(f"{message}\n")
-    _git(repository, "add", "log")
-    _git(repository, "commit", "-q", "-m", message)
-    return _git(repository, "rev-parse", "HEAD")
+    git.run(repository, "add", "log")
+    git.run(repository, "commit", "-q", "-m", message)
+    return git.run(repository, "rev-parse", "HEAD")
 
 
 def _write_lock(tmp_path: Path, lock: Path, pinned: dict[str, str]) -> None:
@@ -135,7 +120,7 @@ def _write_lock(tmp_path: Path, lock: Path, pinned: dict[str, str]) -> None:
     lines = []
     for name in NAMES:
         repository = tmp_path / name
-        epoch = _git(repository, "log", "-1", "--format=%ct", pinned[name])
+        epoch = git.run(repository, "log", "-1", "--format=%ct", pinned[name])
         lines.append(f"{name} {repository} {pinned[name]} {epoch}")
     lock.write_text("# the upstreams\n" + "\n".join(lines) + "\n")
 
@@ -149,7 +134,7 @@ def _upstreams(tmp_path: Path, commits: int) -> tuple[Path, dict[str, str]]:
     for name in NAMES:
         repository = tmp_path / name
         repository.mkdir()
-        _git(repository, "init", "-q", "-b", "main")
+        git.run(repository, "init", "-q", "-b", "main")
         first[name] = _commit(repository, f"{name} 1")
         for number in range(2, commits + 1):
             _commit(repository, f"{name} {number}")
@@ -176,7 +161,7 @@ def test_updates_make_a_pull_request(tmp_path: Path) -> None:
     assert title.startswith(f"upstream: bump {' '.join(NAMES)}")
     text = "\n".join(body)
     for name in NAMES:
-        head = _git(tmp_path / name, "rev-parse", "HEAD")
+        head = git.run(tmp_path / name, "rev-parse", "HEAD")
         assert f"| {name} | `{first[name]}` | `{head}` |" in text
         assert f"{head[:7]} {name} 3" in text
         entry = next(
@@ -184,7 +169,10 @@ def test_updates_make_a_pull_request(tmp_path: Path) -> None:
             for line in lock.read_text().splitlines()
             if line.startswith(name)
         )
-        assert entry[2:] == [head, _git(tmp_path / name, "log", "-1", "--format=%ct")]
+        assert entry[2:] == [
+            head,
+            git.run(tmp_path / name, "log", "-1", "--format=%ct"),
+        ]
 
 
 @spec(CAPABILITY, "Weekly automated PR", "Upstream has no updates")
@@ -207,21 +195,21 @@ def _github(tmp_path: Path, *, branch_commits: int = 0) -> tuple[Path, Path]:
     maintainer would. Return the stand-in and the clone.
     """
     origin = tmp_path / "origin.git"
-    _git(tmp_path, "init", "-q", "--bare", "-b", "main", origin.name)
+    git.run(tmp_path, "init", "-q", "--bare", "-b", "main", origin.name)
     clone = tmp_path / "clone"
-    _git(tmp_path, "init", "-q", "-b", "main", clone.name)
+    git.run(tmp_path, "init", "-q", "-b", "main", clone.name)
     (clone / "upstream.lock").write_text("openwrt old\n")
-    _git(clone, "add", "upstream.lock")
-    _git(clone, "commit", "-q", "-m", "main")
-    _git(clone, "remote", "add", "origin", str(origin))
-    _git(clone, "push", "-q", "origin", "main")
+    git.run(clone, "add", "upstream.lock")
+    git.run(clone, "commit", "-q", "-m", "main")
+    git.run(clone, "remote", "add", "origin", str(origin))
+    git.run(clone, "push", "-q", "origin", "main")
     if branch_commits:
-        _git(clone, "switch", "-q", "-c", BRANCH)
+        git.run(clone, "switch", "-q", "-c", BRANCH)
         for number in range(branch_commits):
             _commit(clone, f"maintainer {number}")
-        _git(clone, "push", "-q", "origin", BRANCH)
-        _git(clone, "switch", "-q", "main")
-        _git(clone, "branch", "-q", "-D", BRANCH)
+        git.run(clone, "push", "-q", "origin", BRANCH)
+        git.run(clone, "switch", "-q", "main")
+        git.run(clone, "branch", "-q", "-D", BRANCH)
     (clone / "upstream.lock").write_text("openwrt new\n")
     return origin, clone
 
@@ -297,7 +285,7 @@ def test_a_pull_request_that_cannot_be_opened_leaves_the_checks_running(
     # The branch is pushed with the new lock, which starts its build:
     # nothing is dispatched, as a dispatched run counts for no pull
     # request.
-    assert _git(origin, "show", f"{BRANCH}:upstream.lock") == "openwrt new"
+    assert git.run(origin, "show", f"{BRANCH}:upstream.lock") == "openwrt new"
     assert not [call for call in calls if call.startswith("workflow run")]
     assert calls[-1].startswith(f"pr create --base main --head {BRANCH} ")
 
@@ -322,7 +310,7 @@ def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
     result, calls = _open_pull_request(tmp_path, clone, has_token=False)
     assert result.returncode != 0
     assert "BUMP_PUSH_TOKEN" in result.stdout
-    assert not _git(origin, "branch", "--list", BRANCH)
+    assert not git.run(origin, "branch", "--list", BRANCH)
     assert not calls
     # Upstream did not move: nothing to push, and no token needed.
     unmoved = tmp_path / "unmoved"
@@ -338,10 +326,10 @@ def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
 )
 def test_a_bump_run_again_keeps_the_branch(tmp_path: Path, pulls: str) -> None:
     origin, clone = _github(tmp_path, branch_commits=2)
-    before = _git(origin, "rev-parse", BRANCH)
+    before = git.run(origin, "rev-parse", BRANCH)
     result, calls = _open_pull_request(tmp_path, clone, pulls=pulls)
     assert result.returncode == 0, result.stdout
-    assert _git(origin, "rev-parse", BRANCH) == before
+    assert git.run(origin, "rev-parse", BRANCH) == before
     assert not [call for call in calls if call.startswith("workflow run")]
     created = [call for call in calls if call.startswith("pr create")]
     assert len(created) == (0 if pulls else 1)
@@ -443,25 +431,25 @@ def _patch_step(
     _upstreams(tmp_path, commits=1)
     openwrt = tmp_path / "openwrt"
     change(openwrt)
-    _git(openwrt, "add", ".")
-    _git(openwrt, "commit", "-q", "-m", "upstream's change")
+    git.run(openwrt, "add", ".")
+    git.run(openwrt, "commit", "-q", "-m", "upstream's change")
     repository = tmp_path / "repository"
     for part in ("scripts", "patches"):
         shutil.copytree(REPO_DIR / part, repository / part)
-    heads = {name: _git(tmp_path / name, "rev-parse", "HEAD") for name in NAMES}
+    heads = {name: git.run(tmp_path / name, "rev-parse", "HEAD") for name in NAMES}
     _write_lock(tmp_path, repository / "upstream.lock", heads)
     # A tree as fetch leaves it: the pinned commit checked out.
     work = tmp_path / "work"
     tree = work / "openwrt"
-    _git(tmp_path, "clone", "-q", str(openwrt), str(tree))
-    _git(tree, "checkout", "-q", "--detach", heads["openwrt"])
+    git.run(tmp_path, "clone", "-q", str(openwrt), str(tree))
+    git.run(tree, "checkout", "-q", "--detach", heads["openwrt"])
     (tree / "feeds.conf").touch()
     return subprocess.run(
         [repository / "scripts" / "patch.sh"],
         capture_output=True,
         text=True,
         check=False,
-        env={**os.environ, **GIT_IDENTITY, "ORBYT_WORKDIR": str(work)},
+        env={**os.environ, **git.IDENTITY, "ORBYT_WORKDIR": str(work)},
     )
 
 
@@ -492,7 +480,7 @@ def test_a_patch_upstream_made_is_named_as_such(tmp_path: Path) -> None:
     # openwrt took our BBR patch as it is.
     result = _patch_step(
         tmp_path,
-        lambda openwrt: _git(
+        lambda openwrt: git.run(
             openwrt, "apply", "--whitespace=nowarn", str(REPO_DIR / BBR_PATCH)
         ),
     )
