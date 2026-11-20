@@ -5,8 +5,8 @@ See docs/patches.md.
 
 import itertools
 import re
-import subprocess
 
+from orbyt_tests.model import process
 from orbyt_tests.model.repository import REPO_DIR
 
 DOC = REPO_DIR / "docs" / "patches.md"
@@ -84,12 +84,7 @@ def without_patch(patches: dict[str, str | None], titles: dict[str, str]) -> lis
 
 def repository_patches() -> dict[str, str | None]:
     """Return every patch file of the repository and its status."""
-    listed = subprocess.run(
-        ["git", "-C", str(REPO_DIR), "ls-files", "-z", "*.patch", "*.diff"],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout
+    listed = process.run("git", "-C", REPO_DIR, "ls-files", "-z", "*.patch", "*.diff")
     return {
         path: upstream_status((REPO_DIR / path).read_text())
         for path in sorted(listed.split("\0"))

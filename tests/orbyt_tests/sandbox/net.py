@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Self, cast, override
 
+from orbyt_tests.model import process
 from orbyt_tests.sandbox import internet, isp, netprobe
 
 if TYPE_CHECKING:
@@ -332,9 +333,7 @@ def topology(board: Board) -> Topology:
 
 def ip(*args: str) -> str:
     """Run ``ip`` in the sandbox's own namespace; return its output."""
-    return subprocess.run(
-        ["ip", *args], check=True, capture_output=True, text=True
-    ).stdout
+    return process.run("ip", *args)
 
 
 class Netns(AbstractContextManager["Netns"]):
@@ -372,20 +371,13 @@ class Netns(AbstractContextManager["Netns"]):
     def run(self, *command: str, timeout: float = 30) -> str:
         """Run a command inside the namespace; return its output.
 
-        Errors show stderr.
+        A failure carries the command's output and the namespace's name.
         """
         try:
-            result = subprocess.run(
-                self.argv(*command),
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=timeout,
-            )
+            return process.run(*self.argv(*command), timeout=timeout)
         except subprocess.CalledProcessError as error:
-            error.add_note(f"{self.name}: {error.stderr.strip()}")
+            error.add_note(f"in {self.name}")
             raise
-        return result.stdout
 
     def spawn(
         self, *command: str, stdout: int | None = None
@@ -479,11 +471,9 @@ class Network(AbstractContextManager["Network"]):
         isp.configure(etc / "ppp", self.workdir / "isp")
         internet.configure(self.workdir)
         for name in ("passwd", "group", "ppp", "hosts"):
-            subprocess.run(["mount", "--bind", etc / name, f"/etc/{name}"], check=True)
+            process.run("mount", "--bind", etc / name, f"/etc/{name}")
         if Path("/var/run/nscd/socket").exists():
-            subprocess.run(
-                ["mount", "-t", "tmpfs", "tmpfs", "/var/run/nscd"], check=True
-            )
+            process.run("mount", "-t", "tmpfs", "tmpfs", "/var/run/nscd")
 
     def add(self, namespace: Namespace) -> Netns:
         """Add a namespace to the running sandbox.

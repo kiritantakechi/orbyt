@@ -16,6 +16,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self, cast
 
+from orbyt_tests.model import process
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.internet import HEADSCALE
 
@@ -39,9 +40,7 @@ HANDSHAKE_TIMEOUT = 60
 
 
 def _wg(*args: str, key: str | None = None) -> str:
-    return subprocess.run(
-        ["wg", *args], input=key, check=True, capture_output=True, text=True
-    ).stdout.strip()
+    return process.run("wg", *args, stdin=key).strip()
 
 
 def key_pair() -> tuple[str, str]:

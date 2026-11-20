@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any, Self, cast
 import yaml
 from pexpect import TIMEOUT
 
+from orbyt_tests.model import process
 from orbyt_tests.model.boards import Board, load
 from orbyt_tests.model.data import DataError, read_json, write_json
 from orbyt_tests.model.image import (
@@ -211,9 +212,9 @@ def sha256(path: Path) -> str:
 def run(*command: str) -> str:
     """Run a tool of the test environment and return its stdout.
 
-    Fail on a non-zero exit.
+    A failure carries the tool's output.
     """
-    return subprocess.run(command, check=True, capture_output=True, text=True).stdout
+    return process.run(*command)
 
 
 def boot_files(

@@ -12,13 +12,13 @@ health check is rolled back after the boot limit, and the drill fails.
 """
 
 import re
-import subprocess
 import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from orbyt_tests.device.ab import slot
 from orbyt_tests.device.trust import trust_ca, trust_keys
+from orbyt_tests.model import process
 from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox import releases
 from orbyt_tests.sandbox.internet import RELEASES
@@ -115,13 +115,9 @@ class Drill:
         if self.published is None:
             release = workdir / "candidate"
             boards = ",".join(path.name for path in self.candidate.iterdir())
-            subprocess.run(
-                [
-                    *(PUBLISH, self.candidate, release),
-                    *("--boards", boards, "--prerelease", "--run", "drill"),
-                ],
-                check=True,
-                capture_output=True,
+            process.run(
+                *(PUBLISH, self.candidate, release),
+                *("--boards", boards, "--prerelease", "--run", "drill"),
             )
             self.published = releases.publish(
                 self.online.network.workdir / releases.ROOT, REPOSITORY, release

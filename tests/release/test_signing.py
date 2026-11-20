@@ -10,6 +10,7 @@ release image trusts the production ones.
 """
 
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -98,10 +99,9 @@ def test_a_changed_artifact_is_not_signed(
     changed = linked_copy(build_output, tmp_path / "build")
     replace(changed / INDEX, (changed / INDEX).read_bytes() + b"\0")
     with pytest.raises(
-        subprocess.CalledProcessError, match="non-zero exit status"
-    ) as failure:
+        subprocess.CalledProcessError, match=re.escape("do not match manifest.json")
+    ):
         sign(changed, tmp_path / "signed", release_keys)
-    assert "do not match manifest.json" in failure.value.stderr
     assert not (tmp_path / "signed").exists()
 
 
@@ -185,10 +185,10 @@ def test_a_file_out_of_the_build_is_not_signed(
     files = manifest.files | {name: sha256(outside)}
     write_json(build / MANIFEST_FILE, manifest.model_copy(update={"files": files}))
     with pytest.raises(
-        subprocess.CalledProcessError, match="non-zero exit status"
-    ) as failure:
+        subprocess.CalledProcessError,
+        match="lists a file that is no plain path inside its build",
+    ):
         sign(build, tmp_path / "signed", release_keys)
-    assert "lists a file that is no plain path inside its build" in failure.value.stderr
     assert not (tmp_path / "signed").exists()
     assert outside.read_bytes() == before
 

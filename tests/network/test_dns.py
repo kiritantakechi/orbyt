@@ -125,7 +125,9 @@ def test_resolving_goes_on_without_honk(proxy_restored: Online) -> None:
 
 @spec(CAPABILITY, "Proxy DNS port not exposed", "Query the proxy's DNS port from LAN")
 def test_honk_dns_port_is_closed_to_the_lan(proxy: Online) -> None:
-    with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status"):
+    # Nothing listens there but on the loopback address: the port is
+    # unreachable, and the query refused.
+    with pytest.raises(subprocess.CalledProcessError, match="ConnectionRefusedError"):
         _resolve(proxy, _fresh(), port=str(PROXY_DNS_PORT))
     assert "127.0.0.1:5353" in proxy.router.run(f"ss -Hlun 'sport = :{PROXY_DNS_PORT}'")
 

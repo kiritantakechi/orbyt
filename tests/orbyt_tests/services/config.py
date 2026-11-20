@@ -15,6 +15,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Self
 
+from orbyt_tests.model import process
 from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
@@ -36,10 +37,9 @@ class ConfigRepository:
     def create(cls, workdir: Path) -> Self:
         """Run config-init in ``workdir``/config, with a new age key."""
         repository = cls(workdir / "config", workdir / "age.txt")
-        subprocess.run(
-            [SCRIPTS / "config-init.sh", repository.directory],
-            check=True,
-            capture_output=True,
+        process.run(
+            SCRIPTS / "config-init.sh",
+            repository.directory,
             env=repository.environment(),
         )
         return repository
@@ -81,14 +81,14 @@ class ConfigRepository:
     def commit(self, message: str) -> None:
         """Commit everything, as an administrator does after editing."""
         git = ("git", "-C", str(self.directory), *GIT_IDENTITY)
-        subprocess.run([*git, "add", "-A"], check=True)
-        subprocess.run([*git, "commit", "-q", "-m", message], check=True)
+        process.run(*git, "add", "-A")
+        process.run(*git, "commit", "-q", "-m", message)
 
     def discard(self) -> None:
         """Drop every change since the last commit."""
         git = ("git", "-C", str(self.directory))
-        subprocess.run([*git, "reset", "-q", "--hard"], check=True)
-        subprocess.run([*git, "clean", "-q", "-d", "--force"], check=True)
+        process.run(*git, "reset", "-q", "--hard")
+        process.run(*git, "clean", "-q", "-d", "--force")
 
     def push(self, host: str, identity: Path) -> subprocess.CompletedProcess[str]:
         """Run config-push against ``host`` with ``identity``."""

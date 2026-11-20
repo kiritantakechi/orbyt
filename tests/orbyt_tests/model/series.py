@@ -4,12 +4,13 @@ The series is applied as patch.sh applies a patch queue.
 """
 
 import os
-import subprocess
 from typing import TYPE_CHECKING
 
+from orbyt_tests.model import process
 from orbyt_tests.model.shell import library
 
 if TYPE_CHECKING:
+    import subprocess
     from collections.abc import Mapping
     from pathlib import Path
 
@@ -60,13 +61,11 @@ class Series:
 
         It sees the test's identity and its configuration alone.
         """
-        return subprocess.run(
-            ["git", "-C", str(self.repo), *args],
+        return process.run(
+            "git",
+            *("-C", self.repo, *args),
             env={**os.environ, **GIT_IDENTITY, "GIT_CONFIG_GLOBAL": os.devnull},
-            capture_output=True,
-            text=True,
-            check=True,
-        ).stdout.strip()
+        ).strip()
 
     @property
     def head(self) -> str:

@@ -11,10 +11,11 @@ emulated router keeps its image's time, which lags the runner's, as a
 router before NTP does.
 """
 
-import subprocess
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
+
+from orbyt_tests.model import process
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -56,7 +57,7 @@ class Pki:
 
 
 def _openssl(*args: str | Path) -> None:
-    subprocess.run(["openssl", *map(str, args)], check=True, capture_output=True)
+    process.run("openssl", *args)
 
 
 def issue(directory: Path, names: Sequence[str], addresses: Sequence[str]) -> Pki:

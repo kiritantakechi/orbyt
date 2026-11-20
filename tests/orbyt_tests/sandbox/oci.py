@@ -14,11 +14,11 @@ import hashlib
 import io
 import json
 import struct
-import subprocess
 import tarfile
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
+from orbyt_tests.model import process
 from orbyt_tests.model.image import SECTOR, read_mbr
 
 if TYPE_CHECKING:
@@ -69,9 +69,7 @@ def extract_root(disk: Path, output: Path) -> Path:
             chunk = raw.read(min(remaining, 1 << 20))
             erofs.write(chunk)
             remaining -= len(chunk)
-    subprocess.run(
-        ["fsck.erofs", f"--extract={output}", image], check=True, capture_output=True
-    )
+    process.run("fsck.erofs", f"--extract={output}", image)
     image.unlink()
     return output
 

@@ -10,11 +10,11 @@ with these keys. See r4s-release-pipeline D7.
 """
 
 import shutil
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Self
 
+from orbyt_tests.model import process
 from orbyt_tests.model.repository import REPO_DIR
 
 RELEASE_SIGN = REPO_DIR / "scripts" / "release-sign.sh"
@@ -23,9 +23,7 @@ FIRMWARE_KEYS = Path("etc/usign/keys")
 
 
 def _run(*command: str | Path) -> str:
-    return subprocess.run(
-        [str(arg) for arg in command], check=True, capture_output=True, text=True
-    ).stdout.strip()
+    return process.run(*command).strip()
 
 
 @dataclass(frozen=True, slots=True)

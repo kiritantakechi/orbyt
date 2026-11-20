@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING, cast
 
 from labgrid.driver import ExecutionError
 
+from orbyt_tests.sandbox.net import ip
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
     from pathlib import Path
@@ -594,5 +596,5 @@ class Router:
         """
         self.disconnect()
         self.emulator.restore()
-        subprocess.run(["ip", "neigh", "flush", "to", self.address], check=True)
+        ip("neigh", "flush", "to", self.address)
         self.set_clock()

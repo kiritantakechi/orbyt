@@ -110,7 +110,12 @@ def test_mss_fits_the_path(online: Online) -> None:
     client.run(
         "ping", "-c", "1", "-W", "2", "-M", "do", "-s", str(payload), DIRECT_TARGET[0]
     )
-    with pytest.raises(subprocess.CalledProcessError, match="non-zero exit status"):
+    # The router answers that it would have to fragment, at the path
+    # MTU.
+    with pytest.raises(
+        subprocess.CalledProcessError,
+        match=rf"Frag needed and DF set \(mtu = {PATH_MTU}\)",
+    ):
         client.run(
             "ping",
             "-c",
