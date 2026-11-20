@@ -7,6 +7,15 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
 
+def _report(error: TimeoutError, notes: Callable[[], Iterable[str]]) -> None:
+    """Add the report of ``notes`` to ``error``, whatever it does."""
+    try:
+        for note in notes():
+            error.add_note(note)
+    except Exception as failure:  # noqa: BLE001 # a report must not hide the timeout
+        error.add_note(f"(the report failed: {failure!r})")
+
+
 def until[T](
     probe: Callable[[], T | None],
     *,
@@ -38,12 +47,3 @@ def until[T](
             raise error
         time.sleep(every)
     return result
-
-
-def _report(error: TimeoutError, notes: Callable[[], Iterable[str]]) -> None:
-    """Add the report of ``notes`` to ``error``, whatever it does."""
-    try:
-        for note in notes():
-            error.add_note(note)
-    except Exception as failure:  # noqa: BLE001 # a report must not hide the timeout
-        error.add_note(f"(the report failed: {failure!r})")

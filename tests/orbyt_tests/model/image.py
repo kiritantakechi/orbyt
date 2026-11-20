@@ -32,6 +32,17 @@ _MBR_SIGNATURE = 0x1B8
 _MBR_ENTRIES = 0x1BE
 _MBR_ENTRY_SIZE = 16
 
+_ENVIRONMENT_BLOCK = re.compile(rb"(?:[\x20-\x7e\t]+\0)+\0")
+_ENVIRONMENT_ENTRY = re.compile(
+    r"^(?P<name>[A-Za-z_][\w.#+-]*)=(?P<value>.*)$", re.DOTALL
+)
+_FIT_NODE = re.compile(
+    r"^ (?P<kind>Image|Configuration) (?P<index>\d+) \((?P<name>[^)]+)\)$"
+)
+_FIT_DEFAULT = re.compile(r"^ Default Configuration: '(?P<name>[^']+)'$")
+_FIT_PROPERTY = re.compile(r"^  (?P<key>\S[^:]*):\s+(?P<value>.*?)\s*$")
+_FIT_CONTINUATION = re.compile(r"^ {3,}(?P<value>\S.*?)\s*$")
+
 
 @dataclass(frozen=True, slots=True)
 class Partition:
@@ -104,12 +115,6 @@ def read_mbr(disk: bytes) -> Disk:
     return Disk(signature, tuple(partitions))
 
 
-_ENVIRONMENT_BLOCK = re.compile(rb"(?:[\x20-\x7e\t]+\0)+\0")
-_ENVIRONMENT_ENTRY = re.compile(
-    r"^(?P<name>[A-Za-z_][\w.#+-]*)=(?P<value>.*)$", re.DOTALL
-)
-
-
 def default_environment(binary: bytes, marker: str) -> dict[str, str]:
     """Read U-Boot's built-in environment from its binary.
 
@@ -128,14 +133,6 @@ def default_environment(binary: bytes, marker: str) -> dict[str, str]:
             }
     msg = f"no built-in environment with {marker}"
     raise LookupError(msg)
-
-
-_FIT_NODE = re.compile(
-    r"^ (?P<kind>Image|Configuration) (?P<index>\d+) \((?P<name>[^)]+)\)$"
-)
-_FIT_DEFAULT = re.compile(r"^ Default Configuration: '(?P<name>[^']+)'$")
-_FIT_PROPERTY = re.compile(r"^  (?P<key>\S[^:]*):\s+(?P<value>.*?)\s*$")
-_FIT_CONTINUATION = re.compile(r"^ {3,}(?P<value>\S.*?)\s*$")
 
 
 @dataclass(frozen=True, slots=True)

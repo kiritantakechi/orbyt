@@ -59,6 +59,18 @@ def online(module_router: Router, isp: Isp, network: Network) -> Online:
     return Online.dial(module_router, isp, network)
 
 
+def _resolved(online: Online, name: str) -> list[str]:
+    """Return the router's answers to a LAN client's query for ``name``.
+
+    There are none while the router restarts.
+    """
+    try:
+        seen = online.client().probe("resolve", name, "--server", online.router.address)
+    except subprocess.CalledProcessError:
+        return []
+    return cast("list[str]", seen["answers"])
+
+
 @pytest.fixture(scope="module")
 def internet_zone(online: Online) -> Online:
     """Let the emulated internet through dnsmasq's rebind protection.
@@ -81,18 +93,6 @@ def internet_zone(online: Online) -> Online:
         what=f"{DIRECT_NAME} resolved by dnsmasq with the exception",
     )
     return online
-
-
-def _resolved(online: Online, name: str) -> list[str]:
-    """Return the router's answers to a LAN client's query for ``name``.
-
-    There are none while the router restarts.
-    """
-    try:
-        seen = online.client().probe("resolve", name, "--server", online.router.address)
-    except subprocess.CalledProcessError:
-        return []
-    return cast("list[str]", seen["answers"])
 
 
 @pytest.fixture(scope="module")

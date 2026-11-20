@@ -125,6 +125,35 @@ PROXY_RELEASE = feed_variable("net/honk", "HONK_TAG").removeprefix("v")
 NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 
 
+# honk's native API in the tests: token mode, as config-push lets it be,
+# on every address of the router; the zones' input policies leave it to
+# the LAN.
+NATIVE_API_PORT = 9527
+NATIVE_API_TOKEN = "orbyt-test-native-api-token-0123456789"  # noqa: S105 (the tests' own)
+NATIVE_API = f"""
+experimental {{
+    native_api {{
+        enabled: true
+        listen: '0.0.0.0:{NATIVE_API_PORT}'
+        secret: '{NATIVE_API_TOKEN}'
+        ui: 'embedded'
+    }}
+}}
+"""
+
+
+# Whether honk's queue (NFQUEUE 320) is bound by a socket of process
+# $pid: the queue's peer port names a netfilter netlink socket
+# (/proc/net/netlink: protocol 12), whose inode the process holds among
+# its descriptors.
+QUEUE_OWNED = (
+    "port=$(awk '$1 == 320 { print $2 }' /proc/net/netfilter/nfnetlink_queue)"
+    ' && inode=$(awk -v port="$port"'
+    " '$2 == 12 && $3 == port { print $10 }' /proc/net/netlink)"
+    ' && [ -n "$inode" ] && ls -l /proc/$pid/fd | grep -q "socket:\\[$inode\\]"'
+)
+
+
 def proxy_config(proxied: Sequence[str] = PROXIED, domains: Sequence[str] = ()) -> str:
     """Return honk's test configuration, proxying ``proxied``.
 
@@ -175,22 +204,6 @@ routing {{
 
 
 PROXY_CONFIG = proxy_config()
-
-# honk's native API in the tests: token mode, as config-push lets it be,
-# on every address of the router; the zones' input policies leave it to
-# the LAN.
-NATIVE_API_PORT = 9527
-NATIVE_API_TOKEN = "orbyt-test-native-api-token-0123456789"  # noqa: S105 (the tests' own)
-NATIVE_API = f"""
-experimental {{
-    native_api {{
-        enabled: true
-        listen: '0.0.0.0:{NATIVE_API_PORT}'
-        secret: '{NATIVE_API_TOKEN}'
-        ui: 'embedded'
-    }}
-}}
-"""
 
 
 def native_api(
@@ -317,6 +330,20 @@ def _wait_session(router: Router, isp: Isp, other_than: Session | None) -> Sessi
         timeout=ONLINE_TIMEOUT,
         what="PPP session",
     )
+
+
+def _part(title: str, read: Callable[[], str | None]) -> str:
+    """Return ``title`` and what ``read`` returns.
+
+    If it returned nothing, say why.
+    """
+    try:
+        shown = read()
+    # A report of a failure must not fail itself: any error is shown
+    # instead.
+    except Exception as error:  # noqa: BLE001
+        shown = f"({type(error).__name__}: {error})"
+    return f"--- {title}\n{'(no answer)' if shown is None else shown}"
 
 
 @dataclass
@@ -518,35 +545,9 @@ class Online:
         return "\n".join(parts)
 
 
-def _part(title: str, read: Callable[[], str | None]) -> str:
-    """Return ``title`` and what ``read`` returns.
-
-    If it returned nothing, say why.
-    """
-    try:
-        shown = read()
-    # A report of a failure must not fail itself: any error is shown
-    # instead.
-    except Exception as error:  # noqa: BLE001
-        shown = f"({type(error).__name__}: {error})"
-    return f"--- {title}\n{'(no answer)' if shown is None else shown}"
-
-
 def proxy_pid(router: Router) -> str:
     """Return the pid of the running honk, or an empty string."""
     return router.run("pidof honk-core || true")
-
-
-# Whether honk's queue (NFQUEUE 320) is bound by a socket of process
-# $pid: the queue's peer port names a netfilter netlink socket
-# (/proc/net/netlink: protocol 12), whose inode the process holds among
-# its descriptors.
-QUEUE_OWNED = (
-    "port=$(awk '$1 == 320 { print $2 }' /proc/net/netfilter/nfnetlink_queue)"
-    ' && inode=$(awk -v port="$port"'
-    " '$2 == 12 && $3 == port { print $10 }' /proc/net/netlink)"
-    ' && [ -n "$inode" ] && ls -l /proc/$pid/fd | grep -q "socket:\\[$inode\\]"'
-)
 
 
 def wait_proxy(router: Router, *, replacing: str = "") -> None:

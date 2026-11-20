@@ -14,6 +14,26 @@ STATUS = re.compile(r"Pending|Submitted \[.+\]|Backport \[.+\]|Inappropriate \[.
 MEANT_FOR_UPSTREAM = ("Pending", "Submitted")
 TRAILER = re.compile(r"^([A-Za-z][A-Za-z0-9-]*): (.+)$")
 
+# The sections of a write-up, in their order; the third has a plural
+# form for a patch that adds several (docs/patches.md).
+SECTIONS = (
+    ("Problem",),
+    ("Why it matters here",),
+    ("What the patch does", "What the patches do"),
+    ("Verification log",),
+)
+# Where a write-up's patch lives, in the order of the documentation's
+# groups.
+GROUPS = (
+    "patches/openwrt/",
+    "patches/packages/",
+    "patches/luci/",
+    "patches/daeuniverse/",
+    "patches/qemu/",
+    "feed/",
+    "docs/upstream/",
+)
+
 
 def upstream_status(text: str) -> str | None:
     """Return the Upstream-Status trailer of a patch's text, or None.
@@ -87,27 +107,6 @@ def repository_patches() -> dict[str, str | None]:
         path: upstream_status((REPO_DIR / path).read_text())
         for path in sorted(repository_files("*.patch", "*.diff"))
     }
-
-
-# The sections of a write-up, in their order; the third has a plural
-# form for a patch that adds several (docs/patches.md).
-SECTIONS = (
-    ("Problem",),
-    ("Why it matters here",),
-    ("What the patch does", "What the patches do"),
-    ("Verification log",),
-)
-# Where a write-up's patch lives, in the order of the documentation's
-# groups.
-GROUPS = (
-    "patches/openwrt/",
-    "patches/packages/",
-    "patches/luci/",
-    "patches/daeuniverse/",
-    "patches/qemu/",
-    "feed/",
-    "docs/upstream/",
-)
 
 
 def misshapen(doc: str) -> list[str]:
