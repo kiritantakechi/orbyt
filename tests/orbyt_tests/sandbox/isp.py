@@ -6,7 +6,7 @@ The ``isp`` namespace is the BRAS. rp-pppoe's pppoe-server runs in user
 mode (a pty per session, so the host needs only ppp_generic and
 ppp_async, never pppoe.ko) and hands each session the next address of
 its pool: every redial gets a new address. pppd runs four scripts per
-session:
+session, the isp-*.sh files beside this module:
 
 - ``ip-up`` and ``ip-down`` keep a registry for the tests, one file per
   session (named after its pppd) with its PPP interface and the address
@@ -21,25 +21,24 @@ still going down.
 
 pppd reads its options and secrets from fixed paths under /etc/ppp, and
 looks up root's home for ``~/.ppprc``; the sandbox mounts what
-``configure`` writes there (``orbyt_tests.sandbox.net``). The scripts
-stay in the ISP's own directory, named by the server options, so that a
-pppd dialing from a test runs none of them.
+``configure`` writes there (``orbyt_tests.sandbox.net``). The server
+options name the scripts, so that a pppd dialing from a test runs none
+of them.
 """
 
 import ipaddress
-import json
 import os
-import shutil
+import shlex
 import signal
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from pathlib import Path
 
     from orbyt_tests.sandbox.net import Netns
 
@@ -59,6 +58,8 @@ DELEGATED_PREFIX = ipaddress.IPv6Network("2001:db8:100::/56")
 SESSION_TIMEOUT = 60
 # The ISP's pppd log, in its working directory.
 PPPD_LOG = "pppd.log"
+# What pppd runs of each session, isp-<name>.sh beside this module.
+SCRIPTS = ("ip-up", "ip-down", "ipv6-up", "ipv6-down")
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,128 +140,37 @@ class Isp:
         )
 
 
-def _tool(name: str) -> str:
-    path = shutil.which(name)
-    if path is None:
-        msg = f"{name} is not on PATH (the test environment provides it)"
-        raise FileNotFoundError(msg)
-    return path
-
-
-def _scripts(workdir: Path) -> dict[str, str]:
-    """Return the session scripts.
-
-    pppd gives them a bare PATH, so tools are absolute.
-    """
-    ip, setsid, pkill, radvd, kea = map(
-        _tool, ("ip", "setsid", "pkill", "radvd", "kea-dhcp6")
-    )
-    registry = workdir / "sessions"
-    session = f"{workdir}/${{PPPD_PID}}"
-    kea_config = {
-        "Dhcp6": {
-            # ipv6-up runs as IPv6CP comes up, possibly before the
-            # link-local address is usable: keep trying to bind for a
-            # while.
-            "interfaces-config": {
-                "interfaces": ["${IFNAME}"],
-                "service-sockets-max-retries": 20,
-                "service-sockets-retry-wait-time": 500,
-            },
-            "lease-database": {"type": "memfile", "persist": False},
-            # A fixed server DUID, kept in memory instead of
-            # /var/lib/kea.
-            "server-id": {
-                "type": "LL",
-                "htype": 1,
-                "identifier": "020000000001",
-                "persist": False,
-            },
-            "renew-timer": 900,
-            "rebind-timer": 1800,
-            "preferred-lifetime": 3600,
-            "valid-lifetime": 7200,
-            "option-data": [{"name": "dns-servers", "data": RESOLVER[1]}],
-            "subnet6": [
-                {
-                    "id": 1,
-                    "subnet": WAN_PREFIX,
-                    "interface": "${IFNAME}",
-                    "pd-pools": [
-                        {
-                            "prefix": str(DELEGATED_PREFIX.network_address),
-                            "prefix-len": DELEGATED_PREFIX.prefixlen,
-                            "delegated-len": DELEGATED_PREFIX.prefixlen,
-                        }
-                    ],
-                }
-            ],
-            "loggers": [
-                {
-                    "name": "kea-dhcp6",
-                    "output-options": [{"output": "stdout"}],
-                    "severity": "INFO",
-                }
-            ],
-        }
-    }
-    return {
-        "ip-up": (
-            "# Record the session: its interface and the address the peer got.\n"
-            f'printf "%s %s\\n" "${{IFNAME}}" "${{IPREMOTE}}" '
-            f'>"{registry}/${{PPPD_PID}}.new"\n'
-            f'mv "{registry}/${{PPPD_PID}}.new" "{registry}/${{PPPD_PID}}"\n'
-        ),
-        "ip-down": f'rm -f "{registry}/${{PPPD_PID}}"\n',
-        "ipv6-up": (
-            "# SLAAC on the link (radvd) and a delegated prefix (kea-dhcp6).\n"
-            "set -eu\n"
-            f'mkdir -p "{session}"\n'
-            # pppd sets the link-local address with the peer's; kea
-            # would bind to the peer's, so the session's own becomes a
-            # plain one ($4).
-            f'{ip} -6 addr flush dev "${{IFNAME}}" scope link\n'
-            f'{ip} -6 addr add "$4/64" dev "${{IFNAME}}" nodad\n'
-            # The newest session owns the prefixes: the previous one may
-            # still be going down (its peer left without a word, as
-            # after a snapshot jump).
-            f'{ip} -6 addr add {WAN_GATEWAY}/64 dev "${{IFNAME}}" nodad\n'
-            f'{ip} -6 route replace {WAN_PREFIX} dev "${{IFNAME}}"\n'
-            f'{ip} -6 route replace {DELEGATED_PREFIX} dev "${{IFNAME}}"\n'
-            f'cat >"{session}/radvd.conf" <<EOF\n'
-            "interface ${IFNAME} {\n"
-            "\tAdvSendAdvert on;\n"
-            "\tAdvManagedFlag on;\n"
-            "\tAdvOtherConfigFlag on;\n"
-            "\tMinRtrAdvInterval 3;\n"
-            "\tMaxRtrAdvInterval 10;\n"
-            f"\tprefix {WAN_PREFIX} {{ AdvOnLink on; AdvAutonomous on; }};\n"
-            f"\tRDNSS {RESOLVER[1]} {{}};\n"
-            "};\n"
-            "EOF\n"
-            f'cat >"{session}/kea.json" <<EOF\n'
-            f"{json.dumps(kea_config, indent=1)}\n"
-            "EOF\n"
-            f'{setsid} -f {radvd} -n -m stderr -C "{session}/radvd.conf" '
-            f'-p "{session}/radvd.pid" '
-            f'>"{session}/radvd.log" 2>&1 </dev/null\n'
-            f'KEA_PIDFILE_DIR="{session}" KEA_LOCKFILE_DIR="{session}" '
-            f'{setsid} -f {kea} -c "{session}/kea.json" '
-            f'>"{session}/kea.log" 2>&1 </dev/null\n'
-        ),
-        "ipv6-down": f'{pkill} -f -- "{session}/" || true\n',
-    }
+def _script(name: str) -> Path:
+    """Return the session script ``name``."""
+    return Path(__file__).with_name(f"isp-{name}.sh")
 
 
 def configure(etc: Path, workdir: Path) -> None:
-    """Write the ISP's /etc/ppp to ``etc``, scripts to ``workdir``."""
+    """Write the ISP's /etc/ppp to ``etc``, the rest to ``workdir``.
+
+    The session scripts read what they need from ``workdir``'s
+    isp.env, which pppd names them as their ipparam. pppd gives them a
+    bare PATH: isp.env holds the test environment's.
+    """
     etc.mkdir(parents=True)
     (workdir / "sessions").mkdir(parents=True)
-    scripts = _scripts(workdir)
-    for name, body in scripts.items():
-        script = workdir / name
-        script.write_text(f"#!/bin/sh\n{body}")
-        script.chmod(0o755)
+    settings = {
+        "PATH": os.environ["PATH"],
+        "REGISTRY": workdir / "sessions",
+        "SESSIONS": workdir,
+        "WAN_GATEWAY": WAN_GATEWAY,
+        "WAN_PREFIX": WAN_PREFIX,
+        "DELEGATED_PREFIX": DELEGATED_PREFIX,
+        "DELEGATED_NETWORK": DELEGATED_PREFIX.network_address,
+        "DELEGATED_LENGTH": DELEGATED_PREFIX.prefixlen,
+        "RESOLVER6": RESOLVER[1],
+    }
+    (workdir / "isp.env").write_text(
+        "".join(
+            f"export {name}={shlex.quote(str(value))}\n"
+            for name, value in settings.items()
+        )
+    )
     (etc / "options").write_text("")
     secrets = etc / "pap-secrets"
     secrets.write_text(f"{LOGIN[0]} * {LOGIN[1]} *\n")
@@ -280,7 +190,8 @@ def configure(etc: Path, workdir: Path) -> None:
                 "+ipv6",
                 "debug",
                 f"logfile {workdir / PPPD_LOG}",
-                *(f"{name}-script {workdir / name}" for name in scripts),
+                f"ipparam {workdir}",
+                *(f"{name}-script {_script(name)}" for name in SCRIPTS),
                 "",
             )
         )
