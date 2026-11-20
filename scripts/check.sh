@@ -1,9 +1,8 @@
 #!/bin/sh
 # check: run the code-standard checks of design D12; changes nothing.
 # Usage: scripts/check.sh [check...]   (all checks when none is named)
-# Runs on Linux and macOS with the tools of the quality devShell. NixOS cannot run
-# the generic Linux binaries that uv installs (Python, ruff, ty), so there the
-# script re-executes inside orbyt-test-fhs.
+# Runs on Linux and macOS with the tools of the quality devShell, on NixOS inside
+# orbyt-test-fhs (quality_prelude).
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
@@ -17,20 +16,10 @@ for name in ${requested}; do
 	esac
 done
 
-if [ -e /etc/NIXOS ]; then
-	ensure_fhs test "$@"
-fi
-
-use_tests_venv
-cd "${REPO_DIR}"
+quality_prelude "$@"
 files=$(repo_files)
-# shfmt finds scripts by their extension or interpreter line; preinit's hooks,
-# which preinit sources, have neither.
-shell_files=$({
-	printf '%s\n' "${files}" | xargs shfmt -f
-	printf '%s\n' "${files}" | grep '/lib/preinit/'
-} | sort -u)
-nix_files=$(printf '%s\n' "${files}" | grep -E '\.nix$')
+shell_files=$(format_files shell)
+nix_files=$(format_files nix)
 
 # forbidden_patterns: build steps must not run or apply downloaded content, nor
 # edit upstream files in place (changes to upstream go through patches/). The

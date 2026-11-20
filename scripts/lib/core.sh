@@ -4,7 +4,8 @@
 # Usage: . "$(dirname -- "$0")/lib/core.sh", then use <module>...   (POSIX sh; sourced)
 # POSIX sh has no local variables. So the functions that compute, print or write
 # run in a subshell, ( ... ), and their variables never reach the caller's; only
-# use, ensure_fhs and use_tests_venv change the caller, as their names say.
+# use, ensure_fhs, use_tests_venv and quality_prelude change the caller, as their
+# names say.
 # shellcheck shell=sh
 
 REPO_DIR=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
@@ -106,6 +107,24 @@ repo_files() (
 		done
 )
 
+# format_files <shell|nix>: the repository's files of that kind (repo_files), one
+# per line, as the formatters and their checks take them. shfmt finds the shell
+# files by their extension or interpreter line; preinit's hooks, which preinit
+# sources, have neither, so they are added by their place.
+format_files() (
+	files=$(repo_files)
+	case "$1" in
+		shell)
+			{
+				printf '%s\n' "${files}" | xargs shfmt -f
+				printf '%s\n' "${files}" | grep '/lib/preinit/'
+			} | sort -u
+			;;
+		nix) printf '%s\n' "${files}" | grep -E '\.nix$' ;;
+		*) die "format_files: unknown kind '$1' (shell, nix)" ;;
+	esac
+)
+
 # use_tests_venv: point uv at the tests' virtual environment for this OS and
 # architecture: macOS and the Linux VM share the repository, and a virtual
 # environment only works on the host that created it. It lives outside the
@@ -121,4 +140,17 @@ use_tests_venv() {
 	fi
 	UV_PROJECT_ENVIRONMENT=${ORBYT_TESTS_VENV}
 	export ORBYT_TESTS_VENV UV_PROJECT_ENVIRONMENT
+}
+
+# quality_prelude [args]: what check.sh and fmt.sh do before their tools run. On
+# NixOS they re-execute inside orbyt-test-fhs: NixOS cannot run the generic Linux
+# binaries that uv installs (Python, ruff, ty). Then the tests' environment, and
+# the repository as the working directory. It changes the caller, as its name
+# says.
+quality_prelude() {
+	if [ -e /etc/NIXOS ]; then
+		ensure_fhs test "$@"
+	fi
+	use_tests_venv
+	cd "${REPO_DIR}" || exit
 }

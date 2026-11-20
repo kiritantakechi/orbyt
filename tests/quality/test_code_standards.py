@@ -66,6 +66,30 @@ def test_unformatted_shell_fails(repo: Path) -> None:
     assert re.search(r"^\+\t", result.stdout, re.MULTILINE), result.stdout
 
 
+@spec(
+    CAPABILITY,
+    "The formatters see what the checks see",
+    "A preinit hook badly indented",
+)
+def test_fmt_formats_the_preinit_hooks_check_checks(repo: Path) -> None:
+    # A hook preinit sources: no extension and no interpreter line.
+    _break_indentation(
+        repo
+        / "feed"
+        / "utils"
+        / "orbyt-ab"
+        / "files"
+        / "lib"
+        / "preinit"
+        / "81_orbyt_ab_environment"
+    )
+    assert _run(repo, "check.sh", "shfmt").returncode != 0
+    formatted = _run(repo, "fmt.sh", "shfmt")
+    assert formatted.returncode == 0, formatted.stderr
+    checked = _run(repo, "check.sh", "shfmt")
+    assert checked.returncode == 0, checked.stdout
+
+
 @spec(CAPABILITY, "All static checks pass", "New static check warning")
 def test_shellcheck_warning_fails(repo: Path) -> None:
     with (repo / "scripts" / "fmt.sh").open("a") as script:

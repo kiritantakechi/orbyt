@@ -16,15 +16,9 @@ for name in ${requested}; do
 	esac
 done
 
-if [ -e /etc/NIXOS ]; then
-	ensure_fhs test "$@"
-fi
-
-use_tests_venv
-cd "${REPO_DIR}"
-files=$(repo_files)
-shell_files=$(printf '%s\n' "${files}" | xargs shfmt -f)
-nix_files=$(printf '%s\n' "${files}" | grep -E '\.nix$')
+quality_prelude "$@"
+shell_files=$(format_files shell)
+nix_files=$(format_files nix)
 
 # format <name> <command...>: run a requested formatter.
 format() {
