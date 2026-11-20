@@ -39,6 +39,8 @@ SHAPED_SHARE = (0.8, 1.05)
 FAIR_SECONDS = 60
 FAIRNESS = 0.2
 VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-orbyt.conf
+# The datagrams a test sends to the voice port, as one flow.
+VOICE_SENT = 20
 RECOVERY = 60
 # Ingress shaping: the interface's ifb, the rate, and how long the
 # download runs.
@@ -166,9 +168,10 @@ def test_two_hosts_share_the_upload(fair_rate: Online) -> None:
 @spec(CAPABILITY, "DSCP classification", "Classify into the voice tin")
 def test_voice_rule_reaches_the_voice_tin(online: Online) -> None:
     before = qos.voice_packets(online.router)
-    for _ in range(20):
-        online.client().probe("send", DIRECT_TARGET[0], "--port", str(VOICE_PORT))
-    assert qos.voice_packets(online.router) >= before + 20
+    online.client().probe(
+        "send", DIRECT_TARGET[0], "--port", str(VOICE_PORT), "--count", str(VOICE_SENT)
+    )
+    assert qos.voice_packets(online.router) >= before + VOICE_SENT
 
 
 @spec(CAPABILITY, "DSCP classification", "Classify by DNS name")

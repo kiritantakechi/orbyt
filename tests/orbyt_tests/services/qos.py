@@ -97,6 +97,5 @@ def send_by_name(online: Online, packets: int) -> str:
         message = f"{name} resolved to {answer}"
         raise LookupError(message)
     (address,) = answers
-    for _ in range(packets):
-        client.probe("send", address, "--port", str(NAMED_PORT))
+    client.probe("send", address, "--port", str(NAMED_PORT), "--count", str(packets))
     return address

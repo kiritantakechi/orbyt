@@ -23,7 +23,7 @@ Every other command is a client and prints one JSON object: ``tcp``,
 ``udp`` and ``esp`` what the server saw; ``connect`` whether any TCP
 server accepted a connection, refused it or never answered; ``greeting``
 the first line a TCP server that speaks first sends (SSH's banner);
-``listen`` the first datagram it receives; ``send`` the port it sent one
+``listen`` the first datagram it receives; ``send`` the port it sent
 from; ``resolve`` the answers of a DNS server; ``solicit-prefix`` what a
 DHCPv6 server offers for prefix delegation; ``solicit-router`` that it
 asked the routers on a link for an advertisement, as a host does when it
@@ -382,11 +382,15 @@ def listen(port: int, *, ipv6: bool = False, timeout: float = TIMEOUT * 6) -> Se
     return {"address": host, "port": source_port, "payload": data.decode()}
 
 
-def send(host: str, port: int, payload: str, *, bind: str = "") -> Seen:
-    """Send a datagram from address ``bind``; return its local port."""
+def send(host: str, port: int, payload: str, *, bind: str = "", count: int = 1) -> Seen:
+    """Send ``count`` datagrams from address ``bind``; return the port.
+
+    All of them leave from one local port, as one flow.
+    """
     with socket.socket(_family(host), socket.SOCK_DGRAM) as sock:
         sock.bind((bind, 0))
-        sock.sendto(payload.encode(), (host, port))
+        for _ in range(count):
+            sock.sendto(payload.encode(), (host, port))
         return {"port": sock.getsockname()[1]}
 
 
@@ -602,11 +606,12 @@ def main() -> None:
     )
     command(
         "send",
-        lambda a: send(a.host, a.port, a.payload, bind=a.bind),
+        lambda a: send(a.host, a.port, a.payload, bind=a.bind, count=a.count),
         host,
         port,
         ("--payload", {"default": "hello"}),
         ("--bind", {"default": ""}),
+        ("--count", {"type": int, "default": 1}),
     )
     command(
         "listen",
