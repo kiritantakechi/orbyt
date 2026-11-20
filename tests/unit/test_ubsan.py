@@ -3,9 +3,8 @@
 They are read from the kernel log and the console.
 """
 
+import re
 from typing import TYPE_CHECKING, cast
-
-import pytest
 
 from orbyt_tests.device.ubsan import Trap, Traps, parse, report
 
@@ -85,7 +84,7 @@ class _Router:
         self.logs = list(logs)
         self.emulator = _Emulator(_Console())
 
-    def poll(self, command: str) -> str | None:
+    def try_run(self, command: str) -> str | None:
         assert command == "dmesg"
         return self.logs.pop(0)
 
@@ -134,7 +133,10 @@ def test_a_report_still_arriving_is_reported_once_whole() -> None:
     assert [trap.pc for trap in traps.new()] == ["0000aaaab4560654"]
 
 
-def test_a_trap_fails_naming_each_process() -> None:
-    report([], "during the test")
-    with pytest.raises(pytest.fail.Exception, match=r"orbyt-ubsan-probe\[1234\] at pc"):
-        report(parse(TRAP), "during the test")
+def test_the_failure_names_each_process() -> None:
+    # The device fixture fails the test with it.
+    assert report([], "during the test") is None
+    failure = report(parse(TRAP), "during the test")
+    assert failure is not None
+    assert failure.startswith("undefined behavior trapped during the test:\n")
+    assert re.search(r"orbyt-ubsan-probe\[1234\] at pc", failure)
