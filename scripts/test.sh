@@ -35,8 +35,8 @@ mkdir -p "${testdir}/test"
 use_tests_venv
 cd "${REPO_DIR}/tests"
 uv sync --locked --quiet
-LG_EMU_DIR=$(uv run --no-sync emu-prepare "${out}" "${testdir}/emu")
-export LG_EMU_DIR
-info "emulator files in ${LG_EMU_DIR}"
+ORBYT_EMU_DIR=$(uv run --no-sync emu-prepare "${out}" "${testdir}/emu")
+export ORBYT_EMU_DIR
+info "emulator files in ${ORBYT_EMU_DIR}"
 exec unshare --user --map-root-user --net --mount --pid --mount-proc --fork -- \
 	uv run --no-sync pytest "$@"

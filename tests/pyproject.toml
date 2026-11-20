@@ -7,6 +7,7 @@ dependencies = [
     "labgrid>=26.0",
     "pydantic>=2.12",
     "pytest==9.2.0",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
@@ -18,7 +19,7 @@ spec-coverage = "orbyt_tests.model.coverage:main"
 [dependency-groups]
 dev = [
     "ruff==0.17.5",
-    "tach>=0.35.3",
+    "tach==0.35.3",
     "ty==0.0.106",
 ]
 

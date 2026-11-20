@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
 # The emulator's boot disk, an SD card or an eMMC on its SD host
 # controller.
-BOOT_DISK = "/dev/mmcblk0"
+BOOT_DEVICE = "/dev/mmcblk0"
 # The copies of the U-Boot environment on the boot disk (design D1,
 # trial-boot-resilience D1): their offsets and their size in bytes.
 ENV_COPIES, ENV_SIZE = (0x3F8000, 0x400000), 0x8000
@@ -77,7 +77,7 @@ def newest_env_copy(router: Router) -> int:
     flags = {
         offset: int(
             router.run(
-                f"dd if={BOOT_DISK} bs=1 skip={offset + ENV_FLAG} count=1 2>/dev/null"
+                f"dd if={BOOT_DEVICE} bs=1 skip={offset + ENV_FLAG} count=1 2>/dev/null"
                 " | hexdump -e '1/1 \"%u\"'"
             )
         )
@@ -109,7 +109,7 @@ def region_sha256(router: Router, device: str, start: int, end: int) -> str:
 
 def partition(number: int) -> str:
     """Return the device of a partition of the boot disk."""
-    return f"{BOOT_DISK}p{number}"
+    return f"{BOOT_DEVICE}p{number}"
 
 
 def erofs_size(router: Router, device: str) -> int:
@@ -142,5 +142,5 @@ def boot_area_sha256(router: Router) -> str:
     The environment is not part of it.
     """
     return ",".join(
-        region_sha256(router, BOOT_DISK, start, end) for start, end in BOOT_AREA
+        region_sha256(router, BOOT_DEVICE, start, end) for start, end in BOOT_AREA
     )

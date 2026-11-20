@@ -35,7 +35,7 @@ def emulation_dir() -> Path:
 
     scripts/test.sh passes it in.
     """
-    return Path(os.environ["LG_EMU_DIR"])
+    return Path(os.environ["ORBYT_EMU_DIR"])
 
 
 @pytest.fixture(scope="session")

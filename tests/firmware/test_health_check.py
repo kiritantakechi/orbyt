@@ -147,7 +147,7 @@ def test_a_service_up_after_the_check_began_passes(router: Router) -> None:
     router.detach(f"{limits} && orbyt-healthcheck")
     # The service comes up once the health check has found it down.
     until(
-        lambda: router.poll(f"cat {LATE_RUNS}"),
+        lambda: router.try_run(f"cat {LATE_RUNS}"),
         timeout=SLOW["total"],
         what="the health check's first run of the late check",
     )
@@ -183,9 +183,9 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     # still fails for two more rounds; then it passes, well within the
     # total time limit.
     router.run(f"date -s @$(($(date +%s) + {DAY})) >/dev/null")
-    failed = len((router.poll(f"cat {DEMO_RUNS}") or "").split())
+    failed = len((router.try_run(f"cat {DEMO_RUNS}") or "").split())
     until(
-        lambda: len((router.poll(f"cat {DEMO_RUNS}") or "").split()) >= failed + 2,
+        lambda: len((router.try_run(f"cat {DEMO_RUNS}") or "").split()) >= failed + 2,
         timeout=SLOW["total"],
         what="two more failing rounds of the check",
     )

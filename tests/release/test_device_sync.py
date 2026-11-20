@@ -239,7 +239,7 @@ def test_the_sync_waits_for_the_proxy(
         finally:
             router.run("/etc/init.d/honk start")
         status = until(
-            lambda: router.poll(f"cat {SYNC_STATUS}"),
+            lambda: router.try_run(f"cat {SYNC_STATUS}"),
             timeout=SYNC_TIMEOUT,
             what="the sync's end",
         )

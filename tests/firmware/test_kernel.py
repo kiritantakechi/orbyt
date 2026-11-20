@@ -8,7 +8,7 @@ import subprocess
 from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
-from orbyt_tests.device.ab import BOOT_DISK
+from orbyt_tests.device.ab import BOOT_DEVICE
 from orbyt_tests.device.paths import scratch
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import REPO_DIR
@@ -125,10 +125,10 @@ def test_virt_devices(router: Router, board: Board) -> None:
     )
     assert router.run("awk '$2 == \"/rom\" { print $1 }' /proc/mounts") in {
         "/dev/root",
-        f"{BOOT_DISK}p2",
+        f"{BOOT_DEVICE}p2",
     }
     # The boot disk, an SD card or an eMMC, on the SD host controller.
-    assert router.returncode(f"[ -b {BOOT_DISK}p2 ]") == 0
+    assert router.returncode(f"[ -b {BOOT_DEVICE}p2 ]") == 0
     assert router.run("ls /sys/bus/pci/drivers/sdhci-pci/ | grep -c '^0000:'") == "1"
     nics = router.run("ls /sys/bus/virtio/drivers/virtio_net/ | grep '^virtio'").split()
     assert len(nics) == len(board.ports)
@@ -172,7 +172,7 @@ def test_local_connection_uses_bbr(router: Router) -> None:
     # look at it once it is established.
     router.run("(sleep 60 | nc 127.0.0.1 80) >/dev/null 2>&1 &")
     info = until(
-        lambda: router.poll("ss -Htin state established 'dport = :80'"),
+        lambda: router.try_run("ss -Htin state established 'dport = :80'"),
         timeout=CONNECT_TIMEOUT,
         what="the router's connection to its web server",
     )

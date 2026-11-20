@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.device.ab import (
-    BOOT_DISK,
+    BOOT_DEVICE,
     BOOT_LIMIT,
     ENV_COPIES,
     ENV_SIZE,
@@ -79,7 +79,7 @@ def _trial(router: Router) -> None:
 def _env_sha256(router: Router) -> str:
     """Return the checksums of both copies of the environment."""
     return ",".join(
-        region_sha256(router, BOOT_DISK, offset, offset + ENV_SIZE)
+        region_sha256(router, BOOT_DEVICE, offset, offset + ENV_SIZE)
         for offset in ENV_COPIES
     )
 
@@ -90,7 +90,7 @@ def _corrupt(router: Router, offset: int) -> None:
     Overwrite its CRC and its first variables.
     """
     router.run(
-        f"dd if=/dev/urandom of={BOOT_DISK} bs=64"
+        f"dd if=/dev/urandom of={BOOT_DEVICE} bs=64"
         f" seek={offset // 64} count=1 conv=fsync"
     )
 
@@ -190,7 +190,7 @@ def test_the_environment_is_where_the_bootloader_names_it(router: Router) -> Non
             str.split, router.run("cat /etc/fw_env.config").splitlines()
         )
     ]
-    assert configured == [(BOOT_DISK, offset, ENV_SIZE) for offset in ENV_COPIES]
+    assert configured == [(BOOT_DEVICE, offset, ENV_SIZE) for offset in ENV_COPIES]
     setenv(router, orbyt_probe="written")
     assert getenv(router, "orbyt_probe") == "written"
 

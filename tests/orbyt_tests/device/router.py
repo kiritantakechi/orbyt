@@ -46,6 +46,7 @@ BOOT_ID = "cat /proc/sys/kernel/random/boot_id"
 # A connection the router stopped answering: labgrid says so before it
 # runs a command, and ssh exits with this status.
 DEAD_CONNECTION = "Keepalive no longer running"
+NO_CONNECTION = "Timeout while waiting for ssh connection"
 SSH_FAILED = 255
 # Each command runs in a session of its own, whose shell records its PID
 # here: dropbear runs every command of a connection in the connection's
@@ -155,7 +156,7 @@ class Router:
         except subprocess.TimeoutExpired:
             # A router that does not take the kill has nothing running
             # for us either.
-            self.poll(f'kill -KILL -- -"$(cat {COMMAND_PID})"')
+            self.try_run(f'kill -KILL -- -"$(cat {COMMAND_PID})"')
             msg = f"{command!r} did not finish within {timeout:g} s"
             raise TimeoutError(msg) from None
         return cast("tuple[list[str], list[str], int]", result)
@@ -171,7 +172,7 @@ class Router:
             raise AssertionError(msg)
         return "\n".join(map(str, stdout))
 
-    def poll(self, command: str, *, timeout: float = 30) -> str | None:
+    def try_run(self, command: str, *, timeout: float = 30) -> str | None:
         """Run a shell command if the router answers; return its stdout.
 
         Return None if the router does not answer or the command fails.
@@ -181,9 +182,14 @@ class Router:
         """
         try:
             stdout, _, code = self._connected().run(command, timeout=timeout)
-        # labgrid raises a bare Exception for a connection that never
-        # came up.
-        except Exception:  # noqa: BLE001
+        except ExecutionError:
+            # A command cut short: its time limit, or its connection's.
+            self.disconnect()
+            return None
+        except Exception as error:
+            # A connection that never came up: labgrid raises it bare.
+            if str(error) != NO_CONNECTION:
+                raise
             self.disconnect()
             return None
         if code != 0:
@@ -462,7 +468,9 @@ class Router:
         """
         deadline = time.monotonic() + timeout
         until(
-            lambda: (boot := self.poll(BOOT_ID)) is not None and boot != previous_boot,
+            lambda: (
+                (boot := self.try_run(BOOT_ID)) is not None and boot != previous_boot
+            ),
             timeout=timeout,
             every=2,
             what="reboot of the router",
@@ -482,7 +490,7 @@ class Router:
         if detached is None:
             return ["no command was detached on the router"]
         with self.moved_to(detached.address):
-            output = self.poll(f"cat {DETACHED_LOG}")
+            output = self.try_run(f"cat {DETACHED_LOG}")
         shown = (
             f"its output, at {detached.address}:\n{output}"
             if output is not None

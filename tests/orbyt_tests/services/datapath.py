@@ -298,7 +298,7 @@ def _session(router: Router, isp: Isp, other_than: Session | None) -> Session | 
     # ifup reloads netifd first, which can leave a slow router's netifd
     # without an answer for a while (CI's run 38138320189): no answer is
     # no session yet.
-    shown = router.poll("ifstatus wan")
+    shown = router.try_run("ifstatus wan")
     if shown is None:
         return None
     status = cast("dict[str, Any]", json.loads(shown))
@@ -500,7 +500,7 @@ class Online:
         ]
         if self.router.reachable():
             parts += [
-                _part(f"router$ {command}", partial(self.router.poll, command))
+                _part(f"router$ {command}", partial(self.router.try_run, command))
                 for command in ROUTER_STATE
             ]
         else:

@@ -88,7 +88,7 @@ def _status(router: Router) -> dict[str, str]:
 
     The result is empty while the router cannot be reached.
     """
-    listed = router.poll("orbyt-slot status") or ""
+    listed = router.try_run("orbyt-slot status") or ""
     return dict(line.split(": ", 1) for line in listed.splitlines() if ": " in line)
 
 

@@ -52,7 +52,7 @@ DOWN_MARGIN = 1.2
 # A device with a 14-character name, a VLAN of the LAN bridge (busybox's
 # ip makes VLANs, not veth pairs), and the ifb its ingress shaping gets:
 # "ifb-", the name's first two characters and its last nine.
-LONG_DEVICE = "qosify-long-v1"
+LONG_DEVICE = "fourteen-chars"
 LONG_VLAN = 4001
 LONG_IFB = f"ifb-{LONG_DEVICE[:2]}{LONG_DEVICE[-9:]}"
 
@@ -102,7 +102,7 @@ def _ingress_shaped(router: Router, rate: int) -> Generator[None]:
     try:
         shown = f"bandwidth {rate // 1_000_000}Mbit"
         until(
-            lambda: shown in (router.poll(f"tc qdisc show dev {IFB} root") or ""),
+            lambda: shown in (router.try_run(f"tc qdisc show dev {IFB} root") or ""),
             timeout=RECOVERY,
             what=f"cake on {IFB}",
         )

@@ -97,7 +97,10 @@ class Traps:
 
     def new(self) -> list[Trap]:
         """Return traps in the records that no earlier call returned."""
-        logs = (self._router.poll("dmesg") or "", self._router.emulator.console.text())
+        logs = (
+            self._router.try_run("dmesg") or "",
+            self._router.emulator.console.text(),
+        )
         found = []
         for trap in (trap for log in logs for trap in parse(log)):
             report = (trap.process, trap.pid, trap.time)
