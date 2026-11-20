@@ -125,7 +125,12 @@ def test_wan_port_runs_einat_then_qosify(proxy: Online) -> None:
 
 @spec(CAPABILITY, "Only the proxy on the LAN port", "Check the LAN port")
 def test_lan_port_runs_only_honk(proxy: Online) -> None:
-    assert hooks(proxy.router, "br-lan") == PROXY_HOOKS_L2
+    router = proxy.router
+    # honk's programs alone, on tcx: none of einat's or qosify's, and no
+    # legacy tc filter beside them.
+    assert hooks(router, "br-lan") == PROXY_HOOKS_L2
+    shown = "tc filter show dev br-lan ingress; tc filter show dev br-lan egress"
+    assert router.run(shown) == ""
 
 
 @spec(

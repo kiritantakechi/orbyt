@@ -48,8 +48,9 @@ RECOVERY = 60
 IFB = f"ifb-{WAN_DEVICE}"
 DOWN_RATE = 10_000_000
 DOWN_SECONDS = 10
-# How far above the rate a shaped download may measure.
-DOWN_MARGIN = 1.2
+# The share of the shaped rate a download it limits reaches: below it
+# goes cake's overhead and TCP's back-off, above it iperf's own count.
+DOWN_SHARE = (0.8, 1.2)
 # A device with a 14-character name, a VLAN of the LAN bridge (busybox's
 # ip makes VLANs, not veth pairs), and the ifb its ingress shaping gets:
 # "ifb-", the name's first two characters and its last nine.
@@ -179,13 +180,18 @@ def test_voice_rule_reaches_the_voice_tin(online: Online) -> None:
 def test_dns_rule_reaches_the_voice_tin(internet_zone: Online) -> None:
     router = internet_zone.router
     with qos.rules(router, f"dns:{qos.VOICE_NAMES}\tvoice"):
-        before = qos.voice_packets(router)
-        address = qos.send_by_name(internet_zone, 20)
-        assert address == DIRECT_TARGET[0]
-        # qosify learnt the address from the reply on pppoe-wan, which
-        # has no link-layer header.
-        assert address in qos.learnt(router).get("ipv4", [])
-        assert qos.voice_packets(router) >= before + 20
+        # Each family's answer, from a reply of its own: qosify learnt
+        # the address from the reply on pppoe-wan, which has no
+        # link-layer header.
+        for kind, family, target in (
+            ("A", "ipv4", DIRECT_TARGET[0]),
+            ("AAAA", "ipv6", DIRECT_TARGET[1]),
+        ):
+            before = qos.voice_packets(router)
+            address = qos.send_by_name(internet_zone, VOICE_SENT, kind)
+            assert address == target
+            assert address in qos.learnt(router).get(family, []), family
+            assert qos.voice_packets(router) >= before + VOICE_SENT, family
 
 
 @spec(CAPABILITY, "Ingress shaping when configured", "Enable ingress shaping")
@@ -202,7 +208,9 @@ def test_ingress_shaping_takes_the_download(online: Online) -> None:
         # Every byte of the download went through cake on the ifb,
         # headers on top.
         assert _sent_bytes(router, IFB) - before >= received["bytes"]
-        assert received["bits_per_second"] <= DOWN_RATE * DOWN_MARGIN
+        low, high = DOWN_SHARE
+        rate = received["bits_per_second"]
+        assert low * DOWN_RATE <= rate <= high * DOWN_RATE, rate
     assert _ifbs(router) == []
 
 

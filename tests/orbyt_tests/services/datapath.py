@@ -129,6 +129,9 @@ NAT_RELEASE = feed_variable("net/einat", "PKG_VERSION")
 # on every address of the router; the zones' input policies leave it to
 # the LAN.
 NATIVE_API_PORT = 9527
+# The status native_api returns for no answer at all, which curl prints
+# as 000.
+NO_ANSWER = 0
 NATIVE_API_TOKEN = "orbyt-test-native-api-token-0123456789"  # noqa: S105 (the tests' own)
 NATIVE_API = f"""
 experimental {{
@@ -212,8 +215,8 @@ def native_api(
     """Ask honk's native API at ``address`` from ``source``.
 
     ``address`` is the router's.
-    Return the HTTP status and the body; the status is 0 when no answer
-    came at all.
+    Return the HTTP status and the body; the status is NO_ANSWER when
+    no answer came at all.
     """
     header = () if token is None else ("-H", f"Authorization: Bearer {token}")
     # curl fails without an answer, and prints the status 000 then. It

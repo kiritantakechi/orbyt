@@ -22,8 +22,9 @@ from urllib.parse import quote
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.model.image import DEFAULT_HOSTNAME
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import DIRECT_TARGET
+from orbyt_tests.sandbox.net import DIRECT_TARGET, ROUTER_ADDRESS
 from orbyt_tests.services import app
 from orbyt_tests.services.datapath import (
     NATIVE_API,
@@ -99,11 +100,12 @@ def test_external_names_go_through_honk(proxy: Online) -> None:
     "Query the router while the proxy runs",
 )
 def test_the_router_answers_its_own_names(proxy: Online) -> None:
-    ipv4_b, _ = proxy.addresses("client-b")
-    # A name dnsmasq answers itself: honk, which would intercept DNS to
-    # a public resolver, leaves DNS to the router's address to dnsmasq.
-    assert _resolve(proxy, "client-b.lan") == {"rcode": 0, "answers": [ipv4_b]}
-    assert not _cached(proxy, "client-b.lan")
+    # The router's own name, which dnsmasq answers itself: honk, which
+    # would intercept DNS to a public resolver, leaves DNS to the
+    # router's address to dnsmasq.
+    name = f"{DEFAULT_HOSTNAME}.lan"
+    assert _resolve(proxy, name) == {"rcode": 0, "answers": [ROUTER_ADDRESS]}
+    assert not _cached(proxy, name)
 
 
 @spec(

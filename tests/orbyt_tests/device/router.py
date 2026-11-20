@@ -42,7 +42,8 @@ BOOT_TIMEOUT = 600.0
 READY_MARK = "- init complete -"
 # The kernel's last words before the machine restarts.
 RESTART_MARK = "reboot: Restarting system"
-BOOT_ID = "cat /proc/sys/kernel/random/boot_id"
+# Where the kernel names the boot, anew at every one.
+BOOT_ID = "/proc/sys/kernel/random/boot_id"
 # A connection the router stopped answering: labgrid says so before it
 # runs a command, and ssh exits with this status.
 DEAD_CONNECTION = "Keepalive no longer running"
@@ -453,7 +454,7 @@ class Router:
 
     def boot_id(self) -> str:
         """Return the kernel's boot ID, which changes at every boot."""
-        return self.run(BOOT_ID)
+        return self.run(f"cat {BOOT_ID}")
 
     def wait_rebooted(self, previous_boot: str, timeout: float = BOOT_TIMEOUT) -> None:
         """Wait until the router has booted after ``previous_boot``.
@@ -469,7 +470,8 @@ class Router:
         deadline = time.monotonic() + timeout
         until(
             lambda: (
-                (boot := self.try_run(BOOT_ID)) is not None and boot != previous_boot
+                (boot := self.try_run(f"cat {BOOT_ID}")) is not None
+                and boot != previous_boot
             ),
             timeout=timeout,
             every=2,

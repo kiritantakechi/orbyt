@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, cast
 from orbyt_tests import spec
 from orbyt_tests.device.ab import getenv, setenv, slot
 from orbyt_tests.device.paths import HEALTH_RESULT, health_check, scratch
+from orbyt_tests.device.router import BOOT_ID
 from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
@@ -38,6 +39,9 @@ LATE_RUNS = scratch("late-runs")
 LATE_UP = scratch("late-up")
 # Each run of a check that fails until FAILING goes.
 DEMO_RUNS = scratch("demo-runs")
+# The boots in which a check failed, on the overlay, which a reboot
+# keeps.
+FAILURES = "/root/demo-failures"
 
 
 def _check(router: Router, broken: str | None = None) -> dict[str, object]:
@@ -116,12 +120,21 @@ def test_trial_failure_reboots(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
     # Fails for this boot only: /tmp starts empty, so the next boot
-    # passes and confirms.
+    # passes and confirms. Each failure leaves its boot behind on the
+    # overlay, which the reboot keeps.
     router.run(f"touch {FAILING}")
-    _register(router, "demo", f"[ ! -e {FAILING} ]")
+    _register(
+        router,
+        "demo",
+        f"[ ! -e {FAILING} ] || {{ cat {BOOT_ID} >>{FAILURES}; exit 1; }}",
+    )
     previous_boot = router.boot_id()
     router.detach(f"{QUICK} && orbyt-healthcheck")
     router.wait_rebooted(previous_boot)
+    # The check failed in the boot that rebooted, and the slot on trial
+    # boots again.
+    assert router.run(f"cat {FAILURES}").split() == [previous_boot]
+    assert slot(router) == running
     confirmed = f"slot {running} passed its trial boot and is confirmed"
     router.wait_logged(confirmed, by="orbyt-healthcheck", timeout=300, every=2)
 

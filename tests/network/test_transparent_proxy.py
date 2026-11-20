@@ -27,6 +27,7 @@ from orbyt_tests.services import app
 from orbyt_tests.services.datapath import (
     NATIVE_API,
     NATIVE_API_PORT,
+    NO_ANSWER,
     PROXIED,
     PROXY_CONFIG,
     PROXY_HEALTHCHECK,
@@ -651,7 +652,9 @@ def test_the_native_api_answers_nothing_outside_the_lan(
     # The internet reaches the router's WAN address, but not the API
     # there.
     online.network["inet"].run("ping", "-c", "1", "-W", "5", online.wan_address)
-    assert native_api(online.network["inet"], online.wan_address, "/api")[0] == 0
+    assert (
+        native_api(online.network["inet"], online.wan_address, "/api")[0] == NO_ANSWER
+    )
     # The container reaches the internet through its gateway (the probe
     # server answers as it connects), but not the API on it. The
     # firmware's busybox, the container's, has an nc without -w: the

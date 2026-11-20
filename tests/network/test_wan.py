@@ -35,6 +35,8 @@ CAPABILITY = "network/wan"
 # 40 more.
 PATH_MTU = 1492
 MSS_MAX = PATH_MTU - 40
+# IPv6's header is 20 bytes longer than IPv4's.
+MSS6_MAX = PATH_MTU - 60
 # The download outlasts the wait for its offload, and the reading at the
 # server after it (test-fidelity D2).
 DOWNLOAD_SECONDS = 60
@@ -97,9 +99,10 @@ def test_mss_fits_the_path(online: Online) -> None:
     # namespace; its /sys would still be the host's.
     link = client.run("ip", "-o", "link", "show", "dev", "eth0").split()
     assert link[link.index("mtu") + 1] == "1500"
-    seen = client.probe("tcp", DIRECT_TARGET[0])
-    assert isinstance(seen["mss"], int)
-    assert seen["mss"] <= MSS_MAX
+    for target, largest in zip(DIRECT_TARGET, (MSS_MAX, MSS6_MAX), strict=True):
+        seen = client.probe("tcp", target)
+        assert isinstance(seen["mss"], int)
+        assert seen["mss"] <= largest, target
     # The path MTU itself: the largest unfragmented ping fits, one byte
     # more does not.
     payload = PATH_MTU - 28
@@ -130,8 +133,8 @@ def test_mss_fits_the_path(online: Online) -> None:
 def test_lan_host_gets_ipv6(online: Online) -> None:
     _, ipv6 = online.addresses()
     assert ipaddress.IPv6Address(ipv6) in DELEGATED_PREFIX
-    # Reaches the IPv6 internet as itself: no NAT66.
-    assert online.client().probe("tcp", DIRECT_TARGET[1])["address"] == ipv6
+    # It reaches the IPv6 internet (as which address, network/nat says).
+    assert online.client().probe("tcp", DIRECT_TARGET[1])["address"]
 
 
 def _lan_state(online: Online, address: str) -> str:

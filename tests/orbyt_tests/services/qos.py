@@ -83,15 +83,18 @@ def rules(router: Router, *lines: str) -> Generator[None]:
         forget_learnt(router)
 
 
-def send_by_name(online: Online, packets: int) -> str:
+def send_by_name(online: Online, packets: int, kind: str = "A") -> str:
     """Send ``packets`` datagrams from a LAN client to a voice name.
 
     The datagrams go to NAMED_PORT of a VOICE_NAMES name. The client
-    resolves a fresh name through the router; return the address it got.
+    resolves a fresh name through the router, as a record of ``kind`` (A
+    or AAAA); return the address it got.
     """
     client = online.client()
     name = VOICE_NAMES.replace("*", uuid.uuid4().hex[:12])
-    answer = client.probe("resolve", name, "--server", online.router.address)
+    answer = client.probe(
+        "resolve", name, "--server", online.router.address, "--type", kind
+    )
     answers = cast("list[str]", answer["answers"])
     if answer["rcode"] != 0 or len(answers) != 1:
         message = f"{name} resolved to {answer}"
