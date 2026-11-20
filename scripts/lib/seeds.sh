@@ -1,5 +1,6 @@
 # seeds: the configuration of a build composed from seeds: a profile's
-# (config/profiles), and a board's (board-model D2).
+# (config/profiles), and a board's (board-model D2); the LAN's address and
+# subnet, which the system seed sets.
 # Usage: use seeds   (POSIX sh; sourced)
 # shellcheck shell=sh
 : "${REPO_DIR:?load scripts/lib/core.sh first}"
@@ -90,4 +91,21 @@ compose_seeds() (
 			CONFIG_BINARY_FOLDER="${tree}/bin/${name}"
 		EOF
 	} >"${output}"
+)
+
+# lan_address: the router's LAN address, as config/system.seed sets it: the
+# preinit address, which the LAN takes as its default.
+lan_address() (
+	address=$(sed -n 's/^CONFIG_TARGET_PREINIT_IP="\([0-9.]*\)"$/\1/p' "${REPO_DIR}/config/system.seed")
+	[ -n "${address}" ] || die "config/system.seed sets no CONFIG_TARGET_PREINIT_IP"
+	printf '%s\n' "${address}"
+)
+
+# lan_subnet: the LAN's subnet: the /24 of lan_address, the netmask preinit
+# keeps by default (255.255.255.0), whose broadcast config/system.seed sets.
+lan_subnet() (
+	address=$(lan_address)
+	grep -qx "CONFIG_TARGET_PREINIT_BROADCAST=\"${address%.*}.255\"" "${REPO_DIR}/config/system.seed" ||
+		die "config/system.seed's broadcast is not that of ${address}/24"
+	printf '%s\n' "${address%.*}.0/24"
 )

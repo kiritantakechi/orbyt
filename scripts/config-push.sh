@@ -23,6 +23,7 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
+use seeds
 umask 077
 
 usage() {
@@ -147,8 +148,9 @@ auth_key=$(jq -r '.tailscale.auth_key // ""' "${scratch}/secrets.json")
 if [ -n "${auth_key}" ]; then
 	mkdir -p "${new}/tailscale"
 	printf '%s\n' "${auth_key}" >"${new}/tailscale/auth_key"
-	jq -r '(if (.tailscale.login_server // "") != "" then "--login-server=\(.tailscale.login_server) " else "" end)
-		+ "--advertise-routes=10.0.0.0/24 --accept-dns=false"' "${scratch}/secrets.json" \
+	subnet=$(lan_subnet)
+	jq -r --arg subnet "${subnet}" '(if (.tailscale.login_server // "") != "" then "--login-server=\(.tailscale.login_server) " else "" end)
+		+ "--advertise-routes=\($subnet) --accept-dns=false"' "${scratch}/secrets.json" \
 		>"${new}/tailscale/options"
 fi
 users=$(jq -r '.smb.users // [] | .[] | "\(.name) \(.password)"' "${scratch}/secrets.json")

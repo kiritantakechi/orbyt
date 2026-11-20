@@ -10,6 +10,7 @@
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
+use seeds
 
 image=${1:-}
 [ -n "${image}" ] && [ -f "${image}" ] || die "usage: image-audit <factory.img.gz>"
@@ -99,10 +100,11 @@ esac
 root_hash=$(awk -F: '$1 == "root" { print $2 }' "${root}/etc/shadow")
 if [ -z "${root_hash}" ]; then pass "no preset root password"; else fail "root has a password hash"; fi
 
-if grep -qs '10\.0\.0\.1' "${root}/etc/board.d/99-lan-ip"; then
-	pass "default LAN address 10.0.0.1"
+address=$(lan_address)
+if grep -qsF "${address}" "${root}/etc/board.d/99-lan-ip"; then
+	pass "default LAN address ${address}"
 else
-	fail "default LAN address is not 10.0.0.1"
+	fail "default LAN address is not ${address}"
 fi
 
 [ "${failed}" -eq 0 ] || die "audit failed"
