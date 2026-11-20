@@ -4,12 +4,12 @@ Optimization comes from configuration, not from build system patches.
 """
 
 import re
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from orbyt_tests.model.outputs import Manifest
 
 CAPABILITY = "firmware/toolchain"
-PATCHES = Path(__file__).resolve().parents[2] / "patches" / "openwrt"
+PATCHES = REPO_DIR / "patches" / "openwrt"
 OPTIMIZATION = re.compile(r"-O([0-3gsz]|fast)?")
 MCPU = re.compile(r"-mcpu=.+")
 # The options that relax IEEE floating-point semantics (toolchain-o3

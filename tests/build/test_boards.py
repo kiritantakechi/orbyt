@@ -26,11 +26,11 @@ from orbyt_tests.model.outputs import (
     Manifest,
     ToolchainRecord,
 )
+from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
 
 CAPABILITY = "build/boards"
-REPO = Path(__file__).resolve().parents[2]
-FIXTURES = REPO / "tests" / "fixtures"
-WORKFLOW = REPO / ".github" / "workflows" / "build.yml"
+FIXTURES = TESTS_DIR / "fixtures"
+WORKFLOW = REPO_DIR / ".github" / "workflows" / "build.yml"
 # What the board facts must stay out of, and the places they belong
 # instead: the descriptions and each board's own U-Boot fragments.
 SEARCHED = (
@@ -66,7 +66,7 @@ ANSWER_FRAGMENT = "orbyt-answer.config"
 ANSWER = "0x40000"
 CONFIGURE_SECONDS = 60
 RUST_STD_CONTENT = b"Rust's standard library"
-PATCHES = REPO / "patches" / "openwrt"
+PATCHES = REPO_DIR / "patches" / "openwrt"
 # The check of the toolchain's record of its inputs in
 # toolchain/Makefile, which also checks the target's record of its
 # toolchain: the rule and its recipe.
@@ -144,13 +144,13 @@ def test_no_board_is_named_outside_its_description() -> None:
     }
     # The files the tests keep as a build and a release wrote them name
     # the board.
-    recorded = f"{FIXTURES.relative_to(REPO).as_posix()}/"
+    recorded = f"{FIXTURES.relative_to(REPO_DIR).as_posix()}/"
     listed = subprocess.run(
         [
             *(
                 "git",
                 "-C",
-                REPO,
+                REPO_DIR,
                 "ls-files",
                 "--cached",
                 "--others",
@@ -164,7 +164,7 @@ def test_no_board_is_named_outside_its_description() -> None:
     ).stdout.splitlines()
     naming = {}
     for name in sorted(set(listed) - fragments):
-        path = REPO / name
+        path = REPO_DIR / name
         if not path.is_file() or name.startswith(recorded):
             continue
         text = path.read_bytes().decode(errors="replace").lower()
@@ -176,7 +176,7 @@ def test_no_board_is_named_outside_its_description() -> None:
 @spec(CAPABILITY, "Supported boards", "Every board goes through the pipeline")
 def test_every_board_goes_through_the_pipeline() -> None:
     listed = subprocess.run(
-        ["just", "--justfile", REPO / "justfile", "boards"],
+        ["just", "--justfile", REPO_DIR / "justfile", "boards"],
         capture_output=True,
         text=True,
         check=True,
@@ -221,7 +221,7 @@ def test_every_board_goes_through_the_pipeline() -> None:
 @pytest.mark.parametrize("recipe", BOARD_RECIPES)
 def test_an_unknown_board_is_refused(recipe: str, tmp_path: Path) -> None:
     result = subprocess.run(
-        ["just", "--justfile", REPO / "justfile", recipe, "nope"],
+        ["just", "--justfile", REPO_DIR / "justfile", recipe, "nope"],
         env={**os.environ, "ORBYT_WORKDIR": str(tmp_path)},
         capture_output=True,
         text=True,
@@ -592,7 +592,7 @@ def _tree_to_build_toolchain(
 
 def _toolchain_build(tree: Path, **env: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [REPO / "scripts" / "toolchain-build.sh"],
+        [REPO_DIR / "scripts" / "toolchain-build.sh"],
         env=_script_env(tree.parent, **env),
         capture_output=True,
         text=True,
@@ -799,7 +799,7 @@ def test_a_board_toolchain_is_refused(
     board = load_all()[0]
     tree = _tree_with_toolchain(tmp_path, board, record)
     result = subprocess.run(
-        [REPO / "scripts" / "build.sh", board.id],
+        [REPO_DIR / "scripts" / "build.sh", board.id],
         env=_script_env(tmp_path),
         capture_output=True,
         text=True,
@@ -819,7 +819,7 @@ def test_a_board_build_that_compiles_the_toolchain_fails(tmp_path: Path) -> None
     board = load_all()[0]
     tree = _tree_with_toolchain(tmp_path, board, _neutral_record())
     result = subprocess.run(
-        [REPO / "scripts" / "build.sh", board.id],
+        [REPO_DIR / "scripts" / "build.sh", board.id],
         env=_script_env(tmp_path, COMPILED="package/feeds/packages/rust"),
         capture_output=True,
         text=True,

@@ -7,16 +7,19 @@ import json
 import os
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.series import Series
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 CAPABILITY = "build/environment"
-REPO = Path(__file__).resolve().parents[2]
 SOURCE_ENTRY_POINTS = (
     "fetch",
     "patch",
@@ -47,7 +50,7 @@ def test_macos_is_refused(
     workdir = tmp_path / "work"
     workdir.mkdir()
     result = subprocess.run(
-        [str(REPO / "scripts" / f"{entry_point}.sh")],
+        [str(REPO_DIR / "scripts" / f"{entry_point}.sh")],
         env={**macos, "ORBYT_WORKDIR": str(workdir)},
         capture_output=True,
         text=True,
@@ -66,7 +69,7 @@ def test_failed_step_stops_the_build(tmp_path: Path) -> None:
         [
             "just",
             "--justfile",
-            str(REPO / "justfile"),
+            str(REPO_DIR / "justfile"),
             "build",
             load_all()[0].id,
             "dev",
@@ -85,7 +88,7 @@ def test_failed_step_stops_the_build(tmp_path: Path) -> None:
 @spec(CAPABILITY, "Common build entry points", "An argument with a blank or a quote")
 @pytest.mark.parametrize("shape", ["a command after a blank", "a quote"])
 def test_an_argument_reaches_its_script_whole(tmp_path: Path, shape: str) -> None:
-    justfile = REPO / "justfile"
+    justfile = REPO_DIR / "justfile"
     # No recipe pastes an argument into its command line: just passes
     # them on.
     dump = subprocess.run(

@@ -1,9 +1,14 @@
 """Unit tests of scripts/marks-check.sh on the paths it reads."""
 
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-MARKS_CHECK = Path(__file__).resolve().parents[2] / "scripts" / "marks-check.sh"
+from orbyt_tests.model.repository import REPO_DIR
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
 
 
 def test_a_path_that_cannot_be_read_fails_the_check(tmp_path: Path) -> None:

@@ -13,7 +13,6 @@ import os
 import re
 import shutil
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -21,25 +20,28 @@ import yaml
 
 from orbyt_tests import spec
 from orbyt_tests.device.emu import sha256
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.keys import APK_KEYS, FIRMWARE_KEYS, Keys, sign
 from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
+from orbyt_tests.model.repository import FEED_DIR, REPO_DIR
 from orbyt_tests.model.trees import linked_copy, replace
 from orbyt_tests.sandbox.oci import extract_root
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.outputs import EmulationSource
 
 CAPABILITY = "release/signing"
-REPO = Path(__file__).resolve().parents[2]
-WORKFLOWS = REPO / ".github" / "workflows"
-KEYRING = REPO / "feed" / "utils" / "orbyt-keyring" / "files"
+WORKFLOWS = REPO_DIR / ".github" / "workflows"
+KEYRING = FEED_DIR / "utils" / "orbyt-keyring" / "files"
 SECRETS = ("RELEASE_APK_KEY", "RELEASE_FW_KEY")
 ENVIRONMENT = "release-signing"
 INDEX = "targets/packages/packages.adb"
-ON_ROUTER = "/tmp/packages.adb"  # noqa: S108 (a path on the router)
+ON_ROUTER = scratch("packages.adb")
 # The only actions the sign job may use: the checkout, the pinned Nix
 # and the artifacts.
 SIGN_ACTIONS = {"actions/checkout", "./.github/actions/nix"} | {
@@ -123,7 +125,7 @@ def _sign_job(tmp_path: Path, artifact: str, board: str) -> tuple[bool, list[str
     calls = tmp_path / "nix.calls"
     result = subprocess.run(
         ["bash", "-eo", "pipefail", "-c", step["run"]],
-        cwd=REPO,
+        cwd=REPO_DIR,
         capture_output=True,
         check=False,
         env={

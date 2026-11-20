@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.storage import MOUNT
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
@@ -137,7 +138,7 @@ def _image_field(router: Router, image: str, field: str) -> str:
 @spec(CAPABILITY, "Container storage on the data disk", "Pull an image")
 def test_pull_goes_to_the_data_disk(storage: Online, fresh_image: str) -> None:
     router = storage.router
-    mark = f"/tmp/pull-{time.time_ns()}"  # noqa: S108 (a path on the router)
+    mark = scratch(f"pull-{time.time_ns()}")
     # An image of its own, so that the pull writes all of it, whatever
     # the module pulled before.
     router.run(f"touch {mark} && podman pull --quiet {fresh_image}", timeout=300)

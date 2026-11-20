@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import health_check
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
 from orbyt_tests.sandbox.netprobe import HTTP_PORT
@@ -45,7 +46,7 @@ NEVER_CONTACTED = (
     "203.0.113.53"  # an address of the internet host no test sends to first
 )
 RECOVERY = 60
-HEALTHCHECK = "/etc/healthcheck.d/50-einat"
+HEALTHCHECK = health_check("50-einat")
 # A table of the test's own on the router, which counts the IPv4 packets
 # that enter a device: at the WAN port the bare frames, PPPoE's being of
 # other types (test-fidelity D3), and at the session's device the

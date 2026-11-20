@@ -5,25 +5,28 @@ Version, BTF, BPF and cgroup v2, built-in filesystems, BBRv3, vermagic.
 
 import re
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.device.ab import BOOT_DISK
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/kernel"
-PATCHES = Path(__file__).resolve().parents[2] / "patches" / "openwrt"
+PATCHES = REPO_DIR / "patches" / "openwrt"
 BBR3_ONLY_SYMBOLS = ("bbr_skb_marked_lost", "bbr_tso_segs")
 KERNEL_PATCH_DIR = re.compile(
     r"^target/linux/[^/]+/(patches|hack|pending|backport)-[0-9.]+/"
 )
 BBR3_PATCH = re.compile(r"^target/linux/generic/hack-[0-9.]+/960-bbr3-")
-BPF_OBJECT = "/tmp/orbyt_pass.o"  # noqa: S108 (a path on the router)
+BPF_OBJECT = scratch("orbyt_pass.o")
 # How long the router may take to connect to its own web server.
 CONNECT_TIMEOUT = 30
 # The smallest tcx program: it hands every packet on (TCX_NEXT). libbpf

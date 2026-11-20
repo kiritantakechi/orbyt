@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, cast
 
 from labgrid.driver import ExecutionError
 
+from orbyt_tests.device.paths import UPGRADE_IMAGE, scratch
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import ip
 
@@ -50,7 +51,7 @@ SSH_FAILED = 255
 # one session, and labgrid gives up on a command past its time limit
 # without ending it, which would go on holding what it holds, such as
 # orbyt-sync's lock (test-fidelity D9).
-COMMAND_PID = "/tmp/orbyt-tests.pid"  # noqa: S108 (a path on the router)
+COMMAND_PID = scratch("orbyt-tests.pid")
 # How long a failure's report waits for a new connection to the router
 # before it says that the router does not answer (test-fidelity D10).
 REACHABLE_TIMEOUT = 5
@@ -93,7 +94,7 @@ READ_CLOCK = "ucode -e 'printf(\"%d.%09d\", ...clock())'"
 # Where a detached command's output goes on the router, which the reboot
 # it leads to clears; and how much of the console a reboot that does not
 # come shows (failure-diagnostics D1, D2).
-DETACHED_LOG = "/tmp/orbyt-detached.log"  # noqa: S108 (a path on the router)
+DETACHED_LOG = scratch("orbyt-detached.log")
 CONSOLE_LINES = 60
 
 
@@ -395,13 +396,31 @@ class Router:
         self.wait_ssh(timeout)
         # procd logs through ulog, which writes to logd (not the kernel
         # log) once logd runs, as it does long before init completes.
-        until(
-            lambda: self.returncode(f"logread | grep -qF -- '{READY_MARK}'") == 0,
-            timeout=deadline - time.monotonic(),
-            every=2,
-            what="procd's report of init complete",
-        )
+        self.wait_logged(READY_MARK, timeout=deadline - time.monotonic(), every=2)
         self.set_clock()
+
+    def logged(self, text: str, *, by: str | None = None) -> bool:
+        """Return whether the system log holds ``text`` since the boot.
+
+        ``by`` is a pattern of logread's -e that the line matches, such
+        as its sender's name.
+        """
+        log = "logread" if by is None else f"logread -e {shlex.quote(by)}"
+        return self.returncode(f"{log} | grep -qF -- {shlex.quote(text)}") == 0
+
+    def wait_logged(
+        self, text: str, *, by: str | None = None, timeout: float, every: float = 1
+    ) -> None:
+        """Wait until the system log holds ``text``.
+
+        ``by`` narrows the log as ``logged`` does.
+        """
+        until(
+            lambda: self.logged(text, by=by),
+            timeout=timeout,
+            every=every,
+            what=f"{text!r} in the log",
+        )
 
     def clock_reading(self) -> ClockReading:
         """Read how far the router's clock is behind the runner's.
@@ -567,6 +586,24 @@ class Router:
         self.emulator.send_keys("f\n")
         console.wait_for(FAILSAFE_MARK, since=since, timeout=FAILSAFE_TIMEOUT)
         self.wait_ssh()
+
+    def start_upgrade(self, image: Path, *options: str) -> None:
+        """Copy ``image`` to the router and have sysupgrade write it.
+
+        sysupgrade runs with ``options``; the caller waits for what
+        comes of it.
+        """
+        self.put(image, UPGRADE_IMAGE)
+        self.detach(shlex.join(["sysupgrade", *options, UPGRADE_IMAGE]))
+
+    def upgrade(self, image: Path, *options: str) -> None:
+        """Upgrade the router to ``image``; wait until it is back.
+
+        sysupgrade runs with ``options``.
+        """
+        previous_boot = self.boot_id()
+        self.start_upgrade(image, *options)
+        self.wait_rebooted(previous_boot)
 
     def reboot(
         self, command: str = "reboot", *, while_off: Callable[[], object] | None = None

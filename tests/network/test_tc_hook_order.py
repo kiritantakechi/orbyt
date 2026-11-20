@@ -8,13 +8,13 @@ import json
 import re
 import subprocess
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox.net import DIRECT_TARGET
 from orbyt_tests.sandbox.netprobe import BIG
 from orbyt_tests.services import qos
@@ -30,12 +30,13 @@ from orbyt_tests.services.datapath import (
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
     from orbyt_tests.device.router import Router
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/tc-hook-order"
-MARKS_CHECK = Path(__file__).resolve().parents[2] / "scripts" / "marks-check.sh"
+MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
 # The bit honk keeps for its own sockets (config/marks.tsv).
 PROXY_BIT = "0x00000100"
 # pppoe-wan when qosify falls back to clsact: einat on tcx, qosify's

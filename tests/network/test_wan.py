@@ -31,7 +31,6 @@ if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/wan"
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # PPPoE takes 8 of Ethernet's 1500 bytes; a TCP segment's headers take
 # 40 more.
 PATH_MTU = 1492
@@ -75,10 +74,7 @@ def test_upgrade_keeps_the_pushed_configuration(
     }
     router.run(" && ".join(f"uci set {key}={value}" for key, value in changes.items()))
     router.run("uci commit")
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    previous_boot = router.boot_id()
-    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
-    router.wait_rebooted(previous_boot)
+    router.upgrade(upgrade_image)
     assert {key: router.run(f"uci get {key}") for key in changes} == changes
 
 

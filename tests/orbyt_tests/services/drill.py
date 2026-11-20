@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
 from orbyt_tests.device.ab import slot
+from orbyt_tests.device.paths import health_check
 from orbyt_tests.device.trust import trust_ca, trust_keys
 from orbyt_tests.model import process
 from orbyt_tests.model.poll import until
@@ -34,7 +35,7 @@ if TYPE_CHECKING:
 PUBLISH = REPO_DIR / "scripts" / "release-publish.sh"
 # The candidate's repository at the Releases stand-in.
 REPOSITORY = "orbyt/drill"
-FAILING_CHECK = "/etc/healthcheck.d/99-drill-fails"
+FAILING_CHECK = health_check("99-drill-fails")
 # A health check quick enough for a drill that fails (r4s-ab-rollback
 # D4). A drill that is to pass keeps the image's own limits, as a router
 # upgrades with them: shortened, honk's start on CI's runners outlasted

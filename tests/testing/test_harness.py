@@ -24,6 +24,7 @@ import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.device.fixtures import claim
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.router import SSH_PORT
 from orbyt_tests.model import process
 from orbyt_tests.model.boards import BOARDS_DIR, Description
@@ -36,6 +37,7 @@ from orbyt_tests.model.outputs import (
     ToolchainRecord,
 )
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import TESTS_DIR
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
 from orbyt_tests.sandbox.net import Daemon, Namespace, Netns, Port, ip
 from orbyt_tests.services.fixtures import pytest_runtest_makereport
@@ -55,7 +57,6 @@ CAPABILITY = "testing/harness"
 # How long the kernel may take to destroy a namespace after its last
 # process.
 NAMESPACE_GONE = 10
-TESTS_DIR = Path(__file__).resolve().parents[1]
 FIXTURES = TESTS_DIR / "fixtures"
 DEMO_SPEC = """## ADDED Requirements
 
@@ -490,7 +491,7 @@ def test_a_reboot_that_does_not_come_names_its_command(router: Router) -> None:
 
 
 # A lock that a process of a command holds, as orbyt-sync holds its own.
-LOCK = "/tmp/orbyt-test.lock"  # noqa: S108 (a path on the router)
+LOCK = scratch("orbyt-test.lock")
 COMMAND_LIMIT = 3.0
 LOCK_FREED = 10.0
 

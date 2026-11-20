@@ -18,18 +18,17 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 from orbyt_tests import spec
+from orbyt_tests.model.repository import FEED_DIR
 
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
 CAPABILITY = "firmware/web-theme"
-REPO = Path(__file__).resolve().parents[2]
-THEME_DIR = REPO / "feed" / "luci" / "luci-theme-orbyt"
+THEME_DIR = FEED_DIR / "luci" / "luci-theme-orbyt"
 EXCEPTIONS = Path(__file__).with_name("web-theme-exceptions.toml")
 THEME = "/luci-static/orbyt"
 STOCK = "/luci-static/bootstrap"
 DEFAULTS = "/rom/etc/uci-defaults/31_luci-theme-orbyt"
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # What loads a resource, in markup, in a stylesheet and in a script,
 # when it names another host: a scheme's // or a scheme-relative //.
 # Links (<a href>) load nothing.
@@ -152,10 +151,7 @@ def test_an_administrators_theme_survives_an_upgrade(
     router: Router, upgrade_image: Path
 ) -> None:
     router.run(f"uci set luci.main.mediaurlbase={STOCK} && uci commit luci")
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    previous_boot = router.boot_id()
-    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
-    router.wait_rebooted(previous_boot)
+    router.upgrade(upgrade_image)
     assert router.run("uci get luci.main.mediaurlbase") == STOCK
 
 

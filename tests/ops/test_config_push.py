@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.trust import trust_ca
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.isp import LOGIN
@@ -62,13 +63,12 @@ ROOT_PASSWORD = "not-for-config-push"
 # random one now and then falls short of its entropy threshold, or holds
 # one of its stop words.
 PLAIN_SECRET = "vZ8qK3wT9mX2pL7nR4cB"  # gitleaks:allow (only scanned for)
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 TAILSCALE_TIMEOUT = 180
 # Where the router records, while a push runs, the modes of its upload
 # and the command lines of its processes.
-UPLOAD = "/tmp/orbyt-push"  # noqa: S108 (a path on the router)
-MODES = "/tmp/push-modes"  # noqa: S108 (a path on the router)
-COMMANDS = "/tmp/push-commands"  # noqa: S108 (a path on the router)
+UPLOAD = scratch("orbyt-push")
+MODES = scratch("push-modes")
+COMMANDS = scratch("push-commands")
 # A fifth of a second: the router's BusyBox sleep takes whole seconds
 # only, and fails at once on a fraction.
 PAUSE = "ucode -e 'sleep(200)'"
@@ -84,9 +84,9 @@ ROOT_ONLY = ("-rw-------", "drwx------")
 # the name they run under, and where the arguments of their runs are
 # recorded.
 TAILSCALE = "/usr/sbin/tailscale"
-TAILSCALE_ARGUMENTS = "/tmp/tailscale-arguments"  # noqa: S108 (a path on the router)
+TAILSCALE_ARGUMENTS = scratch("tailscale-arguments")
 ADDUSER = "/usr/sbin/ksmbd.adduser"
-ADDUSER_ARGUMENTS = "/tmp/adduser-arguments"  # noqa: S108 (a path on the router)
+ADDUSER_ARGUMENTS = scratch("adduser-arguments")
 # An auth key headscale refuses.
 REFUSED_KEY = "tskey-auth-refused-0000"
 # A docroot uhttpd refuses to start with.
@@ -157,7 +157,7 @@ def _recorded(router: Router, program: str, arguments: str) -> Generator[None]:
     binary under that name with the same standard input.
     """
     name = PurePosixPath(program).name
-    real = f"/tmp/orbyt-test-{name}"  # noqa: S108 (a path on the router)
+    real = scratch(f"orbyt-test-{name}")
     target = router.run(f"readlink {program}")
     router.run(
         f"mkdir -p {real} && ln -sf $(readlink -f {program}) {real}/{name}"
@@ -478,7 +478,7 @@ def test_secrets_on_the_device_are_root_s(pushed: Pushed) -> None:
     added, password = ADDED_SHARE_USER["name"], ADDED_SHARE_USER["password"]
     assert added in router.run(f"cat {ADDUSER_ARGUMENTS}").split()
     assert password not in router.run(f"cat {ADDUSER_ARGUMENTS} {COMMANDS}")
-    reference = "/tmp/orbyt-test-pwddb"  # noqa: S108 (a path on the router)
+    reference = scratch("orbyt-test-pwddb")
     router.run(
         f": >{reference} && ksmbd.adduser -P {reference}"
         f" -p {shlex.quote(password)} {added} >&2"
@@ -699,8 +699,7 @@ def test_the_configuration_survives_an_upgrade(
         what="tailscale up",
     )
     tailnet_address = router.run("tailscale ip -4")
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    router.reboot(f"sysupgrade {UPGRADE_IMAGE}")
+    router.upgrade(upgrade_image)
     pushed.online.reconnected()
     # The sandbox's CA is no configuration of the router's, and the
     # upgrade kept none of it: it comes again, and tailscaled, which

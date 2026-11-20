@@ -11,13 +11,13 @@ traffic goes direct.
 
 import re
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox.net import PROXIED_TARGET, PROXY
 from orbyt_tests.services.datapath import PROXY_HOOKS_L3, hooks
 
@@ -27,9 +27,8 @@ if TYPE_CHECKING:
     from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 CAPABILITY = "services/vpn"
-REPO = Path(__file__).resolve().parents[2]
-MARKS_CHECK = REPO / "scripts" / "marks-check.sh"
-MARKS = REPO / "config" / "marks.tsv"
+MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
+MARKS = REPO_DIR / "config" / "marks.tsv"
 LAN_ADDRESS = "10.0.0.1"
 # The router's services for the LAN alone: SSH and LuCI.
 LAN_ONLY_PORTS = (22, 80)

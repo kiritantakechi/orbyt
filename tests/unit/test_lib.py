@@ -13,16 +13,16 @@ import pytest
 import yaml
 
 from orbyt_tests.model.boards import load_all
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.shell import awk_program, library
 
 if TYPE_CHECKING:
     import subprocess
 
-REPO = Path(__file__).resolve().parents[2]
-WORKFLOW = REPO / ".github" / "workflows" / "build.yml"
+WORKFLOW = REPO_DIR / ".github" / "workflows" / "build.yml"
 PROFILES = [
     line.split(":")[0]
-    for line in (REPO / "config" / "profiles").read_text().splitlines()
+    for line in (REPO_DIR / "config" / "profiles").read_text().splitlines()
     if line and not line.startswith("#")
 ]
 

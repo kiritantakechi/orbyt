@@ -19,12 +19,12 @@ import json
 import re
 import time
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import HEALTH_RESULT, scratch
 from orbyt_tests.device.storage import (
     MOUNT,
     PLUG_TIMEOUT,
@@ -40,19 +40,21 @@ from orbyt_tests.device.storage import (
     wait_mounted,
 )
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET, PROXIED_TARGET, PROXY
 from orbyt_tests.services import app
 from orbyt_tests.services.datapath import PROXY_TIMEOUT, wait_proxy
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
     from orbyt_tests.device.emu import Emulator
     from orbyt_tests.device.router import Router
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "storage/data-disk"
-SERVICES_DOC = Path(__file__).resolve().parents[2] / "docs" / "services.md"
+SERVICES_DOC = REPO_DIR / "docs" / "services.md"
 LOG = f"{MOUNT}/logs/messages"
 SNAPSHOTS = f"{MOUNT}/.snapshots"
 SNAPSHOTTED = ("containers", "shares")
@@ -66,12 +68,11 @@ HEALTHCHECK = (
     "uci set orbyt-ab.healthcheck.total=30 && uci set orbyt-ab.healthcheck.interval=3"
     " && uci commit orbyt-ab && orbyt-healthcheck"
 )
-HEALTH = "/var/run/orbyt-healthcheck.json"
 # honk's state database, in its data directory on the data disk or in
 # RAM (/var/lib/honk, which the kernel names by /var's target, /tmp).
 PROXY_STATE = {
     "data disk": f"{MOUNT}/honk/state/honk.db",
-    "RAM": "/tmp/lib/honk/state/honk.db",  # noqa: S108 (a path on the router)
+    "RAM": scratch("lib/honk/state/honk.db"),
 }
 
 
@@ -345,7 +346,7 @@ def test_boot_without_the_data_disk(without_disk: Online) -> None:
     assert not any(services.values()), services
     assert boot_disk_entries(router) == []
     router.run(HEALTHCHECK, timeout=180)
-    assert json.loads(router.run(f"cat {HEALTH}"))["result"] == "pass"
+    assert json.loads(router.run(f"cat {HEALTH_RESULT}"))["result"] == "pass"
 
 
 @spec(

@@ -36,7 +36,6 @@ RANDOM_CONTROL = "/proc/sys/kernel/random/boot_id"
 # UPX packed.
 EXECUTABLE_DIRS = ("bin", "sbin", "usr/bin", "usr/sbin", "lib", "usr/lib")
 UPX_MAGIC = b"UPX!"
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # Every ucode file of the root filesystem compiled by the image's ucode,
 # as ucode loads it: a template (*.ut, fw4's templates, a file that
 # starts with a template block or whose interpreter line asks for one)
@@ -112,9 +111,8 @@ def test_upgrade_keeps_the_lan_address(router: Router, upgrade_image: Path) -> N
     # The zram defaults are only filled in while unset (uci-defaults),
     # so an administrator's value survives the upgrade as well.
     router.run("uci set system.@system[0].zram_size_mb=512 && uci commit system")
-    router.put(upgrade_image, UPGRADE_IMAGE)
     previous_boot = router.boot_id()
-    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
+    router.start_upgrade(upgrade_image)
     with router.moved_to("10.0.0.3"):
         router.wait_rebooted(previous_boot)
         assert router.run("uci get network.lan.ipaddr") == "10.0.0.3/24"

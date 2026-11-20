@@ -11,7 +11,6 @@ import os
 import re
 import subprocess
 from collections import Counter
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -22,18 +21,19 @@ from orbyt_tests.device.emu import sha256
 from orbyt_tests.model.boards import load
 from orbyt_tests.model.github import HEAD, MAIN, Repository, run_script
 from orbyt_tests.model.outputs import MANIFEST_FILE
+from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
 from orbyt_tests.model.shell import library
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.outputs import Manifest
 
 CAPABILITY = "build/ci"
-REPO = Path(__file__).resolve().parents[2]
-WORKFLOWS = REPO / ".github" / "workflows"
+WORKFLOWS = REPO_DIR / ".github" / "workflows"
 WORKFLOW = WORKFLOWS / "build.yml"
-NIX = REPO / ".github" / "actions" / "nix" / "action.yml"
-TESTS = REPO / "tests"
+NIX = REPO_DIR / ".github" / "actions" / "nix" / "action.yml"
 IMAGES = ("targets/*-factory.img.gz", "targets/*-sysupgrade.tar.gz")
 KMODS = "targets/packages/packages.adb"
 MIB = 1024 * 1024
@@ -65,7 +65,7 @@ def test_the_manifest_describes_the_build(
 ) -> None:
     files = manifest.files
     assert manifest.run
-    assert manifest.upstream_lock_sha256 == sha256(REPO / "upstream.lock")
+    assert manifest.upstream_lock_sha256 == sha256(REPO_DIR / "upstream.lock")
     # It lists every other file of the build, each by its path in it.
     held = {
         path.relative_to(build_output).as_posix()
@@ -324,7 +324,7 @@ def _documents_tests_read() -> list[str]:
     return sorted(
         {
             f"docs/{name}"
-            for module in TESTS.rglob("*.py")
+            for module in TESTS_DIR.rglob("*.py")
             for name in DOCUMENT.findall(module.read_text(encoding="utf-8"))
         }
     )
@@ -380,7 +380,7 @@ def _modules(path: Path) -> list[Path]:
     They are a directory's modules, or the module itself.
     """
     assert path.exists(), (
-        f"a suite names {path.relative_to(TESTS)}, which does not exist"
+        f"a suite names {path.relative_to(TESTS_DIR)}, which does not exist"
     )
     return sorted(path.glob("test_*.py")) if path.is_dir() else [path]
 
@@ -390,13 +390,14 @@ def test_every_test_module_runs_in_one_job() -> None:
     jobs = _workflow()["jobs"]
     suites = jobs["system-test"]["strategy"]["matrix"]["suite"]
     selected = Counter(
-        module.relative_to(TESTS).as_posix()
+        module.relative_to(TESTS_DIR).as_posix()
         for suite in suites
         for path in suite["paths"].split()
-        for module in _modules(TESTS / path)
+        for module in _modules(TESTS_DIR / path)
     )
     modules = {
-        module.relative_to(TESTS).as_posix() for module in TESTS.glob("*/test_*.py")
+        module.relative_to(TESTS_DIR).as_posix()
+        for module in TESTS_DIR.glob("*/test_*.py")
     }
     assert sorted(modules - selected.keys()) == [], "test modules no suite runs"
     assert sorted(name for name, count in selected.items() if count > 1) == [], (

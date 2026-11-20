@@ -8,12 +8,16 @@ that way.
 import json
 import os
 import subprocess
-from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
-AUDIT = Path(__file__).resolve().parents[2] / "scripts" / "github-audit.sh"
+from orbyt_tests.model.repository import REPO_DIR
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+AUDIT = REPO_DIR / "scripts" / "github-audit.sh"
 REPOSITORY = "owner/repository"
 PUSH_CREDENTIAL = "BUMP_PUSH_TOKEN"
 GH = """#!/bin/sh

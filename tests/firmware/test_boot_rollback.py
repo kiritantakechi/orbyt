@@ -6,7 +6,6 @@ U-Boot picks the slot, counts trial boots and rolls back.
 import re
 import shlex
 import time
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
@@ -23,14 +22,18 @@ from orbyt_tests.device.ab import (
     slot_sha256,
 )
 from orbyt_tests.device.emu import extract_fit_image, read_fit, run
+from orbyt_tests.device.paths import UPGRADE_IMAGE
 from orbyt_tests.model.image import SECTOR, default_environment, read_mbr
+from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/boot-rollback"
-UBOOT_DIR = Path(__file__).resolve().parents[2] / "uboot"
+UBOOT_DIR = REPO_DIR / "uboot"
 UBOOT_SECTOR = 16384
 UBOOT_BANNER = r"U-Boot 20\d\d\.\d\d"
 # How long the console stays silent at U-Boot's prompt to show that it
@@ -42,7 +45,6 @@ LOGIC = ("bootcmd", "altbootcmd", "bootlimit")
 # The variables a stored environment may set, as both bootloaders' flags
 # list names them: the slot logic's state alone.
 WRITABLE = '"boot_slot:sw,bootcount:dw,upgrade_available:dw"'
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 BOOT_LIMIT = 3
 PANIC_REBOOT = 10.0
 # A stored boot command, which the bootloader must ignore.
@@ -223,12 +225,9 @@ def test_the_first_boot_script_reads_the_environment(
     router: Router, upgrade_image: Path
 ) -> None:
     other = "b" if slot(router) == "a" else "a"
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    previous_boot = router.boot_id()
     # No configuration kept: nothing carries the environment's access
     # over.
-    router.detach(f"sysupgrade -n {UPGRADE_IMAGE}")
-    router.wait_rebooted(previous_boot)
+    router.upgrade(upgrade_image, "-n")
     assert slot(router) == other
     # orbyt-trial, the first boot script, names the trial only when it
     # read it.
@@ -269,8 +268,7 @@ def test_rollback_after_three_unconfirmed_boots(
     )
     console = router.emulator.console
     since = console.mark()
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
+    router.start_upgrade(upgrade_image)
     console.wait_for(rf"Bootlimit \({BOOT_LIMIT}\) exceeded", since=since, timeout=1800)
     router.wait_ssh()
     router.wait_ready()
@@ -311,8 +309,7 @@ def test_a_hung_trial_boot_rolls_back(router: Router, upgrade_image: Path) -> No
     )
     console = router.emulator.console
     since = console.mark()
-    router.put(upgrade_image, UPGRADE_IMAGE)
-    router.detach(f"sysupgrade {UPGRADE_IMAGE}")
+    router.start_upgrade(upgrade_image)
     console.wait_for(rf"Bootlimit \({BOOT_LIMIT}\) exceeded", since=since, timeout=1800)
     router.wait_ssh()
     router.wait_ready()

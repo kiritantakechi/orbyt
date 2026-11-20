@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.storage import (
     announce,
     boot_disk_entries,
@@ -52,7 +53,7 @@ SLOW_SECONDS = 3
 RELOAD_EVENT = json.dumps({"type": "config.change", "data": {"package": "ksmbd"}})
 # Mount points within one another, in fstab but mounted by the test
 # alone (tmpfs).
-OUTER = "/tmp/outer"  # noqa: S108 (a path on the router)
+OUTER = scratch("outer")
 INNER = f"{OUTER}/inner"
 NESTED_SHARE = "nested"
 KSMBD_CONF = "/var/etc/ksmbd/ksmbd.conf"

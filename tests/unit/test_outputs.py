@@ -8,7 +8,7 @@ built with, the emulator directory emu-prepare made from it, and a
 release assembled from it.
 """
 
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from orbyt_tests.model.boards import load
 from orbyt_tests.model.data import read_json, write_json
@@ -18,9 +18,13 @@ from orbyt_tests.model.outputs import (
     Release,
     ToolchainRecord,
 )
+from orbyt_tests.model.repository import TESTS_DIR
 from orbyt_tests.model.undefined_behavior import Diagnostic
 
-FIXTURES = Path(__file__).resolve().parents[1] / "fixtures"
+if TYPE_CHECKING:
+    from pathlib import Path
+
+FIXTURES = TESTS_DIR / "fixtures"
 
 
 def test_a_build_s_manifest_reads_as_one() -> None:

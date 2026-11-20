@@ -18,7 +18,6 @@ import json
 import os
 import shutil
 import subprocess
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import pytest
@@ -28,26 +27,27 @@ from orbyt_tests import spec
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
+from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from pathlib import Path
 
     from orbyt_tests.model.boards import Board
     from orbyt_tests.services.datapath import Online
     from orbyt_tests.services.drill import Drill
 
 CAPABILITY = "release/upstream-bump"
-REPO = Path(__file__).resolve().parents[2]
 # The upstreams the bump checks: every repository of the lock, in its
 # order.
 NAMES = tuple(
     line.split()[0]
-    for line in (REPO / "upstream.lock").read_text().splitlines()
+    for line in (REPO_DIR / "upstream.lock").read_text().splitlines()
     if line.strip() and not line.startswith("#")
 )
 BBR_PATCH = "patches/openwrt/0001-generic-6.18-add-TCP-BBRv3.patch"
-DRILL_BASE = REPO / "scripts" / "drill-base.sh"
-WORKFLOWS = REPO / ".github" / "workflows"
+DRILL_BASE = REPO_DIR / "scripts" / "drill-base.sh"
+WORKFLOWS = REPO_DIR / ".github" / "workflows"
 # The day a bump runs on, and so its branch.
 DAY = "2026-10-26"
 BRANCH = f"bump/{DAY}"
@@ -160,7 +160,7 @@ def _upstreams(tmp_path: Path, commits: int) -> tuple[Path, dict[str, str]]:
 
 def _bump(lock: Path, description: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        [REPO / "scripts" / "upstream-bump.sh", description, "--lock", lock],
+        [REPO_DIR / "scripts" / "upstream-bump.sh", description, "--lock", lock],
         capture_output=True,
         text=True,
         check=False,
@@ -447,7 +447,7 @@ def _patch_step(
     _git(openwrt, "commit", "-q", "-m", "upstream's change")
     repository = tmp_path / "repository"
     for part in ("scripts", "patches"):
-        shutil.copytree(REPO / part, repository / part)
+        shutil.copytree(REPO_DIR / part, repository / part)
     heads = {name: _git(tmp_path / name, "rev-parse", "HEAD") for name in NAMES}
     _write_lock(tmp_path, repository / "upstream.lock", heads)
     # A tree as fetch leaves it: the pinned commit checked out.
@@ -471,7 +471,7 @@ def test_a_patch_that_does_not_apply_is_named(tmp_path: Path) -> None:
         # openwrt took a BBR patch of its own, under the name ours adds.
         taken = openwrt / next(
             line.removeprefix("+++ b/")
-            for line in (REPO / BBR_PATCH).read_text().splitlines()
+            for line in (REPO_DIR / BBR_PATCH).read_text().splitlines()
             if line.startswith("+++ b/")
         )
         taken.parent.mkdir(parents=True)
@@ -493,7 +493,7 @@ def test_a_patch_upstream_made_is_named_as_such(tmp_path: Path) -> None:
     result = _patch_step(
         tmp_path,
         lambda openwrt: _git(
-            openwrt, "apply", "--whitespace=nowarn", str(REPO / BBR_PATCH)
+            openwrt, "apply", "--whitespace=nowarn", str(REPO_DIR / BBR_PATCH)
         ),
     )
     assert result.returncode != 0

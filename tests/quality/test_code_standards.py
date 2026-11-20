@@ -10,15 +10,18 @@ import re
 import shutil
 import subprocess
 import sys
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 
 import orbyt_tests
 from orbyt_tests import spec
+from orbyt_tests.model.repository import REPO_DIR
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 CAPABILITY = "quality/code-standards"
-REPO = Path(__file__).resolve().parents[2]
 SYMMETRIC_VERBS = (("mount", "unmount"), ("pack", "unpack"))
 
 
@@ -27,7 +30,7 @@ def _files() -> list[str]:
         [
             "git",
             "-C",
-            str(REPO),
+            str(REPO_DIR),
             "ls-files",
             "-z",
             "--cached",
@@ -38,7 +41,9 @@ def _files() -> list[str]:
         text=True,
         check=True,
     ).stdout
-    return [name for name in listing.split("\0") if name and (REPO / name).is_file()]
+    return [
+        name for name in listing.split("\0") if name and (REPO_DIR / name).is_file()
+    ]
 
 
 @pytest.fixture
@@ -50,7 +55,7 @@ def repo(tmp_path: Path) -> Path:
     copy = tmp_path / "repo"
     for name in _files():
         (copy / name).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(REPO / name, copy / name)
+        shutil.copy2(REPO_DIR / name, copy / name)
     subprocess.run(["git", "init", "-q", str(copy)], check=True)
     return copy
 
@@ -196,7 +201,7 @@ def test_a_harness_module_that_nothing_imports_fails(repo: Path) -> None:
 def test_paired_operations_are_complete() -> None:
     recipes = set(
         subprocess.run(
-            ["just", "--justfile", str(REPO / "justfile"), "--summary"],
+            ["just", "--justfile", str(REPO_DIR / "justfile"), "--summary"],
             capture_output=True,
             text=True,
             check=True,

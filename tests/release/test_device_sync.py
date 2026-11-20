@@ -18,18 +18,19 @@ import shutil
 import subprocess
 import tarfile
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.device.ab import boot_area_sha256, slot, slot_sha256
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.device.storage import MOUNT, wait_mounted
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.outputs import RELEASE_FILE, Manifest, Release
 from orbyt_tests.model.poll import until
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.trees import linked_copy, replace
 from orbyt_tests.sandbox import releases
 from orbyt_tests.sandbox.internet import RELEASES
@@ -37,6 +38,7 @@ from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from pathlib import Path
 
     from orbyt_tests.device.router import Router
     from orbyt_tests.device.storage import Disk
@@ -46,7 +48,7 @@ if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "release/device-sync"
-PUBLISH = Path(__file__).resolve().parents[2] / "scripts" / "release-publish.sh"
+PUBLISH = REPO_DIR / "scripts" / "release-publish.sh"
 REPOSITORY = "orbyt/sync"
 LOCAL = f"{MOUNT}/repo"
 UPGRADE = "targets/*-sysupgrade.tar.gz"
@@ -59,8 +61,8 @@ CUT = 1 << 20
 TAMPERED = 1 << 20
 SYNC_TIMEOUT = 900
 # A sync run in the background: what it said, and its exit status.
-SYNC_OUT = "/tmp/sync-out"  # noqa: S108 (a path on the router)
-SYNC_STATUS = "/tmp/sync-status"  # noqa: S108 (a path on the router)
+SYNC_OUT = scratch("sync-out")
+SYNC_STATUS = scratch("sync-status")
 # How long podman may take to bring up the container's bridge.
 BRIDGE_TIMEOUT = 120
 # What the router logged around a failed sync: the container's fetch

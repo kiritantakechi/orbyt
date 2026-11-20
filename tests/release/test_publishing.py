@@ -26,6 +26,7 @@ from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.github import REPOSITORY, Repository, install
 from orbyt_tests.model.outputs import MANIFEST_FILE, RELEASE_FILE, Manifest, Release
+from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.trees import linked_copy, replace
 
 if TYPE_CHECKING:
@@ -34,10 +35,9 @@ if TYPE_CHECKING:
     from orbyt_tests.model.boards import Board
 
 CAPABILITY = "release/publishing"
-REPO = Path(__file__).resolve().parents[2]
-PUBLISH = REPO / "scripts" / "release-publish.sh"
-BUILD = REPO / ".github" / "workflows" / "build.yml"
-LOCK = REPO / "upstream.lock"
+PUBLISH = REPO_DIR / "scripts" / "release-publish.sh"
+BUILD = REPO_DIR / ".github" / "workflows" / "build.yml"
+LOCK = REPO_DIR / "upstream.lock"
 FACTORY = "-factory.img.gz"
 UPGRADE = "-sysupgrade.tar.gz"
 KMODS = "targets/packages/packages.adb"

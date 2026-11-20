@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.device.ab import boot_area_sha256, getenv, setenv, slot, slot_sha256
+from orbyt_tests.device.paths import UPGRADE_IMAGE, scratch
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.image import DEFAULT_HOSTNAME
 
@@ -18,14 +19,13 @@ if TYPE_CHECKING:
     from orbyt_tests.model.boards import Board
 
 CAPABILITY = "firmware/ab-upgrade"
-UPGRADE_IMAGE = "/tmp/sysupgrade.tar.gz"  # noqa: S108 (a path on the router)
 # Slow enough that a power cut lands in the middle of writing a slot.
 THROTTLED_WRITE = 2 << 20
 HOSTNAME = "upgraded"
 # An image whose every read waits: a FIFO, whose opening waits for a
 # writer.
-SLOW_IMAGE = "/tmp/slow-image"  # noqa: S108 (a path on the router)
-VALIDATION = "/tmp/validation"  # noqa: S108 (a path on the router)
+SLOW_IMAGE = scratch("slow-image")
+VALIDATION = scratch("validation")
 # How long the validation waits: longer than procd's watchdog timeout
 # (30 s); and how long it may then take to end, the call's own limit.
 SLOW_SECONDS = 45
@@ -35,25 +35,19 @@ VALIDATION_LIMIT = 300
 HOOK = ". /lib/functions.sh && include /lib/upgrade"
 # An upgrade image cut short inside its root member, an uncompressed
 # tar.
-BROKEN_IMAGE = "/tmp/broken-image.tar"  # noqa: S108 (a path on the router)
-BACKUP = "/tmp/backup.tgz"  # noqa: S108 (a path on the router)
+BROKEN_IMAGE = scratch("broken-image.tar")
+BACKUP = scratch("backup.tgz")
 # The A/B upgrade's file, renamed to be read first; an image for another
 # device and the metadata it is given.
 FIRST_FILE = "/lib/upgrade/0-orbyt-ab.sh"
-OTHER_IMAGE = "/tmp/other-device.tar.gz"  # noqa: S108 (a path on the router)
-METADATA = "/tmp/meta.json"  # noqa: S108 (a path on the router)
+OTHER_IMAGE = scratch("other-device.tar.gz")
+METADATA = scratch("meta.json")
 # What the A/B switch writes, as it was before an upgrade.
 SWITCH = ("boot_slot", "upgrade_available", "bootcount")
 # How long the upgrade hook may take to write a slot.
 WRITE_LIMIT = 600
-
-
-def _upgrade(router: Router, image: Path, *options: str) -> None:
-    """Run sysupgrade with ``image``; wait until the router is back."""
-    router.put(image, UPGRADE_IMAGE)
-    previous_boot = router.boot_id()
-    router.detach(f"sysupgrade {' '.join(options)} {UPGRADE_IMAGE}")
-    router.wait_rebooted(previous_boot)
+# How long a trial boot may take until the health check confirms it.
+CONFIRM_TIMEOUT = 400
 
 
 def _switch(router: Router) -> tuple[str | None, ...]:
@@ -63,17 +57,18 @@ def _switch(router: Router) -> tuple[str | None, ...]:
 
 def _confirmed(router: Router, which: str) -> None:
     """Wait until the health check confirms trial slot ``which``."""
-    message = f"slot {which} passed its trial boot and is confirmed"
-    router.run(
-        f"until logread -e orbyt-healthcheck | grep -q '{message}'; do sleep 2; done",
-        timeout=400,
+    router.wait_logged(
+        f"slot {which} passed its trial boot and is confirmed",
+        by="orbyt-healthcheck",
+        timeout=CONFIRM_TIMEOUT,
+        every=2,
     )
 
 
 @spec(CAPABILITY, "Write only the inactive slot", "Upgrade from slot A")
 def test_upgrade_writes_only_slot_b(router: Router, upgrade_image: Path) -> None:
     before = (slot_sha256(router, "a"), boot_area_sha256(router))
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     assert slot(router) == "b"
     assert (slot_sha256(router, "a"), boot_area_sha256(router)) == before
 
@@ -121,7 +116,7 @@ def test_new_slot_starts_fresh(router: Router, upgrade_image: Path) -> None:
     router.run("echo old > /root/leftover && sync")
     setenv(router, boot_slot="a")
     router.reboot()
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     assert slot(router) == "b"
     assert router.returncode("[ -e /root/leftover ]") != 0
 
@@ -129,7 +124,7 @@ def test_new_slot_starts_fresh(router: Router, upgrade_image: Path) -> None:
 @spec(CAPABILITY, "Config migration", "Config-preserving upgrade")
 def test_upgrade_keeps_the_configuration(router: Router, upgrade_image: Path) -> None:
     router.run(f"uci set system.@system[0].hostname={HOSTNAME} && uci commit system")
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     assert slot(router) == "b"
     assert router.run("uci get system.@system[0].hostname") == HOSTNAME
 
@@ -137,7 +132,7 @@ def test_upgrade_keeps_the_configuration(router: Router, upgrade_image: Path) ->
 @spec(CAPABILITY, "Config migration", "Upgrade without preserving config")
 def test_upgrade_without_the_configuration(router: Router, upgrade_image: Path) -> None:
     router.run(f"uci set system.@system[0].hostname={HOSTNAME} && uci commit system")
-    _upgrade(router, upgrade_image, "-n")
+    router.upgrade(upgrade_image, "-n")
     assert slot(router) == "b"
     assert router.run("uci get system.@system[0].hostname") == DEFAULT_HOSTNAME
 
@@ -146,7 +141,7 @@ def test_upgrade_without_the_configuration(router: Router, upgrade_image: Path) 
 def test_upgrade_boots_the_new_slot_on_trial(
     router: Router, upgrade_image: Path
 ) -> None:
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     assert slot(router) == "b"
     _confirmed(router, "b")
 
@@ -256,7 +251,7 @@ def test_the_upgrade_holds_whatever_its_file_is_named(
     assert refused.endswith("exit=1")
     assert (slot_sha256(router, "a"), slot_sha256(router, "b")) == before
     boot_area = boot_area_sha256(router)
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     assert slot(router) == "b"
     assert (slot_sha256(router, "a"), boot_area_sha256(router)) == (
         before[0],
@@ -266,7 +261,7 @@ def test_the_upgrade_holds_whatever_its_file_is_named(
 
 @spec(CAPABILITY, "Manual slot switch", "Manually roll back to the previous version")
 def test_manual_switch_back_to_slot_a(router: Router, upgrade_image: Path) -> None:
-    _upgrade(router, upgrade_image)
+    router.upgrade(upgrade_image)
     _confirmed(router, "b")
     previous_boot = router.boot_id()
     router.detach("orbyt-slot switch")

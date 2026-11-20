@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from functools import partial
 from typing import TYPE_CHECKING, Any, Self, cast
 
+from orbyt_tests.device.paths import health_check
 from orbyt_tests.device.router import REACHABLE_TIMEOUT
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import feed_variable
@@ -53,7 +54,7 @@ PROXY_HOOKS_L3 = {"tcx/ingress": ["lan_ingress_l3"], "tcx/egress": ["lan_egress_
 # honk's own nftables table: the NFQUEUE hook of ambiguous LAN UDP.
 PROXY_NFQUEUE_TABLE = "inet honk_nfqueue"
 # honk's check for orbyt-healthcheck.
-PROXY_HEALTHCHECK = "/etc/healthcheck.d/50-honk"
+PROXY_HEALTHCHECK = health_check("50-honk")
 # The fw4 rules einat's instance brings (feed/net/einat/files/init): its
 # nat rule (no masquerade) and its rule (accept what it translated
 # back). They come with a firewall reload, after its programs are
