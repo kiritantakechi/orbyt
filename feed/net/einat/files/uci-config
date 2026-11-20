@@ -1,4 +1,4 @@
-# einat on the PPPoE WAN (r4s-ebpf-datapath design D2, D3).
+# einat on the PPPoE WAN (r4s-ebpf-datapath D2, D3).
 config einat 'config'
 	option enabled '1'
 	option ifname 'pppoe-wan'

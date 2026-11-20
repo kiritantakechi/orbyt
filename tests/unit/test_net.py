@@ -2,7 +2,7 @@
 
 They cover the sandbox topology, built without the emulator.
 
-The addresses and routes are those of r4s-ebpf-datapath design D11,
+The addresses and routes are those of r4s-ebpf-datapath D11,
 written out here rather than read back from ``TOPOLOGY``.
 """
 

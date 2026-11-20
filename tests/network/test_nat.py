@@ -267,9 +267,9 @@ def test_inbound_to_a_mapped_port_is_accepted(
     before = _inbound_accepted(online)
     public = _map(online, 41004)
     assert Listener(online.client(), 41004).receives(_unasked(online, public))
-    # The patch's mark is what let it in (design D2, D3): without
-    # --inbound-mark einat marks nothing, and the same packet stays out
-    # (task 1.5).
+    # The patch's mark is what let it in (r4s-ebpf-datapath D2, D3):
+    # without --inbound-mark einat marks nothing, and the same packet
+    # stays out (task 1.5).
     assert _inbound_accepted(online) > before >= 0
     online.router.run(
         "uci set einat.config.inbound_mark=0 && /etc/init.d/einat restart"
@@ -345,8 +345,8 @@ def test_local_connections_keep_their_port(online: Online) -> None:
     # rewrote it.
     conntrack = online.router.run("cat /proc/net/nf_conntrack")
     assert f"dst={DIRECT_TARGET[0]} sport={seen['port']} dport={HTTP_PORT}" in conntrack
-    # The ranges cannot meet (design D6): einat's ports lie below the
-    # kernel's.
+    # The ranges cannot meet (r4s-ebpf-datapath D6): einat's ports lie
+    # below the kernel's.
     assert online.router.run("uci get einat.config.ports") == "20000-29999"
     assert (
         int(online.router.run("cut -f1 /proc/sys/net/ipv4/ip_local_port_range"))

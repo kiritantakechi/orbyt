@@ -1,4 +1,4 @@
-"""The A/B slots as the tests see them (r4s-ab-rollback design D1, D4).
+"""The A/B slots as the tests see them (r4s-ab-rollback D1, D4).
 
 Everything goes through the router: the running slot from the kernel
 command line, U-Boot variables through fw_printenv and fw_setenv, and
@@ -18,8 +18,9 @@ if TYPE_CHECKING:
 # The emulator's boot disk, an SD card or an eMMC on its SD host
 # controller.
 BOOT_DEVICE = "/dev/mmcblk0"
-# The copies of the U-Boot environment on the boot disk (design D1,
-# trial-boot-resilience D1): their offsets and their size in bytes.
+# The copies of the U-Boot environment on the boot disk
+# (r4s-ab-rollback D1, trial-boot-resilience D1): their offsets and
+# their size in bytes.
 ENV_COPIES, ENV_SIZE = (0x3F8000, 0x400000), 0x8000
 # A copy's serial flag, after its CRC: U-Boot reads the valid copy with
 # the higher.

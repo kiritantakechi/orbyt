@@ -1,5 +1,5 @@
 #!/bin/sh
-# check: run the code-standard checks of design D12; changes nothing.
+# check: run the code-standard checks of r4s-build-foundation D12; changes nothing.
 # Usage: scripts/check.sh [check...]   (all checks when none is named)
 # Runs on Linux and macOS with the tools of the quality devShell, on NixOS inside
 # orbyt-test-fhs (quality_prelude).
@@ -73,7 +73,7 @@ complain() {
 	status=1
 }
 
-# skeleton: every script follows the skeleton of design D12, and scripts and just
+# skeleton: every script follows the skeleton of r4s-build-foundation D12, and scripts and just
 # recipes pair up one to one by name.
 skeleton() {
 	status=0

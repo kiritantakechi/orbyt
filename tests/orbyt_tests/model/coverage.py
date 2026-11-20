@@ -1,7 +1,8 @@
-"""spec-coverage: map every spec scenario to its one test (design D13).
+"""spec-coverage: map every spec scenario to its one test.
 
-The report lists, for each scenario, the test that verifies it, or the
-job named in ``verified-elsewhere.toml``, or MISSING. Structural errors
+One test for each scenario is r4s-build-foundation D13's rule. The
+report lists, for each scenario, the test that verifies it, or the job
+named in ``verified-elsewhere.toml``, or MISSING. Structural errors
 always fail:
 
 * a ``@spec`` marker naming a scenario that does not exist;

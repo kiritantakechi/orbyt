@@ -23,7 +23,7 @@ The "Check name" column in the table below uses the names that `scripts/check.sh
 | Python static analysis: `select = ["ALL"]`, with exclusions listed in `tests/ruff.toml` together with their reasons | `ruff-check` | — |
 | Python type checking: all rules treated as errors (`tests/ty.toml`) | `ty` | — |
 | Test harness layering: no module imports from a layer above its own (`tests/tach.toml`) | `tach` | — |
-| Spec-to-test structure: markers point to existing scenarios, one test per scenario, directory rules (design D13) | `spec-coverage` | — |
+| Spec-to-test structure: markers point to existing scenarios, one test per scenario, directory rules (r4s-build-foundation D13) | `spec-coverage` | — |
 
 Files exempt from these rules: `patches/` and `docs/upstream/` (upstream patches are kept verbatim), `.claude/` (tool-generated), and lock files. OpenWrt package `Makefile`s mix tabs and two spaces by upstream convention, so their indent style is not checked.
 

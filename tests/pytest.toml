@@ -1,4 +1,4 @@
-# pytest configuration of the system tests (design D13).
+# pytest configuration of the system tests (r4s-build-foundation D13).
 [pytest]
 minversion = "9.1"
 addopts = [

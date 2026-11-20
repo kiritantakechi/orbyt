@@ -1,4 +1,4 @@
-# doona (honk-datapath design D3): honk's web UI, built from source and embedded
+# doona (honk-datapath D3): honk's web UI, built from source and embedded
 # into honk by its native-ui feature. It is built as doona's own release is:
 # the dependencies its lockfile pins (integrity-checked by pnpm), both editions,
 # then tools/package.sh, which adds each edition's licence notices. pnpm is the

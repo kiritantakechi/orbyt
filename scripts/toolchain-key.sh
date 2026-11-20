@@ -2,7 +2,7 @@
 # toolchain-key: print the host-toolchain cache key as key=<value>.
 # Usage: scripts/toolchain-key.sh [profile] >>"$GITHUB_OUTPUT"   (default dev)
 # The key covers exactly the inputs that change the cached host tools and cross
-# toolchain of the profile (design D11): among them the configuration
+# toolchain of the profile (r4s-build-foundation D11): among them the configuration
 # toolchain-build.sh builds it from.
 set -eu
 # shellcheck source=scripts/lib/core.sh

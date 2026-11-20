@@ -1,4 +1,4 @@
-"""The emulated router under test (design D13).
+"""The emulated router under test (r4s-build-foundation D13).
 
 Commands run over SSH: the runner reaches the router's LAN address from
 inside the sandbox. ``reset`` returns the emulator to its post-boot

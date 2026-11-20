@@ -1,4 +1,4 @@
-# Code standards (design D12) on every push and pull request: `just check` with
+# Code standards (r4s-build-foundation D12) on every push and pull request: `just check` with
 # the quality devShell. No paths filter, so documentation-only changes are
 # checked as well. The whole history is fetched because gitleaks scans it.
 # Weekly, github-audit reads back the settings the release pipeline relies on

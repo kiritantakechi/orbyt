@@ -1,13 +1,14 @@
-"""The rootless network sandbox around the emulator (design D14).
+"""The rootless network sandbox around the emulator.
 
 ``scripts/test.sh`` starts pytest inside ``unshare --user
---map-root-user --net --mount``, so everything here runs as root of a
-private user namespace and changes nothing on the host. The topology is
-data: bridges (with the emulator's taps and the test runner's address),
-and network namespaces whose ports are veth pairs to the bridges, each
-port with static addresses or a DHCP client, plus routes and daemons.
-``topology`` makes it for a board: a segment per port of the board
-(board-model D7), and the ISP and internet of ``UPSTREAM``.
+--map-root-user --net --mount`` (r4s-build-foundation D14), so
+everything here runs as root of a private user namespace and changes
+nothing on the host. The topology is data: bridges (with the emulator's
+taps and the test runner's address), and network namespaces whose ports
+are veth pairs to the bridges, each port with static addresses or a DHCP
+client, plus routes and daemons. ``topology`` makes it for a board: a
+segment per port of the board (board-model D7), and the ISP and internet
+of ``UPSTREAM``.
 
 ```
 client-a ─┐                                                      ┌ inet

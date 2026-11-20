@@ -1,4 +1,4 @@
-# Build glue of the A/B U-Boot (r4s-ab-rollback design D3, board-model D3):
+# Build glue of the A/B U-Boot (r4s-ab-rollback D3, board-model D3):
 # uboot-rockchip builds the U-Boot of every board with it, uboot-orbyt-qemu the
 # emulator's. The tree links this directory in as env/uboot. uboot-rockchip
 # includes it after its variants' definitions, which it extends.

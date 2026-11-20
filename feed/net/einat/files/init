@@ -1,5 +1,5 @@
 #!/bin/sh /etc/rc.common
-# einat on the WAN interface (r4s-ebpf-datapath design D2, D3). procd carries two
+# einat on the WAN interface (r4s-ebpf-datapath D2, D3). procd carries two
 # firewall rules with the instance: while einat runs, TCP, UDP and ICMP skip
 # masquerade, and the inbound packets einat translated back (marked) are accepted.
 # When einat stops, both go with it and masquerade takes over. Without a mark

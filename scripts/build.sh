@@ -179,7 +179,7 @@ count=$(jq 'length' "${out}/warnings.json")
 info "${count} UB-indicative warnings in the image's packages"
 
 # The configuration of what only the board's SoC runs, for the tests that check it
-# statically, and the emulator's U-Boot (r4s-ab-rollback design D7).
+# statically, and the emulator's U-Boot (r4s-ab-rollback D7).
 uboot_build() {
 	set -- "${build_dir}/u-boot-$1"/u-boot-*
 	[ "$#" -eq 1 ] && [ -d "$1" ] || die "expected one build of u-boot-$1, found: $*"

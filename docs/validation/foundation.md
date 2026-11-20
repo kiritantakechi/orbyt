@@ -14,4 +14,4 @@ nix develop -c just test dev      # or: just test ci
 
 The report is written to `tests/.reports/emulation.xml`.
 
-What the emulator cannot run (the RK3399 boot ROM, the R4S's U-Boot and device tree, the physical ports) is checked statically in the shipped image instead; see design D14.
+What the emulator cannot run (the RK3399 boot ROM, the R4S's U-Boot and device tree, the physical ports) is checked statically in the shipped image instead; see r4s-build-foundation D14.

@@ -1,6 +1,6 @@
 """emu-prepare: a build's outputs as what the emulator boots.
 
-(design D14, r4s-ab-rollback D7, board-model D7)
+(r4s-build-foundation D14, r4s-ab-rollback D7, board-model D7)
 
 ``emu-prepare`` turns the outputs of a build into what the emulator
 boots, as the board the build is for: the factory image as the board's

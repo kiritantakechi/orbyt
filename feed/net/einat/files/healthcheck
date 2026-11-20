@@ -1,5 +1,5 @@
 #!/bin/sh
-# einat's check for orbyt-healthcheck (r4s-ebpf-datapath design D10): einat runs and,
+# einat's check for orbyt-healthcheck (r4s-ebpf-datapath D10): einat runs and,
 # once the WAN interface is connected (has an address), sits on its tc ingress and
 # egress. An interface that is not connected is no failure: pppoe-wan exists from
 # PPPoE discovery on, while the login may still be going on, or failing.

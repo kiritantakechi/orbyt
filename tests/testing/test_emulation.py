@@ -1,6 +1,6 @@
 """testing/emulation: the emulator boots the shipped image as its board.
 
-See design D14 and board-model D7.
+See r4s-build-foundation D14 and board-model D7.
 """
 
 import ipaddress

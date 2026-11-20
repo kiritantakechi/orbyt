@@ -3,7 +3,7 @@
 # Usage: scripts/test.sh <board> [profile] [pytest args]   (a built board; default profile dev)
 # emu-prepare turns the board's build outputs into the emulator's files and the
 # labgrid description of its machine (board-model D7); pytest then runs as root of
-# a private user namespace with its own network (design D14), so nothing on the
+# a private user namespace with its own network (r4s-build-foundation D14), so nothing on the
 # host changes and no real root is needed. The emulator's files go to
 # $ORBYT_TESTDIR/emu and pytest's own, disks and signed builds among them, to
 # $ORBYT_TESTDIR/test/<board>, which each run empties first: /tmp may be memory,

@@ -1,4 +1,4 @@
-# A/B sysupgrade (r4s-ab-rollback design D6): the upgrade steps that the
+# A/B sysupgrade (r4s-ab-rollback D6): the upgrade steps that the
 # target's platform.sh hands to the slots by name (firmware-hygiene D1), as
 # upstream's legacy_sdcard_* and emmc_* are handed theirs. Every name here is
 # orbyt_ab_'s own, so the order sysupgrade reads /lib/upgrade/*.sh in does not

@@ -1,10 +1,10 @@
-# Time limits of the health check, in seconds (r4s-ab-rollback design D5).
+# Time limits of the health check, in seconds (r4s-ab-rollback D5).
 config healthcheck 'healthcheck'
 	option total '300'
 	option interval '10'
 	option timeout '30'
 
 # The deadline of a trial boot, in seconds from the kernel's start: a trial the
-# health check has not decided by then reboots (trial-guards design D1).
+# health check has not decided by then reboots (trial-guards D1).
 config trial 'trial'
 	option deadline '900'

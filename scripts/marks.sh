@@ -4,7 +4,7 @@
 # The table must not give one bit to two owners. A mark in a template of package
 # <owner> (feed/*/<owner>/, or files/ for the image overlay) must lie within that
 # owner's masks: a bit of another owner's mask is a conflict, a bit of no mask is
-# unregistered (r4s-ebpf-datapath design D4).
+# unregistered (r4s-ebpf-datapath D4).
 set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"

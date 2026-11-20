@@ -1,7 +1,7 @@
 #!/bin/sh
 # sandbox-prepare: open the host kernel's PPP and WireGuard to the test sandbox.
 # Usage: scripts/sandbox-prepare.sh   (as root; again after each VM restart)
-# The emulated ISP (r4s-ebpf-datapath design D11) runs pppd as root of a user
+# The emulated ISP (r4s-ebpf-datapath D11) runs pppd as root of a user
 # namespace, so the kernel needs ppp_generic and ppp_async, and /dev/ppp must be
 # open to regular users. pppd still needs CAP_NET_ADMIN in its own network
 # namespace to create a unit, so the device grants nothing beyond that. The

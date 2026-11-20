@@ -1,5 +1,5 @@
 #!/bin/sh
-# fmt: format the files that have a formatter in design D12.
+# fmt: format the files that have a formatter in r4s-build-foundation D12.
 # Usage: scripts/fmt.sh [formatter...]   (all formatters when none is named)
 # The writing counterpart of the format checks in scripts/check.sh, under the
 # same names: shfmt, nixfmt and ruff-format.

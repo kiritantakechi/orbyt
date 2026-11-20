@@ -1,7 +1,7 @@
 #!/bin/sh
 # workdir-mount: loop-mount the ext4 build volume inside the Linux VM.
 # Usage: scripts/workdir-mount.sh [--format [--owner user]] [image] [mountpoint]   (as root)
-# The image file lives on an external SSD (design D9), named by the argument or
+# The image file lives on an external SSD (r4s-build-foundation D9), named by the argument or
 # by ORBYT_WORKDIR_IMAGE. Mounting twice is a no-op.
 # --format creates the filesystem once (never over one) and gives its top
 # directory to --owner, else to sudo's caller, else to the owner of this

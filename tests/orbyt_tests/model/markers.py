@@ -4,7 +4,8 @@
 upgrade drill, which CI's upgrade-drill job runs (r4s-release-pipeline
 D5); ``build_tree`` a test that reads the build tree, which runs where
 the tree is (test-hygiene D8). ``tests/pytest.toml`` loads this module
-as a plugin, so that ``--strict-markers`` accepts them. See design D13.
+as a plugin, so that ``--strict-markers`` accepts them. See
+r4s-build-foundation D13.
 """
 
 # A runtime import: pluggy evaluates the annotations of hook

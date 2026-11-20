@@ -58,7 +58,7 @@ report headscale headscale version
 report tailscale tailscale version
 report wg wg --version
 report smbclient smbclient --version
-# The emulated ISP runs pppd in the sandbox (r4s-ebpf-datapath design D11), and
+# The emulated ISP runs pppd in the sandbox (r4s-ebpf-datapath D11), and
 # the WireGuard peer is a wireguard link of this kernel (r4s-services D10).
 [ -r /dev/ppp ] && [ -w /dev/ppp ] ||
 	die "/dev/ppp is missing or closed to regular users: run scripts/sandbox-prepare.sh as root"

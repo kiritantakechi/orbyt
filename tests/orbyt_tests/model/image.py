@@ -6,7 +6,7 @@ metadata, the disk has an MBR, U-Boot and the kernel are FITs, read from
 their ``dumpimage -l`` listings, and U-Boot carries its default
 environment as a run of strings. The readers at the end run the test
 environment's tools on an image's files: dumpimage on a FIT, debugfs on
-a boot partition. See design D14 and r4s-ab-rollback D7.
+a boot partition. See r4s-build-foundation D14 and r4s-ab-rollback D7.
 """
 
 import re

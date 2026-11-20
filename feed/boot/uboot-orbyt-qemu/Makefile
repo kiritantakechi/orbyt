@@ -1,4 +1,4 @@
-# The emulator's U-Boot (r4s-ab-rollback design D3): qemu_arm64 built from the
+# The emulator's U-Boot (r4s-ab-rollback D3): qemu_arm64 built from the
 # same U-Boot as the boards', with the same A/B slot logic (board-model D3). A
 # test artifact: it installs nothing, scripts/build.sh takes it from the image
 # staging directory.

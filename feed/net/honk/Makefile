@@ -1,4 +1,4 @@
-# honk (honk-datapath design D1-D8): the eBPF transparent proxy, bound to the
+# honk (honk-datapath D1-D8): the eBPF transparent proxy, bound to the
 # LAN side, built from source. Its eBPF object is built first, with the host
 # rustc (build-std, admitted by RUSTC_BOOTSTRAP) and bpf-linker, which links the
 # same LLVM; honk-core embeds it (patch 001) and doona, the web UI (D3).

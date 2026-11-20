@@ -1,4 +1,4 @@
-# Text style for every file in the repository (design D12). Checked by
+# Text style for every file in the repository (r4s-build-foundation D12). Checked by
 # editorconfig-checker; shell formatting options are read by shfmt.
 root = true
 

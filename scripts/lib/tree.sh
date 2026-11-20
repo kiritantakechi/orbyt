@@ -25,7 +25,7 @@ update_file() (
 )
 
 # link_tree <tree>: put what lives outside the tree where the build reads it
-# (design D7): the rootfs overlay, the kernel configuration overlay and the
+# (r4s-build-foundation D7): the rootfs overlay, the kernel configuration overlay and the
 # compiler cache (files/, env/ and .ccache are all gitignored upstream). The
 # cache reads its settings from config/ccache.conf.
 link_tree() (

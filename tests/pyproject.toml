@@ -1,7 +1,7 @@
 [project]
 name = "orbyt-tests"
 version = "0"
-description = "System tests for the Orbyt firmware: one test per spec scenario (design D13)"
+description = "System tests for the Orbyt firmware: one test per spec scenario (r4s-build-foundation D13)"
 requires-python = ">=3.15"
 dependencies = [
     "labgrid>=26.0",

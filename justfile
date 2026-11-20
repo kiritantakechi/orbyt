@@ -1,5 +1,5 @@
 # Entry points of Orbyt. Every recipe runs the script of the same name in
-# scripts/ (design D12). Run inside `nix develop`; build and test recipes need a
+# scripts/ (r4s-build-foundation D12). Run inside `nix develop`; build and test recipes need a
 # Linux host and ORBYT_WORKDIR (see docs/dev-setup.md). A recipe passes its
 # arguments on as "$@", each as given: an argument pasted into the command line
 # would be read by the shell (release-integrity D8).

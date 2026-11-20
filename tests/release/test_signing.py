@@ -212,7 +212,8 @@ def test_the_image_trusts_only_the_release_keys(
 ) -> None:
     if emulation_source.build.name != "ci":
         pytest.skip(
-            "only the release build (ci profile) carries the release keys (design D1)"
+            "only the release build (ci profile) carries the release keys"
+            " (r4s-release-pipeline D1)"
         )
     root = extract_root(emulation_dir / "disk.raw", tmp_path / "root")
     for anchors in (APK_KEYS, FIRMWARE_KEYS):

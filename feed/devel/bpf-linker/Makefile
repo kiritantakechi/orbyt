@@ -1,4 +1,4 @@
-# bpf-linker (honk-datapath design D2): the linker of Rust's eBPF programs.
+# bpf-linker (honk-datapath D2): the linker of Rust's eBPF programs.
 # rustc emits such a program as LLVM bitcode; bpf-linker links and optimizes
 # it and generates the BPF object with LLVM, which must read rustc's bitcode.
 # It therefore links the LLVM rustc links (packages 0012), statically, from

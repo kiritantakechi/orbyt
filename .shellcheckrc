@@ -1,4 +1,4 @@
-# shellcheck configuration (design D12). Every script is POSIX sh.
+# shellcheck configuration (r4s-build-foundation D12). Every script is POSIX sh.
 shell=sh
 external-sources=true
 source-path=SCRIPTDIR

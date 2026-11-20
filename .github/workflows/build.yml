@@ -1,5 +1,5 @@
 # Build the firmware of every board (boards/) in two stages that each fit in the
-# 6-hour job limit, test each board's image in the emulator (design D11), then
+# 6-hour job limit, test each board's image in the emulator (r4s-build-foundation D11), then
 # sign and release them together (r4s-release-pipeline D2, D3, D5; board-model D9):
 #   host-toolchain: tools and every toolchain, board-neutral: the cross
 #                   toolchain, Go and Rust (build-acceleration D2), cached by the

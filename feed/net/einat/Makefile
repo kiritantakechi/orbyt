@@ -1,5 +1,5 @@
-# einat (r4s-ebpf-datapath design D6): endpoint-independent NAT44 in eBPF, with
-# the Aya loader only, and the mark patch of design D2 (patches/).
+# einat (r4s-ebpf-datapath D6): endpoint-independent NAT44 in eBPF, with
+# the Aya loader only, and the mark patch of r4s-ebpf-datapath D2 (patches/).
 
 include $(TOPDIR)/rules.mk
 

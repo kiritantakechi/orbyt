@@ -1,6 +1,6 @@
 """The emulated board: power, disk snapshots and the serial console.
 
-(design D14, r4s-ab-rollback D7)
+(r4s-build-foundation D14, r4s-ab-rollback D7)
 
 ``Emulator`` drives the machine that ``emu-prepare``
 (orbyt_tests.device.prepare) made a directory for; ``Console`` drains
