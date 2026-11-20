@@ -43,17 +43,18 @@ experimental {
 }
 ```
 
-### Moving from dae
+### honk's reading of dae's syntax
 
-The router ran dae before honk; nothing on it migrates. In the private repository, move the configuration (`git mv dae honk`) and push: the push checks it with honk before the router changes, and refuses a repository that still has `dae/`. honk reads dae's syntax, but not all of it alike:
+honk reads dae's syntax, but not all of it alike (as the version `feed/net/honk` builds reads it):
 
-- `pname()` matches its name anywhere in the process name; dae matched the whole name.
-- `t` and `y` read as false; `so_mark_from_dae` reads as hex; the mark of `direct(mark: 010)` is decimal.
-- One declaration per line; no `/* */` comments; a `#` glued to a value is part of the value.
-- A node scheme other than ss, vmess (TCP), vless, trojan, anytls, hysteria and hysteria2, tuic, juicity and socks rejects the whole configuration; of a chain `a -> b`, only `a` is read.
-- Group policies `random` and `min` become a selector; `fixed(N)` loses its index; a group and a node cannot share a name.
-- `file://` subscriptions are not supported; subscriptions refresh daily by default.
-- `global` keys honk takes and ignores: `allow_insecure`, `sniffing_timeout`, `utls_imitate`, `tls_fragment*`, `mptcp`, `fallback_resolver`, `bandwidth_max_*`, `auto_config_kernel_parameter`.
+- `pname()` matches its name anywhere in the process name, where dae matched the whole name; both are cut to 15 bytes.
+- `t`, `y`, `f` and `n` read as false, with a warning; `nfqueue_enable`, `shutdown_wait_connections` and the syslog flags refuse them.
+- `so_mark_from_dae` reads as hex, with or without `0x`; the mark of `direct(mark: 010)` is decimal, and hex only with `0x`.
+- One `key: value` per line. `#` starts the only comment there is, and a `#` glued to a bare value is part of the value, with a warning; a line that starts with `/*` is dropped with a warning, and the lines after it are read as they are.
+- A node scheme other than ss, vmess (TCP), vless, trojan, anytls, hysteria and hysteria2, tuic, juicity and socks rejects the whole configuration (a subscription skips such a node); of a chain `a -> b`, only `a` is read.
+- Group policies `random` and `min` become a selector, with a warning; `fixed(N)` loses its index; a group and a node cannot share a name.
+- A subscription is http:// or https://, and a `file://` one rejects the configuration; subscriptions refresh daily by default.
+- `global` keys honk takes and ignores: `allow_insecure`, `sniffing_timeout`, `tls_fragment*`, `mptcp`, `fallback_resolver`, `bandwidth_max_*`, `auto_config_kernel_parameter`, `tproxy_port_protect`, `pprof_port`, `disable_waiting_network`; `utls_imitate` keeps the Chrome profile and warns of any other. A key honk does not know is skipped with a warning.
 
 ## Pushing
 

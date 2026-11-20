@@ -67,10 +67,6 @@ mkdir -p "${new}"
 sops decrypt --output-type json "${config}/secrets/secrets.enc.yaml" >"${scratch}/secrets.json" ||
 	die "cannot decrypt the secrets (is the age key in \$SOPS_AGE_KEY_FILE?)"
 
-# honk replaced dae, and its files moved with it (honk-datapath D5): a
-# repository still in dae's layout would push no proxy configuration at all.
-[ ! -e "${config}/dae" ] ||
-	die "the proxy's files are honk's now: run 'git mv dae honk' in ${config} and commit"
 for encrypted in "${config}"/honk/*.dae.enc; do
 	[ -e "${encrypted}" ] || continue
 	mkdir -p "${new}/honk"

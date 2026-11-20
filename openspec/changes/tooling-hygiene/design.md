@@ -65,7 +65,7 @@ The host stage builds the flake's emulator package (the patched QEMU) and saves 
 
 ### D8. dae's layout no longer guarded
 
-The maintainer's configuration repository has moved its proxy files to `honk/` (confirmed 2026-11-21). `config-push.sh`'s refusal of a repository with `dae/`, its test and its scenario in ops/config-push go, and so does docs/ops.md's "Moving from dae", whose notes on how honk reads dae's syntax move to the honk entry they describe, if they still hold.
+The maintainer's configuration repository has moved its proxy files to `honk/` (confirmed 2026-11-21). `config-push.sh`'s refusal of a repository with `dae/`, its test and its scenario in ops/config-push go, and so does docs/ops.md's "Moving from dae". Its notes on how honk reads dae's syntax describe honk's configuration, so they move to a section of their own beside honk's native API, checked against the source of the honk `feed/net/honk` builds: of the notes, the booleans, comments and the ignored `global` keys were partly wrong (strict booleans refuse `t` and `y`; a `/*` line is dropped, not a comment; `utls_imitate` is read; three ignored keys were missing).
 
 ## Risks / Trade-offs
 

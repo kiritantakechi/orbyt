@@ -277,7 +277,11 @@ def test_no_secret_in_the_history(pushed: Pushed, tmp_path: Path) -> None:
     assert leaks(plain.directory) is not None
 
 
-@spec(CAPABILITY, "Validate before pushing", "Syntax error in the proxy config")
+@spec(
+    CAPABILITY,
+    "Validate before changing the device",
+    "Syntax error in the proxy config",
+)
 def test_a_proxy_syntax_error_changes_nothing(pushed: Pushed) -> None:
     result = _refused(pushed, PROXY_CONFIG.replace("routing {", "routing {{", 1))
     assert "honk does not accept the configuration" in result.stderr
@@ -285,31 +289,17 @@ def test_a_proxy_syntax_error_changes_nothing(pushed: Pushed) -> None:
     assert pushed.router.returncode(f"test -e {UPLOAD}") != 0
 
 
-@spec(CAPABILITY, "Validate before pushing", "Configuration the proxy would refuse")
+@spec(
+    CAPABILITY,
+    "Validate before changing the device",
+    "Configuration the proxy would refuse",
+)
 def test_a_configuration_honk_refuses_changes_nothing(pushed: Pushed) -> None:
     # It parses, and names a group no group block declares.
     result = _refused(pushed, PROXY_CONFIG.replace("-> proxy", f"-> {MISSING_GROUP}"))
     assert "honk does not accept the configuration" in result.stderr
     # honk's reason, by its code: its check names no value.
     assert "error[unknown-routing-target]" in result.stderr
-
-
-@spec(CAPABILITY, "Validate before pushing", "Proxy files in dae's layout")
-def test_a_repository_in_dae_s_layout_changes_nothing(pushed: Pushed) -> None:
-    router = pushed.router
-    before = _state(router)
-    directory = pushed.repository.directory
-    (directory / "dae").mkdir()
-    (directory / "dae" / "config.dae.enc").write_bytes(
-        (directory / "honk" / "config.dae.enc").read_bytes()
-    )
-    try:
-        result = pushed.push()
-    finally:
-        pushed.repository.discard()
-    assert result.returncode != 0, result.stderr
-    assert "git mv dae honk" in result.stderr, result.stderr
-    assert _state(router) == before
 
 
 @spec(CAPABILITY, "Repeatable push results", "Repeated push")
@@ -323,7 +313,9 @@ def test_a_repeated_push_restarts_nothing(pushed: Pushed) -> None:
     assert _state(router) == before
 
 
-@spec(CAPABILITY, "Validate before pushing", "A configuration that validates")
+@spec(
+    CAPABILITY, "Validate before changing the device", "A configuration that validates"
+)
 def test_a_push_leaves_no_change_uncommitted(pushed: Pushed) -> None:
     router = pushed.router
     key = shlex.quote(pushed.wireguard_key)
