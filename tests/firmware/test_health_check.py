@@ -37,6 +37,8 @@ BROKEN = "/tmp/broken-tools"  # noqa: S108 (a path on the router)
 # once the service's mark exists.
 LATE_RUNS = "/tmp/late-runs"  # noqa: S108 (a path on the router)
 LATE_UP = "/tmp/late-up"  # noqa: S108 (a path on the router)
+# Each run of a check that fails until FAILING goes.
+DEMO_RUNS = "/tmp/demo-runs"  # noqa: S108 (a path on the router)
 
 
 def _check(router: Router, broken: str | None = None) -> dict[str, object]:
@@ -172,7 +174,7 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     running = slot(router)
     setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
     router.run(f"touch {FAILING}")
-    _register(router, "demo", f"[ ! -e {FAILING} ]")
+    _register(router, "demo", f"echo run >>{DEMO_RUNS}; [ ! -e {FAILING} ]")
     limits = " && ".join(
         f"uci set orbyt-ab.healthcheck.{name}={value}" for name, value in SLOW.items()
     )
@@ -189,7 +191,13 @@ def test_a_clock_set_forward_does_not_end_a_trial(router: Router) -> None:
     # still fails for two more rounds; then it passes, well within the
     # total time limit.
     router.run(f"date -s @$(($(date +%s) + {DAY})) >/dev/null")
-    router.run(f"sleep {2 * SLOW['interval']} && rm {FAILING}")
+    failed = len((router.poll(f"cat {DEMO_RUNS}") or "").split())
+    until(
+        lambda: len((router.poll(f"cat {DEMO_RUNS}") or "").split()) >= failed + 2,
+        timeout=SLOW["total"],
+        what="two more failing rounds of the check",
+    )
+    router.run(f"rm {FAILING}")
     confirmed = f"slot {running} passed its trial boot and is confirmed"
     router.run(
         f"until logread -e orbyt-healthcheck | grep -q '{confirmed}'; do sleep 1; done",

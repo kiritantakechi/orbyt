@@ -33,6 +33,9 @@ CAPABILITY = "firmware/boot-rollback"
 UBOOT_DIR = Path(__file__).resolve().parents[2] / "uboot"
 UBOOT_SECTOR = 16384
 UBOOT_BANNER = r"U-Boot 20\d\d\.\d\d"
+# How long the console stays silent at U-Boot's prompt to show that it
+# stays: a reset would print U-Boot's banner again within seconds.
+PROMPT_STAYS = 30
 # Variables U-Boot itself defines for the slot logic, besides those of
 # orbyt-ab.env.
 LOGIC = ("bootcmd", "altbootcmd", "bootlimit")
@@ -359,7 +362,7 @@ def test_fallback_within_one_power_cycle(router: Router) -> None:
         "neither slot boots, stopping at the prompt", since=since, timeout=300
     )
     prompt = emulator.console.mark()
-    time.sleep(30)
+    time.sleep(PROMPT_STAYS)
     assert not re.search(UBOOT_BANNER, emulator.console.text(prompt))
 
 

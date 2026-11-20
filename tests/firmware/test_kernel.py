@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.device.ab import BOOT_DISK
+from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
@@ -23,6 +24,8 @@ KERNEL_PATCH_DIR = re.compile(
 )
 BBR3_PATCH = re.compile(r"^target/linux/generic/hack-[0-9.]+/960-bbr3-")
 BPF_OBJECT = "/tmp/orbyt_pass.o"  # noqa: S108 (a path on the router)
+# How long the router may take to connect to its own web server.
+CONNECT_TIMEOUT = 30
 # The smallest tcx program: it hands every packet on (TCX_NEXT). libbpf
 # derives the program and attach type from the section name.
 TCX_SOURCE = """\
@@ -163,10 +166,12 @@ def test_bbr3_is_the_default(router: Router) -> None:
 )
 def test_local_connection_uses_bbr(router: Router) -> None:
     # Hold a connection from the router to its own web server open, then
-    # look at it.
-    info = router.run(
-        "(sleep 5 | nc 127.0.0.1 80 >/dev/null) & sleep 2;"
-        " ss -Htin state established 'dport = :80'"
+    # look at it once it is established.
+    router.run("(sleep 60 | nc 127.0.0.1 80) >/dev/null 2>&1 &")
+    info = until(
+        lambda: router.poll("ss -Htin state established 'dport = :80'"),
+        timeout=CONNECT_TIMEOUT,
+        what="the router's connection to its web server",
     )
     assert re.search(r"\bbbr\b", info), info
 
