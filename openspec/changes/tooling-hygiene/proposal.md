@@ -12,6 +12,7 @@ On 2026-11-20 the maintainer asked for the project's band-aids to be replaced by
 - **No maintainer's machine**: the repository from the clone's remote or `GITHUB_REPOSITORY`, the work volume's image and the tests' directory from configuration, documents with placeholders.
 - **Helpers for repeated idioms**: a scratch directory with its cleanup (on the work volume, not the VM's memory-backed `/tmp`), the build's job count, a board's validation; the manifest's writer beside its readers; the toolchain record's check shared by the build and the toolchain build.
 - **Errors that matter fail**: an absent kernel version, a compiler cache selected but missing.
+- **dae's layout no longer guarded**: the maintainer's configuration repository has moved to `honk/` (confirmed 2026-11-21), so config-push's refusal of `dae/` and its migration notes go.
 - **Names and documents that say what is**: the conventions' module table and recipe groups, `ORBYT_` for every environment variable, check and recipe names aligned, the LAN subnet read from one place, the flake's quality shell defined once, comments citing designs by their change, docs/ci.md and dev-setup.md stating the present with the records kept as records, the validation notes' commands corrected, `.gitignore` without dead patterns.
 
 ## Capabilities
@@ -25,6 +26,7 @@ None.
 - `quality/code-standards`: the formatters format exactly what the checks check.
 - `build/ci`: the workflows run recipes, their decisions in tested scripts, each list and key written once; the emulator is built once per run.
 - `build/environment`: no script or document names one maintainer's machine or repository.
+- `ops/config-push`: a repository in dae's layout is no longer refused by name.
 
 ## Impact
 

@@ -21,7 +21,6 @@
 **Non-Goals:**
 - The cache quota's management (`cache-room.sh`, `cache-prune.sh`): its reason, other branches pushing main's caches out of the 10 GB quota, holds.
 - The check job's 30-minute limit and the uv cache: their reason (no free-threaded 3.15 wheels for grpcio, tach and PyYAML; python-style D1) holds until those wheels exist.
-- The private configuration repository's `dae/` guard in `config-push.sh`: it stays until the maintainer says their repository is migrated (`git mv dae honk`), and then goes with docs/ops.md's section.
 - `image-audit.sh`'s denylist of dae's packages: daeuniverse's feed still ships them, and the audit keeps them out of the image.
 
 ## Decisions
@@ -63,6 +62,10 @@ The host stage builds the flake's emulator package (the patched QEMU) and saves 
 - `flake.nix`: the quality shell once, outside the per-system set; packages in two sets once; the `ssh-keygen` wrapper and the process comments go.
 - Comments citing "design Dn" name the change ("r4s-ebpf-datapath D11"); a script that `fetch.sh`'s feeds index is redundant with `patch.sh`'s is checked by running `just fetch` alone and then `just patch`, and the first index goes if nothing reads it in between.
 - docs/conventions.md's table and groups from the code; docs/ci.md's prose states the present, its tables keep each run's record in one line, rationales moving to the specs they explain; docs/dev-setup.md's VM version from the VM; docs/validation's commands corrected, and folded into docs/ci.md if nothing else remains in them; `.gitignore` keeps only what is produced in the tree (`.claude/worktrees/` added) and one exemption list serves `repo_files` and editorconfig-checker.
+
+### D8. dae's layout no longer guarded
+
+The maintainer's configuration repository has moved its proxy files to `honk/` (confirmed 2026-11-21). `config-push.sh`'s refusal of a repository with `dae/`, its test and its scenario in ops/config-push go, and so does docs/ops.md's "Moving from dae", whose notes on how honk reads dae's syntax move to the honk entry they describe, if they still hold.
 
 ## Risks / Trade-offs
 

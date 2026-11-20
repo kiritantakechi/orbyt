@@ -46,13 +46,19 @@
 
   Verify: a grep finds no "design D" citation without its change; `just check` passes; every command in docs/ runs as written (each recipe and its arguments exist).
 
-## 6. Verification
+## 6. dae's layout (D8)
 
-- [ ] 6.1 `just check`, the unit and quality suites, and a build of both boards on the VM with nothing changed.
+- [ ] 6.1 config-push's `dae/` refusal, its test and scenario, and docs/ops.md's "Moving from dae" go.
+
+  Verify: `spec-coverage` passes with the scenario removed; the configuration push suite passes on the emulated R4S.
+
+## 7. Verification
+
+- [ ] 7.1 `just check`, the unit and quality suites, and a build of both boards on the VM with nothing changed.
 
   Verify: every check and test passes; the builds rebuild nothing.
 
 ## Workflow follow-up
 
 - CI runs once, on the stack's final head, as the release verification, which is also the first run of D2 and D3's workflow changes; its run is recorded in docs/ci.md for every change it covers.
-- Archive after test-hygiene. When the maintainer confirms their configuration repository is migrated, the `dae/` guard and docs/ops.md's section go.
+- Archive after test-hygiene.
