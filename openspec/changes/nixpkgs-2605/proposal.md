@@ -17,10 +17,11 @@ None.
 
 ### Modified Capabilities
 
-None: build/environment's "Pinned common host environment" asks for exactly this, a version change made in `flake.lock` alone.
+- `build/boards`: "One toolchain for every board" builds a toolchain of another host environment anew, with the host tools and host packages, and a board's build refuses it, locally as CI's key does (D4). The move itself is what "Pinned common host environment" asks for, a version change made in `flake.lock` alone.
 
 ## Impact
 
+- `scripts/toolchain-build.sh`, `scripts/build.sh`, `scripts/toolchain-key.sh` and `scripts/lib/toolchain.sh` (the environment in the toolchain's record), `tests/orbyt_tests/model/outputs.py` and the toolchain tests.
 - `flake.nix`, `flake.lock`.
 - CI: the branch's first run and main's first run after the merge each build the host stage anew (about 2 hours each), as a seed change does.
 - The VM's work tree: its toolchain builds anew on the first build after the move; it runs after orbyt-brand's and orbyt-theme's local tests, which use the tree's current toolchain.
