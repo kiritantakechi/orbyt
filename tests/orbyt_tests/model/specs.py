@@ -5,9 +5,9 @@ under ``openspec/specs``, and while in flight as a delta under
 ``openspec/changes/<change>/specs``. Requirements are ``###
 Requirement:`` headings and scenarios are ``#### Scenario:`` headings
 below them. Deltas group requirements under ``##
-ADDED|MODIFIED|REMOVED|RENAMED Requirements``; removed requirements have
-no scenarios to verify, and a renamed requirement is the archived one
-under its new name.
+ADDED|MODIFIED|REMOVED|RENAMED Requirements``; a removed requirement
+has no scenarios to verify, in the delta or archived, and a renamed
+requirement is the archived one under its new name.
 """
 
 import re
@@ -69,6 +69,18 @@ def parse_spec(spec_file: Path, capability: str, change: str | None) -> list[Sce
     return scenarios
 
 
+def parse_removals(spec_file: Path) -> set[str]:
+    """Return the requirements a delta removes."""
+    removals: set[str] = set()
+    removed = False
+    for line in spec_file.read_text(encoding="utf-8").splitlines():
+        if section := _SECTION.match(line):
+            removed = section["kind"] == "REMOVED"
+        elif removed and (heading := _REQUIREMENT.match(line)):
+            removals.add(str(heading["name"]))
+    return removals
+
+
 def parse_renames(spec_file: Path) -> dict[str, str]:
     """Return the requirements a delta renames, old name to new."""
     renames: dict[str, str] = {}
@@ -91,7 +103,9 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
 
     An archived requirement that a change in flight renames keeps its
     scenarios, under the new name: the system still has to meet them,
-    and its tests follow the change.
+    and its tests follow the change. One that a change in flight
+    removes has none: the change stops meeting it, and its tests go
+    with it.
     """
     changes = openspec_dir / "changes"
     deltas = [
@@ -106,12 +120,19 @@ def load_scenarios(openspec_dir: Path) -> list[Scenario]:
         for _, capability, spec_file in deltas
         for old, new in parse_renames(spec_file).items()
     }
+    removed = {
+        (capability, name)
+        for _, capability, spec_file in deltas
+        for name in parse_removals(spec_file)
+    }
     scenarios: list[Scenario] = []
     archived = openspec_dir / "specs"
     for spec_file in sorted(archived.glob("*/*/spec.md")):
         for scenario in parse_spec(
             spec_file, _capability(spec_file, archived), change=None
         ):
+            if (scenario.id.capability, scenario.id.requirement) in removed:
+                continue
             if (
                 new := renamed.get((scenario.id.capability, scenario.id.requirement))
             ) is not None:

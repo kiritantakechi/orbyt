@@ -9,6 +9,7 @@ from orbyt_tests.model.specs import (
     ScenarioId,
     capability_of_module,
     load_scenarios,
+    parse_removals,
     parse_renames,
     parse_spec,
 )
@@ -53,6 +54,11 @@ ARCHIVED = """# widget Specification
 #### Scenario: fourth
 - **WHEN** a
 - **THEN** b
+
+### Requirement: Gone
+#### Scenario: never verified
+- **WHEN** a
+- **THEN** b
 """
 
 
@@ -93,3 +99,18 @@ def test_a_renamed_requirement_keeps_its_scenarios(tmp_path: Path) -> None:
         scenario.id for scenario in load_scenarios(tmp_path) if scenario.change is None
     ]
     assert archived_ids == [ScenarioId("demo/widget", "New name", "fourth")]
+
+
+def test_a_removed_requirement_needs_no_test(tmp_path: Path) -> None:
+    # The change in flight removes it, and its tests with it.
+    archived = tmp_path / "specs" / "demo" / "widget" / "spec.md"
+    delta = (
+        tmp_path / "changes" / "demo-change" / "specs" / "demo" / "widget" / "spec.md"
+    )
+    for path, text in ((archived, ARCHIVED), (delta, DELTA)):
+        path.parent.mkdir(parents=True)
+        path.write_text(text)
+    assert parse_removals(delta) == {"Gone"}
+    assert all(
+        scenario.id.requirement != "Gone" for scenario in load_scenarios(tmp_path)
+    )
