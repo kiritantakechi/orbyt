@@ -16,6 +16,22 @@ if TYPE_CHECKING:
 type Argument = str | Path
 
 
+def _note_output(
+    error: subprocess.CalledProcessError | subprocess.TimeoutExpired,
+) -> None:
+    """Add what the command said to ``error``, a stream per note.
+
+    A command past its time limit said it as bytes: the text mode of
+    subprocess decodes only a whole output.
+    """
+    for stream, said in (("stdout", error.stdout), ("stderr", error.stderr)):
+        if said is None:
+            continue
+        text = said.decode(errors="replace") if isinstance(said, bytes) else str(said)
+        if text.strip():
+            error.add_note(f"{stream}:\n{text.strip()}")
+
+
 def run(
     *argv: Argument,
     timeout: float | None = None,
@@ -27,7 +43,8 @@ def run(
 
     A command that fails raises CalledProcessError, with its standard
     output and standard error as notes; one that runs past ``timeout``
-    raises TimeoutExpired, with its command line as a note.
+    raises TimeoutExpired, with its command line and what it said until
+    then as notes.
     """
     command = [str(argument) for argument in argv]
     try:
@@ -42,10 +59,9 @@ def run(
             cwd=cwd,
         ).stdout
     except subprocess.CalledProcessError as error:
-        for stream, said in (("stdout", error.stdout), ("stderr", error.stderr)):
-            if said and said.strip():
-                error.add_note(f"{stream}:\n{said.strip()}")
+        _note_output(error)
         raise
     except subprocess.TimeoutExpired as error:
         error.add_note(" ".join(command))
+        _note_output(error)
         raise

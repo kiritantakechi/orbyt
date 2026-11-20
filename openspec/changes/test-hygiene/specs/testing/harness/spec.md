@@ -23,6 +23,10 @@ A daemon the sandbox starts SHALL be ready, by a probe of the service it offers,
 - **WHEN** a daemon of the sandbox takes longer than usual to listen on its port
 - **THEN** the sandbox waits for it to listen before the first test uses it
 
+#### Scenario: A daemon that exits while it starts
+- **WHEN** a daemon of a namespace the sandbox adds exits before it is ready
+- **THEN** the setup fails at once, naming the daemon and its exit status, and leaves neither the namespace nor its links behind
+
 ### Requirement: Tests independent of their order
 Each test SHALL leave what its module shares, the router's state, its disks, its containers and the network, as it found it, so that any test passes when it runs alone or in another order. Nothing a test needs SHALL depend on a test that ran before it.
 

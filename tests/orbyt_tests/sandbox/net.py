@@ -415,6 +415,7 @@ class Netns(AbstractContextManager["Netns"]):
     def __init__(self, name: str) -> None:
         """Create the namespace; it lives until the context exits."""
         self.name = name
+        self._daemons = ExitStack()
         own = Path("/proc/self/ns/net").stat().st_ino
         self._holder = subprocess.Popen(["unshare", "--net", "--", "sleep", "infinity"])
         try:
@@ -477,6 +478,41 @@ class Netns(AbstractContextManager["Netns"]):
         )
         return cast("netprobe.Seen", json.loads(output))
 
+    def start(self, daemon: Daemon, workdir: Path) -> subprocess.Popen[bytes]:
+        """Start ``daemon`` here; return it once it is ready.
+
+        It runs until the namespace's context exits. A daemon that exits
+        while it starts fails the setup at once; its output is the test
+        run's.
+        """
+        command = tuple(argument.format(workdir=workdir) for argument in daemon.command)
+        started = self.spawn(*command)
+        self._daemons.callback(started.wait)
+        self._daemons.callback(started.terminate)
+
+        def ready() -> bool:
+            if (code := started.poll()) is not None:
+                msg = f"{self.name}: {command[0]} exited with {code} while starting"
+                raise RuntimeError(msg)
+            if daemon.listening:
+                return bool(self.run("ss", *daemon.listening).strip())
+            if daemon.makes is not None:
+                return Path(daemon.makes.format(workdir=workdir)).exists()
+            # Its service, the tests await themselves.
+            try:
+                started.wait(timeout=DAEMON_SETTLE)
+            except subprocess.TimeoutExpired:
+                return True
+            return False
+
+        until(
+            ready,
+            timeout=DAEMON_READY_TIMEOUT,
+            every=0.1,
+            what=f"{command[0]} ready in {self.name}",
+        )
+        return started
+
     @override
     def __exit__(
         self,
@@ -484,9 +520,15 @@ class Netns(AbstractContextManager["Netns"]):
         exc: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        """Stop the holder; the namespace disappears with it."""
-        self._holder.kill()
-        self._holder.wait()
+        """Stop the daemons, then the holder.
+
+        The namespace disappears with the holder.
+        """
+        try:
+            self._daemons.close()
+        finally:
+            self._holder.kill()
+            self._holder.wait()
 
 
 class Network(AbstractContextManager["Network"]):
@@ -565,24 +607,38 @@ class Network(AbstractContextManager["Network"]):
     def add(self, namespace: Namespace) -> Netns:
         """Add a namespace to the running sandbox.
 
-        It lives as long as the sandbox.
+        It lives as long as the sandbox. A namespace that fails to come
+        up takes its daemons and itself down again (test-hygiene D3);
+        its links go with it.
         """
-        netns = self._stack.enter_context(Netns(namespace.name))
-        self._namespaces[namespace.name] = netns
-        netns.run("ip", "link", "set", "lo", "up")
-        if namespace.sysctls:
-            netns.run("sysctl", "-qw", *namespace.sysctls)
-        for index, port in enumerate(namespace.ports):
-            self._connect(netns, f"eth{index}", port)
-        for route in namespace.routes:
-            netns.run("ip", "route", "add", *route.split())
         workdir = self.workdir / namespace.name
         workdir.mkdir(parents=True, exist_ok=True)
-        for daemon in namespace.daemons:
-            self._daemon(netns, daemon, workdir)
+        with ExitStack() as stack:
+            netns = stack.enter_context(Netns(namespace.name))
+            netns.run("ip", "link", "set", "lo", "up")
+            if namespace.sysctls:
+                netns.run("sysctl", "-qw", *namespace.sysctls)
+            clients = [
+                self._connect(netns, f"eth{index}", port, workdir)
+                for index, port in enumerate(namespace.ports)
+            ]
+            for route in namespace.routes:
+                netns.run("ip", "route", "add", *route.split())
+            for daemon in namespace.daemons:
+                netns.start(daemon, workdir)
+            self._stack.enter_context(stack.pop_all())
+        self._namespaces[namespace.name] = netns
+        if client := next(filter(None, clients), None):
+            self._dhcp[namespace.name] = client
         return netns
 
-    def _connect(self, netns: Netns, device: str, port: Port) -> None:
+    def _connect(
+        self, netns: Netns, device: str, port: Port, workdir: Path
+    ) -> subprocess.Popen[bytes] | None:
+        """Connect ``netns``'s ``device`` to ``port``'s bridge.
+
+        Return the DHCP client of a port that leases its address.
+        """
         outside = f"v{device[-1]}-{netns.name}"
         ip(
             "link",
@@ -617,9 +673,8 @@ class Network(AbstractContextManager["Network"]):
                 *("udhcpc", "-f", "-i", device, "-s", str(UDHCPC_SCRIPT), "-A", "3"),
                 *("-x", f"hostname:{netns.name}"),
             )
-            self._dhcp[netns.name] = self._daemon(
-                netns, Daemon(client), self.workdir / netns.name
-            )
+            return netns.start(Daemon(client), workdir)
+        return None
 
     def renew(self, name: str) -> None:
         """Have a namespace's DHCP client renew its lease now.
@@ -627,42 +682,6 @@ class Network(AbstractContextManager["Network"]):
         udhcpc renews on SIGUSR1.
         """
         self._dhcp[name].send_signal(signal.SIGUSR1)
-
-    def _daemon(
-        self, netns: Netns, daemon: Daemon, workdir: Path
-    ) -> subprocess.Popen[bytes]:
-        """Start ``daemon`` in ``netns``; return it once it is ready.
-
-        A daemon that exits while it starts fails the setup at once; its
-        output is the test run's.
-        """
-        command = tuple(argument.format(workdir=workdir) for argument in daemon.command)
-        process = netns.spawn(*command)
-        self._stack.callback(process.wait)
-        self._stack.callback(process.terminate)
-
-        def ready() -> bool:
-            if (code := process.poll()) is not None:
-                msg = f"{netns.name}: {command[0]} exited with {code} while starting"
-                raise RuntimeError(msg)
-            if daemon.listening:
-                return bool(netns.run("ss", *daemon.listening).strip())
-            if daemon.makes is not None:
-                return Path(daemon.makes.format(workdir=workdir)).exists()
-            # Its service, the tests await themselves.
-            try:
-                process.wait(timeout=DAEMON_SETTLE)
-            except subprocess.TimeoutExpired:
-                return True
-            return False
-
-        until(
-            ready,
-            timeout=DAEMON_READY_TIMEOUT,
-            every=0.1,
-            what=f"{command[0]} ready in {netns.name}",
-        )
-        return process
 
     @override
     def __exit__(

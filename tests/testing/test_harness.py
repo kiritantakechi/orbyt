@@ -6,6 +6,7 @@ and login sessions that end with their time limit, setups undone when
 they fail.
 """
 
+import contextlib
 import json
 import re
 import shlex
@@ -24,6 +25,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.device.fixtures import claim
 from orbyt_tests.device.router import SSH_PORT
+from orbyt_tests.model import process
 from orbyt_tests.model.boards import BOARDS_DIR, Description
 from orbyt_tests.model.coverage import VerifiedElsewhere
 from orbyt_tests.model.data import DataError, read_json, read_toml
@@ -35,6 +37,7 @@ from orbyt_tests.model.outputs import (
 )
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
+from orbyt_tests.sandbox.net import Daemon, Namespace, Netns, Port, ip
 from orbyt_tests.services.fixtures import pytest_runtest_makereport
 from orbyt_tests.services.vpn import LAN_PREFIX, WireGuard
 
@@ -45,9 +48,13 @@ if TYPE_CHECKING:
 
     from orbyt_tests.device.emu import Emulator
     from orbyt_tests.device.router import Router
+    from orbyt_tests.sandbox.net import Network
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "testing/harness"
+# How long the kernel may take to destroy a namespace after its last
+# process.
+NAMESPACE_GONE = 10
 TESTS_DIR = Path(__file__).resolve().parents[1]
 FIXTURES = TESTS_DIR / "fixtures"
 DEMO_SPEC = """## ADDED Requirements
@@ -367,6 +374,100 @@ def test_a_wait_goes_on_through_empty_answers() -> None:
 def test_a_wait_without_an_answer_names_what_it_waited_for() -> None:
     with pytest.raises(TimeoutError, match=re.escape("no listener within 0.2 s")):
         until(_answers(*EMPTY_ANSWERS), timeout=0.2, what="listener", every=0.01)
+
+
+@spec(CAPABILITY, "Each wait has one form", "A wait that names its diagnostics")
+def test_a_wait_past_its_limit_carries_what_its_caller_reports() -> None:
+    with pytest.raises(
+        TimeoutError, match=r"(?s)no listener within 0\.2 s.*ports: none"
+    ):
+        until(
+            lambda: None,
+            timeout=0.2,
+            every=0.01,
+            what="listener",
+            notes=lambda: ["ports: none"],
+        )
+
+    def unreachable() -> list[str]:
+        msg = "router gone"
+        raise OSError(msg)
+
+    # A report that fails says so, and the timeout stays the failure.
+    with pytest.raises(
+        TimeoutError, match=r"the report failed: OSError\('router gone'\)"
+    ):
+        until(lambda: None, timeout=0, what="listener", notes=unreachable)
+
+
+@spec(
+    CAPABILITY,
+    "A failed command shows its output",
+    "A command expected to fail fails otherwise",
+)
+def test_a_failed_command_carries_what_it_said() -> None:
+    # The refusal a test expects, named by what the command said.
+    with pytest.raises(subprocess.CalledProcessError, match="connection refused"):
+        process.run("sh", "-c", "echo connection refused >&2; exit 1")
+    # A timeout instead is no refusal, and its report shows what the
+    # command said until then.
+    with pytest.raises(subprocess.TimeoutExpired, match="still connecting"):
+        process.run("sh", "-c", "echo still connecting; exec sleep 5", timeout=0.5)
+
+
+# A server that binds its port a while after it starts.
+SLOW_PORT = 7000
+SLOW_SERVER = (
+    sys.executable,
+    "-c",
+    (
+        "import socket, time; time.sleep(2);"
+        f" server = socket.create_server(('', {SLOW_PORT})); time.sleep(60)"
+    ),
+)
+
+
+@spec(CAPABILITY, "The sandbox's daemons ready before use", "A daemon slow to bind")
+def test_a_daemon_slow_to_bind_is_ready_once_started(tmp_path: Path) -> None:
+    listening = ("-Hltn", f"sport = :{SLOW_PORT}")
+    with Netns("slow") as netns:
+        netns.start(Daemon(SLOW_SERVER, listening=listening), tmp_path)
+        assert netns.run("ss", *listening).strip()
+
+
+def _namespaces() -> set[str]:
+    """Return the network namespaces the sandbox's processes are in."""
+    held = set()
+    for entry in Path("/proc").iterdir():
+        if entry.name.isdigit():
+            # A process may end while it is read.
+            with contextlib.suppress(OSError):
+                held.add(str((entry / "ns" / "net").readlink()))
+    return held
+
+
+@spec(
+    CAPABILITY,
+    "The sandbox's daemons ready before use",
+    "A daemon that exits while it starts",
+)
+def test_a_namespace_whose_daemon_exits_is_taken_down(network: Network) -> None:
+    held = _namespaces()
+    broken = Namespace(
+        "broken",
+        ports=(Port("br-inet"),),
+        daemons=(Daemon(("sh", "-c", "echo no configuration >&2; exit 3")),),
+    )
+    with pytest.raises(RuntimeError, match="broken: sh exited with 3 while starting"):
+        network.add(broken)
+    assert _namespaces() == held
+    # The kernel destroys a namespace, and the veth pairs with an end
+    # in it, after its last process.
+    until(
+        lambda: "v0-broken" not in ip("-o", "link", "show"),
+        timeout=NAMESPACE_GONE,
+        what="broken's link gone",
+    )
 
 
 # A detached command that ends without the reboot the harness then waits
