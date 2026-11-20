@@ -205,6 +205,41 @@ def test_ingress_shaping_takes_the_download(online: Online) -> None:
     assert _ifbs(router) == []
 
 
+@spec(
+    CAPABILITY,
+    "Configured whenever the daemon comes up",
+    "A boot with no configuration change",
+)
+def test_a_boot_shapes_the_upload(online: Online) -> None:
+    online.reboot()
+    # The datapath's wait is qosify's classifier on pppoe-wan, which
+    # only a configured qosify attaches.
+    assert re.search(
+        rf"qdisc cake \S+ root .*bandwidth {DEFAULT_RATE}", _cake(online.router)
+    )
+
+
+@spec(
+    CAPABILITY,
+    "Configured whenever the daemon comes up",
+    "The daemon exits and comes back",
+)
+def test_a_respawned_daemon_shapes_the_upload_again(online: Online) -> None:
+    router = online.router
+    killed = router.run("pidof qosify")
+    router.run(f"kill -KILL {killed}")
+    # Its classifier goes with it; the daemon procd starts again has
+    # none until it is configured.
+    until(
+        lambda: router.run("pidof qosify || true") not in {"", killed},
+        timeout=RECOVERY,
+        what="qosify started again",
+    )
+    online.wait_datapath()
+    assert online.recovery <= RECOVERY
+    assert re.search(rf"qdisc cake \S+ root .*bandwidth {DEFAULT_RATE}", _cake(router))
+
+
 @spec(CAPABILITY, "Recovery after redial", "PPPoE redial")
 def test_shaping_returns_after_a_redial(online: Online) -> None:
     online.redial()
