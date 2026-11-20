@@ -14,8 +14,6 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, override
 
-import pytest
-
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
@@ -110,11 +108,9 @@ class Traps:
         return found
 
 
-def report(traps: list[Trap], when: str) -> None:
-    """Fail the running test (or fixture) if ``traps`` has any.
-
-    The failure names each trap.
-    """
-    if traps:
-        lines = "\n".join(f"  {trap}" for trap in traps)
-        pytest.fail(f"undefined behavior trapped {when}:\n{lines}", pytrace=False)
+def report(traps: list[Trap], when: str) -> str | None:
+    """Return the failure ``traps`` make, naming each; None for none."""
+    if not traps:
+        return None
+    lines = "\n".join(f"  {trap}" for trap in traps)
+    return f"undefined behavior trapped {when}:\n{lines}"

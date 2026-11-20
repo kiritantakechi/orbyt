@@ -130,6 +130,15 @@ def booted_router(
     return router
 
 
+def _fail_on(traps: Traps, when: str) -> None:
+    """Fail the running test (or fixture) if anything trapped since.
+
+    The failure names each new trap of ``traps``.
+    """
+    if (failure := report(traps.new(), when)) is not None:
+        pytest.fail(failure, pytrace=False)
+
+
 @pytest.fixture(scope="session")
 def ubsan_traps(booted_router: Router, profile: str) -> Traps | None:
     """Return the watch on undefined-behavior traps in a ubsan build.
@@ -142,7 +151,7 @@ def ubsan_traps(booted_router: Router, profile: str) -> Traps | None:
     if profile != UBSAN:
         return None
     traps = Traps(booted_router)
-    report(traps.new(), "while the router booted")
+    _fail_on(traps, "while the router booted")
     return traps
 
 
@@ -177,7 +186,7 @@ def router(booted_router: Router, ubsan_traps: Traps | None) -> Iterator[Router]
     yield booted_router
     try:
         if ubsan_traps is not None:
-            report(ubsan_traps.new(), "during the test")
+            _fail_on(ubsan_traps, "during the test")
     finally:
         booted_router.reset()
 
@@ -201,7 +210,7 @@ def module_router(
     booted_router.holder = None
     try:
         if ubsan_traps is not None:
-            report(ubsan_traps.new(), "outside the module's tests")
+            _fail_on(ubsan_traps, "outside the module's tests")
     finally:
         booted_router.reset()
 
@@ -216,7 +225,7 @@ def check_module_traps(request: pytest.FixtureRequest) -> Iterator[None]:
     if "module_router" in request.fixturenames:
         traps = cast("Traps | None", request.getfixturevalue("ubsan_traps"))
         if traps is not None:
-            report(traps.new(), "during the test")
+            _fail_on(traps, "during the test")
 
 
 @pytest.fixture(scope="module")
@@ -230,7 +239,8 @@ def data_disk(
     disk = Disk.blank(emulator, tmp_path_factory.mktemp("disks"), "data")
     disk.plug(1)
     try:
-        assert initialize(module_router, disk) == 0  # noqa: S101
+        if (code := initialize(module_router, disk)) != 0:
+            pytest.fail(f"orbyt-data init exited {code}")
         wait_mounted(module_router)
         yield disk
     finally:

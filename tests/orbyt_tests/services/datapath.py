@@ -376,13 +376,17 @@ class Online:
     def addresses(self, name: str = "client-a") -> tuple[str, str]:
         """Return a LAN client's IPv4 and global IPv6 addresses."""
         found = lan_addresses(self.client(name))
-        assert found is not None, f"{name} has no addresses"  # noqa: S101
+        if found is None:
+            msg = f"{name} has no addresses"
+            raise LookupError(msg)
         return found
 
     def router_addresses(self) -> tuple[str, str]:
         """Return the router's LAN IPv4 and global IPv6 addresses."""
         found = _usable_addresses(self.router.run("ip -o addr show dev br-lan"))
-        assert found is not None, "the router has no usable LAN addresses"  # noqa: S101
+        if found is None:
+            msg = "the router has no usable LAN addresses"
+            raise LookupError(msg)
         return found
 
     def reboot(self, *, while_off: Callable[[], object] | None = None) -> None:

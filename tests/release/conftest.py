@@ -50,7 +50,8 @@ def drill_configuration(
     repository.write_proxy("config", PROXY_CONFIG)
     repository.commit("the drill's configuration")
     pushed = repository.push(trusted_ca.router.address, harness_key)
-    assert pushed.returncode == 0, pushed.stderr  # noqa: S101
+    if pushed.returncode != 0:
+        pytest.fail(f"the configuration's push failed:\n{pushed.stderr}")
     proxy_sha256 = hashlib.sha256(PROXY_CONFIG.encode()).hexdigest()
     return {
         "uci get network.wan.username": user,

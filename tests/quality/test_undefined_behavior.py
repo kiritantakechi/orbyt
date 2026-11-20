@@ -3,6 +3,7 @@
 The fix is in the code.
 """
 
+import re
 from typing import TYPE_CHECKING
 
 import pytest
@@ -132,10 +133,9 @@ def test_a_trap_fails_the_test_and_names_the_process(
     # signal the SSH client reports as 255; the shell reports 128 + the
     # signal instead.
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
-    with pytest.raises(
-        pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"
-    ):
-        report(ubsan_traps.new(), "during the test")
+    failure = report(ubsan_traps.new(), "during the test")
+    assert failure is not None
+    assert re.search(rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+", failure), failure
 
 
 @spec(CAPABILITY, "Undefined behavior traps under UBSan", "A trap before a reboot")
@@ -148,7 +148,6 @@ def test_a_trap_before_a_reboot_fails_the_test(
         pytest.skip("only a ubsan build traps")
     assert router.returncode(f"{PROBE}; exit $?") == TRAPPED
     router.reboot()
-    with pytest.raises(
-        pytest.fail.Exception, match=rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+"
-    ):
-        report(ubsan_traps.new(), "during the test")
+    failure = report(ubsan_traps.new(), "during the test")
+    assert failure is not None
+    assert re.search(rf"{PROBE}\[[0-9]+\] at pc [0-9a-f]+", failure), failure

@@ -183,7 +183,9 @@ class Drill:
             f" && uci set orbyt-sync.main.repository={REPOSITORY} && uci commit"
         )
         synced = router.run("orbyt-sync --candidate", timeout=SYNC_TIMEOUT)
-        assert f"{tag} is current" in synced, synced  # noqa: S101
+        if f"{tag} is current" not in synced:
+            msg = f"orbyt-sync did not take the candidate {tag}: {synced}"
+            raise AssertionError(msg)
         console = router.emulator.console
         since = console.mark()
         router.detach(f"orbyt-update >{UPDATE_LOG} 2>&1")
