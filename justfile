@@ -101,6 +101,11 @@ release-publish signed release *args:
 upstream-bump description *args:
     scripts/upstream-bump.sh "$@"
 
+# Push an upstream bump's branch and open its pull request from upstream-bump's text (CI only)
+[group('release')]
+bump-open description:
+    scripts/bump-open.sh "$@"
+
 # Check the repository's GitHub settings the release pipeline relies on
 [group('release')]
 github-audit *args:

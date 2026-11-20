@@ -232,7 +232,7 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
     has_token: bool = True,
     moved: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], list[str]]:
-    """Run bump.yml's step that opens the pull request.
+    """Run bump.yml's step that opens the pull request: bump-open.sh.
 
     Return its result and gh's calls.
 
@@ -242,6 +242,7 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
     (step,) = [
         step for step in _bump_steps() if step.get("name") == "Open the pull request"
     ]
+    assert step["run"].endswith('just bump-open "$RUNNER_TEMP/pull-request.md"')
     runner = tmp_path / "runner"
     runner.mkdir()
     (runner / "pull-request.md").write_text(
@@ -256,7 +257,7 @@ def _open_pull_request(  # noqa: PLR0913 (each is one state of the repository or
     if refused:
         (directory / "refuse").touch()
     result = subprocess.run(
-        ["bash", "-eo", "pipefail", "-c", step["run"]],
+        [REPO_DIR / "scripts" / "bump-open.sh", runner / "pull-request.md"],
         cwd=clone,
         capture_output=True,
         text=True,
@@ -281,7 +282,7 @@ def test_a_pull_request_that_cannot_be_opened_leaves_the_checks_running(
     origin, clone = _github(tmp_path)
     result, calls = _open_pull_request(tmp_path, clone, refused=True)
     assert result.returncode != 0
-    assert f"cannot open the pull request of {BRANCH}" in result.stdout
+    assert f"cannot open the pull request of {BRANCH}" in result.stderr
     # The branch is pushed with the new lock, which starts its build:
     # nothing is dispatched, as a dispatched run counts for no pull
     # request.
@@ -309,14 +310,14 @@ def test_a_bump_without_its_token_pushes_nothing(tmp_path: Path) -> None:
     origin, clone = _github(tmp_path)
     result, calls = _open_pull_request(tmp_path, clone, has_token=False)
     assert result.returncode != 0
-    assert "BUMP_PUSH_TOKEN" in result.stdout
+    assert "BUMP_PUSH_TOKEN" in result.stderr
     assert not git.run(origin, "branch", "--list", BRANCH)
     assert not calls
     # Upstream did not move: nothing to push, and no token needed.
     unmoved = tmp_path / "unmoved"
     unmoved.mkdir()
     result, calls = _open_pull_request(unmoved, clone, has_token=False, moved=False)
-    assert result.returncode == 0, result.stdout
+    assert result.returncode == 0, result.stderr
     assert not calls
 
 
@@ -328,7 +329,7 @@ def test_a_bump_run_again_keeps_the_branch(tmp_path: Path, pulls: str) -> None:
     origin, clone = _github(tmp_path, branch_commits=2)
     before = git.run(origin, "rev-parse", BRANCH)
     result, calls = _open_pull_request(tmp_path, clone, pulls=pulls)
-    assert result.returncode == 0, result.stdout
+    assert result.returncode == 0, result.stderr
     assert git.run(origin, "rev-parse", BRANCH) == before
     assert not [call for call in calls if call.startswith("workflow run")]
     created = [call for call in calls if call.startswith("pr create")]
@@ -396,27 +397,26 @@ def test_a_bump_s_pull_request_run_builds_nothing_and_reports_no_drill_check() -
         f"${{{{ {BUMP_PULL_REQUEST} && 'upgrade-drill of the branch'"
         " || 'upgrade-drill' }}"
     )
-    (step,) = check["steps"]
-    assert step["env"]["BUMP_PULL_REQUEST"] == f"${{{{ {BUMP_PULL_REQUEST} }}}}"
+    (step,) = [step for step in check["steps"] if "run" in step]
+    flag = "--bump-pull-request"
+    assert step["env"]["BUMP"] == f"${{{{ {BUMP_PULL_REQUEST} && '{flag}' || '' }}}}"
+    assert "just drill-check $BUMP " in step["run"]
     # The results such a run has: nothing built, tested or signed. In a
-    # bump's pull request the step names the run that reports the check;
-    # in another pull request's run the same results fail it.
-    results = {"SYSTEM_TEST": "skipped", "SIGN": "skipped", "DRILL": "skipped"}
-    for bump in ("true", "false"):
+    # bump's pull request the check passes, naming the run that reports
+    # it; in another pull request's run the same results fail it.
+    for bump in (True, False):
         result = subprocess.run(
-            ["bash", "-eo", "pipefail", "-c", step["run"]],
-            env={
-                **os.environ,
-                **results,
-                "BUMP_PULL_REQUEST": bump,
-                "HEAD_REF": BRANCH,
-            },
+            [
+                REPO_DIR / "scripts" / "drill-check.sh",
+                *([flag] if bump else []),
+                *("skipped", "skipped", "skipped"),
+            ],
             capture_output=True,
             text=True,
             check=False,
         )
-        assert (result.returncode == 0) == (bump == "true"), result.stdout
-        assert (f"the push run of {BRANCH}" in result.stdout) == (bump == "true")
+        assert (result.returncode == 0) == bump, result.stderr
+        assert ("its branch's push run reports" in result.stderr) == bump
 
 
 def _patch_step(

@@ -51,31 +51,4 @@ jobs:
         env:
           PUSH_TOKEN: ${{ secrets.BUMP_PUSH_TOKEN }}
           GH_TOKEN: ${{ secrets.BUMP_PUSH_TOKEN }}
-        run: |
-          description="$RUNNER_TEMP/pull-request.md"
-          if [ ! -s "$description" ]; then
-            echo "upstream has not moved"
-            exit 0
-          fi
-          if [ -z "$PUSH_TOKEN" ]; then
-            echo "::error::no secret BUMP_PUSH_TOKEN: the bump pushes and opens its pull request with a token whose pushes start workflows (docs/release-flow.md); nothing was pushed"
-            exit 1
-          fi
-          branch="bump/$(date -u +%Y-%m-%d)"
-          title=$(head -n 1 "$description")
-          tail -n +3 "$description" >"$RUNNER_TEMP/body.md"
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
-            echo "$branch exists already: it stays as it is"
-          else
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git switch -c "$branch"
-            git commit -q -m "$title" upstream.lock
-            git push -q origin "$branch"
-          fi
-          if [ -n "$(gh pr list --head "$branch" --state all --json number --jq '.[].number')" ]; then
-            echo "$branch has its pull request"
-          elif ! gh pr create --base main --head "$branch" --title "$title" --body-file "$RUNNER_TEMP/body.md"; then
-            echo "::error::cannot open the pull request of $branch: BUMP_PUSH_TOKEN needs Pull requests read and write; its build runs, open it by hand"
-            exit 1
-          fi
+        run: nix develop .#quality -c just bump-open "$RUNNER_TEMP/pull-request.md"
