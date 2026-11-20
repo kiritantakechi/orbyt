@@ -16,8 +16,8 @@ import pytest
 from labgrid.driver import QEMUDriver
 
 from orbyt_tests import spec
+from orbyt_tests.device.clock import CLOCK_SKEW, read_clock
 from orbyt_tests.device.emu import Console, ConsoleEndedError
-from orbyt_tests.device.router import CLOCK_SKEW
 from orbyt_tests.device.storage import PLUG_TIMEOUT, Disk, device
 from orbyt_tests.model.image import boot_files, extract_fit_image, read_fit
 from orbyt_tests.model.outputs import sha256
@@ -203,7 +203,7 @@ def test_back_from_failsafe_mode(router: Router) -> None:
     started = time.monotonic()
     router.reset()
     assert time.monotonic() - started < RETURN_SECONDS
-    assert abs(router.clock_reading().offset) <= CLOCK_SKEW
+    assert abs(read_clock(router).offset) <= CLOCK_SKEW
 
 
 @spec(CAPABILITY, "USB storage", "Hot-plug a USB disk")

@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, cast
 
 from labgrid.driver import ExecutionError
 
+from orbyt_tests.device.clock import set_clock
 from orbyt_tests.device.paths import UPGRADE_IMAGE, scratch
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import ip
@@ -76,21 +77,6 @@ CONSOLE_KNOCK = 15.0
 FAILSAFE_PROMPT = r"Press the \[f\] key and hit \[enter\] to enter failsafe mode"
 FAILSAFE_MARK = r"- failsafe -"
 FAILSAFE_TIMEOUT = 120.0
-# How far the router's clock may be off the runner's at a return to the
-# snapshot (testing/emulation "The router back at its snapshot").
-CLOCK_SKEW = 2.0
-# A reading of the router's clock counts as precise once its round trip
-# is this short, and is taken this often at most. date -s sets whole
-# seconds, half of one off at most once rounded, and the emulated clock
-# runs over a percent slow, a few tenths more by the time it is checked:
-# a second (snapshot-return D2).
-CLOCK_ROUND_TRIP = 1.0
-CLOCK_READINGS = 5
-CLOCK_RESOLUTION = 1.0
-# The router's clock to the nanosecond: the image's BusyBox date prints
-# whole seconds only (no FEATURE_DATE_NANO), ucode's clock() gives the
-# nanoseconds.
-READ_CLOCK = "ucode -e 'printf(\"%d.%09d\", ...clock())'"
 # Where a detached command's output goes on the router, which the reboot
 # it leads to clears; and how much of the console a reboot that does not
 # come shows (failure-diagnostics D1, D2).
@@ -104,17 +90,6 @@ def _port_open(address: str, port: int) -> bool:
             return True
     except OSError:
         return False
-
-
-@dataclass(frozen=True, slots=True)
-class ClockReading:
-    """The runner's clock minus the router's, plus its round trip.
-
-    The round trip is that of the reading that measured the offset.
-    """
-
-    offset: float
-    round_trip: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -397,7 +372,7 @@ class Router:
         # procd logs through ulog, which writes to logd (not the kernel
         # log) once logd runs, as it does long before init completes.
         self.wait_logged(READY_MARK, timeout=deadline - time.monotonic(), every=2)
-        self.set_clock()
+        set_clock(self)
 
     def logged(self, text: str, *, by: str | None = None) -> bool:
         """Return whether the system log holds ``text`` since the boot.
@@ -421,59 +396,6 @@ class Router:
             every=every,
             what=f"{text!r} in the log",
         )
-
-    def clock_reading(self) -> ClockReading:
-        """Read how far the router's clock is behind the runner's.
-
-        The router read its clock somewhere within the reading's round
-        trip, so the offset is as precise as half of it. Of a few
-        readings the first quick one counts, else the quickest, as NTP
-        prefers its quickest exchanges; the first also makes a
-        connection that may take a while.
-        """
-        best = self._read_clock()
-        for _ in range(CLOCK_READINGS - 1):
-            if best.round_trip <= CLOCK_ROUND_TRIP:
-                break
-            best = min(best, self._read_clock(), key=lambda reading: reading.round_trip)
-        return best
-
-    def _read_clock(self) -> ClockReading:
-        before = time.time()
-        shown = float(self.run(READ_CLOCK))
-        after = time.time()
-        return ClockReading((before + after) / 2 - shown, after - before)
-
-    def set_clock(self) -> None:
-        """Set the router's clock to the runner's.
-
-        NTP does the same on a router in service.
-
-        The emulated internet has no time server: a router boots with
-        the time of its newest file in /etc, and a restored snapshot
-        rewinds the clock to when it was taken. What is signed now (a
-        release's certificate) is valid from now on. The clock is
-        stepped by the offset a reading measured, relative to the
-        router's own, so how long the command takes to arrive does not
-        count, and a second reading checks it to the precision the two
-        readings allow (snapshot-return D2).
-        """
-        measured = self.clock_reading()
-        step = (
-            "$(ucode -e 'let c = clock(); "
-            f"print(int(c[0] + c[1] / 1e9 + {measured.offset:.3f} + 0.5))')"
-        )
-        self.run(f"date -s @{step} >/dev/null")
-        checked = self.clock_reading()
-        precision = CLOCK_RESOLUTION + (measured.round_trip + checked.round_trip) / 2
-        if abs(checked.offset) > precision:
-            side = "behind" if checked.offset > 0 else "ahead of"
-            msg = (
-                f"the router's clock is {abs(checked.offset):.1f} s {side}"
-                " the runner's after setting it, where its readings allow"
-                f" {precision:.1f} s"
-            )
-            raise AssertionError(msg)
 
     def http(
         self,
@@ -651,4 +573,4 @@ class Router:
         self.disconnect()
         self.emulator.restore()
         ip("neigh", "flush", "to", self.address)
-        self.set_clock()
+        set_clock(self)
