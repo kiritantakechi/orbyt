@@ -38,14 +38,9 @@ done
 printf 'src-link orbyt %s\n' "${REPO_DIR}/feed" >>"${feeds_conf}"
 ln -sfn "${REPO_DIR}/feed" "${tree}/feeds/orbyt"
 # The A/B U-Boot sources and the board table, read by uboot-rockchip, our
-# uboot-orbyt-qemu and the image recipe; in place before any package index is
-# built, since those Makefiles include them.
+# uboot-orbyt-qemu and the image recipe; in place before patch builds the
+# package indexes, since those Makefiles include them.
 mkdir -p "${tree}/env"
 ln -sfn "${REPO_DIR}/uboot" "${tree}/env/uboot"
 write_board_table "${tree}"
-
-# The feeds are already at the pinned commits (scripts/feeds skips existing ^sha
-# feeds, design D2); only rebuild the package indexes.
-log="${ORBYT_WORKDIR}/feeds.log"
-(cd "${tree}" && ./scripts/feeds update -i -a) >"${log}" 2>&1 || die "feeds index failed; see ${log}"
 info "sources ready in ${tree}"

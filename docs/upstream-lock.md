@@ -24,7 +24,7 @@
   - writes the openwrt `commit-epoch` to `version.date` in the source tree, which `scripts/get_source_date_epoch.sh` reads first.
   - As a result, the same lock and patches yield the same source tree SHA, no matter when or on which machine they are applied.
 
-Why feeds are not fetched by `scripts/feeds update`: if a feed directory already exists and the config says `^sha`, upstream `scripts/feeds update` skips it without updating anything. So when a SHA in the lock changes, the local feed would not follow. That is why `fetch` checks out each feed itself and afterwards only runs `feeds update -i` to rebuild the index.
+Why feeds are not fetched by `scripts/feeds update`: if a feed directory already exists and the config says `^sha`, upstream `scripts/feeds update` skips it without updating anything. So when a SHA in the lock changes, the local feed would not follow. That is why `fetch` checks out each feed itself, and `patch`, once the feeds are at their patched commits, only runs `feeds update -i` to rebuild the indexes before it installs the packages.
 
 ## Updating
 
