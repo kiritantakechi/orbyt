@@ -12,20 +12,25 @@ changed toolchain patch outside buildbot mode leaves the old toolchain
 in place, and no mode covers the generic kernel files the kernel headers
 come from. The cleanup also reaches only the configuration at hand:
 other target directories built with the same toolchain keep objects of
-the old one.
+the old one. And buildbot mode's check races: under -j, world starts
+several makes at once, each wrote the hash to the same tmp/.ver_check
+before comparing that file with the stamp, and one that read another's
+truncated file deleted the toolchain, along with the build and staging
+directories.
 
 Record content instead, in every mode. .ver_check holds the hash of
 toolchain/, the one in GCC's version string, and that of the generic
 kernel files of the configured kernel version, both taken by one
 function, and a toolchain built from other files is removed, to be built
-anew as a whole. Each target build directory records the toolchain it
-was built with, by name and content, and is removed with its staging
-directory when that is not the toolchain at hand, so a change of the GCC
-version or the C library, which builds a toolchain in another directory,
-cleans it too. Both checks run where the buildbot check ran: in every
-make that reads the top-level Makefile, before it builds anything. A
-hash that cannot be taken, as without mkhash, stops the build instead of
-removing the toolchain.
+anew as a whole. Each make compares the hash it holds with the stamp
+itself, so concurrent checks share no file. Each target build directory
+records the toolchain it was built with, by name and content, and is
+removed with its staging directory when that is not the toolchain at
+hand, so a change of the GCC version or the C library, which builds a
+toolchain in another directory, cleans it too. Both checks run where the
+buildbot check ran: in every make that reads the top-level Makefile,
+before it builds anything. A hash that cannot be taken, as without
+mkhash, stops the build instead of removing the toolchain.
 
 toolchain/build_version is a file of toolchain/, so bumping it still
 rebuilds; check-toolchain-clean.sh and toolchain_rebuild_check go.
@@ -36,8 +41,8 @@ Upstream-Status: Pending
  .gitignore                       |  1 -
  Makefile                         |  5 +---
  scripts/check-toolchain-clean.sh | 14 ----------
- toolchain/Makefile               | 45 +++++++++++++++++++++++++-------
- 4 files changed, 36 insertions(+), 29 deletions(-)
+ toolchain/Makefile               | 46 ++++++++++++++++++++++++--------
+ 4 files changed, 36 insertions(+), 30 deletions(-)
  delete mode 100755 scripts/check-toolchain-clean.sh
 
 diff --git a/.gitignore b/.gitignore
@@ -96,7 +101,7 @@ index 455cfb0..0000000
 -echo "$CONFIG_TOOLCHAIN_BUILD_VER" > .toolchain_build_ver
 -exit 0
 diff --git a/toolchain/Makefile b/toolchain/Makefile
-index 5f39b61..ecb111d 100644
+index 0893c2c..ecb111d 100644
 --- a/toolchain/Makefile
 +++ b/toolchain/Makefile
 @@ -30,10 +30,23 @@ curdir:=toolchain
@@ -126,7 +131,7 @@ index 5f39b61..ecb111d 100644
  
  ifeq ($(CONFIG_EXTERNAL_TOOLCHAIN),)
    $(curdir)/gcc/%: export TOOLCHAIN_HASH=$(toolchain_hash)
-@@ -66,18 +79,30 @@ ifneq ($(ARCH),)
+@@ -66,19 +79,30 @@ ifneq ($(ARCH),)
  	); done
  	@grep GCC_VERSION $@ >/dev/null 2>&1 || $(INSTALL_DATA) $(TOPDIR)/toolchain/info.mk $@
  	@touch $@
@@ -141,14 +146,15 @@ index 5f39b61..ecb111d 100644
 +  # Makefile checks both through the info.mk it includes, before it builds
 +  # anything; a hash that could not be taken stops it.
    $(TOOLCHAIN_DIR)/stamp/.ver_check: $(TMP_DIR)/.build
--	[ "$(toolchain_hash)" = "$$(cat $@ 2>/dev/null)" ] || { \
+-	echo $(toolchain_hash) > $(TMP_DIR)/.ver_check
+-	cmp -s $(TMP_DIR)/.ver_check $@ || { \
 -		rm -rf $(BUILD_DIR) $(STAGING_DIR) $(TOOLCHAIN_DIR) $(BUILD_DIR_TOOLCHAIN); \
 +	[ -n "$(toolchain_hash)" ] || { echo "cannot hash toolchain/" >&2; exit 1; }; \
 +	record="$(toolchain_record)"; \
 +	[ "$$record" = "$$(cat $@ 2>/dev/null)" ] || { \
 +		rm -rf $(TOOLCHAIN_DIR) $(BUILD_DIR_TOOLCHAIN); \
  		mkdir -p $(TOOLCHAIN_DIR)/stamp; \
--		echo $(toolchain_hash) > $@; \
+-		mv $(TMP_DIR)/.ver_check $@; \
 +		echo "$$record" > $@; \
 +	}; \
 +	toolchain="$(TOOLCHAIN_DIR_NAME) $$record"; \

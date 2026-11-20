@@ -1,0 +1,60 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 15:00:00 +0800
+Subject: [PATCH] procd: one condition for the mount points of a mount trigger
+
+The mount helpers passed the mount points of their paths as one
+argument, joined by newlines, so paths on several mount points gave a
+single "eq" against the whole list, which no event matched. Pass them
+as separate arguments, which _procd_add_mount_trigger turns into one
+"or" that any of them meets.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile       |  2 +-
+ package/system/procd/files/procd.sh | 10 +++++++++-
+ 2 files changed, 10 insertions(+), 2 deletions(-)
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index ffe0ece..efebcad 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=8
++PKG_RELEASE:=9
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
+index 8a4e3f6..8093a9d 100644
+--- a/package/system/procd/files/procd.sh
++++ b/package/system/procd/files/procd.sh
+@@ -364,6 +364,8 @@ _procd_add_config_trigger() {
+ 	json_close_array
+ }
+ 
++# _procd_add_mount_trigger <event> <action> <mountpoint>...: on <event> of any
++# of the mount points, the init script's <action>.
+ _procd_add_mount_trigger() {
+ 	json_add_array
+ 	_procd_add_array_data "$1"
+@@ -409,8 +411,14 @@ _procd_add_mount_event_trigger() {
+ 	local mountpoints="$(procd_get_mountpoints "$@")"
+ 	[ "${mountpoints//[[:space:]]}" ] || return 0
+ 
++	# One argument per mount point, as procd_get_mountpoints lists them.
++	local IFS='
++'
++	set -- $mountpoints
++	unset IFS
++
+ 	_procd_open_trigger
+-	_procd_add_mount_trigger "$event" $action "$mountpoints"
++	_procd_add_mount_trigger "$event" "$action" "$@"
+ 	_procd_close_trigger
+ }
+ 

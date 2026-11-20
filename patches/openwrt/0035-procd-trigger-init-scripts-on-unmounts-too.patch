@@ -10,32 +10,15 @@ until someone restarts it.
 
 Add _procd_add_action_unmount_trigger, with restart and reload wrappers,
 which register mount.remove as the mount helpers register mount.add,
-through one helper for both events.
-
-procd_mountpoints_ready counted a mount point with a space in it as
-never mounted: it split the list of mount points on any white space and
-compared each with /proc/mounts' second field as the kernel escapes it.
-Split on lines, and unescape the field.
-
-Along the way:
-
-- name the init script in _procd_add_mount_trigger itself, from
-  $initscript, rather than from a $name the caller may have set to
-  anything;
-- pass the mount points as separate arguments, so that paths on several
-  mount points give one condition that any of them meets; they gave a
-  single "eq" against all of them joined by newlines, which never
-  matched.
-
-The trigger of a single mount point stays as it was, and
-_procd_add_mount_trigger keeps its arguments.
+through one helper for both events. The trigger of a single mount point
+stays as it was, and _procd_add_mount_trigger keeps its arguments.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
  package/system/procd/Makefile       |  2 +-
- package/system/procd/files/procd.sh | 63 ++++++++++++++++++++++++-----
- 2 files changed, 54 insertions(+), 11 deletions(-)
+ package/system/procd/files/procd.sh | 31 +++++++++++++++++++++++++----
+ 2 files changed, 28 insertions(+), 5 deletions(-)
 
 diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
 index 1a6754b..53a2a59 100644
@@ -51,34 +34,10 @@ index 1a6754b..53a2a59 100644
  PKG_SOURCE_PROTO:=git
  PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
 diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
-index 9dc6828..7ac2a24 100644
+index 9dc6828..192984b 100644
 --- a/package/system/procd/files/procd.sh
 +++ b/package/system/procd/files/procd.sh
-@@ -364,11 +364,14 @@ _procd_add_config_trigger() {
- 	json_close_array
- }
- 
-+# _procd_add_mount_trigger <event> <action> <mountpoint>...: on <event> of any
-+# of the mount points, the init script's <action>.
- _procd_add_mount_trigger() {
- 	json_add_array
- 	_procd_add_array_data "$1"
- 	local action="$2"
- 	local multi=0
-+	local script=$(readlink "$initscript")
- 	shift ; shift
- 
- 	json_add_array
-@@ -390,7 +393,7 @@ _procd_add_mount_trigger() {
- 	[ $multi = 1 ] && json_close_array
- 
- 	json_add_array
--	_procd_add_array_data "run_script" /etc/init.d/$name $action
-+	_procd_add_array_data "run_script" /etc/init.d/$(basename ${script:-$initscript}) $action
- 	json_close_array
- 
- 	json_close_array
-@@ -398,19 +401,35 @@ _procd_add_mount_trigger() {
+@@ -398,19 +398,31 @@ _procd_add_mount_trigger() {
  	json_close_array
  }
  
@@ -94,18 +53,12 @@ index 9dc6828..7ac2a24 100644
 +	shift ; shift
  	local mountpoints="$(procd_get_mountpoints "$@")"
  	[ "${mountpoints//[[:space:]]}" ] || return 0
--	local script=$(readlink "$initscript")
--	local name=$(basename ${script:-$initscript})
-+
-+	# One argument per mount point, as procd_get_mountpoints lists them.
-+	local IFS='
-+'
-+	set -- $mountpoints
-+	unset IFS
+ 	local script=$(readlink "$initscript")
+ 	local name=$(basename ${script:-$initscript})
  
  	_procd_open_trigger
 -	_procd_add_mount_trigger mount.add $action "$mountpoints"
-+	_procd_add_mount_trigger "$event" "$action" "$@"
++	_procd_add_mount_trigger "$event" $action "$mountpoints"
  	_procd_close_trigger
  }
  
@@ -120,42 +73,7 @@ index 9dc6828..7ac2a24 100644
  # uvol registers its volumes with blockd, at /tmp/run/uvol/<name>
  _procd_get_uvol_mountpoint() {
  	local path="${1%%/}/"
-@@ -456,9 +475,13 @@ procd_get_mountpoints() {
- }
- 
- procd_mountpoints_ready() {
-+	local mountpoints="$(procd_get_mountpoints "$@")"
- 	local mountpoint ready
-+	# One per line, as procd_get_mountpoints lists them.
-+	local IFS='
-+'
- 
--	for mountpoint in $(procd_get_mountpoints "$@"); do
-+	for mountpoint in $mountpoints; do
- 		case "$mountpoint" in
- 		/tmp/run/uvol/*)
- 			[ -L "$mountpoint" ] || return 1
-@@ -467,8 +490,17 @@ procd_mountpoints_ready() {
- 			[ "$ready" = "true" ] || return 1
- 			;;
- 		*)
--			awk -v target="$mountpoint" '$2 == target { found = 1 } END { exit !found }' \
--				/proc/mounts || return 1
-+			# /proc/mounts escapes what its fields may not hold.
-+			MOUNTPOINT="$mountpoint" awk '
-+				{
-+					gsub(/\\040/, " ", $2)
-+					gsub(/\\011/, "\t", $2)
-+					gsub(/\\012/, "\n", $2)
-+					gsub(/\\134/, "\\\\", $2)
-+				}
-+				$2 == ENVIRON["MOUNTPOINT"] { found = 1 }
-+				END { exit !found }
-+			' /proc/mounts || return 1
- 			;;
- 		esac
- 	done
-@@ -483,6 +515,14 @@ _procd_add_reload_mount_trigger() {
+@@ -483,6 +495,14 @@ _procd_add_reload_mount_trigger() {
  	_procd_add_action_mount_trigger reload "$@"
  }
  
@@ -170,7 +88,7 @@ index 9dc6828..7ac2a24 100644
  _procd_add_raw_trigger() {
  	json_add_array
  	_procd_add_array_data "$1"
-@@ -746,6 +786,9 @@ _procd_wrapper \
+@@ -746,6 +766,9 @@ _procd_wrapper \
  	procd_add_action_mount_trigger \
  	procd_add_reload_mount_trigger \
  	procd_add_restart_mount_trigger \

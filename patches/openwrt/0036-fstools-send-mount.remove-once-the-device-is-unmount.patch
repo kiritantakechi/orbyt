@@ -1,0 +1,171 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Mon, 12 Oct 2026 06:27:31 +0800
+Subject: [PATCH] fstools: send mount.remove once the device is unmounted
+
+When a hotplugged device is removed, block has blockd forget the device
+before it unmounts it, and blockd sends mount.remove before the unmount,
+unlike mount.add, which follows the mount. The event names no mount
+point, or that of an earlier unmount, so procd's triggers on the removed
+device's mount point never fire; and a service that a mount.remove
+trigger reloads finds the mount point still mounted, carries on, and is
+told of nothing after the unmount: ksmbd then goes on offering the
+disk's shares from the directory underneath.
+
+Carry the fstools patch that unmounts first and sends mount.remove once
+the unmount is done, with the mount point of the device unmounted. It is
+meant for fstools upstream.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/fstools/Makefile               |   2 +-
+ ....remove-once-the-device-is-unmounted.patch | 126 ++++++++++++++++++
+ 2 files changed, 127 insertions(+), 1 deletion(-)
+ create mode 100644 package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch
+
+diff --git a/package/system/fstools/Makefile b/package/system/fstools/Makefile
+index c9e5245..4104078 100644
+--- a/package/system/fstools/Makefile
++++ b/package/system/fstools/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=fstools
+-PKG_RELEASE:=2
++PKG_RELEASE:=3
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/fstools.git
+diff --git a/package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch b/package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch
+new file mode 100644
+index 0000000..dde7e8b
+--- /dev/null
++++ b/package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch
+@@ -0,0 +1,126 @@
++From: kiritantakechi <kiritantakechi@gmail.com>
++Subject: [PATCH] blockd: send mount.remove once the device is unmounted
++
++When a hotplugged device was removed, block told blockd to forget the
++device before it unmounted it, and blockd sent mount.remove from block's
++"umount" call, before the unmount. blockd's handler then no longer found
++the device, and named the mount point it had kept in a static buffer
++from an earlier unmount, or none: a trigger on the removed device's
++mount point never fired, and one on another device's could. And whoever
++a mount.remove trigger reloaded could find the mount point still
++mounted and go on using it, with nothing telling it to look again after
++the unmount, unlike mount.add, which follows the mount.
++
++Unmount first, then have blockd forget the device. Have block report a
++finished unmount with a new "umounted" call, and send mount.remove from
++that, with the mount point of the device just unmounted, or none for a
++device blockd does not know. The hotplug scripts still run before the
++unmount, which they may need to prepare for. A failed unmount sends no
++event: the mount point is still there.
++
++Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
++---
++ block.c  | 12 +++++++++---
++ blockd.c | 35 +++++++++++++++++++++++++++--------
++ 2 files changed, 36 insertions(+), 11 deletions(-)
++
++diff --git a/block.c b/block.c
++index e2e5c69..af57ce7 100644
++--- a/block.c
+++++ b/block.c
++@@ -1532,6 +1532,8 @@ static int umount_device(char *path, int type, bool all)
++ 	} else {
++ 		ULOG_INFO("unmounted %s (%s)\n", path, mp);
++ 		rmdir(mp);
+++		if (type != TYPE_AUTOFS)
+++			blockd_notify("umounted", basename(path), NULL, NULL);
++ 	}
++ 
++ 	free(mp);
++@@ -1634,12 +1636,16 @@ static int mount_action(char *action, char *device, const char *options, int typ
++ 		return -1;
++ 
++ 	if (!strcmp(action, "remove")) {
++-		if (type == TYPE_HOTPLUG)
++-			blockd_notify("hotplug", device, NULL, NULL);
++-
+++		/*
+++		 * Unmount before blockd forgets the device, so that it still
+++		 * knows the mount point to report the unmount for.
+++		 */
++ 		if (config_load(NULL) || netmount_umount(device))
++ 			umount_device(device, type, true);
++ 
+++		if (type == TYPE_HOTPLUG)
+++			blockd_notify("hotplug", device, NULL, NULL);
+++
++ 		return 0;
++ 	} else if (strcmp(action, "add")) {
++ 		ULOG_ERR("Unkown action %s\n", action);
++diff --git a/blockd.c b/blockd.c
++index 00c1c3a..191bc6b 100644
++--- a/blockd.c
+++++ b/blockd.c
++@@ -417,8 +417,6 @@ static int blockd_umount(struct ubus_context *ctx, struct ubus_object *obj,
++ 	struct blockd_umount_context *c;
++ 	static const char *action = "remove";
++ 	char *devname;
++-	static char oldtarget[PATH_MAX];
++-	struct device *device;
++ 	int err;
++ 
++ 	blobmsg_parse(mount_policy, __MOUNT_MAX, data, blob_data(msg), blob_len(msg));
++@@ -427,11 +425,6 @@ static int blockd_umount(struct ubus_context *ctx, struct ubus_object *obj,
++ 		return UBUS_STATUS_INVALID_ARGUMENT;
++ 
++ 	devname = blobmsg_get_string(data[MOUNT_DEVICE]);
++-	device = vlist_find(&devices, devname, device, node);
++-	if (device) {
++-		strncpy(oldtarget, device->target, sizeof(oldtarget)-1);
++-		oldtarget[PATH_MAX - 1] = '\0';
++-	}
++ 
++ 	c = calloc(1, sizeof(*c));
++ 	if (!c)
++@@ -446,7 +439,32 @@ static int blockd_umount(struct ubus_context *ctx, struct ubus_object *obj,
++ 		return UBUS_STATUS_UNKNOWN_ERROR;
++ 	}
++ 
++-	send_block_notification(ctx, action, devname, oldtarget);
+++	return 0;
+++}
+++
+++/*
+++ * The event follows the unmount, as mount.add follows the mount: whoever acts
+++ * on it finds the mount point gone. A failed unmount leaves it in place, and
+++ * sends none.
+++ */
+++static int blockd_umounted(struct ubus_context *ctx, struct ubus_object *obj,
+++			   struct ubus_request_data *req, const char *method,
+++			   struct blob_attr *msg)
+++{
+++	struct blob_attr *data[__MOUNT_MAX];
+++	struct device *device;
+++	char *devname;
+++
+++	blobmsg_parse(mount_policy, __MOUNT_MAX, data, blob_data(msg), blob_len(msg));
+++
+++	if (!data[MOUNT_DEVICE])
+++		return UBUS_STATUS_INVALID_ARGUMENT;
+++
+++	devname = blobmsg_get_string(data[MOUNT_DEVICE]);
+++	device = vlist_find(&devices, devname, device, node);
+++
+++	/* A device blockd does not know has no mount point to report. */
+++	send_block_notification(ctx, "remove", devname, device ? device->target : NULL);
++ 
++ 	return 0;
++ }
++@@ -523,6 +541,7 @@ static const struct ubus_method block_methods[] = {
++ 	UBUS_METHOD("hotplug", block_hotplug, mount_policy),
++ 	UBUS_METHOD("mount", blockd_mount, mount_policy),
++ 	UBUS_METHOD("umount", blockd_umount, mount_policy),
+++	UBUS_METHOD("umounted", blockd_umounted, mount_policy),
++ 	UBUS_METHOD("info", block_info, info_policy),
++ 	UBUS_METHOD_NOARG("status", block_status),
++ };

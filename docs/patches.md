@@ -111,7 +111,7 @@ Patch: `patches/packages/0001-ksmbd-tools-share-only-what-is-mounted-and-start-o
 
 Problem: ksmbd's init script shares every configured path whether or not the disk it belongs on is mounted. A share on a USB disk that is late or absent then shares the empty directory underneath, on the router's flash: what clients write there fills the flash, and disappears from view once the disk is mounted over it. Nothing starts the service again when the disk arrives, and nothing withdraws a share whose disk is unmounted while the service runs.
 
-What the patch does: `smb_add_share` leaves a share out unless every fstab mount point its path lies on is mounted (`procd_mountpoints_ready`, patch 0035). `service_triggers` adds a reload trigger per share path for the mount, and one for the unmount (procd's unmount helpers, patch 0035), so the mount brings the share and the unmount takes it away: `mount.remove` follows the unmount (patch 0044), and `/proc/mounts` tells the reload what went. A reload starts the service anew, as every start resets the server hard; a restart would drop the service, and its triggers with it, until it had started again, so a disk back within that time went unnoticed. A start with every share waiting stops a running server, after that hard reset, and starts nothing. Shares on no fstab mount point are unaffected. `PKG_RELEASE` goes to 4.
+What the patch does: `smb_add_share` leaves a share out unless every fstab mount point its path lies on is mounted (`procd_mountpoints_ready`, patch 0035). `service_triggers` adds a reload trigger per share path for the mount, and one for the unmount (procd's unmount helpers, patch 0035), so the mount brings the share and the unmount takes it away: `mount.remove` follows the unmount (patch 0036), and `/proc/mounts` tells the reload what went. A reload starts the service anew, as every start resets the server hard; a restart would drop the service, and its triggers with it, until it had started again, so a disk back within that time went unnoticed. A start with every share waiting stops a running server, after that hard reset, and starts nothing. Shares on no fstab mount point are unaffected. `PKG_RELEASE` goes to 4.
 
 How this project uses it: the share `shares` lies on the data disk, whose fstab entry exists from the first boot (r4s-services D2).
 
@@ -130,20 +130,6 @@ How this project uses it: the persistent log is `/mnt/data/logs/messages`, on th
 Verification log: 2026-09-29, in the emulator the log service restarted while the data disk is absent writes nothing to the SD card, and starts writing to the disk when it is plugged in (`tests/storage/test_data_disk.py`).
 
 2026-10-05, without `boot()`: `tests/storage/test_data_disk.py` passes on both boards' `-O3` builds.
-
-### toolchain: the buildbot version check races under make -j
-
-Patch: `patches/openwrt/0009-toolchain-check-the-version-stamp-without-a-race.patch`, for openwrt/openwrt.
-
-Problem: in buildbot mode, every make that reads the top-level Makefile checks the toolchain's version stamp while `tmp/.build` is newer than the stamp. The stamp holds `toolchain_hash`, a hash of the names and contents of the files under `toolchain/`, which GCC's version string carries as well (upstream f866c69e9b98; before it, the last git commit of `toolchain/`). Each make run from the top level touches `tmp/.build`, and a stamp that holds the current hash is left as it is, so the check runs in every one of these makes. Under `-j`, world starts several at once (those for `package/cleanup` and `target/compile`), and each writes the hash to the same file, `tmp/.ver_check`, before comparing that file with the stamp. When one truncates the file while another compares it, the other sees a different hash: it deletes the toolchain along with the build and staging directories, restarts, and the build fails for want of a compiler ("Could not find compiler").
-
-Why it matters here: the release profile builds in buildbot mode, on a toolchain unpacked from the cache, whose stamp is older than `tmp/.build` from the first make on. A CI run lost the R4S firmware job this way (run 36736937629), while the R6S job of the same run, on the same toolchain, got through.
-
-What the patch does: the check compares the hash, which make already holds, with the stamp itself, instead of writing it to `tmp/.ver_check` first, so concurrent checks share no file. A stamp of another hash still deletes the toolchain and the build and staging directories, as before.
-
-Verification log: 2026-10-01, eight makes started a millisecond apart delete the toolchain in 38 of 40 rounds with the upstream check and in none with the patch; `tests/build/test_boards.py` ("Check the version from parallel makes") runs the patched check this way. 2026-10-26, on upstream's hash, which made the check git's no longer: the same test.
-
-Patch 0038 keeps this form of the check, and makes it record the toolchain's content in every mode.
 
 ### qosify: an interface on a replaced device
 
@@ -441,29 +427,63 @@ Verification log: the network/tc-hook-order and network/qos tests on both boards
 
 ### procd: init scripts triggered on unmounts too
 
-Patch: `patches/openwrt/0035-procd-trigger-init-scripts-on-unmounts-too.patch`, for openwrt/openwrt.
+Patch: `patches/openwrt/0035-procd-trigger-init-scripts-on-unmounts-too.patch`, for openwrt/openwrt. Until 2026-11-21 it carried the three fixes that are now 0051 to 0053 (patch-hygiene D2).
 
-Problem: `procd.sh` gives init scripts mount triggers for `mount.add` only, so a service whose disk is unmounted keeps serving from the mount point until someone restarts it. The helper also turned the mount points of several paths into one condition, an `eq` against all of them joined by newlines, which never matched; and `_procd_add_mount_trigger` named the script to run from whatever `$name` its caller had.
+Problem: `procd.sh` gives init scripts mount triggers for `mount.add` only, so a service whose disk is unmounted keeps serving from the mount point until someone restarts it.
 
 Why it matters here: ksmbd's shares are on the data disk, and services/file-sharing requires that no share be offered once the disk is gone (`device-robustness` D1, D3).
 
-What the patch does: one helper registers a trigger for an event and an action on the mount points that hold the given paths. `_procd_add_action_mount_trigger` is it with `mount.add`, as before, and the new `_procd_add_action_unmount_trigger`, with `procd_add_restart_unmount_trigger` and `procd_add_reload_unmount_trigger`, with `mount.remove`. The mount points become separate arguments, so several of them give one `or`, and `_procd_add_mount_trigger` names the script from `$initscript`. A single mount point's trigger is the same as before, and `_procd_add_mount_trigger` keeps its arguments.
-- With patch 0044 `mount.remove` follows the unmount, as `mount.add` follows the mount: an action that reads `/proc/mounts` finds the mount point gone.
-- `procd_mountpoints_ready <path>...`, upstream's check since a530a202, tells whether every fstab mount point that holds the paths is mounted. It took a mount point with a space in it for one never mounted: it split the list of mount points on any white space, and compared each with the second field of `/proc/mounts` as the kernel escapes it. It now splits on lines, once `procd_get_mountpoints` has run, since `config_foreach` splits its list of sections on `IFS`, and unescapes the field; the mount point reaches awk through the environment, which leaves it as it is.
+What the patch does: one helper registers a trigger for an event and an action on the mount points that hold the given paths. `_procd_add_action_mount_trigger` is it with `mount.add`, as before, and the new `_procd_add_action_unmount_trigger`, with `procd_add_restart_unmount_trigger` and `procd_add_reload_unmount_trigger`, with `mount.remove`. A single mount point's trigger is the same as before, and `_procd_add_mount_trigger` keeps its arguments. With patch 0036 `mount.remove` follows the unmount, as `mount.add` follows the mount: an action that reads `/proc/mounts` finds the mount point gone.
 
-Verification log: 2026-10-12, the triggers `procd.sh` builds, compared before and after with the build tree's host `jshn`: the same for one mount point with restart, reload and start (as ubox's log, ksmbd-tools, transmission, nfs-kernel-server and postgresql call them), one `or` for two mount points, and `mount.remove` from the unmount helpers. 2026-10-26, the same way with an fstab of `/mnt/data` and `/mnt/data/media`: one `mount.add` trigger with an `or` of both, and a `mount.remove` trigger for each whose action is `reload unmounting <mountpoint>`; `procd_mountpoints_ready` false for a path under a mount point that is not mounted inside one that is (device-integrity D7). The R4S's suites then found the services on the data disk started without it: that version split the list with a newline `IFS`, under which `config_foreach` took the whole list of sections for one and `procd_get_mountpoints` found no mount point, so every path counted as mounted. In a chroot of the R4S's root filesystem with its BusyBox and the VM's `/proc`, the current version: `/mnt/data/shares` not mounted, `/proc/self` mounted, a path no fstab mount point holds mounted, and `/proc/self` with `/mnt/data/logs` not mounted; the awk alone found mount points with a space, a tab and a backslash in `/proc/mounts`' escapes (2026-10-26). 2026-11-08: with `mount.remove` after the unmount (patch 0044) an unmount trigger is a mount trigger on that event, its action without arguments.
+Verification log: 2026-10-12, the triggers `procd.sh` builds, compared before and after with the build tree's host `jshn`: the same for one mount point with restart, reload and start (as ubox's log, ksmbd-tools, transmission, nfs-kernel-server and postgresql call them), and `mount.remove` from the unmount helpers. 2026-11-08: with `mount.remove` after the unmount (patch 0036) an unmount trigger is a mount trigger on that event, its action without arguments. 2026-11-21: 0035 and 0051 to 0053 give the `procd.sh` the one patch did.
 
-### fstools: the mount point of a removed device's unmount
+### procd: the script a mount trigger runs named from $initscript
 
-Patch: `patches/openwrt/0036-fstools-report-the-mount-point-of-a-removed-device-s.patch` (adds the fstools patch `package/system/fstools/patches/101-block-report-the-mount-point-of-a-removed-device-s-unmount.patch`), for fstools, carried by openwrt/openwrt until then.
+Patch: `patches/openwrt/0051-procd-name-the-script-a-mount-trigger-runs-from-initscript.patch`, for openwrt/openwrt.
 
-Problem: when a hotplugged device is removed, `block` has blockd forget the device (`hotplug` with `remove`) before it unmounts it. blockd's `umount` handler then no longer finds the device, and sends `mount.remove` with the mount point it kept in a static buffer from an earlier unmount, or with none.
+Problem: `_procd_add_mount_trigger` ran `/etc/init.d/$name`, a variable of whoever called it: a trigger an init script registered with it directly, or from a function with a `$name` of its own, ran another script or none.
 
-Why it matters here: the data disk is a hotplug mount at `/mnt/data`, and ksmbd's unmount trigger (patch 0035) waits for a `mount.remove` that names it (`device-robustness` D2). Patch 0044 then moves the event after the unmount.
+Why it matters here: the unmount triggers (patch 0035) call it through the same helper as the mount triggers, from init scripts that set `$name` for their own instances.
 
-What the patch does: `block` unmounts a removed device first and has blockd forget it after, and blockd reports the mount point of the device being unmounted, or none for a device it does not know, instead of one kept across calls.
+What the patch does: `_procd_add_mount_trigger` names the script itself, from `$initscript` as `readlink` resolves it, as the mount helpers named it for their call.
 
-Verification log: on both boards, `echo remove` to the data disk's `uevent` gives a `mount.remove` that names `/mnt/data` (the file-sharing test "Data disk removed while sharing").
+Verification log: 2026-10-12, the triggers `procd.sh` builds, with the build tree's host `jshn`: each names its own init script.
+
+### procd: one condition for the mount points of a mount trigger
+
+Patch: `patches/openwrt/0052-procd-one-condition-for-the-mount-points-of-a-mount-trigger.patch`, for openwrt/openwrt.
+
+Problem: the mount helpers passed the mount points of their paths as one argument, joined by newlines, so paths on several mount points gave a single `eq` against the whole list, which no event matched.
+
+Why it matters here: ksmbd's shares and the log can lie on different mount points of the data disk (`/mnt/data` and a mount point inside it), and a service must follow each.
+
+What the patch does: the mount points are separate arguments, split on lines as `procd_get_mountpoints` lists them, which `_procd_add_mount_trigger` turns into one `or` that any of them meets.
+
+Verification log: 2026-10-12, one `or` for two mount points; 2026-10-26, with an fstab of `/mnt/data` and `/mnt/data/media`: one `mount.add` trigger with an `or` of both, and a `mount.remove` trigger for each.
+
+### procd: a mount point with a space in it counted as mounted
+
+Patch: `patches/openwrt/0053-procd-a-mount-point-with-a-space-in-it-counts-as-mounted.patch`, for openwrt/openwrt.
+
+Problem: `procd_mountpoints_ready <path>...`, upstream's check since a530a202, tells whether every fstab mount point that holds the paths is mounted. It took a mount point with a space in it for one never mounted: it split the list of mount points on any white space, and compared each with the second field of `/proc/mounts` as the kernel escapes it (`\040` for a space).
+
+Why it matters here: ksmbd leaves a share out unless the mount points its path lies on are mounted (patch packages/0001), and a share path an administrator names may hold a space.
+
+What the patch does: the list is split on lines, once `procd_get_mountpoints` has run, since `config_foreach` splits its list of sections on `IFS`; the field is unescaped, and the mount point reaches awk through the environment, which leaves it as it is.
+
+Verification log: 2026-10-26, `procd_mountpoints_ready` false for a path under a mount point that is not mounted inside one that is (device-integrity D7). The R4S's suites then found the services on the data disk started without it: that version split the list with a newline `IFS`, under which `config_foreach` took the whole list of sections for one and `procd_get_mountpoints` found no mount point, so every path counted as mounted. In a chroot of the R4S's root filesystem with its BusyBox and the VM's `/proc`, the current version: `/mnt/data/shares` not mounted, `/proc/self` mounted, a path no fstab mount point holds mounted, and `/proc/self` with `/mnt/data/logs` not mounted; the awk alone found mount points with a space, a tab and a backslash in `/proc/mounts`' escapes.
+
+### fstools: mount.remove once the device is unmounted, with its mount point
+
+Patch: `patches/openwrt/0036-fstools-send-mount.remove-once-the-device-is-unmount.patch` (adds the fstools patch `package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch`), for fstools, carried by openwrt/openwrt until then. Two patches until 2026-11-21, 0036 and 0044, the second rewriting the first's lines; one fault of one function, so one patch (patch-hygiene D2).
+
+Problem: when a hotplugged device is removed, `block` has blockd forget the device (`hotplug` with `remove`) before it unmounts it, and blockd sends `mount.remove` from `block`'s `umount` call, before the unmount, while `mount.add` follows the mount. blockd's `umount` handler then no longer finds the device, and sends the mount point it kept in a static buffer from an earlier unmount, or none; and a service that a `mount.remove` trigger reloads could find the mount point still mounted, with nothing telling it to look again.
+
+Why it matters here: the data disk is a hotplug mount at `/mnt/data`, and ksmbd's unmount trigger (patch 0035) waits for a `mount.remove` that names it (`device-robustness` D2). procd.sh's unmount triggers had to tell their action which mount point was going, with a trigger per mount point and an argument every init script had to take; and a reload for another reason, between that action and the unmount, would have started ksmbd on a disk about to go (device-integrity D7).
+
+What the patch does: `block` unmounts a removed device first and has blockd forget it after; it reports a finished unmount with blockd's new `umounted` call, and blockd sends `mount.remove` from that, with the mount point of the device just unmounted, or none for a device it does not know. The hotplug scripts still run before the unmount, and a failed unmount sends no event. Nothing else in the tree listens for `mount.remove`. `PKG_RELEASE` goes to 3.
+
+Verification log: on both boards, `echo remove` to the data disk's `uevent` gives a `mount.remove` that names `/mnt/data` (the file-sharing test "Data disk removed while sharing"). The window is at most blockd's 3 s; the file-sharing test "Data disk removed while an unmount script runs" holds the unmount script that long, has a reload asked for meanwhile, and fails on a build without the patch: the SMB service stays running. 2026-11-21: the merged patch gives the fstools source tree the two did (`84478ca9`).
 
 ### qosify: an interface's ifb shown as the daemon names it
 
@@ -539,21 +559,22 @@ Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
 
 ### toolchain: rebuilt with its targets when its inputs change
 
-Patch: `patches/openwrt/0038-toolchain-rebuild-it-and-its-targets-when-its-inputs.patch`, for openwrt/openwrt, on top of patch 0009.
+Patch: `patches/openwrt/0038-toolchain-rebuild-it-and-its-targets-when-its-inputs.patch`, for openwrt/openwrt (patch 0009, folded into it on 2026-11-21, fixed its check's race: patch-hygiene D2).
 
-Problem: the toolchain components name their prepared stamps without their content, so a component is built again only once its build directory is gone. Only buildbot mode cleans up: it removes the toolchain when `toolchain_hash`, the hash of the files under `toolchain/`, changes, and `check-toolchain-clean.sh` runs `make targetclean` when the GCC version or `toolchain/build_version` does. Outside buildbot mode, a changed toolchain patch leaves the old toolchain in place. No mode covers the generic kernel patches, from which the toolchain's kernel headers come. The cleanup also reaches only the configuration at hand: other target directories built with the same toolchain keep objects of the old one.
+Problem: the toolchain components name their prepared stamps without their content, so a component is built again only once its build directory is gone. Only buildbot mode cleans up: it removes the toolchain when `toolchain_hash`, the hash of the files under `toolchain/`, changes, and `check-toolchain-clean.sh` runs `make targetclean` when the GCC version or `toolchain/build_version` does. Outside buildbot mode, a changed toolchain patch leaves the old toolchain in place. No mode covers the generic kernel patches, from which the toolchain's kernel headers come. The cleanup also reaches only the configuration at hand: other target directories built with the same toolchain keep objects of the old one. And buildbot mode's check races: every make that reads the top-level Makefile runs it while `tmp/.build` is newer than the stamp, which each make touches, and under `-j` world starts several at once (those for `package/cleanup` and `target/compile`); each wrote the hash to the same file, `tmp/.ver_check`, before comparing that file with the stamp, so one that read the file another had just truncated saw a different hash, deleted the toolchain with the build and staging directories, and the build failed for want of a compiler ("Could not find compiler").
 
-Why it matters here: patch 0020 added a GCC patch, and `just toolchain-build dev` in an existing tree did not rebuild GCC. Every board builds in directories of its own on the one board-neutral toolchain (board-model D2), so cleaning the configuration at hand would leave the other board's packages compiled by the old toolchain (`build-integrity` D1, D2).
+Why it matters here: patch 0020 added a GCC patch, and `just toolchain-build dev` in an existing tree did not rebuild GCC. Every board builds in directories of its own on the one board-neutral toolchain (board-model D2), so cleaning the configuration at hand would leave the other board's packages compiled by the old toolchain (`build-integrity` D1, D2). The release profile builds in buildbot mode on a toolchain unpacked from the cache, whose stamp is older than `tmp/.build` from the first make on: the race lost a CI run's R4S firmware job (run 36736937629), while the R6S's, on the same toolchain, got through.
 
 What the patch does:
 - `.ver_check` holds upstream's `toolchain_hash`, the one GCC's version string carries, and a hash of the generic kernel files of the configured kernel version, taken by the same function (`toolchain_files_hash`, upstream's hash made one of paths): the kernel version file, the backport, pending and hack directories, and the files directories, as `include/target.mk` picks them. GCC's version string keeps upstream's hash of `toolchain/` alone. A toolchain built from other files is removed with its build directory, to be built anew as a whole: its three GCC passes share one source tree, so rebuilding a component alone would leave the toolchain partly old. A hash of `toolchain/` that cannot be taken, as without `mkhash`, stops the build, instead of comparing unequal and removing the toolchain.
 - Each target build directory records the toolchain it was built with, by directory name and content (`$(BUILD_DIR)/.toolchain`). When that is not the toolchain at hand, the build and staging directories are removed, so a change of the GCC version or the C library, which builds a toolchain in another directory, cleans the target too.
+- Each make compares the hash it holds with the stamp itself, writing no file first, so concurrent checks share none.
 - Both checks run where buildbot mode's ran: every make that reads the top-level Makefile remakes the `info.mk` it includes before building anything, so the first make of a build decides, before world starts any other. They run in every mode.
 - `toolchain/build_version` is a file of `toolchain/`, so bumping it still rebuilds. `check-toolchain-clean.sh`, `toolchain_rebuild_check` and `.toolchain_build_ver` go.
 
 The first make after the patch rebuilds the toolchain and each target once, as none has the new records yet; so did the first after upstream's hash replaced the content hash the patch had taken itself (`find_md5_reproducible`), on 2026-10-26.
 
-Verification log: `tests/build/test_boards.py` runs the patched check on a stand-in tree: "Keep each board's build with its toolchain" for the target records, "Keep the toolchain in buildbot mode" and "Check the version from parallel makes" for the toolchain's.
+Verification log: 2026-10-01, for the race: eight makes started a millisecond apart deleted the toolchain in 38 of 40 rounds with the upstream check and in none with the fixed one. `tests/build/test_boards.py` runs the patched check on a stand-in tree: "Keep each board's build with its toolchain" for the target records, "Keep the toolchain in buildbot mode" and "Check the version from parallel makes" for the toolchain's.
 
 2026-10-12, on the VM with the dev profile: the first `just build r4s dev` after the patch found a toolchain whose record named a git commit, built it anew as a whole, Rust's host toolchain with it, and built the R4S anew. A second `just build r4s dev` compiled nothing: its time report held only the kernel's two forced passes (41 s), and ccache saw no cacheable call. `just build r6s dev` then kept the toolchain and built the R6S anew, as its build directory had no record yet.
 
@@ -625,18 +646,6 @@ Why it matters here: config-push judges a service after its reload. Under CI's l
 What the patch does: the service object's new method `trigger_commands` lists the commands yet to end, each `delayed` (with the milliseconds left), `queued` behind others, or `running` (with its process). The list is empty once procd has run them all. `PKG_RELEASE` goes to 4.
 
 Verification log: the ops/config-push test "A service that stops with its new configuration" holds a 30 s command ahead of uhttpd's reload.
-
-### fstools: mount.remove once the device is unmounted
-
-Patch: `patches/openwrt/0044-fstools-send-mount.remove-once-the-device-is-unmount.patch` (adds the fstools patch `package/system/fstools/patches/102-blockd-send-mount.remove-once-the-device-is-unmounted.patch`), for fstools, carried by openwrt/openwrt until then.
-
-Problem: `mount.add` follows the mount, but blockd sent `mount.remove` from `block`'s `umount` call, before the unmount: it sent the event, ran the mount hotplug scripts and answered, and only then did `block` unmount. A service a `mount.remove` trigger reloads could find the mount point still mounted, and nothing told it to look again.
-
-Why it matters here: procd.sh's unmount triggers (patch 0035) had to tell their action which mount point was going, with a trigger per mount point and an argument every init script had to take; and a reload for another reason, between that action and the unmount, would have started ksmbd on a disk about to go (device-integrity D7).
-
-What the patch does: `block` reports a finished unmount with blockd's new `umounted` call, and blockd sends `mount.remove` from that. The hotplug scripts still run before the unmount, and a failed unmount sends no event. Nothing else in the tree listens for `mount.remove`. `PKG_RELEASE` goes to 4.
-
-Verification log: the window is at most blockd's 3 s; the file-sharing test "Data disk removed while an unmount script runs" holds the unmount script that long, has a reload asked for meanwhile, and fails on a build without the patch: the SMB service stays running.
 
 ### libpfring: ring_bind with the kernel's address type
 

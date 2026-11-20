@@ -31,12 +31,12 @@ Alternatives: `service_started` with the wait (misses a respawn, and still waits
 
 ### D2. One fault per patch
 
-- 0035 keeps the mount trigger on unmounts; the three `procd.sh` fixes become patches of their own with new numbers, each against upstream's text where it can be, after 0035 where it touches the same function.
+- 0035 keeps the mount trigger on unmounts; the three `procd.sh` fixes become 0051 to 0053, after it, as a number is an identity and a gap stays one; each raises procd's `PKG_RELEASE`.
 - fstools: 0036 becomes the one blockd change (send `mount.remove` once the device is unmounted, with its mount point, `block.c`'s order included); 0044 goes.
 - 0009 folds into 0038: one patch recording the toolchain's content in every mode, its check free of the race; 0009 goes.
 - packages/0002 splits into rust/host in hostpkg (Inappropriate), the ccache option (Pending), and LLVM's targets, whose write-up states the build time it saves and that rustc needs no other backend here.
 
-A patch that goes leaves its number unused, as docs/patches.md requires. Each change to the series is checked by applying the old and the new series to the pinned trees and comparing the results: they must be the same files byte for byte, so no build input changes and nothing is built again.
+A patch that goes leaves its number unused, as docs/patches.md requires. Each change to the series is checked by applying the old and the new series to the pinned trees and comparing the results: the same files byte for byte, but for what a package patch states of itself (procd's and fstools' `PKG_RELEASE`, fstools' one patch for two), where the package's patched source is compared instead.
 
 ### D3. 0021's cause
 

@@ -1,0 +1,61 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 15:00:00 +0800
+Subject: [PATCH] procd: name the script a mount trigger runs from $initscript
+
+_procd_add_mount_trigger ran /etc/init.d/$name, a variable of whoever
+called it: a trigger an init script registered with it directly, or
+from a function with a $name of its own, ran another script or none.
+Name the script in _procd_add_mount_trigger itself, from $initscript,
+as the mount helpers named it for their call.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile       | 2 +-
+ package/system/procd/files/procd.sh | 5 ++---
+ 2 files changed, 3 insertions(+), 4 deletions(-)
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index 4bc324f..ffe0ece 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=7
++PKG_RELEASE:=8
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
+index 192984b..8a4e3f6 100644
+--- a/package/system/procd/files/procd.sh
++++ b/package/system/procd/files/procd.sh
+@@ -369,6 +369,7 @@ _procd_add_mount_trigger() {
+ 	_procd_add_array_data "$1"
+ 	local action="$2"
+ 	local multi=0
++	local script=$(readlink "$initscript")
+ 	shift ; shift
+ 
+ 	json_add_array
+@@ -390,7 +391,7 @@ _procd_add_mount_trigger() {
+ 	[ $multi = 1 ] && json_close_array
+ 
+ 	json_add_array
+-	_procd_add_array_data "run_script" /etc/init.d/$name $action
++	_procd_add_array_data "run_script" /etc/init.d/$(basename ${script:-$initscript}) $action
+ 	json_close_array
+ 
+ 	json_close_array
+@@ -407,8 +408,6 @@ _procd_add_mount_event_trigger() {
+ 	shift ; shift
+ 	local mountpoints="$(procd_get_mountpoints "$@")"
+ 	[ "${mountpoints//[[:space:]]}" ] || return 0
+-	local script=$(readlink "$initscript")
+-	local name=$(basename ${script:-$initscript})
+ 
+ 	_procd_open_trigger
+ 	_procd_add_mount_trigger "$event" $action "$mountpoints"

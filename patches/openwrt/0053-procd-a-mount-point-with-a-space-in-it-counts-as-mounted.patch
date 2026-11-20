@@ -1,0 +1,70 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 15:00:00 +0800
+Subject: [PATCH] procd: a mount point with a space in it counts as mounted
+
+procd_mountpoints_ready split the list of mount points on any white
+space, and compared each with /proc/mounts' second field as the kernel
+escapes it (\040 for a space): a mount point with a space in it counted
+as never mounted. Split the list on lines, as procd_get_mountpoints
+writes it, and unescape the field.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile       |  2 +-
+ package/system/procd/files/procd.sh | 19 ++++++++++++++++---
+ 2 files changed, 17 insertions(+), 4 deletions(-)
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index efebcad..3c9191f 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=9
++PKG_RELEASE:=10
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
+index 8093a9d..7ac2a24 100644
+--- a/package/system/procd/files/procd.sh
++++ b/package/system/procd/files/procd.sh
+@@ -475,9 +475,13 @@ procd_get_mountpoints() {
+ }
+ 
+ procd_mountpoints_ready() {
++	local mountpoints="$(procd_get_mountpoints "$@")"
+ 	local mountpoint ready
++	# One per line, as procd_get_mountpoints lists them.
++	local IFS='
++'
+ 
+-	for mountpoint in $(procd_get_mountpoints "$@"); do
++	for mountpoint in $mountpoints; do
+ 		case "$mountpoint" in
+ 		/tmp/run/uvol/*)
+ 			[ -L "$mountpoint" ] || return 1
+@@ -486,8 +490,17 @@ procd_mountpoints_ready() {
+ 			[ "$ready" = "true" ] || return 1
+ 			;;
+ 		*)
+-			awk -v target="$mountpoint" '$2 == target { found = 1 } END { exit !found }' \
+-				/proc/mounts || return 1
++			# /proc/mounts escapes what its fields may not hold.
++			MOUNTPOINT="$mountpoint" awk '
++				{
++					gsub(/\\040/, " ", $2)
++					gsub(/\\011/, "\t", $2)
++					gsub(/\\012/, "\n", $2)
++					gsub(/\\134/, "\\\\", $2)
++				}
++				$2 == ENVIRON["MOUNTPOINT"] { found = 1 }
++				END { exit !found }
++			' /proc/mounts || return 1
+ 			;;
+ 		esac
+ 	done

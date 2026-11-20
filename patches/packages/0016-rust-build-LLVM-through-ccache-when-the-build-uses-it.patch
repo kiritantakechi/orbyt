@@ -1,0 +1,28 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 14:00:00 +0800
+Subject: [PATCH] rust: build LLVM through ccache when the build uses it
+
+With CONFIG_CCACHE, the build's C and C++ go through ccache, but
+rust/host's LLVM, most of its build time, did not: a host toolchain
+built again, as after a change of its flags, compiled all of LLVM
+again. Give rustbuild the build's ccache (build.ccache).
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ lang/rust/Makefile | 1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/lang/rust/Makefile b/lang/rust/Makefile
+index d054045..57aba99 100644
+--- a/lang/rust/Makefile
++++ b/lang/rust/Makefile
+@@ -81,6 +81,7 @@ HOST_CONFIGURE_ARGS = \
+ 	--enable-cargo-native-static \
+ 	--bootstrap-cache-path=$(DL_DIR)/rustc \
+ 	--set=llvm.download-ci-llvm=false \
++	$(if $(CONFIG_CCACHE),--set=build.ccache=$(STAGING_DIR_HOST)/bin/ccache) \
+ 	$(TARGET_CONFIGURE_ARGS)
+ 
+ define Host/Uninstall

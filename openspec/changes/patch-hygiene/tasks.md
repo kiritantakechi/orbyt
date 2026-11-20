@@ -16,9 +16,11 @@
 
 ## 2. One fault per patch (D2)
 
-- [ ] 2.1 Split 0035, merge 0036 and 0044, fold 0009 into 0038, split packages/0002, with their write-ups.
+- [x] 2.1 Split 0035, merge 0036 and 0044, fold 0009 into 0038, split packages/0002, with their write-ups.
 
-  Verify: applying the old and the new series to the pinned trees gives identical files (a `diff -r` of the two trees, `.git` aside); `just patch` applies.
+  Verify: applying the old and the new series to the pinned trees gives identical trees, but for procd's and fstools' `PKG_RELEASE` and fstools' patch file, whose patched fstools source is identical; `just patch` applies.
+
+  Result (2026-11-21): the openwrt series ends on tree `d59d4242` without the procd and fstools patches' release lines and fstools' patch file; the packages series on `d3082588`, the same as before; fstools' patched source is `84478ca9` both ways; procd's release goes from 7 to 10, fstools' from 4 to 3.
 
 ## 3. 0021 and 0012 (D3, D4)
 
