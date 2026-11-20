@@ -30,7 +30,7 @@
 
   Verify: in the R4S's `ubsan` tree, libffi, libmd, libmnl and musl-fts link with no runtime call and 0021's trap counts; the dev profile's packages are unchanged.
 
-- [ ] 3.2 Try 0012 as an exclusion from `Kernel/Newer`.
+- [x] 3.2 Try 0012 as an exclusion from `Kernel/Newer`.
 
   Verify: the two experiments of 0012's log hold; otherwise 0012 stays and its write-up says why.
 
