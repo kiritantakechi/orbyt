@@ -68,7 +68,8 @@ list() {
 	done
 }
 
-grep -q "${ORBYT_DATA_MOUNT}" /proc/mounts || die "the data disk is not mounted"
+# shellcheck disable=SC2310 # a predicate: its status is its answer
+orbyt_data_mounted || die "the data disk is not mounted"
 case "${1:-}" in
 	now | prune) "$1" ;;
 	list) list "${2:-}" ;;

@@ -1,0 +1,16 @@
+#!/bin/sh
+# The data disk's mount point in fstab from the start (r4s-services D1), disabled
+# until orbyt-data init names the disk: the services that keep their data there
+# see it as a mount point to wait for, even before there is a disk. Only while
+# the configuration has none, so a disk named since stays (firmware-hygiene D7).
+# shellcheck source=../../lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
+touch /etc/config/fstab
+uci -q get fstab.orbytdata >/dev/null && exit 0
+uci -q batch <<-EOF
+	set fstab.orbytdata=mount
+	set fstab.orbytdata.target='${ORBYT_DATA}'
+	set fstab.orbytdata.enabled='0'
+	commit fstab
+EOF
+exit 0

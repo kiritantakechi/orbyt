@@ -80,6 +80,15 @@ The scripts' shared functions live in `scripts/lib/`, one module per domain. A s
 - **An awk program of more than ten lines** is a file beside its module (`ub-warnings.awk`, `image-logs.awk`, `merge-seeds.awk`), which the function runs with `awk -f` and the unit tests run directly; a shorter one stays inline.
 - **`modules`** (`lib-check`) fails on a call of a library function that the modules a file loads do not provide, and on a function that no script, module, test, workflow or recipe calls. The toolchain's cache key hashes the modules its scripts load.
 
+## First-boot defaults
+
+A uci-defaults script runs at every slot's first boot, over a configuration an upgrade carried over too, so each default says when it applies, in one of two ways:
+
+- **A default for one option** applies only while the option holds base-files' value or none, as the hostname and zram's do: no marker, nothing to keep.
+- **A batch of defaults** applies once to a configuration: it leaves at once when its marker under `/etc` exists, writes the marker last, and keep.d carries the marker through upgrades (`91-orbyt-datapath`, `92-orbyt-services`).
+
+A package's own defaults ship with the package (`80-orbyt-data`, `82-orbyt-sync`); the image's `files/` hold its policy for upstream packages. A default never edits another package's file in place: what a package offers no option for, a patch to that package states.
+
 ## Test harness layers
 
 The test harness, `tests/orbyt_tests`, is four packages, layered from the bottom up. A module imports only from its own layer and the layers below it, type-checking imports included; `tach` checks it with `tests/tach.toml`, which declares the layers and nothing more. A report means a module in the wrong layer, and is fixed by moving code, never by an exception in `tach.toml`.

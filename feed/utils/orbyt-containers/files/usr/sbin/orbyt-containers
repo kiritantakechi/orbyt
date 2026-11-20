@@ -59,7 +59,8 @@ apply() {
 	}
 }
 
-grep -q "${ORBYT_DATA_MOUNT}" /proc/mounts || {
+# shellcheck disable=SC2310 # a predicate: its status is its answer
+orbyt_data_mounted || {
 	echo "orbyt-containers: the data disk is not mounted" >&2
 	exit 1
 }

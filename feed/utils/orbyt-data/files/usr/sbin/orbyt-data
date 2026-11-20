@@ -65,7 +65,8 @@ init() {
 	# tells procd, whose mount triggers start what waits for it.
 	echo add >"/sys/class/block/${device#/dev/}/uevent"
 	tries=${MOUNT_TIMEOUT}
-	until grep -q "${ORBYT_DATA_MOUNT}" /proc/mounts; do
+	# shellcheck disable=SC2310 # a predicate: its status is its answer
+	until orbyt_data_mounted; do
 		tries=$((tries - 1))
 		[ "${tries}" -gt 0 ] || die "${device} did not get mounted at ${ORBYT_DATA}"
 		sleep 1

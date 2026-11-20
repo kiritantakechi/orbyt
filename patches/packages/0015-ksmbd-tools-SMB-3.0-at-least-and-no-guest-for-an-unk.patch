@@ -1,0 +1,49 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 13:00:00 +0800
+Subject: [PATCH] ksmbd-tools: SMB 3.0 at least, and no guest for an unknown
+ user
+
+The image shares the data disk with the LAN's users alone: it refuses
+a client older than SMB 3.0, which signs and encrypts, and a user it
+does not know, whom ksmbd's default (map to guest = Bad User) takes for
+the guest. ksmbd's init offers neither as an option; the template it
+fills in states them, as the image's policy.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Inappropriate [Orbyt's SMB policy]
+---
+ net/ksmbd-tools/Makefile                  | 2 +-
+ net/ksmbd-tools/files/ksmbd.conf.template | 3 ++-
+ 2 files changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/net/ksmbd-tools/Makefile b/net/ksmbd-tools/Makefile
+index 63c4b0f..4adae00 100644
+--- a/net/ksmbd-tools/Makefile
++++ b/net/ksmbd-tools/Makefile
+@@ -2,7 +2,7 @@ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=ksmbd-tools
+ PKG_VERSION:=3.5.7
+-PKG_RELEASE:=5
++PKG_RELEASE:=6
+ 
+ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
+ PKG_SOURCE_URL:=https://github.com/cifsd-team/ksmbd-tools/releases/download/$(PKG_VERSION)
+diff --git a/net/ksmbd-tools/files/ksmbd.conf.template b/net/ksmbd-tools/files/ksmbd.conf.template
+index 6bcdbfe..e02eab1 100644
+--- a/net/ksmbd-tools/files/ksmbd.conf.template
++++ b/net/ksmbd-tools/files/ksmbd.conf.template
+@@ -1,4 +1,5 @@
+ [global]
++	server min protocol = SMB3_00
+ 	netbios name = |NAME|
+ 	server string = |DESCRIPTION|
+ 	workgroup = |WORKGROUP|
+@@ -6,5 +7,5 @@
+ 	bind interfaces only = yes
+ 	ipc timeout = 20
+ 	deadtime = 15
+-	map to guest = Bad User
++	map to guest = never
+ 	server signing = auto

@@ -1,7 +1,9 @@
 #!/bin/sh /etc/rc.common
 # orbyt-sync: bring the local repository of releases up to date (r4s-release-pipeline
 # D4) whenever the data disk is mounted; cron does it daily as well.
+
 # shellcheck source=../../../../orbyt-data/files/lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
 
 # shellcheck disable=SC2034 # read by /etc/rc.common
 START=99
@@ -9,7 +11,6 @@ START=99
 USE_PROCD=1
 
 start_service() {
-	. /lib/functions/orbyt-data.sh
 	orbyt_data_mounted || return 0
 	procd_open_instance
 	procd_set_param command /usr/sbin/orbyt-sync
@@ -19,5 +20,5 @@ start_service() {
 }
 
 service_triggers() {
-	procd_add_restart_mount_trigger /mnt/data/repo
+	procd_add_restart_mount_trigger "${ORBYT_DATA}/repo"
 }

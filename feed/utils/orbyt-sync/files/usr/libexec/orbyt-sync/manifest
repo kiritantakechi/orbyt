@@ -1,4 +1,4 @@
-#!/usr/bin/ucode -S
+#!/usr/bin/ucode
 // manifest: what a release's signed manifest lists for the router
 // (r4s-release-pipeline D4, board-model D10).
 // Usage: manifest image|checksums <manifest.json> <device>
@@ -7,6 +7,8 @@
 // Either fails unless the manifest is of a build for <device> and lists one
 // upgrade image and an index: neither another board's build nor a manifest that
 // lists nothing ever verifies.
+'use strict';
+
 import { readfile } from 'fs';
 
 const IMAGE = /^targets\/([^\/]+-sysupgrade\.tar\.gz)$/;

@@ -1,36 +1,34 @@
 #!/bin/sh
 # The services' defaults (r4s-services D2, D3, D6, D7, D8), for a fresh
 # configuration only, as 91-orbyt-datapath: /etc/orbyt-services marks it, and keep.d
-# carries the marker through upgrades.
-#  - the data disk's mount point is in fstab from the start, disabled until
-#    orbyt-data init names the disk: the services that keep their data there see
-#    it as a mount point to wait for, even before there is a disk;
+# carries the marker through upgrades. The data disk's own defaults are
+# orbyt-data's (80-orbyt-data); its paths come from orbyt-data's library.
 #  - logs persist on the data disk, 64 MiB before they rotate; logd writes them
 #    only while it is mounted (the log service's mount trigger);
 #  - podman's API service stays off, as the Pods are orbyt-containers' (whose
 #    storage.conf.d keeps their storage on the data disk); the LAN may reach
 #    containers (podman's own defaults made the zone, with its way to wan);
-#  - SMB: one share on the data disk, LAN only; SMB 3.0 at least, and an unknown
-#    user is refused rather than taken for a guest;
+#  - SMB: one share on the data disk, LAN only (SMB 3.0 at least, and no guest
+#    for an unknown user, in ksmbd's template: patches/packages/0015);
 #  - WireGuard: wg0 in a zone of its own, off until the config push brings its
 #    keys; Tailscale: tailscale0 in a zone of its own; both forward to lan and
-#    wan, and their own input is rejected, as wan's;
+#    wan, and their own input is rejected, as wan's. The LAN also reaches the
+#    tailnet, whose devices it may route to through subnet routes; a WireGuard
+#    peer is a remote device that only answers (services/vpn);
 #  - the node exporter listens on the LAN.
 [ -e /etc/orbyt-services ] && exit 0
+# shellcheck source=../../../feed/utils/orbyt-data/files/lib/functions/orbyt-data.sh
+. /lib/functions/orbyt-data.sh
 
-touch /etc/config/fstab
 uci -q batch <<-EOF
-	set fstab.orbytdata=mount
-	set fstab.orbytdata.target='/mnt/data'
-	set fstab.orbytdata.enabled='0'
-	set system.@system[0].log_file='/mnt/data/logs/messages'
+	set system.@system[0].log_file='${ORBYT_DATA}/logs/messages'
 	set system.@system[0].log_size='65536'
 	set firewall.lan_podman=forwarding
 	set firewall.lan_podman.src='lan'
 	set firewall.lan_podman.dest='podman'
 	set ksmbd.shares=share
 	set ksmbd.shares.name='shares'
-	set ksmbd.shares.path='/mnt/data/shares'
+	set ksmbd.shares.path='${ORBYT_DATA}/shares'
 	set ksmbd.shares.read_only='no'
 	set ksmbd.shares.guest_ok='no'
 	set ksmbd.shares.create_mask='0664'
@@ -81,8 +79,6 @@ uci -q batch <<-EOF
 	set firewall.tailscale_in.target='ACCEPT'
 	set prometheus-node-exporter-ucode.main.listen_interface='lan'
 EOF
-sed -i -e 's/^\(\tmap to guest =\).*/\1 never/' \
-	-e '/^\[global\]/a\	server min protocol = SMB3_00' /etc/ksmbd/ksmbd.conf.template
 /etc/init.d/podman disable
 uci -q commit
 touch /etc/orbyt-services
