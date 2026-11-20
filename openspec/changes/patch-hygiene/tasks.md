@@ -6,11 +6,11 @@
 
   Verify: the record in docs/patches.md's 0006 entry states what was seen (expected: unconfigured in both cases until a reload).
 
-  Seen 2026-11-21: configured in both cases, by procd's own `running` call (design, "D1's premise, disproved"); the maintainer chooses how D1 goes on.
+  Seen 2026-11-21: configured in both cases, by procd's own `running` call, and a status query sent the daemon its configuration with `reset` (design D1); the maintainer kept the object trigger, and the status query became a scenario.
 
-- [ ] 1.2 Add the two QoS scenarios to `tests/network/test_qos.py` (a boot with no change; the daemon killed and respawned).
+- [ ] 1.2 Add the three QoS scenarios to `tests/network/test_qos.py` (a boot with no change; the daemon killed and respawned; a status query).
 
-  Verify: `spec-coverage --change patch-hygiene` covers them; they fail on the current image.
+  Verify: `spec-coverage --change patch-hygiene` covers them; on the image with the old 0006 the first two pass and the status query fails (seen 2026-11-21).
 
 - [ ] 1.3 The procd patch passing `ubus.object.add` to the service triggers; 0006 rewritten as the raw trigger on qosify's registration, `service_running` gone; the write-ups.
 

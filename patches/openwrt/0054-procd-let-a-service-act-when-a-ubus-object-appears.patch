@@ -5,9 +5,10 @@ Subject: [PATCH] procd: let a service act when a ubus object appears
 
 procd listens to ubus.object.add only to subscribe to the objects
 services watch; its service triggers never see it, so an init script
-cannot act when its daemon's object appears, as once the daemon has
-started or procd has respawned it, and waits for it instead (ubus
-wait_for), or acts on a status query.
+cannot act when its daemon's object appears. It configures the daemon
+from the running action instead, which procd runs after a start and a
+respawn but every status query runs too, or waits for the object (ubus
+wait_for).
 
 Carry the procd patch that passes every ubus.object.add to the
 triggers too, and add procd_add_object_trigger and

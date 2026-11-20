@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, cast
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.device.paths import scratch
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS, WAN_DEVICE
 from orbyt_tests.services import qos
@@ -238,6 +239,44 @@ def test_a_respawned_daemon_shapes_the_upload_again(online: Online) -> None:
     online.wait_datapath()
     assert online.recovery <= RECOVERY
     assert re.search(rf"qdisc cake \S+ root .*bandwidth {DEFAULT_RATE}", _cake(router))
+
+
+@spec(
+    CAPABILITY,
+    "Configured whenever the daemon comes up",
+    "A status query",
+)
+def test_a_status_query_leaves_the_daemon_alone(online: Online) -> None:
+    router = online.router
+    log = scratch("qosify-invokes")
+    # Every call on qosify's object, from the status queries on: the
+    # running action, and rpcd's list of the services, which LuCI's
+    # Startup page shows. Its own status call last, which shows the
+    # monitor saw them.
+    router.run(f"ubus monitor -m invoke >{log} 2>&1 & echo $! >{log}.pid")
+    try:
+        until(
+            lambda: router.run(f"ubus call qosify status >/dev/null; cat {log}"),
+            timeout=RECOVERY,
+            what="ubus's monitor",
+        )
+        # rpcd's list runs every init script's running action: by its
+        # end, what the first query set off has come.
+        router.run("/etc/init.d/qosify running && ubus call rc list >/dev/null")
+        router.run("ubus call qosify get_stats >/dev/null")
+
+        def recorded() -> str | None:
+            shown = router.run(f"cat {log}")
+            return shown if "get_stats" in shown else None
+
+        invokes = until(
+            recorded,
+            timeout=RECOVERY,
+            what="the monitor's record of the status queries",
+        )
+    finally:
+        router.run(f"kill $(cat {log}.pid); rm -f {log} {log}.pid")
+    assert '"method":"config"' not in invokes, invokes
 
 
 @spec(CAPABILITY, "Recovery after redial", "PPPoE redial")

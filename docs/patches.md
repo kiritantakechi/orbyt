@@ -41,13 +41,13 @@ The write-ups follow, by where their patch lives, each in its file's order; ever
 
 Patch: `patches/openwrt/0006-qosify-configure-the-daemon-whenever-it-comes-up.patch`, for openwrt/openwrt.
 
-Problem: qosify's init script configures the daemon in `service_running`, which rc.common runs for the `running` action, a status query, and not when the service starts: the daemon gets its configuration from a configuration change, which its reload trigger acts on, and none at boot or after procd respawned it. The function also waited only 10 seconds for the daemon's ubus object, which a busy boot can take longer to register. Upstream's umdns and bridger configure their daemons the same way.
+Problem: qosify's init script configures the daemon from `service_running`, the `running` action, which procd runs after a start and after a respawn, but which every status query runs as well: `/etc/init.d/qosify running` and rpcd's `rc list`, which LuCI's Startup page calls, each send the daemon its whole configuration again, with `reset`. The function also waited only 10 seconds for the daemon's ubus object, which a busy boot can take longer to register. Upstream's umdns and bridger configure their daemons from `service_running` too.
 
 Why it matters here: qosify shapes and classifies the WAN of every image (network/qos), from boot on.
 
-What the patch does: qosify's init reloads the daemon whenever its ubus object appears (`procd_add_reload_object_trigger qosify`, patch 0054): at boot, at a start and after a respawn. `service_running` is rc.common's again, which tells whether the service runs. `PKG_RELEASE` goes to 2. Until 2026-11-21 the patch waited for the object from `service_running` in the background (patch-hygiene D1).
+What the patch does: qosify's init reloads the daemon whenever its ubus object appears (`procd_add_reload_object_trigger qosify`, patch 0054): at boot, at a start and after a respawn; a status query sends it nothing. `service_running` is rc.common's again, which tells whether the service runs. `PKG_RELEASE` goes to 2. Until 2026-11-21 the patch waited for the object from `service_running` in the background (patch-hygiene D1).
 
-Verification log: 2026-11-21, the series applies.
+Verification log: 2026-11-21 on the emulated R4S with that earlier version, qosify's init logging each run and its caller: procd ran `running` right after the boot's start and again after the daemon was killed and respawned, so `test_a_boot_shapes_the_upload` and `test_a_respawned_daemon_shapes_the_upload_again` passed, and `test_a_status_query_leaves_the_daemon_alone` failed, `ubus monitor` showing the running action's `config` call with `"reset":true`.
 
 ### rockchip: IRQ affinity for every net device
 
@@ -537,7 +537,7 @@ Verification log: 2026-10-26, `procd_mountpoints_ready` false for a path under a
 
 Patch: `patches/openwrt/0054-procd-let-a-service-act-when-a-ubus-object-appears.patch` (adds the procd patch `package/system/procd/patches/104-service-pass-object-registrations-to-the-triggers.patch`), for procd and openwrt/openwrt.
 
-Problem: procd listens to `ubus.object.add` only to subscribe to the objects services watch; its service triggers never see it, so an init script cannot act when its daemon's object appears, once the daemon has started or procd has respawned it, and waits for it instead (`ubus wait_for`), or acts on a status query, as qosify's, umdns's and bridger's do.
+Problem: procd listens to `ubus.object.add` only to subscribe to the objects services watch; its service triggers never see it, so an init script cannot act when its daemon's object appears. It configures the daemon from the `running` action instead, which procd runs after a start and a respawn but every status query runs too, as qosify's, umdns's and bridger's do, or waits for the object (`ubus wait_for`).
 
 Why it matters here: qosify takes its configuration over ubus once its daemon is up (patch 0006).
 

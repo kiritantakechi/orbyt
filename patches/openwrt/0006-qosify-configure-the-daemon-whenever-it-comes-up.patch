@@ -3,17 +3,19 @@ From: kiritantakechi <kiritantakechi@gmail.com>
 Date: Tue, 29 Sep 2026 06:30:00 +0800
 Subject: [PATCH] qosify: configure the daemon whenever it comes up
 
-qosify's init configured the daemon in service_running, which
-rc.common runs for the running action, a status query, and not at a
-start: the daemon got its configuration from a configuration change,
-which its reload trigger acts on, and not at boot or after procd
-respawned it. The function also waited only 10 seconds for the
-daemon's object, which a busy boot can take longer to register.
+qosify's init configured the daemon from service_running, the running
+action, which procd runs after a start and after a respawn, but which
+every status query runs as well: /etc/init.d/qosify running and rpcd's
+rc list, which LuCI's Startup page calls, each sent the daemon its
+whole configuration again, with reset. The function also waited only
+10 seconds for the daemon's object, which a busy boot can take longer
+to register.
 
 Reload the daemon whenever its ubus object appears, with
-procd_add_reload_object_trigger (patch 0054), and leave rc.common's
-service_running, which tells whether the service runs, as it is. umdns
-and bridger configure their daemons the same way.
+procd_add_reload_object_trigger (patch 0054): at boot, at a start and
+after a respawn. Leave rc.common's service_running, which tells whether
+the service runs, as it is. umdns and bridger configure their daemons
+from service_running too.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
