@@ -9,6 +9,9 @@ booted and what an upgrade wrote without stopping the emulator.
 import shlex
 from typing import TYPE_CHECKING
 
+from orbyt_tests.model import erofs
+from orbyt_tests.model.image import SLOT_PARTITIONS
+
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
@@ -24,8 +27,10 @@ ENV_FLAG = 4
 # The area U-Boot and the partition table occupy before boot-A, without
 # the environment: MBR, loader (sector 64 on) and u-boot.itb (8 MiB on).
 BOOT_AREA = ((0, 0x200), (0x8000, ENV_COPIES[0]), (0x800000, 0x2000000))
-PARTITIONS = {"a": (1, 2), "b": (3, 4)}
 READ_BLOCK = 1 << 20
+# The boots U-Boot gives a slot on trial before it falls back
+# (CONFIG_BOOTCOUNT_BOOTLIMIT, orbyt-slot's BOOTLIMIT).
+BOOT_LIMIT = 3
 
 
 def slot(router: Router) -> str:
@@ -108,23 +113,12 @@ def partition(number: int) -> str:
 
 
 def erofs_size(router: Router, device: str) -> int:
-    """Return the size of the EROFS image a partition starts with.
-
-    The superblock is at 1 KiB.
-    """
-    bits = int(
-        router.run(
-            f"dd if={device} bs=1 skip=1036 count=1 2>/dev/null"
-            " | hexdump -e '1/1 \"%u\"'"
-        )
+    """Return the size of the EROFS image a partition starts with."""
+    superblock = router.run(
+        f"dd if={device} bs={erofs.SUPERBLOCK} skip=1 count=1 2>/dev/null"
+        " | hexdump -v -e '1/1 \"%02x\"'"
     )
-    blocks = int(
-        router.run(
-            f"dd if={device} bs=4 skip=265 count=1 2>/dev/null"
-            " | hexdump -e '1/4 \"%u\"'"
-        )
-    )
-    return blocks << bits
+    return erofs.size(bytes.fromhex(superblock))
 
 
 def slot_sha256(router: Router, which: str) -> dict[str, str]:
@@ -132,7 +126,7 @@ def slot_sha256(router: Router, which: str) -> dict[str, str]:
 
     These are the slot's boot partition and its system.
     """
-    boot, root = (partition(number) for number in PARTITIONS[which])
+    boot, root = (partition(number) for number in SLOT_PARTITIONS[which])
     size = (
         int(router.run(f"cat /sys/class/block/{boot.removeprefix('/dev/')}/size")) * 512
     )

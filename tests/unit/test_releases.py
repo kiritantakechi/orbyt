@@ -49,7 +49,7 @@ def _release(directory: Path, tag: str, *, prerelease: bool) -> Path:
 def _curl(
     network: Network, url: str, *options: str
 ) -> subprocess.CompletedProcess[bytes]:
-    ca = network.workdir / "pki" / "ca.crt"
+    ca = network.layout.pki.ca
     return subprocess.run(
         network["inet"].argv("curl", "--silent", "--cacert", str(ca), *options, url),
         capture_output=True,
@@ -61,7 +61,7 @@ def _curl(
 def published(network: Network, tmp_path_factory: pytest.TempPathFactory) -> Path:
     """Publish a stable release, then a newer candidate."""
     work = tmp_path_factory.mktemp("releases")
-    root = network.workdir / releases.ROOT
+    root = network.layout.releases
     releases.publish(
         root, REPOSITORY, _release(work / "stable", "r1", prerelease=False)
     )

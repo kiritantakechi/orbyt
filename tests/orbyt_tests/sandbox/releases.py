@@ -32,8 +32,6 @@ PORT = 443
 CHUNK = 1 << 16
 DOWNLOADS = ".downloads"
 PUBLISHED = ".published"
-# Where the sandbox's stand-in serves from, in the sandbox's directory.
-ROOT = Path("inet") / "releases"
 
 
 def publish(

@@ -47,7 +47,7 @@ The modules that hand state from one test to the next stop doing so. The data di
 - The repository's paths from `model.repository`; `ROUTER_ADDRESS`, a `LAN` network and `WAN_DEVICE` in one module; the ISP's resolver imported from `sandbox/isp`.
 - The sandbox's layout as one object the network owns (`pki`, `inet`, a namespace's directory), passed to the device layer's trust and to the registry push; no `{workdir}/../pki` strings.
 - `model/erofs.py`: the superblock's layout, from which `oci.py` reads and `ab.py` derives its `dd` offsets; one partition table.
-- `model/timeouts.py`: the named timeouts, values kept; names that meant the same value and job merged.
+- Each limit stays beside the wait it bounds, one name per fact: the share user's fixture moves into the one module that uses it (one `SMB_TIMEOUT`), and the boot limit is `device/ab`'s `BOOT_LIMIT`, which the unit test binds to U-Boot's and orbyt-slot's. A module of all the timeouts was weighed and dropped: of the harness's twenty limits five are used outside their module, the values stay as they are, and a limit read away from its wait loses its reason.
 
 ### D6. Modules with one job
 

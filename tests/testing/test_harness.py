@@ -39,6 +39,7 @@ from orbyt_tests.model.outputs import (
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import TESTS_DIR
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
+from orbyt_tests.sandbox.layout import Layout
 from orbyt_tests.sandbox.net import LAN_PREFIX, Daemon, Namespace, Netns, Port, ip
 from orbyt_tests.services.fixtures import pytest_runtest_makereport
 from orbyt_tests.services.vpn import WireGuard
@@ -432,7 +433,7 @@ SLOW_SERVER = (
 def test_a_daemon_slow_to_bind_is_ready_once_started(tmp_path: Path) -> None:
     listening = ("-Hltn", f"sport = :{SLOW_PORT}")
     with Netns("slow") as netns:
-        netns.start(Daemon(SLOW_SERVER, listening=listening), tmp_path)
+        netns.start(Daemon(SLOW_SERVER, listening=listening), Layout(tmp_path))
         assert netns.run("ss", *listening).strip()
 
 

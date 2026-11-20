@@ -9,6 +9,7 @@ import struct
 
 import pytest
 
+from orbyt_tests.model import erofs
 from orbyt_tests.model.image import (
     SECTOR,
     default_environment,
@@ -137,3 +138,17 @@ def test_parse_fit_rejects_an_unavailable_image() -> None:
 def test_parse_fit_requires_a_default_configuration() -> None:
     with pytest.raises(LookupError, match="no default configuration"):
         parse_fit(KERNEL_FIT.replace(" Default Configuration: 'config-1'\n", ""))
+
+
+def _superblock(magic: int, block_bits: int, blocks: int) -> bytes:
+    """Return the start of an EROFS superblock with these fields."""
+    return erofs.FIELDS.pack(magic, block_bits, blocks)
+
+
+def test_an_erofs_superblock_gives_the_image_s_size() -> None:
+    assert erofs.size(_superblock(erofs.MAGIC, 12, 3) + bytes(64)) == 3 << 12
+
+
+def test_a_partition_without_erofs_is_refused() -> None:
+    with pytest.raises(ValueError, match="no EROFS superblock"):
+        erofs.size(_superblock(0, 12, 3))

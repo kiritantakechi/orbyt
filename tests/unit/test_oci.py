@@ -73,8 +73,8 @@ def test_image_is_arm64(layout: Path, network: Network) -> None:
 
 def test_image_goes_to_the_registry(layout: Path, network: Network) -> None:
     reference = f"{REGISTRY[0]}/{IMAGE}-unit:{TAG}"
-    push(network["inet"], layout, TAG, reference, network.workdir)
-    trust = network.workdir / "pki" / "trust"
+    push(network["inet"], layout, TAG, reference, network.layout)
+    trust = network.layout.pki.trust
     inspected = network["inet"].run(
         "skopeo", "inspect", f"--cert-dir={trust}", f"docker://{reference}"
     )

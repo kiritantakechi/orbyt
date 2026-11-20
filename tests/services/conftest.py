@@ -9,26 +9,19 @@ only what lives outside it (wg-peer, ts-peer, headscale, the LAN host's
 server) is put back.
 """
 
-import shlex
 import sys
 from typing import TYPE_CHECKING
 
 import pytest
 
-from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import LAN_PREFIX, PROXIED_TARGET
 from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from orbyt_tests.device.router import Router
-    from orbyt_tests.device.storage import Disk
     from orbyt_tests.sandbox.net import Netns, Network
     from orbyt_tests.services.datapath import Online
-
-SMB_USER = ("smbuser", "smb-secret-1")
-SMB_TIMEOUT = 60
 
 
 @pytest.fixture(scope="module")
@@ -39,32 +32,6 @@ def lan_host(network: Network) -> Iterator[Netns]:
     yield client
     server.terminate()
     server.wait()
-
-
-@pytest.fixture(scope="module")
-def smb_user(data_disk: Disk, module_router: Router) -> tuple[str, str]:
-    """Add a share user, a system account without a login.
-
-    Return its name and its SMB password.
-    """
-    del data_disk  # the share is on it
-    user, password = SMB_USER
-    module_router.run(
-        f"echo '{user}:x:1000:1000::/var:/bin/false' >>/etc/passwd"
-        f" && echo '{user}:x:1000:' >>/etc/group"
-        f" && ksmbd.adduser -a -p {shlex.quote(password)} {user}"
-        " && /etc/init.d/ksmbd restart"
-    )
-    # The daemon comes before the kernel server listens: wait for both.
-    until(
-        lambda: (
-            module_router.returncode("pidof ksmbd.mountd >/dev/null") == 0
-            and module_router.run("ss -Htln 'sport = :445'") != ""
-        ),
-        timeout=SMB_TIMEOUT,
-        what="ksmbd listening",
-    )
-    return SMB_USER
 
 
 @pytest.fixture(scope="module")

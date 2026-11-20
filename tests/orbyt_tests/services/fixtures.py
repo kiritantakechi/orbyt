@@ -112,7 +112,7 @@ def trusted_ca(internet_zone: Online) -> Online:
 
     That covers its servers, trusted through the test CA.
     """
-    trust_ca(internet_zone.router, internet_zone.network.workdir)
+    trust_ca(internet_zone.router, internet_zone.network.layout.pki)
     return internet_zone
 
 

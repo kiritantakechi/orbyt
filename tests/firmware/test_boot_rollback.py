@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from orbyt_tests import spec
 from orbyt_tests.device.ab import (
     BOOT_DISK,
+    BOOT_LIMIT,
     ENV_COPIES,
     ENV_SIZE,
     getenv,
@@ -45,7 +46,6 @@ LOGIC = ("bootcmd", "altbootcmd", "bootlimit")
 # The variables a stored environment may set, as both bootloaders' flags
 # list names them: the slot logic's state alone.
 WRITABLE = '"boot_slot:sw,bootcount:dw,upgrade_available:dw"'
-BOOT_LIMIT = 3
 PANIC_REBOOT = 10.0
 # A stored boot command, which the bootloader must ignore.
 HIJACK = "echo orbyt-hijacked"

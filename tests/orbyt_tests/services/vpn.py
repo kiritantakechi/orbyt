@@ -82,7 +82,7 @@ class WireGuard:
             "EOF"
         )
         peer = online.network["wg-peer"]
-        key = online.network.workdir / "wg-peer" / "private.key"
+        key = online.network.layout.namespace("wg-peer") / "private.key"
         key.write_text(peer_private)
         key.chmod(0o600)
         peer.run("ip", "link", "add", "wg0", "type", "wireguard")
@@ -124,7 +124,7 @@ class WireGuard:
 
 
 def _headscale(network: Network, *args: str) -> Any:  # noqa: ANN401 (JSON)
-    config = network.workdir / "inet" / "headscale.yaml"
+    config = network.layout.inet / "headscale.yaml"
     output = network["inet"].run(
         "headscale", f"--config={config}", *args, "--output=json"
     )
@@ -145,7 +145,7 @@ def _node(network: Network, name: str) -> int:
 
 
 def _peer_tailscale(network: Network, *args: str, timeout: float = 60) -> str:
-    socket = network.workdir / "ts-peer" / "tailscaled.sock"
+    socket = network.layout.namespace("ts-peer") / "tailscaled.sock"
     return network["ts-peer"].run(
         "tailscale", f"--socket={socket}", *args, timeout=timeout
     )

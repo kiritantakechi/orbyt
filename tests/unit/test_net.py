@@ -103,7 +103,7 @@ def test_servers_answer_over_tls_of_the_test_ca(
 ) -> None:
     # r4s-services D10: the registry and headscale on inet, named by the
     # sandbox's hosts file and by the internet's resolver.
-    ca = network.workdir / "pki" / "ca.crt"
+    ca = network.layout.pki.ca
     network["proxy"].run(
         "curl", "-sfo", "/dev/null", "--cacert", str(ca), f"https://{server}{path}"
     )

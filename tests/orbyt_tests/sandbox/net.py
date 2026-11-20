@@ -37,6 +37,7 @@ from typing import TYPE_CHECKING, Self, cast, override
 from orbyt_tests.model import process
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox import internet, isp, netprobe
+from orbyt_tests.sandbox.layout import Layout
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -103,11 +104,12 @@ class Daemon:
     """A daemon of a namespace, and how it shows that it is ready.
 
     ``listening`` are the ``ss`` arguments that list the socket it
-    serves on, ``makes`` a file it makes; ``{workdir}`` in either, and
-    in the command, is replaced with a private directory of the
-    namespace. With neither, the tests wait for its service themselves
-    (the ISP's sessions), and the sandbox sees only that it does not
-    exit at once (test-hygiene D3).
+    serves on, ``makes`` a file it makes. In either, and in the
+    command, ``{workdir}`` is replaced with the namespace's directory,
+    and ``{pki}`` with the sandbox's test CA (a ``Pki``). With neither,
+    the tests wait for its service themselves (the ISP's sessions), and
+    the sandbox sees only that it does not exit at once (test-hygiene
+    D3).
     """
 
     command: tuple[str, ...]
@@ -286,8 +288,8 @@ UPSTREAM = (
                         "--name",
                         internet.RELEASES[0],
                     ),
-                    "--certificate={workdir}/../pki/server.crt",
-                    "--key={workdir}/../pki/server.key",
+                    "--certificate={pki.certificate}",
+                    "--key={pki.key}",
                 ),
                 listening=_tcp(HTTPS_PORT, internet.RELEASES[1]),
             ),
@@ -345,7 +347,7 @@ UPSTREAM = (
             Daemon(
                 (
                     "env",
-                    "SSL_CERT_FILE={workdir}/../pki/ca.crt",
+                    "SSL_CERT_FILE={pki.ca}",
                     "tailscaled",
                     "--no-logs-no-support",
                     "--statedir={workdir}",
@@ -484,14 +486,16 @@ class Netns(AbstractContextManager["Netns"]):
         )
         return cast("netprobe.Seen", json.loads(output))
 
-    def start(self, daemon: Daemon, workdir: Path) -> subprocess.Popen[bytes]:
+    def start(self, daemon: Daemon, layout: Layout) -> subprocess.Popen[bytes]:
         """Start ``daemon`` here; return it once it is ready.
 
-        It runs until the namespace's context exits. A daemon that exits
+        Its files are in the namespace's directory of ``layout``. It
+        runs until the namespace's context exits. A daemon that exits
         while it starts fails the setup at once; its output is the test
         run's.
         """
-        command = tuple(argument.format(workdir=workdir) for argument in daemon.command)
+        places = {"workdir": layout.namespace(self.name), "pki": layout.pki}
+        command = tuple(argument.format(**places) for argument in daemon.command)
         started = self.spawn(*command)
         self._daemons.callback(started.wait)
         self._daemons.callback(started.terminate)
@@ -503,7 +507,7 @@ class Netns(AbstractContextManager["Netns"]):
             if daemon.listening:
                 return bool(self.run("ss", *daemon.listening).strip())
             if daemon.makes is not None:
-                return Path(daemon.makes.format(workdir=workdir)).exists()
+                return Path(daemon.makes.format(**places)).exists()
             # Its service, the tests await themselves.
             try:
                 started.wait(timeout=DAEMON_SETTLE)
@@ -543,10 +547,10 @@ class Network(AbstractContextManager["Network"]):
     def __init__(self, topology: Topology, workdir: Path) -> None:
         """Remember what to build.
 
-        ``workdir`` holds the daemons' files.
+        ``workdir`` holds the sandbox's files, as ``layout`` lays out.
         """
         self.topology = topology
-        self.workdir = workdir
+        self.layout = Layout(workdir)
         self._stack = ExitStack()
         self._namespaces: dict[str, Netns] = {}
         self._dhcp: dict[str, subprocess.Popen[bytes]] = {}
@@ -595,16 +599,16 @@ class Network(AbstractContextManager["Network"]):
         host's accounts, so its socket is hidden. Its own hosts file
         names the emulated internet's servers.
         """
-        etc = self.workdir / "etc"
-        home = self.workdir / "home"
+        etc = self.layout.etc
+        home = self.layout.home
         home.mkdir(parents=True)
         etc.mkdir()
         (etc / "passwd").write_text(
             f"root:x:0:0::{home}:/bin/sh\nnobody:x:0:0::/var/empty:/bin/false\n"
         )
         (etc / "group").write_text("root:x:0:\nnogroup:x:0:\n")
-        isp.configure(etc / "ppp", self.workdir / "isp")
-        internet.configure(self.workdir)
+        isp.configure(etc / "ppp", self.layout.namespace("isp"))
+        internet.configure(self.layout)
         for name in ("passwd", "group", "ppp", "hosts"):
             process.run("mount", "--bind", etc / name, f"/etc/{name}")
         if Path("/var/run/nscd/socket").exists():
@@ -617,21 +621,20 @@ class Network(AbstractContextManager["Network"]):
         up takes its daemons and itself down again (test-hygiene D3);
         its links go with it.
         """
-        workdir = self.workdir / namespace.name
-        workdir.mkdir(parents=True, exist_ok=True)
+        self.layout.namespace(namespace.name).mkdir(parents=True, exist_ok=True)
         with ExitStack() as stack:
             netns = stack.enter_context(Netns(namespace.name))
             netns.run("ip", "link", "set", "lo", "up")
             if namespace.sysctls:
                 netns.run("sysctl", "-qw", *namespace.sysctls)
             clients = [
-                self._connect(netns, f"eth{index}", port, workdir)
+                self._connect(netns, f"eth{index}", port)
                 for index, port in enumerate(namespace.ports)
             ]
             for route in namespace.routes:
                 netns.run("ip", "route", "add", *route.split())
             for daemon in namespace.daemons:
-                netns.start(daemon, workdir)
+                netns.start(daemon, self.layout)
             self._stack.enter_context(stack.pop_all())
         self._namespaces[namespace.name] = netns
         if client := next(filter(None, clients), None):
@@ -639,7 +642,7 @@ class Network(AbstractContextManager["Network"]):
         return netns
 
     def _connect(
-        self, netns: Netns, device: str, port: Port, workdir: Path
+        self, netns: Netns, device: str, port: Port
     ) -> subprocess.Popen[bytes] | None:
         """Connect ``netns``'s ``device`` to ``port``'s bridge.
 
@@ -679,7 +682,7 @@ class Network(AbstractContextManager["Network"]):
                 *("udhcpc", "-f", "-i", device, "-s", str(UDHCPC_SCRIPT), "-A", "3"),
                 *("-x", f"hostname:{netns.name}"),
             )
-            return netns.start(Daemon(client), workdir)
+            return netns.start(Daemon(client), self.layout)
         return None
 
     def renew(self, name: str) -> None:

@@ -11,7 +11,8 @@ from pathlib import Path
 
 import pytest
 
-from orbyt_tests.device.ab import PARTITIONS
+from orbyt_tests.device.ab import BOOT_LIMIT
+from orbyt_tests.model.image import SLOT_PARTITIONS
 from orbyt_tests.model.repository import FEED_DIR, REPO_DIR
 
 AB = FEED_DIR / "utils" / "orbyt-ab" / "files"
@@ -60,7 +61,8 @@ def test_the_slot_status_states_u_boot_s_boot_limit() -> None:
     )
     assert stated is not None
     assert built is not None
-    assert stated[1] == built[1]
+    # The tests' own, too.
+    assert int(stated[1]) == int(built[1]) == BOOT_LIMIT
 
 
 def test_the_slots_partitions_agree() -> None:
@@ -74,7 +76,7 @@ def test_the_slots_partitions_agree() -> None:
     )
     assert u_boot is not None
     b_boot, b_root, a_boot, a_root = map(int, u_boot.groups())
-    assert {"a": (a_boot, a_root), "b": (b_boot, b_root)} == PARTITIONS
+    assert {"a": (a_boot, a_root), "b": (b_boot, b_root)} == SLOT_PARTITIONS
     # The upgrade's shell: the same, slot by slot.
     shell = (AB / "lib" / "functions" / "orbyt-ab.sh").read_text()
     cases = {
@@ -83,15 +85,15 @@ def test_the_slots_partitions_agree() -> None:
             r"^\t\t(a|\*)\) echo (\d) (\d) ;;$", shell, re.MULTILINE
         )
     }
-    assert {"a": cases["a"], "b": cases["*"]} == PARTITIONS
+    assert {"a": cases["a"], "b": cases["*"]} == SLOT_PARTITIONS
     # The image: a boot and a root partition for slot A, then slot B.
     images = IMAGES.read_text()
     sizes = re.findall(r'-p "\$\{(BOOT|ROOT)SIZE\}m"', images)
     assert sizes == ["BOOT", "ROOT", "BOOT", "ROOT"]
     assert "for slot in A B; do" in images
-    assert [number for which in ("a", "b") for number in PARTITIONS[which]] == list(
-        range(1, 5)
-    )
+    assert [
+        number for which in ("a", "b") for number in SLOT_PARTITIONS[which]
+    ] == list(range(1, 5))
 
 
 @pytest.mark.build_tree

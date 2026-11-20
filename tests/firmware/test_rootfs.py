@@ -11,6 +11,7 @@ from orbyt_tests.device.emu import boot_files, extract_fit_image, read_fit, run
 from orbyt_tests.model.image import (
     DEFAULT_HOSTNAME,
     SECTOR,
+    SLOT_PARTITIONS,
     default_environment,
     read_mbr,
 )
@@ -29,7 +30,7 @@ ROM_DIGEST = "find /rom -xdev -type f | sort | xargs sha256sum | sha256sum"
 # 64 of the boot disk, and SPL reads the U-Boot FIT from sector 16384.
 LOADER_SECTOR, UBOOT_SECTOR = 64, 16384
 # boot-A and boot-B, each with the kernel FIT of its slot.
-BOOT_PARTITIONS = (1, 3)
+BOOT_PARTITIONS = tuple(boot for boot, _ in SLOT_PARTITIONS.values())
 # What the slot logic (uboot/orbyt-ab.env) runs besides the command that
 # starts the kernel: part uuid, load from the ext4 boot partition, and
 # saveenv to the environment on the boot disk, where bootcount lives

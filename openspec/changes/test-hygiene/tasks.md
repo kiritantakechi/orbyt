@@ -34,7 +34,7 @@
 
   Verify: no test defines a router `/tmp` path or `UPGRADE_IMAGE` (a grep); the firmware and network suites pass.
 
-- [ ] 5.2 The sandbox's layout object; `model/erofs.py` and one partition table; `model/timeouts.py`.
+- [ ] 5.2 The sandbox's layout object; `model/erofs.py` and one partition table; one name per limit and per boot limit.
 
   Verify: no `../pki` string or hand-written superblock offset remains; the unit, release and upgrade suites pass.
 

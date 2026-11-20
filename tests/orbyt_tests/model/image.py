@@ -17,6 +17,10 @@ from typing import BinaryIO
 # D3).
 DEFAULT_HOSTNAME = "orbyt"
 SECTOR = 512
+# Each slot's partitions on the boot disk: its boot partition (ext4, the
+# kernel FIT), then its root (EROFS, then the overlay area)
+# (r4s-ab-rollback D1).
+SLOT_PARTITIONS = {"a": (1, 2), "b": (3, 4)}
 _MBR_SIGNATURE = 0x1B8
 _MBR_ENTRIES = 0x1BE
 _MBR_ENTRY_SIZE = 16

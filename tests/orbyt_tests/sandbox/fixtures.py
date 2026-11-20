@@ -43,7 +43,7 @@ def network(
 @pytest.fixture(scope="session")
 def isp(network: Network) -> Isp:
     """Return the handle on the emulated ISP's sessions."""
-    return Isp(network["isp"], network.workdir / "isp")
+    return Isp(network["isp"], network.layout.namespace("isp"))
 
 
 @pytest.fixture(scope="session")
@@ -63,7 +63,7 @@ def app_image(
     """Push the app image to the emulated registry; return its ref."""
     layout = image_layout(firmware_root, tmp_path_factory.mktemp("oci") / "layout")
     reference = f"{REGISTRY[0]}/{IMAGE}:{TAG}"
-    push(network["inet"], layout, TAG, reference, network.workdir)
+    push(network["inet"], layout, TAG, reference, network.layout)
     return reference
 
 
@@ -73,7 +73,7 @@ def fresh_image(network: Network, firmware_root: Path, tmp_path: Path) -> str:
     stamp = uuid.uuid4().hex
     layout = image_layout(firmware_root, tmp_path / "layout", stamp, stamp)
     reference = f"{REGISTRY[0]}/{IMAGE}:{stamp}"
-    push(network["inet"], layout, stamp, reference, network.workdir)
+    push(network["inet"], layout, stamp, reference, network.layout)
     return reference
 
 

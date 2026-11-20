@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from orbyt_tests.sandbox import pki
 
 if TYPE_CHECKING:
-    from pathlib import Path
+    from orbyt_tests.sandbox.layout import Layout
 
 REGISTRY = ("registry.example.net", "203.0.113.30")
 HEADSCALE = ("headscale.example.net", "203.0.113.40")
@@ -28,16 +28,16 @@ TS_PEER = ("203.0.113.70", "2001:db8:ffff::70")
 SERVERS = (REGISTRY, HEADSCALE, RELEASES)
 
 
-def configure(workdir: Path) -> pki.Pki:
+def configure(layout: Layout) -> pki.Pki:
     """Write the CA, hosts file and server configuration."""
     certificates = pki.issue(
-        workdir / "pki",
+        layout.pki.directory,
         [name for name, _ in SERVERS],
         [address for _, address in SERVERS],
     )
-    inet = workdir / "inet"
+    inet = layout.inet
     inet.mkdir(parents=True, exist_ok=True)
-    (workdir / "etc" / "hosts").write_text(
+    (layout.etc / "hosts").write_text(
         "127.0.0.1 localhost\n::1 localhost\n"
         + "".join(f"{address} {name}\n" for name, address in SERVERS)
     )

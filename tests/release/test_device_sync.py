@@ -174,7 +174,7 @@ def stand_in(
         f"uci set orbyt-sync.main.api=https://{RELEASES[0]}"
         f" && uci set orbyt-sync.main.repository={REPOSITORY} && uci commit orbyt-sync"
     )
-    root = proxy.network.workdir / releases.ROOT
+    root = proxy.network.layout.releases
     yield Releases(proxy, assembled, root)
     shutil.rmtree(root / REPOSITORY, ignore_errors=True)
 

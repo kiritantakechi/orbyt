@@ -8,6 +8,7 @@ gets an answer.
 """
 
 import json
+import shlex
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -36,6 +37,7 @@ if TYPE_CHECKING:
 CAPABILITY = "services/file-sharing"
 SHARE = "shares"
 SMB_TIMEOUT = 60
+SMB_USER = ("smbuser", "smb-secret-1")
 # From the disk's removal to a stopped service, with nothing else for
 # procd to run: its unmount trigger comes a second after blockd's event,
 # then the reload.
@@ -57,6 +59,32 @@ OUTER = scratch("outer")
 INNER = f"{OUTER}/inner"
 NESTED_SHARE = "nested"
 KSMBD_CONF = "/var/etc/ksmbd/ksmbd.conf"
+
+
+@pytest.fixture(scope="module")
+def smb_user(data_disk: Disk, module_router: Router) -> tuple[str, str]:
+    """Add a share user, a system account without a login.
+
+    Return its name and its SMB password.
+    """
+    del data_disk  # the share is on it
+    user, password = SMB_USER
+    module_router.run(
+        f"echo '{user}:x:1000:1000::/var:/bin/false' >>/etc/passwd"
+        f" && echo '{user}:x:1000:' >>/etc/group"
+        f" && ksmbd.adduser -a -p {shlex.quote(password)} {user}"
+        " && /etc/init.d/ksmbd restart"
+    )
+    # The daemon comes before the kernel server listens: wait for both.
+    until(
+        lambda: (
+            module_router.returncode("pidof ksmbd.mountd >/dev/null") == 0
+            and module_router.run("ss -Htln 'sport = :445'") != ""
+        ),
+        timeout=SMB_TIMEOUT,
+        what="ksmbd listening",
+    )
+    return SMB_USER
 
 
 def _wait_queue_empty(router: Router) -> None:

@@ -15,7 +15,7 @@ import re
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from orbyt_tests.device.ab import slot
+from orbyt_tests.device.ab import BOOT_LIMIT, slot
 from orbyt_tests.device.paths import health_check
 from orbyt_tests.device.trust import trust_ca, trust_keys
 from orbyt_tests.model import process
@@ -44,7 +44,6 @@ FAILING_CHECK = health_check("99-drill-fails")
 FAILING_HEALTH_LIMITS = {"total": 20, "interval": 5, "timeout": 5}
 # A limit as the image sets it.
 IMAGE_HEALTH_LIMIT = "$(uci -c /rom/etc/config get orbyt-ab.healthcheck.{name})"
-BOOT_LIMIT = 3
 SYNC_TIMEOUT = 600
 DRILL_TIMEOUT = 3600
 # What orbyt-update said, on the router: kept in RAM (/var), which the
@@ -121,7 +120,7 @@ class Drill:
                 *("--boards", boards, "--prerelease", "--run", "drill"),
             )
             self.published = releases.publish(
-                self.online.network.workdir / releases.ROOT, REPOSITORY, release
+                self.online.network.layout.releases, REPOSITORY, release
             )
         return self.published
 
@@ -168,7 +167,7 @@ class Drill:
         base = slot(router)
         # The sandbox's CA is no configuration of the router's, and an
         # earlier drill's upgrade kept none of it.
-        trust_ca(router, self.online.network.workdir)
+        trust_ca(router, self.online.network.layout.pki)
         if self.keys is not None:
             # The slot booted from an image of this build, which trusts
             # the build's own keys: in their place the test's release

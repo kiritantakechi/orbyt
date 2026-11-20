@@ -704,7 +704,7 @@ def test_the_configuration_survives_an_upgrade(
     # The sandbox's CA is no configuration of the router's, and the
     # upgrade kept none of it: it comes again, and tailscaled, which
     # reads it once, anew.
-    trust_ca(router, pushed.online.network.workdir)
+    trust_ca(router, pushed.online.network.layout.pki)
     router.run("/etc/init.d/tailscale restart")
     user, password = LOGIN
     assert router.run("uci get network.wan.username") == user

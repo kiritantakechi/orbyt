@@ -12,19 +12,18 @@ from typing import TYPE_CHECKING
 from orbyt_tests.model.keys import APK_KEYS, FIRMWARE_KEYS
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from orbyt_tests.device.router import Router
     from orbyt_tests.model.keys import Keys
+    from orbyt_tests.sandbox.pki import Pki
 
 # Where the router trusts the CA, and its Go programs (podman,
 # tailscale) find it.
 CA_ON_ROUTER = "/etc/ssl/certs/orbyt-test-ca.crt"
 
 
-def trust_ca(router: Router, workdir: Path) -> None:
-    """Have ``router`` trust the CA of the sandbox in ``workdir``."""
-    router.put(workdir / "pki" / "ca.crt", CA_ON_ROUTER)
+def trust_ca(router: Router, pki: Pki) -> None:
+    """Have ``router`` trust the sandbox's test CA, of ``pki``."""
+    router.put(pki.ca, CA_ON_ROUTER)
 
 
 def trust_keys(router: Router, keys: Keys) -> None:

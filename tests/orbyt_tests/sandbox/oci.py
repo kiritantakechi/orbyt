@@ -18,17 +18,17 @@ import tarfile
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
 
-from orbyt_tests.model import process
-from orbyt_tests.model.image import SECTOR, read_mbr
+from orbyt_tests.model import erofs, process
+from orbyt_tests.model.image import SECTOR, SLOT_PARTITIONS, read_mbr
 
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from orbyt_tests.sandbox.layout import Layout
     from orbyt_tests.sandbox.net import Netns
 
 IMAGE = "orbyt/app"
 TAG = "1"
-ROOT_PARTITION = 2  # slot A's root: EROFS, then the overlay area
 APPLETS = ("sh", "cat", "echo", "ls", "mkdir", "nc", "nslookup", "sleep", "true")
 PROGRAMS = ("bin/busybox", "usr/sbin/uhttpd", "bin/uclient-fetch")
 LIBRARY_DIRECTORIES = ("lib", "usr/lib")
@@ -37,11 +37,6 @@ LOADER = ("lib/ld-musl-aarch64.so.1", "libc.so")
 # The file that sets a stamped image's layer apart.
 STAMP = "stamp"
 MEDIA = "application/vnd.oci.image"
-# struct erofs_super_block at byte 1024: magic, then blkszbits at 12,
-# blocks at 36.
-EROFS_SUPERBLOCK = 1024
-EROFS_FIELDS = struct.Struct("<I8xB23xI")
-EROFS_MAGIC = 0xE0F5E1E2
 # 64-bit little-endian ELF: the header up to e_phnum, program headers,
 # dynamic entries.
 ELF_HEADER = struct.Struct("<4sB27xQ16xH")
@@ -58,18 +53,19 @@ def extract_root(disk: Path, output: Path) -> Path:
     and the rest of the partition is the overlay area.
     """
     image = output.with_suffix(".erofs")
-    with disk.open("rb") as raw, image.open("wb") as erofs:
-        root = read_mbr(raw.read(SECTOR)).partition(ROOT_PARTITION)
-        raw.seek(root.start + EROFS_SUPERBLOCK)
-        magic, block_bits, blocks = EROFS_FIELDS.unpack(raw.read(EROFS_FIELDS.size))
-        if magic != EROFS_MAGIC:
-            msg = f"partition {ROOT_PARTITION} of {disk} holds no EROFS image"
-            raise ValueError(msg)
+    with disk.open("rb") as raw, image.open("wb") as copy:
+        number = SLOT_PARTITIONS["a"][1]
+        root = read_mbr(raw.read(SECTOR)).partition(number)
+        raw.seek(root.start + erofs.SUPERBLOCK)
+        try:
+            remaining = erofs.size(raw.read(erofs.FIELDS.size))
+        except ValueError as error:
+            error.add_note(f"partition {number} of {disk}")
+            raise
         raw.seek(root.start)
-        remaining = blocks << block_bits
         while remaining:
             chunk = raw.read(min(remaining, 1 << 20))
-            erofs.write(chunk)
+            copy.write(chunk)
             remaining -= len(chunk)
     process.run("fsck.erofs", f"--extract={output}", image)
     image.unlink()
@@ -228,15 +224,15 @@ def image_layout(
     return layout
 
 
-def push(netns: Netns, layout: Path, tag: str, reference: str, workdir: Path) -> None:
+def push(netns: Netns, layout: Path, tag: str, reference: str, sandbox: Layout) -> None:
     """Copy ``layout``'s image ``tag`` to the registry as ``reference``.
 
-    The copy runs in ``netns``. ``workdir`` is the sandbox's: its test
-    CA and the signature policy.
+    The copy runs in ``netns``, with ``sandbox``'s test CA and signature
+    policy.
     """
     netns.run(
-        *("skopeo", f"--policy={workdir / 'inet' / 'policy.json'}", "copy", "--quiet"),
-        f"--dest-cert-dir={workdir / 'pki' / 'trust'}",
+        *("skopeo", f"--policy={sandbox.inet / 'policy.json'}", "copy", "--quiet"),
+        f"--dest-cert-dir={sandbox.pki.trust}",
         *(f"oci:{layout}:{tag}", f"docker://{reference}"),
         timeout=300,
     )
