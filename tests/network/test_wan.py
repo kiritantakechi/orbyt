@@ -18,7 +18,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.isp import DELEGATED_PREFIX, POOL_SIZE, POOL_START
-from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
+from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS, WAN_DEVICE
 from orbyt_tests.sandbox.netprobe import PORT
 
 if TYPE_CHECKING:
@@ -80,7 +80,7 @@ def test_upgrade_keeps_the_pushed_configuration(
 
 @spec(CAPABILITY, "PPPoE dial-up", "Dial after pushing credentials")
 def test_dial_after_pushing_credentials(online: Online) -> None:
-    shown = online.router.run("ip -4 -o addr show dev pppoe-wan").split()
+    shown = online.router.run(f"ip -4 -o addr show dev {WAN_DEVICE}").split()
     address = shown[shown.index("inet") + 1].split("/")[0]
     offset = int(ipaddress.IPv4Address(address)) - int(
         ipaddress.IPv4Address(POOL_START)

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from orbyt_tests.sandbox.isp import RESOLVER
 from orbyt_tests.sandbox.net import ip
 
 if TYPE_CHECKING:
@@ -72,7 +73,7 @@ def test_isp_forwards_between_internet_hosts(network: Network) -> None:
 def test_internet_resolver_serves_example_test(network: Network) -> None:
     for kind, answer in (("A", "203.0.113.20"), ("AAAA", "2001:db8:ffff::20")):
         seen = network["proxy"].probe(
-            "resolve", "proxied.example.net", "--server", "203.0.113.53", "--type", kind
+            "resolve", "proxied.example.net", "--server", RESOLVER[0], "--type", kind
         )
         assert seen == {"rcode": 0, "answers": [answer]}
 
@@ -106,5 +107,5 @@ def test_servers_answer_over_tls_of_the_test_ca(
     network["proxy"].run(
         "curl", "-sfo", "/dev/null", "--cacert", str(ca), f"https://{server}{path}"
     )
-    answer = network["proxy"].probe("resolve", server, "--server", "203.0.113.53")
+    answer = network["proxy"].probe("resolve", server, "--server", RESOLVER[0])
     assert answer["answers"]

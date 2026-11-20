@@ -44,7 +44,13 @@ if TYPE_CHECKING:
     from orbyt_tests.model.boards import Board
 
 UDHCPC_SCRIPT = Path(__file__).with_name("udhcpc.sh")
+# The LAN, the router's address on it (its default, which the harness
+# logs in to) and the runner's.
+LAN_PREFIX = "10.0.0.0/24"
+ROUTER_ADDRESS = "10.0.0.1"
 RUNNER_ADDRESS = "10.0.0.2"
+# The router's PPPoE session with the ISP.
+WAN_DEVICE = "pppoe-wan"
 # How long a daemon may take to be ready, and how long one with no
 # readiness of its own must run to count as started.
 DAEMON_READY_TIMEOUT = 30
@@ -198,7 +204,7 @@ UPSTREAM = (
                 addresses=(
                     *(
                         f"{address}/{length}"
-                        for addresses in (isp.DNS, DIRECT_TARGET, PROXIED_TARGET)
+                        for addresses in (isp.RESOLVER, DIRECT_TARGET, PROXIED_TARGET)
                         for address, length in zip(addresses, (24, 64), strict=True)
                     ),
                     *(f"{address}/24" for _, address in internet.SERVERS),
@@ -231,7 +237,7 @@ UPSTREAM = (
                     "--log-queries",
                     "--pid-file=",
                     "--bind-interfaces",
-                    *(f"--listen-address={address}" for address in isp.DNS),
+                    *(f"--listen-address={address}" for address in isp.RESOLVER),
                     "--no-resolv",
                     "--no-hosts",
                     # The one zone the internet serves, anything else
@@ -250,7 +256,7 @@ UPSTREAM = (
                         for name, address in internet.SERVERS
                     ),
                 ),
-                listening=_udp(DNS_PORT, isp.DNS[0]),
+                listening=_udp(DNS_PORT, isp.RESOLVER[0]),
             ),
             *(
                 Daemon(

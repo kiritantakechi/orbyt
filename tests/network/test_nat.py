@@ -17,10 +17,17 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.device.paths import health_check
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET
+from orbyt_tests.sandbox.isp import RESOLVER
+from orbyt_tests.sandbox.net import (
+    DIRECT_TARGET,
+    LAN_PREFIX,
+    PROXIED_TARGET,
+    WAN_DEVICE,
+)
 from orbyt_tests.sandbox.netprobe import HTTP_PORT
 from orbyt_tests.services.datapath import (
     EINAT,
+    EINAT_PORTS,
     NAT_RELEASE,
     QOSIFY,
     WAN,
@@ -37,14 +44,11 @@ if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/nat"
-# einat's public ports (its UCI default) and the kernel's local
-# ephemeral ports.
-EINAT_PORTS = range(20000, 30000)
+# The kernel's local ephemeral ports.
 LOCAL_PORTS = range(32768, 61000)
 INBOUND_MARK = "0x20000000"
-NEVER_CONTACTED = (
-    "203.0.113.53"  # an address of the internet host no test sends to first
-)
+# An address of the internet host no test sends to first.
+NEVER_CONTACTED = RESOLVER[0]
 RECOVERY = 60
 HEALTHCHECK = health_check("50-einat")
 # A table of the test's own on the router, which counts the IPv4 packets
@@ -53,7 +57,6 @@ HEALTHCHECK = health_check("50-einat")
 # packets it carries.
 PACKETS_TABLE = "orbyt_test_packets"
 # The router's end of the PPPoE session.
-PPP_DEVICE = "pppoe-wan"
 
 
 class Listener:
@@ -130,11 +133,11 @@ def _einat_rules(online: Online) -> bool:
 
 def _einat_attached(online: Online) -> None:
     until(
-        lambda: hooks(online.router, PPP_DEVICE) == WAN,
+        lambda: hooks(online.router, WAN_DEVICE) == WAN,
         timeout=RECOVERY,
-        what=f"einat on {PPP_DEVICE}, before qosify",
+        what=f"einat on {WAN_DEVICE}, before qosify",
         notes=lambda: [
-            f"{PPP_DEVICE} holds {hooks(online.router, PPP_DEVICE)}",
+            f"{WAN_DEVICE} holds {hooks(online.router, WAN_DEVICE)}",
             online.router.run("logread -e einat -e procd | tail -n 20"),
         ],
     )
@@ -218,16 +221,16 @@ def test_spoofed_inbound_is_dropped(online: Online, board: Board) -> None:
     mac = online.router.run(f"cat /sys/class/net/{wan}/address")
     # Through the PPP session, routed by the ISP to an internal
     # address...
-    isp.run("ip", "route", "replace", "10.0.0.0/24", "dev", online.session.interface)
+    isp.run("ip", "route", "replace", LAN_PREFIX, "dev", online.session.interface)
     try:
         listener = Listener(online.client(), 41002)
-        with _packets_at(online.router, PPP_DEVICE) as packets:
+        with _packets_at(online.router, WAN_DEVICE) as packets:
             assert not listener.receives(
                 lambda: isp.probe("send", ipv4, "--port", "41002")
             )
-            assert packets() > 0, f"no packet reached {PPP_DEVICE}"
+            assert packets() > 0, f"no packet reached {WAN_DEVICE}"
     finally:
-        isp.run("ip", "route", "del", "10.0.0.0/24")
+        isp.run("ip", "route", "del", LAN_PREFIX)
     # ...and as a bare frame on the Ethernet segment under PPPoE,
     # which the WAN port takes.
     listener = Listener(online.client(), 41003)
@@ -302,7 +305,7 @@ def test_stopping_einat_falls_back_to_masquerade(
     # which can be a moment after the init script returns. qosify's
     # stay.
     until(
-        lambda: hooks(online.router, PPP_DEVICE) == QOSIFY,
+        lambda: hooks(online.router, WAN_DEVICE) == QOSIFY,
         timeout=RECOVERY,
         what="einat's programs detached",
     )
@@ -379,9 +382,9 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     router.run("ifdown wan")
     try:
         until(
-            lambda: router.returncode(f"[ -e /sys/class/net/{PPP_DEVICE} ]") != 0,
+            lambda: router.returncode(f"[ -e /sys/class/net/{WAN_DEVICE} ]") != 0,
             timeout=30,
-            what=f"{PPP_DEVICE} gone",
+            what=f"{WAN_DEVICE} gone",
         )
         assert router.returncode("pidof einat >/dev/null") == 0
         assert router.returncode(HEALTHCHECK) == 0
@@ -400,7 +403,7 @@ def test_health_check(online: Online, einat_restored: Online) -> None:
     )
     # einat's links alone: qosify's are on the same hooks.
     einat = {name for names in EINAT.values() for name in names}
-    for program in tc_programs(router, PPP_DEVICE):
+    for program in tc_programs(router, WAN_DEVICE):
         if program["name"] in einat:
             router.run(f"bpftool link detach id {program['link_id']}")
     assert router.returncode(HEALTHCHECK) != 0

@@ -12,14 +12,14 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.sandbox.net import ROUTER_ADDRESS
 
 if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "services/monitoring"
-LAN_ADDRESS = "10.0.0.1"
 PORT = 9101
-URL = f"http://{LAN_ADDRESS}:{PORT}/metrics"
+URL = f"http://{ROUTER_ADDRESS}:{PORT}/metrics"
 
 
 @pytest.fixture(scope="module")

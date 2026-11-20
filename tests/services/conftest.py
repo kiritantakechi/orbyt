@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import PROXIED_TARGET
-from orbyt_tests.services.vpn import LAN_PREFIX, Tailnet, WireGuard
+from orbyt_tests.sandbox.net import LAN_PREFIX, PROXIED_TARGET
+from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 if TYPE_CHECKING:
     from collections.abc import Iterator

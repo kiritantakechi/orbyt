@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Any, Self, cast
 from orbyt_tests.model import process
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.internet import HEADSCALE
+from orbyt_tests.sandbox.net import LAN_PREFIX
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -28,7 +29,6 @@ if TYPE_CHECKING:
     from orbyt_tests.sandbox.net import Netns, Network
     from orbyt_tests.services.datapath import Online
 
-LAN_PREFIX = "10.0.0.0/24"
 WG_PORT = 51820
 # The router's and wg-peer's addresses in the tunnel
 # (92-orbyt-services).

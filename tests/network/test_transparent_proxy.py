@@ -21,7 +21,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.device.router import SSH_PORT
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
+from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY, WAN_DEVICE
 from orbyt_tests.sandbox.netprobe import HTTP_PORT, PORT
 from orbyt_tests.services import app
 from orbyt_tests.services.datapath import (
@@ -144,7 +144,7 @@ def _init(router: Router, session: str, action: str) -> None:
 @spec(CAPABILITY, "Bind LAN-side interfaces only", "Check programs on each interface")
 def test_honk_binds_only_the_lan(proxy: Online) -> None:
     assert hooks(proxy.router, "br-lan") == PROXY_HOOKS_L2
-    wan = hooks(proxy.router, "pppoe-wan")
+    wan = hooks(proxy.router, WAN_DEVICE)
     honk = re.compile(r"^(lan|wan)_(ingress|egress)_l[23]$|^dae0")
     assert not any(honk.match(name) for names in wan.values() for name in names), wan
 

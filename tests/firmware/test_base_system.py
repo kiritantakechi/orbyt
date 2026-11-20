@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
 from orbyt_tests.model.image import DEFAULT_HOSTNAME
+from orbyt_tests.sandbox.net import ROUTER_ADDRESS
 from orbyt_tests.sandbox.oci import extract_root
 
 if TYPE_CHECKING:
@@ -17,7 +18,6 @@ if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
 
 CAPABILITY = "firmware/base-system"
-DEFAULT_LAN = "10.0.0.1"
 EXCLUDED_PACKAGES = (
     "urngd",
     "opkg",
@@ -95,14 +95,14 @@ def _installed(router: Router, *names: str) -> set[str]:
 
 @spec(CAPABILITY, "Default LAN address", "Fresh install")
 def test_default_lan_address(router: Router) -> None:
-    assert f"inet {DEFAULT_LAN}/24 " in router.run("ip -4 addr show dev br-lan")
+    assert f"inet {ROUTER_ADDRESS}/24 " in router.run("ip -4 addr show dev br-lan")
 
 
 @spec(CAPABILITY, "Default LAN address", "Enter failsafe mode")
 def test_failsafe_address(router: Router) -> None:
     router.reboot_into_failsafe()
     assert router.returncode("[ -e /tmp/.failsafe ]") == 0
-    assert f"inet {DEFAULT_LAN}/" in router.run("ip -4 addr")
+    assert f"inet {ROUTER_ADDRESS}/" in router.run("ip -4 addr")
 
 
 @spec(CAPABILITY, "Default LAN address", "Config-preserving upgrade")

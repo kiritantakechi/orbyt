@@ -39,9 +39,9 @@ from orbyt_tests.model.outputs import (
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import TESTS_DIR
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
-from orbyt_tests.sandbox.net import Daemon, Namespace, Netns, Port, ip
+from orbyt_tests.sandbox.net import LAN_PREFIX, Daemon, Namespace, Netns, Port, ip
 from orbyt_tests.services.fixtures import pytest_runtest_makereport
-from orbyt_tests.services.vpn import LAN_PREFIX, WireGuard
+from orbyt_tests.services.vpn import WireGuard
 
 if TYPE_CHECKING:
     from collections.abc import Callable

@@ -22,6 +22,7 @@ from orbyt_tests.device.storage import (
     wait_mounted,
 )
 from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import ROUTER_ADDRESS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -34,7 +35,6 @@ if TYPE_CHECKING:
 
 CAPABILITY = "services/file-sharing"
 SHARE = "shares"
-LAN_ADDRESS = "10.0.0.1"
 SMB_TIMEOUT = 60
 # From the disk's removal to a stopped service, with nothing else for
 # procd to run: its unmount trigger comes a second after blockd's event,
@@ -155,7 +155,7 @@ def _list(
 
 @spec(CAPABILITY, "LAN-only service", "Access from the LAN")
 def test_lan_sees_the_shares(sharing: Online, smb_user: tuple[str, str]) -> None:
-    code, output = _list(sharing.client(), LAN_ADDRESS, smb_user)
+    code, output = _list(sharing.client(), ROUTER_ADDRESS, smb_user)
     assert code == 0, output
     assert SHARE in output.split()
     # The image (/rom) holds no share user: the test added the one there
@@ -164,7 +164,7 @@ def test_lan_sees_the_shares(sharing: Online, smb_user: tuple[str, str]) -> None
     # SMB 3 end to end: into the share.
     code, output = _smbclient(
         sharing.client(),
-        f"//{LAN_ADDRESS}/{SHARE}",
+        f"//{ROUTER_ADDRESS}/{SHARE}",
         f"--user={smb_user[0]}%{smb_user[1]}",
         "--max-protocol=SMB3",
         "--command=ls",
@@ -178,8 +178,8 @@ def test_wan_and_vpn_are_refused(
 ) -> None:
     for client, server in (
         (sharing.network["inet"], sharing.wan_address),
-        (wireguard.peer, LAN_ADDRESS),
-        (tailnet.peer, LAN_ADDRESS),
+        (wireguard.peer, ROUTER_ADDRESS),
+        (tailnet.peer, ROUTER_ADDRESS),
     ):
         code, output = _list(client, server, smb_user)
         assert code != 0
@@ -190,7 +190,7 @@ def test_wan_and_vpn_are_refused(
 def test_anonymous_access_is_refused(sharing: Online) -> None:
     for options in (("--no-pass",), ("--user=nobody%guess",)):
         code, output = _smbclient(
-            sharing.client(), f"//{LAN_ADDRESS}/{SHARE}", *options, "--command=ls"
+            sharing.client(), f"//{ROUTER_ADDRESS}/{SHARE}", *options, "--command=ls"
         )
         assert code != 0
         assert (
@@ -202,7 +202,7 @@ def test_anonymous_access_is_refused(sharing: Online) -> None:
 def test_smb1_is_refused(sharing: Online, smb_user: tuple[str, str]) -> None:
     code, output = _list(
         sharing.client(),
-        LAN_ADDRESS,
+        ROUTER_ADDRESS,
         smb_user,
         "--option=client min protocol=NT1",
         "--max-protocol=NT1",
@@ -221,14 +221,14 @@ def test_no_shares_without_the_data_disk(
     sharing.reboot(while_off=data_disk.unplug)
     try:
         assert router.returncode("pidof ksmbd.mountd >/dev/null") != 0
-        code, output = _list(sharing.client(), LAN_ADDRESS, smb_user)
+        code, output = _list(sharing.client(), ROUTER_ADDRESS, smb_user)
         assert code != 0
         assert "NT_STATUS_CONNECTION_REFUSED" in output, output
     finally:
         data_disk.plug(port)
         wait_mounted(router)
     until(
-        lambda: _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0,
+        lambda: _list(sharing.client(), ROUTER_ADDRESS, smb_user)[0] == 0,
         timeout=SMB_TIMEOUT,
         what="the shares back",
     )
@@ -239,7 +239,7 @@ def test_shares_go_with_the_data_disk(
     sharing: Online, smb_user: tuple[str, str], data_disk: Disk
 ) -> None:
     router = sharing.router
-    assert _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0
+    assert _list(sharing.client(), ROUTER_ADDRESS, smb_user)[0] == 0
     announce(router, data_disk, "remove")
     try:
         until(
@@ -249,7 +249,7 @@ def test_shares_go_with_the_data_disk(
         )
         _wait_stopped(router)
         assert router.run("ss -Htln 'sport = :445'") == ""
-        code, output = _list(sharing.client(), LAN_ADDRESS, smb_user)
+        code, output = _list(sharing.client(), ROUTER_ADDRESS, smb_user)
         assert code != 0
         assert "NT_STATUS_CONNECTION_REFUSED" in output, output
         assert boot_disk_entries(router) == []
@@ -258,7 +258,7 @@ def test_shares_go_with_the_data_disk(
         wait_mounted(router)
     _wait(
         router,
-        lambda: _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0,
+        lambda: _list(sharing.client(), ROUTER_ADDRESS, smb_user)[0] == 0,
         timeout=SMB_TIMEOUT,
         what="the shares back",
     )
@@ -273,7 +273,7 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
     sharing: Online, smb_user: tuple[str, str], data_disk: Disk
 ) -> None:
     router = sharing.router
-    assert _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0
+    assert _list(sharing.client(), ROUTER_ADDRESS, smb_user)[0] == 0
     script = (
         '[ "$ACTION" = remove ] && {\n'
         f"\tubus call service event '{RELOAD_EVENT}'\n"
@@ -301,7 +301,7 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
         announce(router, data_disk, "add")
         wait_mounted(router)
     until(
-        lambda: _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0,
+        lambda: _list(sharing.client(), ROUTER_ADDRESS, smb_user)[0] == 0,
         timeout=SMB_TIMEOUT,
         what="the shares back",
     )

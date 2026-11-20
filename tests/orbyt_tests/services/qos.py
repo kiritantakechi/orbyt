@@ -11,6 +11,8 @@ import uuid
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, cast
 
+from orbyt_tests.sandbox.net import WAN_DEVICE
+
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -32,7 +34,7 @@ VOICE_NAMES = "*.voice.any.example.net"
 NAMED_PORT = 4000
 
 
-def voice_packets(router: Router, device: str = "pppoe-wan") -> int:
+def voice_packets(router: Router, device: str = WAN_DEVICE) -> int:
     """Return the packets cake sent from its Voice tin on ``device``.
 
     diffserv4's tins are Bulk, Best Effort, Video and Voice, in this

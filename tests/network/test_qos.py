@@ -16,7 +16,7 @@ import pytest
 
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS
+from orbyt_tests.sandbox.net import DIRECT_TARGET, IPERF_PORTS, WAN_DEVICE
 from orbyt_tests.services import qos
 from orbyt_tests.services.datapath import WAN, hooks
 
@@ -42,7 +42,7 @@ VOICE_PORT = 3478  # STUN, a voice rule of /etc/qosify/50-orbyt.conf
 RECOVERY = 60
 # Ingress shaping: the interface's ifb, the rate, and how long the
 # download runs.
-IFB = "ifb-pppoe-wan"
+IFB = f"ifb-{WAN_DEVICE}"
 DOWN_RATE = 10_000_000
 DOWN_SECONDS = 10
 # How far above the rate a shaped download may measure.
@@ -55,7 +55,7 @@ LONG_VLAN = 4001
 LONG_IFB = f"ifb-{LONG_DEVICE[:2]}{LONG_DEVICE[-9:]}"
 
 
-def _cake(router: Router, device: str = "pppoe-wan") -> str:
+def _cake(router: Router, device: str = WAN_DEVICE) -> str:
     return router.run(f"tc -s qdisc show dev {device} root")
 
 
@@ -134,7 +134,7 @@ def test_cake_shapes_upload_only(online: Online) -> None:
     assert re.search(rf"qdisc cake \S+ root .*bandwidth {DEFAULT_RATE}", _cake(router))
     assert "overhead 46" in _cake(router)
     assert _ifbs(router) == []
-    assert router.run("tc qdisc show dev pppoe-wan ingress").count("cake") == 0
+    assert router.run(f"tc qdisc show dev {WAN_DEVICE} ingress").count("cake") == 0
 
 
 @spec(
@@ -208,7 +208,7 @@ def test_shaping_returns_after_a_redial(online: Online) -> None:
     # Online waits for qosify's classifier on the new pppoe-wan, and
     # times it.
     assert online.recovery <= RECOVERY
-    assert hooks(online.router, "pppoe-wan") == WAN
+    assert hooks(online.router, WAN_DEVICE) == WAN
     assert "qdisc cake" in _cake(online.router)
 
 

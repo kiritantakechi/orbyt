@@ -52,7 +52,7 @@ from orbyt_tests.model.outputs import (
     Manifest,
 )
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.net import segments, taps
+from orbyt_tests.sandbox.net import ROUTER_ADDRESS, segments, taps
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
@@ -80,8 +80,6 @@ BOOT_DISK_ID = "boot-disk"
 QEMU_LOG = "qemu.log"
 QEMU_RUN_LOG = "qemu-run.log"
 QEMU_TRACES = ("watchdog_perform_action", "qemu_system_shutdown_request")
-# The router's LAN address, which the harness logs in to.
-ROUTER_ADDRESS = "10.0.0.1"
 UNPLUG_TIMEOUT = 30
 
 

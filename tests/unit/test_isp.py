@@ -13,7 +13,13 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests.model.poll import until
-from orbyt_tests.sandbox.isp import DELEGATED_PREFIX, DNS, LOGIN, POOL_SIZE, POOL_START
+from orbyt_tests.sandbox.isp import (
+    DELEGATED_PREFIX,
+    LOGIN,
+    POOL_SIZE,
+    POOL_START,
+    RESOLVER,
+)
 from orbyt_tests.sandbox.net import Namespace, Port
 
 if TYPE_CHECKING:
@@ -100,7 +106,7 @@ def test_dial_gets_a_pool_address_and_a_prefix(
     session = dial()
     assert _in_pool(session.address)
     assert isp.session(session.address).interface.startswith("ppp")
-    assert session.offer() == {"prefix": str(DELEGATED_PREFIX), "dns": [DNS[1]]}
+    assert session.offer() == {"prefix": str(DELEGATED_PREFIX), "dns": [RESOLVER[1]]}
 
 
 def test_redial_gets_a_different_address(dial: Callable[[], Dial], isp: Isp) -> None:

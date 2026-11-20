@@ -51,7 +51,7 @@ POOL_START = "192.0.2.64"
 POOL_SIZE = 64
 MTU = 1492
 # The resolver the ISP hands out, served on the emulated internet.
-DNS = ("203.0.113.53", "2001:db8:ffff::53")
+RESOLVER = ("203.0.113.53", "2001:db8:ffff::53")
 # SLAAC on every session's link, and the prefix delegated to the router.
 WAN_PREFIX = "2001:db8:0:1::/64"
 WAN_GATEWAY = "2001:db8:0:1::1"
@@ -180,7 +180,7 @@ def _scripts(workdir: Path) -> dict[str, str]:
             "rebind-timer": 1800,
             "preferred-lifetime": 3600,
             "valid-lifetime": 7200,
-            "option-data": [{"name": "dns-servers", "data": DNS[1]}],
+            "option-data": [{"name": "dns-servers", "data": RESOLVER[1]}],
             "subnet6": [
                 {
                     "id": 1,
@@ -235,7 +235,7 @@ def _scripts(workdir: Path) -> dict[str, str]:
             "\tMinRtrAdvInterval 3;\n"
             "\tMaxRtrAdvInterval 10;\n"
             f"\tprefix {WAN_PREFIX} {{ AdvOnLink on; AdvAutonomous on; }};\n"
-            f"\tRDNSS {DNS[1]} {{}};\n"
+            f"\tRDNSS {RESOLVER[1]} {{}};\n"
             "};\n"
             "EOF\n"
             f'cat >"{session}/kea.json" <<EOF\n'
@@ -272,7 +272,7 @@ def configure(etc: Path, workdir: Path) -> None:
                 "require-pap",
                 f"mtu {MTU}",
                 f"mru {MTU}",
-                f"ms-dns {DNS[0]}",
+                f"ms-dns {RESOLVER[0]}",
                 "lcp-echo-interval 5",
                 "lcp-echo-failure 3",
                 "noccp",

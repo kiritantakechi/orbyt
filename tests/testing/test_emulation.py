@@ -27,6 +27,7 @@ from orbyt_tests.device.emu import (
 from orbyt_tests.device.router import CLOCK_SKEW
 from orbyt_tests.device.storage import PLUG_TIMEOUT, Disk, device
 from orbyt_tests.model.poll import until
+from orbyt_tests.sandbox.net import LAN_PREFIX
 
 if TYPE_CHECKING:
     from orbyt_tests.device.router import Router
@@ -36,7 +37,7 @@ if TYPE_CHECKING:
 
 CAPABILITY = "testing/emulation"
 DHCP_TIMEOUT = 60.0
-LAN = ipaddress.ip_network("10.0.0.0/24")
+LAN = ipaddress.ip_network(LAN_PREFIX)
 # A return to the snapshot takes seconds, 16 s on four host cores that
 # stress-ng slows as CI's slow runners; a stale link-layer address for
 # the router costs half a minute more (snapshot-return D3).

@@ -18,7 +18,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import REPO_DIR
-from orbyt_tests.sandbox.net import PROXIED_TARGET, PROXY
+from orbyt_tests.sandbox.net import PROXIED_TARGET, PROXY, ROUTER_ADDRESS
 from orbyt_tests.services.datapath import PROXY_HOOKS_L3, hooks
 
 if TYPE_CHECKING:
@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 CAPABILITY = "services/vpn"
 MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
 MARKS = REPO_DIR / "config" / "marks.tsv"
-LAN_ADDRESS = "10.0.0.1"
 # The router's services for the LAN alone: SSH and LuCI.
 LAN_ONLY_PORTS = (22, 80)
 BIND_TIMEOUT = 60
@@ -47,10 +46,10 @@ def test_wireguard_reaches_the_lan(remote: Online, wireguard: WireGuard) -> None
     host = remote.addresses("client-a")[0]
     assert wireguard.peer.probe("tcp", host)["address"]
     for port in LAN_ONLY_PORTS:
-        assert remote.client().probe("connect", LAN_ADDRESS, "--port", str(port)) == {
-            "connection": "accepted"
-        }
-        assert wireguard.peer.probe("connect", LAN_ADDRESS, "--port", str(port)) == {
+        assert remote.client().probe(
+            "connect", ROUTER_ADDRESS, "--port", str(port)
+        ) == {"connection": "accepted"}
+        assert wireguard.peer.probe("connect", ROUTER_ADDRESS, "--port", str(port)) == {
             "connection": "refused"
         }
     # The image (/rom) holds no key: the test wrote the one wg0 has.

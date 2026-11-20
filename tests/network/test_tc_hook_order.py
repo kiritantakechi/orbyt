@@ -15,7 +15,7 @@ import pytest
 from orbyt_tests import spec
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import REPO_DIR
-from orbyt_tests.sandbox.net import DIRECT_TARGET
+from orbyt_tests.sandbox.net import DIRECT_TARGET, WAN_DEVICE
 from orbyt_tests.sandbox.netprobe import BIG
 from orbyt_tests.services import qos
 from orbyt_tests.services.datapath import (
@@ -52,7 +52,10 @@ PING_INTERVAL = 0.01
 
 def _filters(router: Router) -> str:
     """Return the legacy tc filters on pppoe-wan, of both directions."""
-    shown = "tc filter show dev pppoe-wan ingress; tc filter show dev pppoe-wan egress"
+    shown = (
+        f"tc filter show dev {WAN_DEVICE} ingress;"
+        f" tc filter show dev {WAN_DEVICE} egress"
+    )
     return router.run(shown).strip()
 
 
@@ -63,7 +66,7 @@ def _running_anew(router: Router, process: str, old: str) -> bool:
 
 
 def _in_order(router: Router) -> bool:
-    return (hooks(router, "pppoe-wan"), _filters(router), hooks(router, "br-lan")) == (
+    return (hooks(router, WAN_DEVICE), _filters(router), hooks(router, "br-lan")) == (
         WAN,
         "",
         PROXY_HOOKS_L2,
@@ -88,7 +91,7 @@ def _qosify_runs(router: Router, direction: str) -> int:
     """
     (program,) = [
         found["prog_id"]
-        for found in tc_programs(router, "pppoe-wan")
+        for found in tc_programs(router, WAN_DEVICE)
         if (found["kind"], found["name"]) == (f"tcx/{direction}", "qosify_classify")
     ]
     return int(
@@ -104,7 +107,7 @@ def without_tcx(proxy: Online, internet_zone: Online) -> Iterator[Online]:
     _set_tcx(router, "0")
     try:
         until(
-            lambda: hooks(router, "pppoe-wan") == FALLBACK,
+            lambda: hooks(router, WAN_DEVICE) == FALLBACK,
             timeout=SETTLE,
             what="qosify on clsact",
         )
@@ -116,7 +119,7 @@ def without_tcx(proxy: Online, internet_zone: Online) -> Iterator[Online]:
 
 @spec(CAPABILITY, "Programs and order on the WAN port", "Check the WAN port")
 def test_wan_port_runs_einat_then_qosify(proxy: Online) -> None:
-    assert hooks(proxy.router, "pppoe-wan") == WAN
+    assert hooks(proxy.router, WAN_DEVICE) == WAN
     assert _filters(proxy.router) == ""
 
 
@@ -209,7 +212,7 @@ def test_overlapping_mark_is_reported(tmp_path: Path) -> None:
 @spec(CAPABILITY, "Programs and order on the WAN port", "Kernel without tcx")
 def test_qosify_falls_back_to_clsact(without_tcx: Online) -> None:
     router = without_tcx.router
-    assert hooks(router, "pppoe-wan") == FALLBACK
+    assert hooks(router, WAN_DEVICE) == FALLBACK
     with qos.rules(router, f"dns:{qos.VOICE_NAMES}\tvoice"):
         before = qos.voice_packets(router)
         qos.send_by_name(without_tcx, 20)

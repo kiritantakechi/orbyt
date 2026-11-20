@@ -24,6 +24,7 @@ from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY
 from orbyt_tests.sandbox.netprobe import HTTP_PORT, PORT
 from orbyt_tests.services import app
 from orbyt_tests.services.datapath import (
+    EINAT_PORTS,
     PROXY_HOOKS_L2,
     PROXY_NFQUEUE_TABLE,
     hooks,
@@ -43,7 +44,6 @@ STORAGE = f"{MOUNT}/containers/storage"
 # How long orbyt-sync may take to give up on a release service it cannot
 # reach.
 SYNC_TIMEOUT = 300
-EINAT_PORTS = range(20000, 30000)
 EXPOSED_PORT = 8080
 FIREWALL_TIMEOUT = 30
 # Nothing of an app may be in the image (the app containers' spec).

@@ -23,8 +23,15 @@ from orbyt_tests.device.router import REACHABLE_TIMEOUT
 from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import feed_variable
 from orbyt_tests.sandbox.internet import RELEASES
-from orbyt_tests.sandbox.isp import DELEGATED_PREFIX, LOGIN
-from orbyt_tests.sandbox.net import DIRECT_TARGET, PROXIED_TARGET, PROXY, PROXY_PORT
+from orbyt_tests.sandbox.isp import DELEGATED_PREFIX, LOGIN, RESOLVER
+from orbyt_tests.sandbox.net import (
+    DIRECT_TARGET,
+    DNS_PORT,
+    PROXIED_TARGET,
+    PROXY,
+    PROXY_PORT,
+    WAN_DEVICE,
+)
 from orbyt_tests.sandbox.netprobe import HTTP_PORT
 
 if TYPE_CHECKING:
@@ -47,6 +54,8 @@ QOSIFY_CLSACT = {
 }
 # pppoe-wan's programs in run order: einat's first, then qosify's.
 WAN = {hook: [*EINAT[hook], *QOSIFY[hook]] for hook in EINAT}
+# einat's public ports (its UCI default).
+EINAT_PORTS = range(20000, 30000)
 # honk's LAN programs on a bridge (br-lan, podman0), and on a device
 # without Ethernet headers (tailscale0).
 PROXY_HOOKS_L2 = {"tcx/ingress": ["lan_ingress_l2"], "tcx/egress": ["lan_egress_l2"]}
@@ -86,9 +95,10 @@ ISP_LOG_LINES = 40
 # the log. tailscaled logs every route change, and the emulated ISP
 # advertises its prefixes every few seconds.
 WAN_STATE = (
-    "{ ubus call qosify status; ip -o link show dev pppoe-wan;"
-    " tc qdisc show dev pppoe-wan;"
-    " tc filter show dev pppoe-wan ingress; tc filter show dev pppoe-wan egress;"
+    f"{{ ubus call qosify status; ip -o link show dev {WAN_DEVICE};"
+    f" tc qdisc show dev {WAN_DEVICE};"
+    f" tc filter show dev {WAN_DEVICE} ingress;"
+    f" tc filter show dev {WAN_DEVICE} egress;"
     " logread | grep -v tailscaled | tail -n 40; } 2>&1"
 )
 # How long a LAN client that is not set up is left before it asks for
@@ -149,7 +159,7 @@ group {{
 
 dns {{
     upstream {{
-        isp: 'udp://203.0.113.53:53'
+        isp: 'udp://{RESOLVER[0]}:{DNS_PORT}'
     }}
     routing {{
         request {{
@@ -415,11 +425,11 @@ class Online:
         """
         start = time.monotonic()
         until(
-            lambda: hooks(self.router, "pppoe-wan") == WAN,
+            lambda: hooks(self.router, WAN_DEVICE) == WAN,
             timeout=ONLINE_TIMEOUT,
             what="einat and qosify on pppoe-wan",
             notes=lambda: [
-                f"pppoe-wan holds {hooks(self.router, 'pppoe-wan')}",
+                f"{WAN_DEVICE} holds {hooks(self.router, WAN_DEVICE)}",
                 self.router.run(WAN_STATE),
             ],
         )
