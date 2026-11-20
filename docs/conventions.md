@@ -18,14 +18,14 @@ The "Check name" column in the table below uses the names that `scripts/check.sh
 | Script skeleton, and one-to-one naming between scripts and just recipes | `skeleton` | — |
 | Shell library: every script and module loads the modules whose functions it calls, and every library function has a caller | `modules` | — |
 | Packet marks of the configuration templates against `config/marks.tsv` | `marks` | — |
-| Board descriptions against their schema (`boards/*.json`) | `boards` | — |
+| Board descriptions against their schema (`boards/*.json`) | `board-schema` | — |
 | Python format (`tests/`) | `ruff-format` | `ruff format` |
 | Python static analysis: `select = ["ALL"]`, with exclusions listed in `tests/ruff.toml` together with their reasons | `ruff-check` | — |
 | Python type checking: all rules treated as errors (`tests/ty.toml`) | `ty` | — |
 | Test harness layering: no module imports from a layer above its own (`tests/tach.toml`) | `tach` | — |
 | Spec-to-test structure: markers point to existing scenarios, one test per scenario, directory rules (r4s-build-foundation D13) | `spec-coverage` | — |
 
-Files exempt from these rules: `patches/` and `docs/upstream/` (upstream patches are kept verbatim), `.claude/` (tool-generated), and lock files. OpenWrt package `Makefile`s mix tabs and two spaces by upstream convention, so their indent style is not checked.
+Files exempt from these rules, listed once, in `repo_files` (`scripts/lib/core.sh`), from which every check takes its files: `patches/` and `docs/upstream/` (upstream patches are kept verbatim) and `.claude/` (tool-generated). editorconfig-checker also leaves out the lock files, which their tools write. OpenWrt package `Makefile`s mix tabs and two spaces by upstream convention, so their indent style is not checked.
 
 ## Script skeleton
 
@@ -53,10 +53,12 @@ require_linux; tree=$(workdir_tree); ensure_fhs build "$@"   # only the guards i
 
 ## Naming
 
-- **Pipeline stages** use a single verb: `fetch`, `patch`, `config`, `build`, `test`, `check`, `fmt`.
-- **Operations on a specific object** use "object-verb": `env-report`, `image-audit`, `runner-prepare`, `toolchain-key`, `toolchain-build`, `toolchain-pack`, `toolchain-unpack`, `workdir-mount`, `workdir-unmount`.
-- **Paired operations** have symmetric names: `mount`/`unmount`, `pack`/`unpack`, `check`/`fmt`.
-- **Every script has a just recipe of the same name**, and conversely every just recipe (except `default`) has a script of the same name; `skeleton` checks this. Just recipes are grouped into `build`, `image`, `test`, `quality`, `ci` and `workdir`.
+- **Pipeline stages** use a single verb: `fetch`, `patch`, `config`, `download`, `build`, `test`, `check`, `fmt`.
+- **Operations on a specific object** use "object-verb": `image-audit`, `toolchain-build`, `release-sign`, `config-push`, `upstream-bump`, and the rest of `just --list`.
+- **A recipe named by its object alone** lists or checks it: `boards`, `marks`.
+- **Paired operations** have symmetric names: `mount`/`unmount` (`workdir-`), `pack`/`unpack` (`toolchain-`, `emulator-`), `check`/`fmt`.
+- **A check's name is its recipe's** where it has one: `just check marks` runs what `just marks` runs.
+- **Every script has a just recipe of the same name**, and conversely every just recipe (except `default`) has a script of the same name; `skeleton` checks this. Just recipes are grouped into `build`, `image`, `test`, `quality`, `release`, `ops`, `ci` and `workdir`.
 - **Environment variables** all use the `ORBYT_` prefix.
 
 ## Shell library modules
@@ -65,19 +67,22 @@ The scripts' shared functions live in `scripts/lib/`, one module per domain. A s
 
 | Module | Domain |
 |---|---|
-| `core` | The repository's place (`REPO_DIR`), messages (`die`, `info`), `use` and `loaded_modules`, the host and environment guards (`require_linux`, `ensure_fhs`), the build tree (`workdir_tree`), the repository's files, the tests' virtual environment |
-| `boards` | The board descriptions (`BOARDS_DIR`, `board_ids`, `board_field`) and the table of them the A/B hooks read |
+| `core` | The repository's place (`REPO_DIR`), messages (`die`, `info`), `use` and `loaded_modules`, the host and environment guards (`require_linux`, `ensure_fhs`), the build tree (`workdir_tree`), a script's scratch directory (`scratch_dir`), the build's job count (`build_jobs`), the repository's files (`repo_files`, `format_files`), the tests' virtual environment, the quality tools' prelude |
+| `boards` | The board descriptions (`BOARDS_DIR`, `board_ids`, `board_field`, `require_board`) and the table of them the A/B hooks read |
 | `tree` | The build tree's files: links into it, files written only when they change, its configuration, and moving its checkout |
-| `seeds` | A configuration composed from a profile's and a board's seeds |
+| `seeds` | A configuration composed from a profile's and a board's seeds; the LAN's address and subnet, which the system seed sets |
 | `cache` | The compiler caches the tree links to: running them, their statistics and their trimming |
-| `toolchain` | What a toolchain was built with, and the stages of a build that built any of it |
+| `toolchain` | What a toolchain was built with, which part of it its record no longer names, and the stages of a build that built any of it |
 | `timing` | A build's time log, and the report of where its time went |
 | `warnings` | The UB-indicative warnings (`UB_WARNINGS`): read from a build's logs, recorded, and gathered for an image |
 | `upstream` | The sources pinned in `upstream.lock` (`LOCK_FILE`), fetched and patched |
+| `manifest` | A build's manifest: the commit it was built from, its writer and its facts, and the check and checksums of the files it lists |
+| `runs` | Which changes run the build workflow, read from the workflow's own path list, and which commits a newer run supersedes |
+| `github` | The GitHub repository the scripts talk to: CI's, or the clone's own |
 
 - **The tree is an argument.** `workdir_tree` checks `ORBYT_WORKDIR` and prints the tree's path; a script keeps it in its own variable, `tree=$(workdir_tree)`, and every function that works on a tree takes it first and checks it. The only globals are core's and each module's constants, derived from the repository's place.
 - **A module starts from core**, and says so: `: "${REPO_DIR:?load scripts/lib/core.sh first}"` after its header, before its `use` line.
-- **An awk program of more than ten lines** is a file beside its module (`ub-warnings.awk`, `image-logs.awk`, `merge-seeds.awk`), which the function runs with `awk -f` and the unit tests run directly; a shorter one stays inline.
+- **An awk program of more than ten lines** is a file beside its module (`ub-warnings.awk`, `image-logs.awk`, `merge-seeds.awk`, `stale-packages.awk`), which the function runs with `awk -f` and the unit tests run directly; a shorter one stays inline.
 - **`modules`** (`lib-check`) fails on a call of a library function that the modules a file loads do not provide, and on a function that no script, module, test, workflow or recipe calls. The toolchain's cache key hashes the modules its scripts load.
 
 ## First-boot defaults

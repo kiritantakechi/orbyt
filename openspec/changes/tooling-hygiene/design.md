@@ -32,7 +32,7 @@
 ### D2. Workflows that run recipes
 
 - `scripts/bump-open.sh` (recipe `bump-open`) does what `bump.yml`'s inline shell did; the bot's identity is its constant.
-- `release-sign.sh` takes the directory of builds and checks each build's board and manifest itself; the sign job's loop goes.
+- `release-sign.sh` takes the build's board (`--board`) and refuses a board `boards/` lacks or a manifest that names another; the sign job, which runs the pinned signing tools alone, passes each artifact's board as its name gives it and decides nothing itself.
 - `scripts/drill-check.sh` decides the drill check from the three results; `tests/build/test_ci.py` runs it over every combination.
 - The firmware, caches and publish jobs call recipes, not scripts.
 - `.github/actions/uv-cache` (restore and prune; the save is the action's `post`-free second half, a step that calls the action again with `save: true`) serves check, system-test and drill; `.github/actions/nix` takes the runner's preparation as an input.

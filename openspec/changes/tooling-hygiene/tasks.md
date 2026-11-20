@@ -8,7 +8,7 @@
 
 ## 2. Workflows that run recipes (D2, D3)
 
-- [ ] 2.1 `bump-open.sh`, `drill-check.sh` with its test over every combination, `release-sign.sh` taking the builds' directory; every step through `just`.
+- [ ] 2.1 `bump-open.sh`, `drill-check.sh` with its test over every combination, `release-sign.sh` checking the build's board; every step through `just`.
 
   Verify: `tests/build/test_ci.py` and the release suite's signing tests pass; actionlint passes.
 
