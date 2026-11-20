@@ -10,6 +10,7 @@ release is (``release.json``). Each is read through its model here,
 strict about unknown fields and types (``orbyt_tests.model.data``).
 """
 
+import hashlib
 from pathlib import Path
 from typing import Annotated
 
@@ -22,6 +23,15 @@ TOOLCHAIN_FILE = "orbyt-toolchain.json"
 RELEASE_FILE = "release.json"
 
 type Sha256 = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+def sha256(path: Path) -> str:
+    """Return the SHA-256 of a file, as the outputs record it."""
+    digest = hashlib.sha256()
+    with path.open("rb") as file:
+        while block := file.read(1 << 20):
+            digest.update(block)
+    return digest.hexdigest()
 
 
 def _split(flags: object) -> object:

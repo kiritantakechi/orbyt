@@ -16,16 +16,11 @@ import pytest
 from labgrid.driver import QEMUDriver
 
 from orbyt_tests import spec
-from orbyt_tests.device.emu import (
-    Console,
-    ConsoleEndedError,
-    boot_files,
-    extract_fit_image,
-    read_fit,
-    sha256,
-)
+from orbyt_tests.device.emu import Console, ConsoleEndedError
 from orbyt_tests.device.router import CLOCK_SKEW
 from orbyt_tests.device.storage import PLUG_TIMEOUT, Disk, device
+from orbyt_tests.model.image import boot_files, extract_fit_image, read_fit
+from orbyt_tests.model.outputs import sha256
 from orbyt_tests.model.poll import until
 from orbyt_tests.sandbox.net import LAN_PREFIX
 

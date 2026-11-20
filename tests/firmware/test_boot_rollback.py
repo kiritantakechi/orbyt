@@ -22,9 +22,15 @@ from orbyt_tests.device.ab import (
     slot,
     slot_sha256,
 )
-from orbyt_tests.device.emu import extract_fit_image, read_fit, run
 from orbyt_tests.device.paths import UPGRADE_IMAGE
-from orbyt_tests.model.image import SECTOR, default_environment, read_mbr
+from orbyt_tests.model import process
+from orbyt_tests.model.image import (
+    SECTOR,
+    default_environment,
+    extract_fit_image,
+    read_fit,
+    read_mbr,
+)
 from orbyt_tests.model.repository import REPO_DIR
 
 if TYPE_CHECKING:
@@ -452,9 +458,12 @@ def test_same_logic_in_both_bootloaders(
         assert config.get("CONFIG_ENV_FLAGS_LIST_STATIC") == WRITABLE, name
     # ...which the board's device tree makes its boot disk's controller:
     # an eMMC is soldered on, an SD card is not.
-    assert run("fdtget", str(dtb), "/", "compatible").split()[0] == board.board_name
-    controller = run(
+    assert (
+        process.run("fdtget", str(dtb), "/", "compatible").split()[0]
+        == board.board_name
+    )
+    controller = process.run(
         "fdtget", str(dtb), "/aliases", f"mmc{shipped['orbyt_mmc']}"
     ).strip()
-    properties = run("fdtget", "-p", str(dtb), controller).split()
+    properties = process.run("fdtget", "-p", str(dtb), controller).split()
     assert ("non-removable" in properties) == (board.boot_disk == "emmc"), controller

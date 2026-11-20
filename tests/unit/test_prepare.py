@@ -1,4 +1,4 @@
-"""Unit tests of orbyt_tests.device.emu (board-model D7).
+"""Unit tests of orbyt_tests.device.prepare (board-model D7).
 
 The module is the machine standing in for each board.
 """
@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from orbyt_tests.device.emu import BOOT_DISKS, Machine
+from orbyt_tests.device.prepare import BOOT_DISKS, Machine
 from orbyt_tests.model.boards import Board, load_all
 from orbyt_tests.sandbox.net import segments, taps
 

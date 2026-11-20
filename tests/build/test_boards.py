@@ -17,7 +17,6 @@ import pytest
 import yaml
 
 from orbyt_tests import spec
-from orbyt_tests.device.emu import sha256
 from orbyt_tests.model.boards import BOARDS_DIR, Board, Description, load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.outputs import (
@@ -25,6 +24,7 @@ from orbyt_tests.model.outputs import (
     TOOLCHAIN_FILE,
     Manifest,
     ToolchainRecord,
+    sha256,
 )
 from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
 

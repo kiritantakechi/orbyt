@@ -23,7 +23,8 @@ import pytest
 from labgrid import Environment
 from labgrid.util.ssh import sshmanager
 
-from orbyt_tests.device.emu import TARGET_FILE, Emulator
+from orbyt_tests.device.emu import Emulator
+from orbyt_tests.device.prepare import TARGET_FILE
 from orbyt_tests.device.router import Router
 from orbyt_tests.device.storage import Disk, initialize, wait_mounted
 from orbyt_tests.device.trust import trust_keys

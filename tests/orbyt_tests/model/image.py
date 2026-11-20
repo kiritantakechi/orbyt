@@ -1,17 +1,24 @@
 """Read the pieces of the shipped images.
 
-Everything here is a pure function over bytes or text, so the unit tests
-cover it without an image: a gzip stream may be followed by fwtool
+The parsers are pure functions over bytes or text, so the unit tests
+cover them without an image: a gzip stream may be followed by fwtool
 metadata, the disk has an MBR, U-Boot and the kernel are FITs, read from
 their ``dumpimage -l`` listings, and U-Boot carries its default
-environment as a run of strings. See design D14 and r4s-ab-rollback D7.
+environment as a run of strings. The readers at the end run the test
+environment's tools on an image's files: dumpimage on a FIT, debugfs on
+a boot partition. See design D14 and r4s-ab-rollback D7.
 """
 
 import re
 import struct
 import zlib
 from dataclasses import dataclass
-from typing import BinaryIO
+from typing import TYPE_CHECKING, BinaryIO
+
+from orbyt_tests.model import process
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # The hostname of a fresh configuration: the image's name (orbyt-brand
 # D3).
@@ -200,3 +207,45 @@ def parse_fit(listing: str) -> Fit:
         msg = "the FIT has no default configuration"
         raise LookupError(msg)
     return Fit(nodes["Image"], nodes["Configuration"], default)
+
+
+def boot_files(
+    disk: Path, partition: int, names: tuple[str, ...], output: Path
+) -> None:
+    """Copy files of a disk's ext4 boot partition to ``output``."""
+    with disk.open("rb") as raw:
+        boot = read_mbr(raw.read(SECTOR)).partition(partition)
+        raw.seek(boot.start)
+        filesystem = output / "boot.ext4"
+        filesystem.write_bytes(raw.read(boot.size))
+    for name in names:
+        file = output / name
+        # debugfs exits 0 even when the file is missing; check the
+        # result instead.
+        process.run("debugfs", "-R", f"dump /{name} {file}", str(filesystem))
+        if not file.is_file() or file.stat().st_size == 0:
+            msg = f"{name} not found on partition {partition}"
+            raise FileNotFoundError(msg)
+    filesystem.unlink()
+
+
+def read_fit(path: Path) -> Fit:
+    """List a FIT image file."""
+    return parse_fit(process.run("dumpimage", "-l", str(path)))
+
+
+def extract_fit_image(path: Path, image: FitNode, output: Path) -> None:
+    """Write one image of a FIT file to ``output``, as stored.
+
+    The image stays compressed.
+    """
+    process.run(
+        "dumpimage",
+        "-T",
+        "flat_dt",
+        "-p",
+        str(image.index),
+        "-o",
+        str(output),
+        str(path),
+    )

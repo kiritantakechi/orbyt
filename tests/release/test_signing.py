@@ -19,12 +19,11 @@ import pytest
 import yaml
 
 from orbyt_tests import spec
-from orbyt_tests.device.emu import sha256
 from orbyt_tests.device.paths import scratch
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.keys import APK_KEYS, FIRMWARE_KEYS, Keys, sign
-from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest
+from orbyt_tests.model.outputs import MANIFEST_FILE, Manifest, sha256
 from orbyt_tests.model.repository import FEED_DIR, REPO_DIR
 from orbyt_tests.model.trees import linked_copy, replace
 from orbyt_tests.sandbox.oci import extract_root

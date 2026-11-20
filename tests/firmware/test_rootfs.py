@@ -7,12 +7,15 @@ import re
 from typing import TYPE_CHECKING
 
 from orbyt_tests import spec
-from orbyt_tests.device.emu import boot_files, extract_fit_image, read_fit, run
+from orbyt_tests.model import process
 from orbyt_tests.model.image import (
     DEFAULT_HOSTNAME,
     SECTOR,
     SLOT_PARTITIONS,
+    boot_files,
     default_environment,
+    extract_fit_image,
+    read_fit,
     read_mbr,
 )
 
@@ -120,7 +123,7 @@ def test_boot_chain(
     # The boot ROM of the board's SoC takes the loader by its signature;
     # U-Boot's own tool verifies the loader's header.
     idbloader = _sectors(disk, LOADER_SECTOR, UBOOT_SECTOR, tmp_path / "idbloader.img")
-    run("dumpimage", "-T", "rksd", "-l", str(idbloader))
+    process.run("dumpimage", "-T", "rksd", "-l", str(idbloader))
     header, loader = board.soc.loader, idbloader.read_bytes()
     assert (
         loader[header.offset : header.offset + len(header.signature)]
@@ -149,11 +152,11 @@ def test_boot_chain(
         boot_files(disk, partition, ("kernel.img",), slot)
         kernel, dtb = slot / "kernel.img", slot / "board.dtb"
         extract_fit_image(kernel, read_fit(kernel).selected("FDT"), dtb)
-        compatible = run("fdtget", str(dtb), "/", "compatible").split()
+        compatible = process.run("fdtget", str(dtb), "/", "compatible").split()
         assert compatible == [board.board_name, board.soc.compatible], partition
         # The board's Ethernet and PCIe controllers.
         for node in board.dt_enabled:
-            assert run("fdtget", str(dtb), node, "status").strip() == "okay", (
+            assert process.run("fdtget", str(dtb), node, "status").strip() == "okay", (
                 partition,
                 node,
             )
