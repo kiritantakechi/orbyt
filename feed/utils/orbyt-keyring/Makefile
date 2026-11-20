@@ -26,10 +26,12 @@ endef
 define Build/Compile
 endef
 
-# files/ mirrors the root filesystem; scripts/release-keys.sh adds the keys.
+# files/ mirrors the root filesystem; scripts/release-keys.sh adds the keys. A
+# keyring without a key of each kind trusts nothing: its build fails.
 define Package/orbyt-keyring/install
 	$(INSTALL_DIR) $(1)/etc/apk/keys $(1)/etc/usign/keys
-	[ ! -d ./files ] || $(CP) ./files/. $(1)/
+	ls ./files/etc/apk/keys/*.pem ./files/etc/usign/keys/* >/dev/null
+	$(CP) ./files/. $(1)/
 endef
 
 $(eval $(call BuildPackage,orbyt-keyring))

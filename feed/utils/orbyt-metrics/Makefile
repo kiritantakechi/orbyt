@@ -18,9 +18,9 @@ define Package/orbyt-metrics
 endef
 
 define Package/orbyt-metrics/description
-  The two collectors r4s-services monitors with that the ucode node exporter
-  lacks: hwmon (temperatures) and filesystem (size and use of each mount),
-  under node_exporter's metric names. The exporter runs in a jail of its own
+  Two collectors the ucode node exporter lacks, which the monitoring of
+  r4s-services uses: hwmon (temperatures) and filesystem (size and use of each
+  mount), under node_exporter's metric names. The exporter runs in a jail of its own
   mounts, so an rpcd plugin reports the host's filesystems over ubus.
 endef
 
