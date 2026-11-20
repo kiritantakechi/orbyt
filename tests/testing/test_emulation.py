@@ -147,9 +147,11 @@ def test_sandbox_needs_no_root(router: Router, network: Network) -> None:
 
 @spec(CAPABILITY, "Fault injection", "Tests are isolated")
 def test_tests_do_not_leak_state(router: Router) -> None:
+    hostname = "uci get system.@system[0].hostname"
+    before = router.run(hostname)
     router.run("uci set system.@system[0].hostname=leaked && uci commit system && sync")
     router.reset()  # what the router fixture does between two tests
-    assert router.run("uci get system.@system[0].hostname") == "OpenWrt"
+    assert router.run(hostname) == before != "leaked"
 
 
 @spec(CAPABILITY, "Fault injection", "Forced power cut")
