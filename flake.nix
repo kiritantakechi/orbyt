@@ -167,9 +167,9 @@
           });
 
       # System tests: emulator, image extraction, network sandbox peers (the
-      # emulated ISP and internet), and the shared libraries that uv-managed
-      # Python and manylinux wheels expect in an FHS layout. Later changes append
-      # their peers (registry, ...).
+      # emulated ISP and internet, the services' peers), and the shared libraries
+      # that uv-managed Python and manylinux wheels expect in an FHS layout. The
+      # test environment holds the build's packages as well (environmentsFor).
       testPackages =
         pkgs: unstable:
         [
@@ -207,16 +207,14 @@
           iperf3
           # the services' peers (r4s-services D10): a container registry and its
           # image tools, a tailnet's control server and a node, the WireGuard
-          # peer's tools (its tunnel is the host kernel's), an SMB client, and a
-          # test CA for the registry and headscale
+          # peer's tools (its tunnel is the host kernel's) and an SMB client; the
+          # registry's and headscale's test CA is the build's openssl
           distribution
           skopeo
           headscale
           tailscale
           wireguard-tools
           samba
-          curl
-          openssl
           # the release pipeline (r4s-release-pipeline D7): the signing tools the
           # sign job uses, the tests signing with keys of their own; the private
           # configuration's tools, and a secret scanner for its history
@@ -230,7 +228,9 @@
       # ssh and scp with a fixed configuration instead of the host's: the router's
       # host key changes with every fresh image, and inside the test sandbox the
       # host's configuration files may belong to an unmapped user, which OpenSSH
-      # refuses to read.
+      # refuses to read. OpenSSH's other tools, ssh-keygen for the harness's key
+      # and the configuration push tests' keys among them, come as they are,
+      # below the two wrappers.
       testSsh =
         pkgs:
         let
@@ -245,8 +245,7 @@
           "ssh"
           "scp"
         ]
-        # the harness's own key, and the keys the configuration push tests use
-        ++ [ (pkgs.writeShellScriptBin "ssh-keygen" ''exec ${pkgs.openssh}/bin/ssh-keygen "$@"'') ];
+        ++ [ (pkgs.lib.lowPrio pkgs.openssh) ];
 
       # Fingerprint of everything that shapes host-built tools and the cross
       # toolchain: the build package set and the build profile. The toolchain
@@ -274,6 +273,9 @@
           '';
           runScript = "bash";
         };
+
+      # quality: code standards only (just check / just fmt), identical on every host.
+      qualityShell = pkgs: unstable: pkgs.mkShellNoCC { packages = qualityTools pkgs unstable; };
 
       # The test environment is a superset of the build environment, so scripts
       # that only need the build environment also run inside the test one.
@@ -304,7 +306,7 @@
         }
       );
 
-      # quality: code standards only (just check / just fmt), identical on every host.
+      # quality: the code standards (qualityShell).
       # build:    quality plus, on Linux, the build environment; CI's build jobs, which
       #           then never build the emulator.
       # default:  quality plus, on Linux, the build and test environments.
@@ -312,10 +314,11 @@
         forSystems linuxSystems (
           pkgs: unstable:
           let
+            quality = qualityShell pkgs unstable;
             environments = environmentsFor pkgs unstable;
           in
-          rec {
-            quality = pkgs.mkShellNoCC { packages = qualityTools pkgs unstable; };
+          {
+            inherit quality;
             build = pkgs.mkShellNoCC {
               inputsFrom = [ quality ];
               packages = [ environments.orbyt-build-fhs ];
@@ -327,9 +330,13 @@
           }
         )
         // forSystems darwinSystems (
-          pkgs: unstable: rec {
+          pkgs: unstable:
+          let
+            quality = qualityShell pkgs unstable;
+          in
+          {
             # macOS runs the code standards and orchestration, never a build or a test.
-            quality = pkgs.mkShellNoCC { packages = qualityTools pkgs unstable; };
+            inherit quality;
             default = quality;
           }
         );
