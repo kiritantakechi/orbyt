@@ -26,7 +26,7 @@ from orbyt_tests.model.outputs import (
     ToolchainRecord,
     sha256,
 )
-from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
+from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR, repository_files
 
 CAPABILITY = "build/boards"
 FIXTURES = TESTS_DIR / "fixtures"
@@ -145,23 +145,7 @@ def test_no_board_is_named_outside_its_description() -> None:
     # The files the tests keep as a build and a release wrote them name
     # the board.
     recorded = f"{FIXTURES.relative_to(REPO_DIR).as_posix()}/"
-    listed = subprocess.run(
-        [
-            *(
-                "git",
-                "-C",
-                REPO_DIR,
-                "ls-files",
-                "--cached",
-                "--others",
-                "--exclude-standard",
-            ),
-            *("--", *SEARCHED, *SEARCHED_FILES),
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.splitlines()
+    listed = repository_files(*SEARCHED, *SEARCHED_FILES)
     naming = {}
     for name in sorted(set(listed) - fragments):
         path = REPO_DIR / name
@@ -233,19 +217,22 @@ def test_an_unknown_board_is_refused(recipe: str, tmp_path: Path) -> None:
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.build_tree
 @spec(CAPABILITY, "One build per board from one tree", "Two boards in one tree")
 def test_boards_build_apart(build_output: Path) -> None:
     tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
-    # A build whose directories were deleted since, as a ubsan build's
-    # may be, is no longer in the tree.
+    # Each board's build beside this one, or this one alone where the
+    # tree holds no other (CI's firmware job builds one board): what
+    # each shows is its own board's and no other's. A build whose
+    # directories were deleted since, as a ubsan build's may be, is no
+    # longer in the tree.
     builds = [
         (board, build)
         for board, build in _builds_beside(build_output)
         if _build_dirs(tree, build)
     ]
-    if all(build == build_output for _, build in builds):
-        pytest.skip("no other board's build beside this one")
-    variants = {board.uboot.variant for board, _ in builds}
+    assert build_output in {build for _, build in builds}
+    variants = {board.uboot.variant for board in load_all()}
     for board, build in builds:
         manifest = _manifest(build)
         assert manifest.board == board.id
@@ -859,6 +846,7 @@ def _configure(source: Path, *targets: str) -> dict[str, str]:
     return dict(line.split("=", 1) for line in lines if line.startswith("CONFIG_"))
 
 
+@pytest.mark.build_tree
 @spec(
     CAPABILITY,
     "U-Boot configured without asking",
@@ -866,16 +854,15 @@ def _configure(source: Path, *targets: str) -> dict[str, str]:
 )
 def test_a_fragment_s_question_is_settled(build_output: Path, tmp_path: Path) -> None:
     tree = Path(os.environ["ORBYT_WORKDIR"]) / "openwrt"
-    sources = [
-        source
+    # The emulator's U-Boot as the build configured it.
+    (built,) = (
+        built
         for build_dir in _build_dirs(tree, build_output)
-        for source in build_dir.glob("u-boot-orbyt-qemu/u-boot-*")
-    ]
-    if not sources:
-        pytest.skip("no build tree with the emulator's U-Boot")
+        for built in build_dir.glob("u-boot-orbyt-qemu/u-boot-*")
+    )
     source = tmp_path / "u-boot"
     shutil.copytree(
-        sources[0],
+        built,
         source,
         symlinks=True,
         ignore=shutil.ignore_patterns("*.o", "*.a", ".*.cmd"),

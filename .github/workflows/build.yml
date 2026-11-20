@@ -242,6 +242,19 @@ jobs:
           ORBYT_COMPILER_CACHE_TRIM: 1
         run: nix develop .#build -c scripts/build.sh "$BOARD" ci
 
+      - name: Restore uv cache
+        uses: actions/cache/restore@v6
+        with:
+          path: |
+            ~/.cache/uv
+            ~/.local/share/uv/python
+          key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
+
+      # The tests that read the build tree, which only this job has; the system
+      # tests run on the build's outputs (test-hygiene D8).
+      - name: Build tree tests
+        run: nix develop -c just test "$BOARD" ci -m build_tree -rs
+
       # Off the default branch, only within the quota's room, so that main's
       # caches stay (build-integrity D5): the room for both caches, which every
       # board's job may save at once (release-integrity D6).
@@ -369,8 +382,10 @@ jobs:
             ~/.local/share/uv/python
           key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('tests/uv.lock', 'tests/.python-version') }}
 
+      # The tests that read the build tree ran in the firmware job, where the
+      # tree is (test-hygiene D8).
       - name: System tests
-        run: nix develop -c just test "$BOARD" ci ${{ matrix.suite.paths }} -rs
+        run: nix develop -c just test "$BOARD" ci ${{ matrix.suite.paths }} -m "not build_tree" -rs
 
       # Only what was built from source stays: the rest downloads again.
       - name: Save uv cache

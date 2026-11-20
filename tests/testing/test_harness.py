@@ -18,9 +18,10 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 import pytest
+import yaml
 
 from orbyt_tests import spec
 from orbyt_tests.device.fixtures import claim
@@ -37,7 +38,7 @@ from orbyt_tests.model.outputs import (
     ToolchainRecord,
 )
 from orbyt_tests.model.poll import until
-from orbyt_tests.model.repository import TESTS_DIR
+from orbyt_tests.model.repository import REPO_DIR, TESTS_DIR
 from orbyt_tests.model.undefined_behavior import Diagnostic, Review
 from orbyt_tests.sandbox.layout import Layout
 from orbyt_tests.sandbox.net import LAN_PREFIX, Daemon, Namespace, Netns, Port, ip
@@ -470,6 +471,27 @@ def test_a_namespace_whose_daemon_exits_is_taken_down(network: Network) -> None:
         timeout=NAMESPACE_GONE,
         what="broken's link gone",
     )
+
+
+@spec(CAPABILITY, "Tests that need the build tree", "The system suite on CI")
+def test_ci_runs_the_build_tree_tests_where_the_tree_is() -> None:
+    workflow = REPO_DIR / ".github" / "workflows" / "build.yml"
+    jobs = cast("dict[str, Any]", yaml.safe_load(workflow.read_text()))["jobs"]
+
+    def tests(job: str) -> list[str]:
+        return [
+            step["run"]
+            for step in jobs[job]["steps"]
+            if "just test" in step.get("run", "")
+        ]
+
+    # The system suites deselect what the firmware job ran against its
+    # tree, after its build.
+    assert [run for run in tests("system-test") if '-m "not build_tree"' in run]
+    (tree_tests,) = tests("firmware")
+    assert "-m build_tree" in tree_tests
+    names = [step.get("name") for step in jobs["firmware"]["steps"]]
+    assert names.index("Build firmware") < names.index("Build tree tests")
 
 
 # A detached command that ends without the reboot the harness then waits
