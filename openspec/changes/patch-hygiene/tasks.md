@@ -2,13 +2,13 @@
 
 ## 1. qosify configured on its object's registration (design D1)
 
-- [ ] 1.1 Pin what configures qosify today: on the emulated R4S, boot with no configuration change and read pppoe-wan's qdisc; kill the daemon and read it again after procd respawns it.
+- [x] 1.1 Pin what configures qosify today: on the emulated R4S, boot with no configuration change and read pppoe-wan's qdisc; kill the daemon and read it again after procd respawns it.
 
   Verify: the record in docs/patches.md's 0006 entry states what was seen (expected: unconfigured in both cases until a reload).
 
   Seen 2026-11-21: configured in both cases, by procd's own `running` call, and a status query sent the daemon its configuration with `reset` (design D1); the maintainer kept the object trigger, and the status query became a scenario.
 
-- [ ] 1.2 Add the three QoS scenarios to `tests/network/test_qos.py` (a boot with no change; the daemon killed and respawned; a status query).
+- [x] 1.2 Add the three QoS scenarios to `tests/network/test_qos.py` (a boot with no change; the daemon killed and respawned; a status query).
 
   Verify: `spec-coverage --change patch-hygiene` covers them; on the image with the old 0006 the first two pass and the status query fails (seen 2026-11-21).
 
