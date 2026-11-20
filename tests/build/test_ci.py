@@ -7,6 +7,7 @@ only what a newer commit superseded. The cache scripts run against a
 stand-in gh (orbyt_tests.model.github); the rest reads .github/.
 """
 
+import itertools
 import os
 import re
 import subprocess
@@ -394,3 +395,27 @@ def test_every_test_module_runs_in_one_job() -> None:
     assert sorted(name for name, count in selected.items() if count > 1) == [], (
         "run twice"
     )
+
+
+RESULTS = ("success", "failure", "cancelled", "skipped")
+
+
+@spec(CAPABILITY, "The workflows run recipes", "The drill check's decision")
+def test_the_drill_check_decides_from_the_results() -> None:
+    for system_test, sign, drill in itertools.product(RESULTS, repeat=3):
+        result = subprocess.run(
+            [REPO_DIR / "scripts" / "drill-check.sh", system_test, sign, drill],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        drilled = drill == "success" or sign == drill == "skipped"
+        passes = system_test == "success" and drilled
+        assert (result.returncode == 0) == passes, (system_test, sign, drill)
+    # A bump's pull request, which builds nothing, passes.
+    bump = subprocess.run(
+        [REPO_DIR / "scripts" / "drill-check.sh", "--bump-pull-request"]
+        + ["skipped"] * 3,
+        check=False,
+    )
+    assert bump.returncode == 0

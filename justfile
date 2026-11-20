@@ -136,6 +136,11 @@ compiler-cache-key stage:
 cache-room +paths:
     scripts/cache-room.sh "$@"
 
+# Decide the check main's rules require from the system tests', signing's and the drills' results (CI only)
+[group('ci')]
+drill-check *results:
+    scripts/drill-check.sh "$@"
+
 # Delete the caches a run superseded, and on the default branch merged branches' (CI only)
 [group('ci')]
 cache-prune toolchain:

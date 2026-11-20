@@ -535,36 +535,31 @@ jobs:
           if-no-files-found: ignore
 
   # The check main's rules require (board-model D9), under the name it always
-  # had: a matrix reports each board's drill on its own. It fails unless the
-  # system tests passed and every board's drill passed, or signing, and with it
-  # every drill, did not run (pull requests, no release keys yet). A failed or
-  # rejected signing skips the drills too, and fails here. A bump's pull request
-  # builds nothing: there the job takes another name and passes, so that the
-  # required check is the bump branch's own run's, which drills; a skipped job
-  # would count as passed, and a failed one would contradict it (bump-branch-runs
-  # D3).
+  # had: a matrix reports each board's drill on its own. scripts/drill-check.sh
+  # decides it from the results. A bump's pull request builds nothing: there the
+  # job takes another name and passes, so that the required check is the bump
+  # branch's own run's, which drills; a skipped job would count as passed, and a
+  # failed one would contradict it (bump-branch-runs D3).
   upgrade-drill:
     name: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') && 'upgrade-drill of the branch' || 'upgrade-drill' }}
     needs: [system-test, sign, drill]
     if: always()
     runs-on: ubuntu-24.04
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/nix
+
       - name: Every board's drill
         env:
+          BUMP: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') && '--bump-pull-request' || '' }}
           SYSTEM_TEST: ${{ needs.system-test.result }}
           SIGN: ${{ needs.sign.result }}
           DRILL: ${{ needs.drill.result }}
-          BUMP_PULL_REQUEST: ${{ github.event_name == 'pull_request' && startsWith(github.head_ref, 'bump/') }}
-          HEAD_REF: ${{ github.head_ref }}
         run: |
-          echo "system-test: $SYSTEM_TEST, sign: $SIGN, drill: $DRILL"
-          if [ "$BUMP_PULL_REQUEST" = true ]; then
-            echo "::notice::a bump's pull request builds nothing: the push run of $HEAD_REF reports upgrade-drill"
-            exit 0
-          fi
-          [ "$SYSTEM_TEST" = success ] &&
-            { [ "$DRILL" = success ] || { [ "$SIGN" = skipped ] && [ "$DRILL" = skipped ]; }; }
+          # shellcheck disable=SC2086 # BUMP is the flag or nothing
+          nix develop .#quality -c just drill-check $BUMP "$SYSTEM_TEST" "$SIGN" "$DRILL"
 
   # One release of every board: a candidate (pre-release) from a bump branch, a
   # stable release from main, never before every board's drill passed.
