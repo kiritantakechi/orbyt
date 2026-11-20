@@ -36,13 +36,13 @@
 
   Verify: the build succeeds with `orbyt-` image files; the tests pass, the new scenario among them.
 
-- [ ] 3.2 Run CI's build on this change's branch for both boards.
+- [ ] 3.2 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: every job passes; the run is recorded in `docs/ci.md`.
+  Verify: every job passes; the run is recorded in `docs/ci.md` for this change.
 
 ## Workflow follow-up
 
-- Sync the delta specs, archive the change, merge it to main and push Codeberg first, then GitHub.
+- The stack (orbyt-brand, orbyt-theme, nixpkgs-2605, python-style, then firmware-, patch-, test- and tooling-hygiene) is verified locally on its final head, then archived change by change in that order there; main fast-forwards to it and is pushed, Codeberg first, then GitHub, whose run on main is the release verification.
 - Rebase `dynamic-dns` onto the renamed main and rename its proposal.
 - Copy Claude's project notes to the new path, move the checkout to `~/Projects/orbyt` and reopen the session there.
 - Then the theme's redesign after the TouhouAsia design system, as its own change, from a mockup the maintainer approves.
