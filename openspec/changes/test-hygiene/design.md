@@ -39,7 +39,7 @@
 
 ### D4. Independent tests
 
-The modules that hand state from one test to the next get module fixtures that set it up and tear it down once: the app Pod, the data disk's plug state (idempotent, so the `if port is None` branches go), the trigger queue drained in a test's teardown rather than at the next test's start. The order comments go. Verified by running each module's tests one by one (`-k`) as well as together.
+The modules that hand state from one test to the next stop doing so. The data disk's state is what a test asks for, the disk in (`pod`) or a boot without it (`without_disk`): function fixtures that bring the router there from whatever the test before left, so that the tests without the disk still share one boot while it stays out, and the `if port is None` repeats go. The file sharing module drains procd's trigger queue once after its setup and after each test (an autouse fixture), not at a test's start. The pull test pulls an image of its own (a stamped layer), so that it writes all of it whether or not the app Pod's image came first. The app Pod stays a module fixture that the module's end takes down with the router's reset; the tests after its first use pass beside it. The order comments go. Verified by running each module's tests one by one (`-k`), each module whole, and each module with its formerly last (or first) test run first.
 
 ### D5. Each fact once
 

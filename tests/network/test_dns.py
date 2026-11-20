@@ -132,7 +132,6 @@ def test_honk_dns_port_is_closed_to_the_lan(proxy: Online) -> None:
     assert "127.0.0.1:5353" in proxy.router.run(f"ss -Hlun 'sport = :{PROXY_DNS_PORT}'")
 
 
-# The last test: its Pod and data disk stay for the rest of the module.
 @spec(
     CAPABILITY,
     "DNS to private addresses reaches its server",

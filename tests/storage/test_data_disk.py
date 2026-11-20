@@ -5,11 +5,14 @@ The tests cover what waits for the disk and what goes on without it.
 The module's data disk is a blank image made the data disk with
 ``orbyt-data init`` (the ``data_disk`` fixture); the app Pod is declared
 on it, so that the container service has something to start. A spare
-disk comes and goes for the tests that need a second one. The tests that
-boot without the data disk come last: they share one boot, and the last
-of them plugs the disk back in. The data disk comes and goes only while
-the router is off, as a disk is best moved: pulled out while in use, it
-would lose what was not written out yet.
+disk comes and goes for the tests that need a second one. Each test asks
+for the state it needs, the disk in (``pod``) or a boot without it
+(``without_disk``), and the fixture brings the router there from
+whatever state the test before left: the tests without the disk share
+one boot while it stays out, and a test with the disk after them has it
+plugged back in, as a disk that comes late is. The data disk is pulled
+out only while the router is off, as a disk is best moved: pulled out
+while in use, it would lose what was not written out yet.
 """
 
 import json
@@ -72,13 +75,25 @@ PROXY_STATE = {
 }
 
 
-@pytest.fixture(scope="module")
-def pod(app_pod: Online) -> Online:
-    """Return the module's router online.
+def _disk_in(online: Online, disk: Disk) -> Online:
+    """Plug the data disk back in if a test left it out; return online.
+
+    The disk is then mounted, with the app Pod on it running.
+    """
+    if disk.port is None:
+        disk.plug(1)
+        wait_mounted(online.router)
+        app.wait_running(online.router)
+    return online
+
+
+@pytest.fixture
+def pod(app_pod: Online, data_disk: Disk) -> Online:
+    """Return the module's router online, the data disk in.
 
     The app Pod is on its data disk.
     """
-    return app_pod
+    return _disk_in(app_pod, data_disk)
 
 
 @pytest.fixture
@@ -90,8 +105,9 @@ def spare(emulator: Emulator, tmp_path: Path) -> Iterator[Disk]:
 
 
 @pytest.fixture(scope="module")
-def rebooted(pod: Online) -> str:
+def rebooted(app_pod: Online, data_disk: Disk) -> str:
     """Log a line persistently, then reboot; return the line."""
+    pod = _disk_in(app_pod, data_disk)
     router = pod.router
     line = f"before the reboot {time.time_ns()}"
     router.run(f"logger -t data-disk-test {line!r}")
@@ -300,19 +316,17 @@ def test_nothing_written_without_the_disk_reaches_the_boot_disk(
         )
 
 
-@pytest.fixture(scope="module")
-def without_disk(pod: Online, data_disk: Disk, proxy: Online) -> Iterator[Online]:
-    """Boot without the data disk, with honk on.
+@pytest.fixture
+def without_disk(app_pod: Online, data_disk: Disk, proxy: Online) -> Online:
+    """Return the router booted without the data disk, with honk on.
 
-    At the end it plugs the disk back in, if no test did.
+    The tests that need it share the boot while the disk stays out.
     """
     del proxy  # enabled, it starts with the boot
-    pod.reboot(while_off=data_disk.unplug)
-    wait_proxy(pod.router)
-    yield pod
-    if data_disk.port is None:
-        data_disk.plug(1)
-        wait_mounted(pod.router)
+    if data_disk.port is not None:
+        app_pod.reboot(while_off=data_disk.unplug)
+        wait_proxy(app_pod.router)
+    return app_pod
 
 
 @spec(CAPABILITY, "Degraded mode without the data disk", "Boot without the data disk")
@@ -389,12 +403,10 @@ def test_data_disk_mounts_late(without_disk: Online, data_disk: Disk) -> None:
     "Data disk mounted and unmounted",
 )
 def test_the_proxy_s_state_follows_the_data_disk(
-    without_disk: Online, data_disk: Disk
+    pod: Online, data_disk: Disk, proxy: Online
 ) -> None:
-    router = without_disk.router
-    if data_disk.port is None:
-        data_disk.plug(1)
-    wait_mounted(router)
+    del proxy  # honk on, with its state where the disk is
+    router = pod.router
     _proxy_on(router, "data disk")
     announce(router, data_disk, "remove")
     try:
@@ -409,7 +421,7 @@ def test_the_proxy_s_state_follows_the_data_disk(
         announce(router, data_disk, "add")
         wait_mounted(router)
     _proxy_on(router, "data disk")
-    assert without_disk.client().probe("tcp", PROXIED_TARGET[0])["address"] == PROXY[0]
+    assert pod.client().probe("tcp", PROXIED_TARGET[0])["address"] == PROXY[0]
 
 
 @spec(CAPABILITY, "Periodic read-only snapshots", "Snapshots after a long time off")
@@ -421,8 +433,8 @@ def test_snapshots_outlast_a_long_time_off(pod: Online) -> None:
         for line in router.run(f"cat {CRONTAB}").splitlines()
         if "orbyt-snap" in line
     ]
-    # The module's earlier tests left snapshots, of days still to come
-    # among them: the scenario starts without any.
+    # Other tests may have left snapshots, of days still to come among
+    # them: the scenario starts without any.
     router.run(
         f"for s in {SNAPSHOTS}/*/*; "
         'do [ ! -d "$s" ] || btrfs -q subvolume delete "$s"; done'

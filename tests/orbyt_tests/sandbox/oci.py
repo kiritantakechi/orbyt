@@ -34,6 +34,8 @@ PROGRAMS = ("bin/busybox", "usr/sbin/uhttpd", "bin/uclient-fetch")
 LIBRARY_DIRECTORIES = ("lib", "usr/lib")
 # musl's dynamic loader is its libc.
 LOADER = ("lib/ld-musl-aarch64.so.1", "libc.so")
+# The file that sets a stamped image's layer apart.
+STAMP = "stamp"
 MEDIA = "application/vnd.oci.image"
 # struct erofs_super_block at byte 1024: magic, then blkszbits at 12,
 # blocks at 36.
@@ -134,8 +136,11 @@ def _files(root: Path) -> dict[str, bytes]:
     return files
 
 
-def _layer(root: Path) -> bytes:
-    """Return the layer as an uncompressed, reproducible tar."""
+def _layer(root: Path, stamp: str | None) -> bytes:
+    """Return the layer as an uncompressed, reproducible tar.
+
+    A ``stamp`` file makes a layer of its own.
+    """
     files = _files(root)
     links = {LOADER[0]: LOADER[1], **{f"bin/{applet}": "busybox" for applet in APPLETS}}
     directories = sorted(
@@ -161,6 +166,10 @@ def _layer(root: Path) -> bytes:
             info = tarfile.TarInfo(name)
             info.type, info.linkname = tarfile.SYMTYPE, target
             tar.addfile(info)
+        if stamp is not None:
+            info = tarfile.TarInfo(STAMP)
+            info.mode, info.size = 0o644, len(stamp)
+            tar.addfile(info, io.BytesIO(stamp.encode()))
     return buffer.getvalue()
 
 
@@ -174,10 +183,15 @@ def _json(value: object) -> bytes:
     return json.dumps(value, separators=(",", ":"), sort_keys=True).encode()
 
 
-def image_layout(root: Path, layout: Path, tag: str = TAG) -> Path:
-    """Write an OCI layout of ``root``'s programs into ``layout``."""
+def image_layout(
+    root: Path, layout: Path, tag: str = TAG, stamp: str | None = None
+) -> Path:
+    """Write an OCI layout of ``root``'s programs into ``layout``.
+
+    An image with a ``stamp`` shares no layer with any other.
+    """
     (layout / "blobs" / "sha256").mkdir(parents=True)
-    tar = _layer(root)
+    tar = _layer(root, stamp)
     layer = _blob(layout, gzip.compress(tar, mtime=0), f"{MEDIA}.layer.v1.tar+gzip")
     config = _blob(
         layout,

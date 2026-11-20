@@ -23,7 +23,7 @@ from orbyt_tests.device.storage import (
 from orbyt_tests.model.poll import until
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Iterator
 
     from orbyt_tests.device.router import Router
     from orbyt_tests.device.storage import Disk
@@ -58,11 +58,35 @@ NESTED_SHARE = "nested"
 KSMBD_CONF = "/var/etc/ksmbd/ksmbd.conf"
 
 
+def _wait_queue_empty(router: Router) -> None:
+    """Wait until procd has run every trigger command it was given."""
+    until(
+        lambda: not router.trigger_commands(),
+        timeout=QUEUE_TIMEOUT,
+        what="procd's trigger commands run",
+    )
+
+
 @pytest.fixture(scope="module")
 def sharing(online: Online, smb_user: tuple[str, str]) -> Online:
-    """Return the router online, sharing the data disk with the user."""
+    """Return the router online, sharing the data disk with the user.
+
+    procd has run what the setup set off.
+    """
     del smb_user  # added for the module
+    _wait_queue_empty(online.router)
     return online
+
+
+@pytest.fixture(autouse=True)
+def settled(sharing: Online) -> Iterator[None]:
+    """Leave procd with nothing to run after each test.
+
+    What a test set off, procd has run before the next test starts,
+    which can then act on what comes next (test-hygiene D4).
+    """
+    yield
+    _wait_queue_empty(sharing.router)
 
 
 def _smbclient(client: Netns, *args: str) -> tuple[int, str]:
@@ -116,18 +140,6 @@ def _wait_stopped(router: Router) -> None:
         ),
         timeout=STOP_TIMEOUT,
         what="the SMB service stopped",
-    )
-
-
-def _wait_queue_empty(router: Router) -> None:
-    """Wait until procd has run what earlier tests set off.
-
-    It can then act on what comes next.
-    """
-    until(
-        lambda: not router.trigger_commands(),
-        timeout=QUEUE_TIMEOUT,
-        what="procd's trigger commands run",
     )
 
 
@@ -226,7 +238,6 @@ def test_shares_go_with_the_data_disk(
     sharing: Online, smb_user: tuple[str, str], data_disk: Disk
 ) -> None:
     router = sharing.router
-    _wait_queue_empty(router)
     assert _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0
     announce(router, data_disk, "remove")
     try:
@@ -261,7 +272,6 @@ def test_shares_go_with_the_data_disk_whatever_runs_on_its_unmount(
     sharing: Online, smb_user: tuple[str, str], data_disk: Disk
 ) -> None:
     router = sharing.router
-    _wait_queue_empty(router)
     assert _list(sharing.client(), LAN_ADDRESS, smb_user)[0] == 0
     script = (
         '[ "$ACTION" = remove ] && {\n'

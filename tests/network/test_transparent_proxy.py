@@ -634,7 +634,6 @@ def test_the_firmware_keeps_the_native_api_in_token_mode(
     assert json.loads(body)["resources"]["config"]["writable"] is False
 
 
-# The last test: its Pod and data disk stay for the rest of the module.
 @spec(
     CAPABILITY,
     "Web UI through the native API in token mode",

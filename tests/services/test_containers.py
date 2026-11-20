@@ -95,13 +95,10 @@ def pod(app_pod: Online, proxy: Online) -> Online:
 
 
 @pytest.fixture(scope="module")
-def registry(trusted_ca: Online, data_disk: Disk, app_image: str) -> tuple[Online, str]:
-    """Return the router trusting the registry, with the data disk.
-
-    No Pod is declared yet.
-    """
+def storage(trusted_ca: Online, data_disk: Disk) -> Online:
+    """Return the router trusting the registry, with the data disk."""
     del data_disk  # podman's storage
-    return trusted_ca, app_image
+    return trusted_ca
 
 
 def _from_container(pod: Online, host: str, port: int = PORT) -> Seen:
@@ -132,26 +129,32 @@ def _fetch(client: Netns, url: str) -> str | None:
         return None
 
 
-# The first test: the module's first pull, before the Pod's.
+def _image_field(router: Router, image: str, field: str) -> str:
+    """Return a field of ``image``, as podman image inspect names it."""
+    return router.run(f"podman image inspect --format '{{{{{field}}}}}' {image}")
+
+
 @spec(CAPABILITY, "Container storage on the data disk", "Pull an image")
-def test_pull_goes_to_the_data_disk(registry: tuple[Online, str]) -> None:
-    online, image = registry
-    router = online.router
+def test_pull_goes_to_the_data_disk(storage: Online, fresh_image: str) -> None:
+    router = storage.router
     mark = f"/tmp/pull-{time.time_ns()}"  # noqa: S108 (a path on the router)
-    router.run(f"touch {mark} && podman pull --quiet {image}", timeout=300)
-    assert router.run("podman info --format '{{.Store.GraphRoot}}'") == STORAGE
-    layer = router.run(
-        f"podman image inspect --format '{{{{.GraphDriver.Data.UpperDir}}}}' {image}"
-    )
-    assert layer.startswith(f"{STORAGE}/")
-    # The boot disk's overlay took no part of it: what little came there
-    # since came from elsewhere (ksmbd starting on the same mount writes
-    # a few bytes).
-    image = int(router.run(f"podman image inspect --format '{{{{.Size}}}}' {image}"))
-    written = router.run(
-        f"find /overlay/upper -newer {mark} -type f -exec cat {{}} + | wc -c"
-    )
-    assert int(written) < image // 100
+    # An image of its own, so that the pull writes all of it, whatever
+    # the module pulled before.
+    router.run(f"touch {mark} && podman pull --quiet {fresh_image}", timeout=300)
+    try:
+        assert router.run("podman info --format '{{.Store.GraphRoot}}'") == STORAGE
+        layer = _image_field(router, fresh_image, ".GraphDriver.Data.UpperDir")
+        assert layer.startswith(f"{STORAGE}/")
+        # The boot disk's overlay took no part of it: what little came
+        # there since came from elsewhere (ksmbd starting on the same
+        # mount writes a few bytes).
+        size = int(_image_field(router, fresh_image, ".Size"))
+        written = router.run(
+            f"find /overlay/upper -newer {mark} -type f -exec cat {{}} + | wc -c"
+        )
+        assert int(written) < size // 100
+    finally:
+        router.run(f"podman rmi {fresh_image} >/dev/null")
 
 
 @spec(CAPABILITY, "Single firewall and single NAT", "Check the ruleset")

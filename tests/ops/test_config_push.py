@@ -6,8 +6,7 @@ login (a preauth key of the emulated internet's headscale) and a share
 user in the encrypted secrets, honk's test configuration encrypted
 beside them. It is pushed once to the module's router, online and
 trusting the emulated internet, over SSH with the harness's key; each
-test pushes what it changed and discards it after. The upgrade to the
-other slot comes last.
+test pushes what it changed and discards it after.
 """
 
 import hashlib

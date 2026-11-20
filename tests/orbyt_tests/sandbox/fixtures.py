@@ -7,6 +7,7 @@ and the signed build's package repository on the runner's LAN address.
 
 import functools
 import threading
+import uuid
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, override
 
@@ -46,16 +47,33 @@ def isp(network: Network) -> Isp:
 
 
 @pytest.fixture(scope="session")
+def firmware_root(
+    emulation_dir: Path, tmp_path_factory: pytest.TempPathFactory
+) -> Path:
+    """Return slot A's root filesystem of the factory disk."""
+    return extract_root(
+        emulation_dir / "disk.raw", tmp_path_factory.mktemp("firmware") / "root"
+    )
+
+
+@pytest.fixture(scope="session")
 def app_image(
-    network: Network, emulation_dir: Path, tmp_path_factory: pytest.TempPathFactory
+    network: Network, firmware_root: Path, tmp_path_factory: pytest.TempPathFactory
 ) -> str:
     """Push the app image to the emulated registry; return its ref."""
-    work = tmp_path_factory.mktemp("oci")
-    layout = image_layout(
-        extract_root(emulation_dir / "disk.raw", work / "root"), work / "layout"
-    )
+    layout = image_layout(firmware_root, tmp_path_factory.mktemp("oci") / "layout")
     reference = f"{REGISTRY[0]}/{IMAGE}:{TAG}"
     push(network["inet"], layout, TAG, reference, network.workdir)
+    return reference
+
+
+@pytest.fixture
+def fresh_image(network: Network, firmware_root: Path, tmp_path: Path) -> str:
+    """Push an app image no router holds a layer of; return its ref."""
+    stamp = uuid.uuid4().hex
+    layout = image_layout(firmware_root, tmp_path / "layout", stamp, stamp)
+    reference = f"{REGISTRY[0]}/{IMAGE}:{stamp}"
+    push(network["inet"], layout, stamp, reference, network.workdir)
     return reference
 
 
