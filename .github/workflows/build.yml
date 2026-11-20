@@ -61,7 +61,6 @@ defaults:
 
 env:
   ORBYT_WORKDIR: /mnt/orbyt
-  NIX_CONFIG: experimental-features = nix-command flakes
 
 jobs:
   host-toolchain:

@@ -28,9 +28,6 @@ defaults:
   run:
     shell: bash
 
-env:
-  NIX_CONFIG: experimental-features = nix-command flakes
-
 jobs:
   bump:
     runs-on: ubuntu-24.04
