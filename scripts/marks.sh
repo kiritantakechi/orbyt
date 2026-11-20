@@ -1,6 +1,6 @@
 #!/bin/sh
-# marks-check: check the packet marks the configuration templates use against config/marks.tsv.
-# Usage: scripts/marks-check.sh [dir...]   (default: files feed)
+# marks: check the packet marks the configuration templates use against config/marks.tsv.
+# Usage: scripts/marks.sh [dir...]   (default: files feed)
 # The table must not give one bit to two owners. A mark in a template of package
 # <owner> (feed/*/<owner>/, or files/ for the image overlay) must lie within that
 # owner's masks: a bit of another owner's mask is a conflict, a bit of no mask is

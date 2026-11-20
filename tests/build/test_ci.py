@@ -252,7 +252,7 @@ def test_room_counts_every_job_that_saves(
     # board's.
     firmware = _workflow()["jobs"]["firmware"]
     room = _step(firmware, "Room for the caches")
-    assert room["env"]["CACHE_SAVERS"] == "${{ strategy.job-total }}"
+    assert room["env"]["ORBYT_CACHE_SAVERS"] == "${{ strategy.job-total }}"
     assert '"$ORBYT_WORKDIR/dl" "$ORBYT_WORKDIR/compiler-cache"' in room["run"]
     for name in ("Save download cache", "Save compiler cache"):
         assert "steps.room.outputs.save == 'true'" in _step(firmware, name)["if"]
@@ -268,8 +268,8 @@ def test_room_counts_every_job_that_saves(
         "cache-room.sh",
         str(cache),
         ref="refs/heads/feature",
-        CACHE_QUOTA=str(4 * MIB),
-        CACHE_SAVERS=savers,
+        ORBYT_CACHE_QUOTA=str(4 * MIB),
+        ORBYT_CACHE_SAVERS=savers,
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"save={save}\n"

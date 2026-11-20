@@ -44,7 +44,7 @@ SEARCHED = (
     ".github",
 )
 SEARCHED_FILES = ("justfile", "flake.nix")
-BOARD_CHECK = Path(sys.executable).with_name("board-check")
+BOARD_SCHEMA = Path(sys.executable).with_name("board-schema")
 BOARD_RECIPES = ("build", "config", "test", "drill-base")
 IMAGES = ("*-factory.img.gz", "*-sysupgrade.tar.gz")
 # The board-neutral flags a toolchain records (config/toolchain.seed).
@@ -116,7 +116,7 @@ def test_a_malformed_description_is_named(tmp_path: Path) -> None:
     description["emulator"]["cores"] = "eight"
     (boards / "r6s.json").write_text(json.dumps(description), encoding="utf-8")
     result = subprocess.run(
-        [BOARD_CHECK, "--boards", boards], capture_output=True, text=True, check=False
+        [BOARD_SCHEMA, "--boards", boards], capture_output=True, text=True, check=False
     )
     assert result.returncode != 0
     assert "r6s.json: cpu: Field required" in result.stderr

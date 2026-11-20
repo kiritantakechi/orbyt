@@ -36,7 +36,7 @@ if TYPE_CHECKING:
     from orbyt_tests.services.datapath import Online
 
 CAPABILITY = "network/tc-hook-order"
-MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
+MARKS_CHECK = REPO_DIR / "scripts" / "marks.sh"
 # The bit honk keeps for its own sockets (config/marks.tsv).
 PROXY_BIT = "0x00000100"
 # pppoe-wan when qosify falls back to clsact: einat on tcx, qosify's

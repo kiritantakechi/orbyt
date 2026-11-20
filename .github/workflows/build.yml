@@ -297,7 +297,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          CACHE_SAVERS: ${{ strategy.job-total }}
+          ORBYT_CACHE_SAVERS: ${{ strategy.job-total }}
         run: nix develop .#build -c just cache-room "$ORBYT_WORKDIR/dl" "$ORBYT_WORKDIR/compiler-cache" >> "$GITHUB_OUTPUT"
 
       - name: Save download cache

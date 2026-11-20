@@ -7,7 +7,7 @@ set -eu
 # shellcheck source=scripts/lib/core.sh
 . "$(dirname -- "$0")/lib/core.sh"
 
-checks='shfmt shellcheck nixfmt actionlint editorconfig-checker gitleaks forbidden-patterns skeleton modules marks boards ruff-format ruff-check ty tach spec-coverage'
+checks='shfmt shellcheck nixfmt actionlint editorconfig-checker gitleaks forbidden-patterns skeleton modules marks board-schema ruff-format ruff-check ty tach spec-coverage'
 requested=$*
 for name in ${requested}; do
 	case " ${checks} " in
@@ -152,8 +152,8 @@ run() {
 	run skeleton skeleton
 	# The shell library: every script loads what it calls, and no function is dead.
 	run modules uv run --directory tests --locked lib-check
-	run marks "${REPO_DIR}/scripts/marks-check.sh"
-	run boards uv run --directory tests --locked board-check
+	run marks "${REPO_DIR}/scripts/marks.sh"
+	run board-schema uv run --directory tests --locked board-schema
 	run ruff-format uv run --directory tests --locked ruff format --check
 	run ruff-check uv run --directory tests --locked ruff check
 	run ty uv run --directory tests --locked ty check

@@ -27,7 +27,7 @@ if TYPE_CHECKING:
     from orbyt_tests.services.vpn import Tailnet, WireGuard
 
 CAPABILITY = "services/vpn"
-MARKS_CHECK = REPO_DIR / "scripts" / "marks-check.sh"
+MARKS_CHECK = REPO_DIR / "scripts" / "marks.sh"
 MARKS = REPO_DIR / "config" / "marks.tsv"
 # The router's services for the LAN alone: SSH and LuCI.
 LAN_ONLY_PORTS = (22, 80)

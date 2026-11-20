@@ -63,8 +63,8 @@ sandbox-prepare:
 
 # Check the packet marks of the configuration templates against config/marks.tsv (any host)
 [group('quality')]
-marks-check *dirs:
-    scripts/marks-check.sh "$@"
+marks *dirs:
+    scripts/marks.sh "$@"
 
 # Run the code-standard checks, all or the named ones; changes nothing (any host)
 [group('quality')]

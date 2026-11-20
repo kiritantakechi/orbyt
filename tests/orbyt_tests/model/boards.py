@@ -7,8 +7,8 @@ with their roles and drivers, and how the emulator stands in for the
 board. The board's id is the file's name.
 
 ``Board`` is their schema, strict about unknown fields and types.
-``board-check`` (``just check boards``) checks every description with
-it.
+``board-schema`` (``just check board-schema``) checks every
+description with it.
 """
 
 import argparse
@@ -165,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
     Each problem names its board and field.
     """
     parser = argparse.ArgumentParser(
-        prog="board-check", description=__doc__.splitlines()[0]
+        prog="board-schema", description=__doc__.splitlines()[0]
     )
     parser.add_argument(
         "--boards", type=Path, default=BOARDS_DIR, help=argparse.SUPPRESS

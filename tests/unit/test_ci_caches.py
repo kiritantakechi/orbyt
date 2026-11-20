@@ -41,7 +41,7 @@ def test_room_for_a_cache(tmp_path: Path, ref: str, used: int, save: str) -> Non
         "cache-room.sh",
         str(cache),
         ref=ref,
-        CACHE_QUOTA=str(4 * MIB),
+        ORBYT_CACHE_QUOTA=str(4 * MIB),
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout == f"save={save}\n"

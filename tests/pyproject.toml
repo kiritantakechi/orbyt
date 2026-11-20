@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-board-check = "orbyt_tests.model.boards:main"
+board-schema = "orbyt_tests.model.boards:main"
 emu-prepare = "orbyt_tests.device.prepare:main"
 lib-check = "orbyt_tests.model.lib_check:main"
 spec-coverage = "orbyt_tests.model.coverage:main"
