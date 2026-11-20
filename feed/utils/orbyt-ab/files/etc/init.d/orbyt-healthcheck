@@ -1,5 +1,7 @@
 #!/bin/sh /etc/rc.common
-# Check the health of this boot once, after every other service has started.
+# Check the health of this boot once: every check again until all pass or the
+# time is up, so a service may come up after the check began (firmware-hygiene
+# D2).
 
 # shellcheck disable=SC2034 # read by /etc/rc.common
 START=99

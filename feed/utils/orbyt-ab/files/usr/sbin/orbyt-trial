@@ -14,9 +14,8 @@
 
 import { access, writefile } from 'fs';
 import { cursor } from 'uci';
-import { slot, variables } from 'orbyt.ab';
+import { RESULT, seconds, slot, variables } from 'orbyt.ab';
 
-const RESULT = '/var/run/orbyt-healthcheck.json';
 const DEADLINE = 900;
 
 // log(priority, message): a line of the kernel log, at a syslog priority.
@@ -28,12 +27,6 @@ function log(priority, message) {
 // trial; false for one that cannot be read.
 function on_trial(environment, running) {
 	return environment?.boot_slot == running && environment?.upgrade_available == '1';
-}
-
-// seconds(): seconds since the kernel's start, on the monotonic clock, which
-// setting the time of day does not move.
-function seconds() {
-	return clock(true)[0];
 }
 
 let running = slot();

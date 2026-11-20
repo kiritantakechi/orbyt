@@ -33,6 +33,10 @@ DAY = 86400
 # A directory ahead of the system's on PATH, holding a U-Boot tool that
 # fails.
 BROKEN = "/tmp/broken-tools"  # noqa: S108 (a path on the router)
+# A service that comes up late: its check records each run, and passes
+# once the service's mark exists.
+LATE_RUNS = "/tmp/late-runs"  # noqa: S108 (a path on the router)
+LATE_UP = "/tmp/late-up"  # noqa: S108 (a path on the router)
 
 
 def _check(router: Router, broken: str | None = None) -> dict[str, object]:
@@ -122,6 +126,43 @@ def test_trial_failure_reboots(router: Router) -> None:
         f"until logread -e orbyt-healthcheck | grep -q '{confirmed}'; do sleep 2; done",
         timeout=300,
     )
+
+
+@spec(CAPABILITY, "The trial watchdog starts first", "The image's boot scripts")
+def test_the_trial_watchdog_is_the_first_boot_script(router: Router) -> None:
+    scripts = router.run("ls /etc/rc.d | grep '^S'").split()
+    assert scripts[0] == "S00orbyt-trial", scripts
+
+
+@spec(
+    CAPABILITY,
+    "The trial watchdog starts first",
+    "A service that starts after the health check",
+)
+def test_a_service_up_after_the_check_began_passes(router: Router) -> None:
+    running = slot(router)
+    setenv(router, boot_slot=running, upgrade_available=1, bootcount=0)
+    _register(router, "late", f"echo ran >>{LATE_RUNS}; [ -e {LATE_UP} ]")
+    limits = " && ".join(
+        f"uci set orbyt-ab.healthcheck.{name}={value}" for name, value in SLOW.items()
+    )
+    router.detach(f"{limits} && orbyt-healthcheck")
+    # The service comes up once the health check has found it down.
+    until(
+        lambda: router.poll(f"cat {LATE_RUNS}"),
+        timeout=SLOW["total"],
+        what="the health check's first run of the late check",
+    )
+    router.run(f"touch {LATE_UP}")
+    confirmed = f"slot {running} passed its trial boot and is confirmed"
+    until(
+        lambda: confirmed in (router.poll("logread -e orbyt-healthcheck") or ""),
+        timeout=SLOW["total"],
+        what="the trial's confirmation",
+    )
+    # It ran once at least with the service down, then once with it up.
+    assert len(router.run(f"cat {LATE_RUNS}").split()) > 1
+    assert getenv(router, "upgrade_available") == "0"
 
 
 @spec(

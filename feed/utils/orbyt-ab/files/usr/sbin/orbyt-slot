@@ -6,9 +6,11 @@
 'use strict';
 
 import { readfile } from 'fs';
-import { other, setenv, slot, variables } from 'orbyt.ab';
+import { RESULT, other, setenv, slot, variables } from 'orbyt.ab';
 
-const RESULT = '/var/run/orbyt-healthcheck.json';
+// U-Boot's boot limit of a trial, built in (CONFIG_BOOTCOUNT_BOOTLIMIT in
+// uboot/orbyt-ab.config): U-Boot reads no bootlimit from the stored environment.
+const BOOTLIMIT = 3;
 
 // running(): the running slot; leaves on a system not booted from a slot.
 function running() {
@@ -46,7 +48,7 @@ function status() {
 		state = 'unknown: the U-Boot environment cannot be read';
 	else if (environment.upgrade_available == '1')
 		state = sprintf('trial, boot %s of %s',
-			environment.bootcount ?? '0', environment.bootlimit ?? '3');
+			environment.bootcount ?? '0', BOOTLIMIT);
 
 	printf('slot: %s\nstate: %s\nhealth: %s\n', running(), state, health());
 }

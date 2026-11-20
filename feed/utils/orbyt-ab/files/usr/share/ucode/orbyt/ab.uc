@@ -6,6 +6,17 @@
 
 import { popen, readfile } from 'fs';
 
+// RESULT: where the health check records this boot's result, which orbyt-slot
+// shows and the trial watchdog waits for (firmware-hygiene D6).
+export const RESULT = '/var/run/orbyt-healthcheck.json';
+
+// seconds(): seconds since the kernel's start, on the monotonic clock, which
+// setting the time of day does not move, as NTP does once the router is online
+// (trial-boot-resilience D4).
+export function seconds() {
+	return clock(true)[0];
+}
+
 // slot(): the running slot, "a" or "b", as U-Boot passed it to the kernel; null
 // on a system not booted from a slot.
 export function slot() {

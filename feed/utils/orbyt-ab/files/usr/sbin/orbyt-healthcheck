@@ -15,9 +15,8 @@
 import { access, lsdir, readfile, writefile } from 'fs';
 import { cursor } from 'uci';
 import * as ubus from 'ubus';
-import { setenv, slot, variables } from 'orbyt.ab';
+import { RESULT, seconds, setenv, slot, variables } from 'orbyt.ab';
 
-const RESULT = '/var/run/orbyt-healthcheck.json';
 const CHECKS = '/etc/healthcheck.d';
 
 // setting(name, fallback): a time limit from /etc/config/orbyt-ab, in seconds.
@@ -25,19 +24,8 @@ function setting(name, fallback) {
 	return +(cursor().get('orbyt-ab', 'healthcheck', name) ?? fallback);
 }
 
-// seconds(): seconds on the monotonic clock, which setting the time of day does
-// not move, as NTP does once the router is online (trial-boot-resilience D4).
-function seconds() {
-	return clock(true)[0];
-}
-
 function log(level, message) {
 	system(['logger', '-t', 'orbyt-healthcheck', '-p', `daemon.${level}`, message]);
-}
-
-// quoted(word): word as one argument of a shell command line.
-function quoted(word) {
-	return `'${replace(word, "'", "'\\''")}'`;
 }
 
 // listening(port, address): a TCP socket listens on the port, on that IPv4
@@ -89,8 +77,9 @@ function run_checks(timeout, environment) {
 	for (let name in sort(lsdir(CHECKS) ?? [])) {
 		let check = `${CHECKS}/${name}`;
 
-		if (access(check, 'x') &&
-			system(`timeout ${timeout} ${quoted(check)} >/dev/null 2>&1`) != 0)
+		// A check killed at its time limit returns -9 (SIGKILL), one that fails
+		// its exit status: anything but 0 fails it.
+		if (access(check, 'x') && system([check], timeout * 1000) != 0)
 			push(failed, name);
 	}
 
