@@ -75,6 +75,7 @@ jobs:
     outputs:
       key: ${{ steps.key.outputs.key }}
       boards: ${{ steps.boards.outputs.boards }}
+      emulator: ${{ steps.emulator-key.outputs.key }}
     steps:
       - uses: actions/checkout@v7
 
@@ -87,6 +88,32 @@ jobs:
         run: |
           boards=$(nix develop .#build -c just boards)
           echo "boards=${boards}" >> "$GITHUB_OUTPUT"
+
+      # The tests' patched QEMU, which no binary cache holds: built here when
+      # its inputs changed, and taken by every job that emulates, which then
+      # builds none (tooling-hygiene D3).
+      - name: Emulator key
+        id: emulator-key
+        run: nix develop .#quality -c just emulator-key >> "$GITHUB_OUTPUT"
+
+      - name: Emulator built before
+        id: emulator
+        uses: actions/cache/restore@v6
+        with:
+          key: ${{ steps.emulator-key.outputs.key }}
+          path: ${{ runner.temp }}/emulator
+          lookup-only: true
+
+      - name: Build emulator
+        if: steps.emulator.outputs.cache-hit != 'true'
+        run: nix develop .#quality -c just emulator-pack "$RUNNER_TEMP/emulator"
+
+      - name: Save emulator
+        if: steps.emulator.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          key: ${{ steps.emulator-key.outputs.key }}
+          path: ${{ runner.temp }}/emulator
 
       - name: Fetch and patch sources
         run: nix develop .#build -c just fetch patch
@@ -241,6 +268,17 @@ jobs:
         # Its recipe's dependencies are this job's steps before it.
         run: nix develop .#build -c just --no-deps build "$BOARD" ci
 
+      - name: Restore emulator
+        id: emulator
+        uses: actions/cache/restore@v6
+        with:
+          key: ${{ needs.host-toolchain.outputs.emulator }}
+          path: ${{ runner.temp }}/emulator
+
+      - name: Import emulator
+        if: steps.emulator.outputs.cache-hit == 'true'
+        run: nix develop .#quality -c just emulator-unpack "$RUNNER_TEMP/emulator"
+
       - uses: ./.github/actions/uv-cache
 
       # The tests that read the build tree, which only this job has; the system
@@ -295,8 +333,8 @@ jobs:
   # only within the quota's room. Past the 10 GB quota GitHub evicts the least
   # recently used caches, so the firmware jobs restore the toolchain last. The
   # run then keeps, of its own ref's caches, the current toolchain, the newest
-  # download cache, and the newest compiler cache of each stage: the host's and
-  # each board's. On main, the caches of merged or deleted branches go too
+  # download cache, the newest emulator, and the newest compiler cache of each
+  # stage: the host's and each board's. On main, the caches of merged or deleted branches go too
   # (scripts/cache-prune.sh). The job runs no build code.
   caches:
     needs: [host-toolchain, firmware]
@@ -358,6 +396,17 @@ jobs:
         with:
           name: firmware-unsigned-${{ matrix.board }}
           path: ${{ env.ORBYT_WORKDIR }}/out/${{ matrix.board }}/ci
+
+      - name: Restore emulator
+        id: emulator
+        uses: actions/cache/restore@v6
+        with:
+          key: ${{ needs.host-toolchain.outputs.emulator }}
+          path: ${{ runner.temp }}/emulator
+
+      - name: Import emulator
+        if: steps.emulator.outputs.cache-hit == 'true'
+        run: nix develop .#quality -c just emulator-unpack "$RUNNER_TEMP/emulator"
 
       - name: Host environment
         run: |
@@ -475,6 +524,17 @@ jobs:
         with:
           name: firmware-signed
           path: ${{ env.ORBYT_WORKDIR }}/signed
+
+      - name: Restore emulator
+        id: emulator
+        uses: actions/cache/restore@v6
+        with:
+          key: ${{ needs.host-toolchain.outputs.emulator }}
+          path: ${{ runner.temp }}/emulator
+
+      - name: Import emulator
+        if: steps.emulator.outputs.cache-hit == 'true'
+        run: nix develop .#quality -c just emulator-unpack "$RUNNER_TEMP/emulator"
 
       - id: uv-cache
         uses: ./.github/actions/uv-cache

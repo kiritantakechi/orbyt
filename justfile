@@ -131,6 +131,21 @@ runner-prepare:
 toolchain-key profile="dev":
     scripts/toolchain-key.sh "$@"
 
+# Print the emulator's cache key (CI only)
+[group('ci')]
+emulator-key:
+    scripts/emulator-key.sh
+
+# Build the emulator into a directory as a binary cache (CI only)
+[group('ci')]
+emulator-pack directory:
+    scripts/emulator-pack.sh "$@"
+
+# Import the emulator from emulator-pack's directory (CI only)
+[group('ci')]
+emulator-unpack directory:
+    scripts/emulator-unpack.sh "$@"
+
 # Print the download cache's key
 [group('ci')]
 download-key:

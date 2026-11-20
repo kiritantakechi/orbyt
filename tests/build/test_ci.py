@@ -419,3 +419,36 @@ def test_the_drill_check_decides_from_the_results() -> None:
         check=False,
     )
     assert bump.returncode == 0
+
+
+@spec(CAPABILITY, "The emulator built once per run", "A run's test jobs")
+def test_every_job_that_emulates_takes_the_run_s_emulator(tmp_path: Path) -> None:
+    jobs = _workflow()["jobs"]
+    host = jobs["host-toolchain"]
+    assert host["outputs"]["emulator"] == "${{ steps.emulator-key.outputs.key }}"
+    assert any("just emulator-pack" in step.get("run", "") for step in host["steps"])
+    # The test environment's shell holds the emulator: a job imports the
+    # run's before its first use of it.
+    emulating = []
+    for name, job in jobs.items():
+        runs = [step.get("run", "") for step in job.get("steps", [])]
+        uses = [index for index, run in enumerate(runs) if "nix develop -c" in run]
+        if not uses:
+            continue
+        emulating.append(name)
+        imports = [index for index, run in enumerate(runs) if "emulator-unpack" in run]
+        assert imports, name
+        assert imports[0] < uses[0], name
+        assert "host-toolchain" in job["needs"], name
+    assert sorted(emulating) == ["drill", "firmware", "system-test"]
+    # The prune keeps the newest emulator of the run's ref, which the
+    # run's test jobs restore while it runs.
+    repository = Repository()
+    repository.cache(MAIN, "toolchain-1")
+    for build in ("old", "new"):
+        repository.cache(MAIN, f"emulator-{build}")
+    result, left = run_script(
+        tmp_path, repository, "cache-prune.sh", "toolchain-1", ref=MAIN
+    )
+    assert result.returncode == 0, result.stderr
+    assert sorted(key for _, key in left) == ["emulator-new", "toolchain-1"]

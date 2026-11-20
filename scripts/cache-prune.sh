@@ -5,8 +5,8 @@
 # run its branch has moved past by a change the build reads, a re-run of an older
 # run among them, leaves every cache to the newer run (release-freshness D3).
 # Of the run's own ref's caches, the current toolchain stays, and so do the
-# newest download cache and the newest compiler cache of each stage, the host's
-# and each board's. A compiler cache's stage is its key without the settings
+# newest download cache, the newest emulator and the newest compiler cache of
+# each stage, the host's and each board's. A compiler cache's stage is its key without the settings
 # hash and the run, the last two fields, so that a board id with a hyphen is one
 # stage (release-integrity D6). A run on the default branch also deletes every
 # cache of a branch that no longer exists or that is merged into it, as the
@@ -44,6 +44,7 @@ superseded=$(
 		awk -v toolchain="${toolchain}" '
 			$2 ~ /^toolchain-/ { if ($2 != toolchain) print $1; next }
 			$2 ~ /^dl-/ { if (kept["dl"]++) print $1; next }
+			$2 ~ /^emulator-/ { if (kept["emulator"]++) print $1; next }
 			$2 ~ /^compiler-cache-/ { stage = $2; sub(/-[^-]*-[^-]*$/, "", stage); if (kept[stage]++) print $1 }
 		'
 )

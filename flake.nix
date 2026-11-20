@@ -298,6 +298,9 @@
           default = (environmentsFor pkgs unstable).orbyt-build-fhs;
           # The release signing tools (r4s-release-pipeline D2): `nix run .#sign-tools`.
           sign-tools = import ./nix/sign-tools.nix { inherit pkgs; };
+          # The tests' patched QEMU, which no binary cache holds: CI builds it once
+          # per run and hands it to the jobs that emulate (tooling-hygiene D3).
+          emulator = emulatorQemu unstable;
         }
       );
 
