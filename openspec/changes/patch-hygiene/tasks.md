@@ -34,7 +34,7 @@
 
 ## 4. Write-ups and small fixes (D5, D6)
 
-- [ ] 4.1 Bring every write-up to the four sections in series order, fix 0040's trailer and the titles, and add the write-up check to `tests/build/test_upstream_pinning.py`.
+- [x] 4.1 Bring every write-up to the four sections, grouped and in order, fix 0025's title and the Rust entry's dates, and add the write-up check to `tests/build/test_upstream_pinning.py`.
 
   Verify: the check passes, and fails on a write-up with a section removed.
 

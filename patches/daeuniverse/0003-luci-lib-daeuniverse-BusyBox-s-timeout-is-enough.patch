@@ -5,9 +5,10 @@ Subject: [PATCH] luci-lib-daeuniverse: BusyBox's timeout is enough
 
 The package check bounds `apk update` with coreutils' timeout, and the
 library depends on coreutils-timeout for that one call. It builds and
-installs coreutils for an option BusyBox's timeout applet, on by default
-in OpenWrt's BusyBox, also takes in its short form: `-s TERM -k 5`. Use
-the short options, which both accept, and drop the dependency.
+installs coreutils for an option BusyBox's timeout applet also takes in
+its short form: `-s TERM -k 5`. Use the short options, which both
+accept, and depend on BusyBox's applet, on by default in OpenWrt's
+BusyBox, instead of coreutils.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
@@ -17,7 +18,7 @@ Upstream-Status: Pending
  2 files changed, 2 insertions(+), 2 deletions(-)
 
 diff --git a/luci-lib-daeuniverse/Makefile b/luci-lib-daeuniverse/Makefile
-index df4caa4..756ad5a 100644
+index df4caa4..99c5c78 100644
 --- a/luci-lib-daeuniverse/Makefile
 +++ b/luci-lib-daeuniverse/Makefile
 @@ -15,7 +15,7 @@ include $(TOPDIR)/rules.mk
@@ -25,7 +26,7 @@ index df4caa4..756ad5a 100644
  
  LUCI_TITLE:=Shared LuCI page for dae and honk
 -LUCI_DEPENDS:=+luci-base +jshn +flock +coreutils-timeout
-+LUCI_DEPENDS:=+luci-base +jshn +flock
++LUCI_DEPENDS:=+luci-base +jshn +flock +@BUSYBOX_CONFIG_TIMEOUT
  LUCI_PKGARCH:=all
  
  include $(TOPDIR)/feeds/luci/luci.mk

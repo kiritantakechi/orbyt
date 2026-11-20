@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 from orbyt_tests import spec
 from orbyt_tests.model.patches import (
     DOC,
+    misshapen,
     repository_patches,
     unstated,
     without_patch,
@@ -53,6 +54,20 @@ def test_patches_meant_for_upstream_have_their_write_ups() -> None:
 @spec(CAPABILITY, REQUIREMENT, "Write-up without a patch")
 def test_every_write_up_names_its_patch() -> None:
     assert without_patch(repository_patches(), write_ups(DOC.read_text())) == []
+
+
+@spec(
+    CAPABILITY,
+    "One fault per patch, each written up alike",
+    "A write-up without a section",
+)
+def test_every_write_up_has_its_sections() -> None:
+    doc = DOC.read_text()
+    assert misshapen(doc) == []
+    broken = doc.replace("\nWhy it matters here: ", "\nWhy: ", 1)
+    assert any(
+        problem.endswith(": no Why it matters here") for problem in misshapen(broken)
+    )
 
 
 @spec(

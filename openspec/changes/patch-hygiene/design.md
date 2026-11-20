@@ -54,7 +54,7 @@ Verified on the R4S's `ubsan` tree: libffi, libmd, libmnl and musl-fts link with
 
 ### D5. The write-ups
 
-Every write-up has the sections `Problem`, `Why it matters here`, `What the patch does` and `Verification log`, in that order, and its title is its patch's subject. A check in `tests/build/test_upstream_pinning.py` reads docs/patches.md and fails on a missing or misplaced section, naming the patch. 0040 states `Backport [linux 3266c806dc86, 6262afa10ef7]`; the entries follow the series' order; the Rust entry's dates say what each is (the packages' pin, Rust's release).
+Every write-up has the sections `Problem`, `Why it matters here`, `What the patch does` (or, for a patch that adds several, `What the patches do`) and `Verification log`, in that order. The write-ups are grouped by where their patch lives (each series, QEMU's, the feed packages' own, the ones prepared for upstream), each group in its files' order. A check in `tests/build/test_upstream_pinning.py` reads docs/patches.md and fails on a missing or misplaced section, naming the patch, and on a write-up out of order. A title says what its patch fixes, in the documentation's form, so 0025's says it reads, not formats. 0040 stays `Pending`: it ports Linux's two fixes into U-Boot, which lacks them, and is meant for U-Boot; its write-up says they are Linux's. The Rust entry's dates say what each is (the packages' pin, Rust's release).
 
 ### D6. Small dependency
 

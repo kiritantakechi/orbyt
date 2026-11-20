@@ -33,59 +33,17 @@ Every `Pending` and `Submitted` patch has a write-up below, which names its file
 
 ## Patches meant for upstream
 
-### EROFS compression algorithm
+The write-ups follow, by where their patch lives, each in its file's order; every one has the same sections, in this order: Problem, Why it matters here, What the patch does (or the patches do, for a patch that adds several), Verification log.
 
-Patch: `docs/upstream/0001-build-make-the-EROFS-compression-selectable.patch`, for openwrt/openwrt.
-
-Problem: `include/image.mk:110` tests `CONFIG_EROFS_FS_ZIP_LZMA`, but that symbol does not exist; the Kconfig option is named `KERNEL_EROFS_FS_ZIP_LZMA`. So the LZMA branch never runs, and every EROFS image is in fact compressed with lz4hc.
-
-Why a rename alone is not enough: `KERNEL_EROFS_FS_ZIP_LZMA` has no prompt and defaults to y when EROFS is enabled. With only the rename, every EROFS build would **silently switch to LZMA**, and this project's images would change with it, whereas we chose lz4hc.
-
-What the patch does: it adds a `compression` choice that defaults to lz4hc, matching the current actual behavior; choosing LZMA also selects the kernel's LZMA support. `image.mk` now tests this choice instead.
-
-### Kernel options for F2FS compression
-
-Patch: `docs/upstream/0002-config-kernel-add-F2FS-compression-options.patch`, for openwrt/openwrt.
-
-Problem: fstools can format the overlay as compressed f2fs via `fstools_overlay_compression_type=`, but `config/Config-kernel.in` has no matching `KERNEL_F2FS_*` options, so the build configuration cannot select them.
-
-What the patch does: it adds `KERNEL_F2FS_FS_COMPRESSION` and each algorithm option beneath it (LZO, LZO-RLE, LZ4, LZ4HC, ZSTD). The kernel defaults all of these options to y, and if any of them has no value the build stops, so each one needs a matching `KERNEL_*`. F2FS selects the libraries of the algorithms it compresses with, which are modules when f2fs is one, so `kmod-fs-f2fs` depends on the kmods that hold them (`kmod-lib-lzo`, `kmod-lib-lz4`, `kmod-lib-lz4hc`, `kmod-lib-zstd`), each under its option.
-
-How this project handles it: it does not depend on this patch; instead, the upstream-native kernel config overlay (`config/kernel.config` → `env/kernel-config`) provides the same options. Once upstream accepts the patch, we can switch back to `CONFIG_KERNEL_F2FS_*` in the seed.
-
-Verification log: 2026-09-28, this patch and the EROFS one above apply cleanly with `git am` onto openwrt `1019293`, as pinned by the lock.
-
-2026-10-05: on `1019293`, `make defconfig` for the NanoPi R4S with `kmod-fs-f2fs` as a module and `KERNEL_F2FS_FS_COMPRESSION` selects `kmod-lib-lz4` and `kmod-lib-zstd`, the algorithms on by default, and neither LZO's nor LZ4HC's kmod. Before submitting: build f2fs as a module with every algorithm on and check that `f2fs.ko` loads with the selected kmods (this project builds F2FS into the kernel).
-
-### sdhci-pci loses its card on loadvm (QEMU)
-
-Patch: `patches/qemu/0001-hw-sd-sdhci-pci-migrate-the-PCI-device-state.patch`, for qemu/qemu.
-
-Problem: `sdhci-pci` takes the migration description of the sysbus SDHCI variants, `sdhci_vmstate`, which holds only the controller registers. Its PCI configuration space is never saved, so after `loadvm` (or a migration) the BAR is unmapped, every register reads as all ones, and the guest loses its card ("Controller never released inhibit bit(s)").
-
-Why it matters here: since r4s-ab-rollback, the emulator boots the factory image from its boot disk, an SD card or an eMMC on `sdhci-pci`, and the tests return the machine to a `savevm` snapshot between every two tests.
-
-What the patch does: it gives `sdhci-pci` a description of its own: the PCI device state first, then the shared controller state. Its migration section is then named `sdhci-pci` rather than `sdhci`, so a stream from an earlier QEMU no longer loads into `sdhci-pci`; such a stream holds no PCI state, and its guest lost the card anyway. `flake.nix` builds the emulator's QEMU (aarch64 guests only) with it, and with every other patch in `patches/qemu/`.
-
-Verification log: 2026-09-29, QEMU 11.1.1 builds with the patch, and the emulation tests, which restore a snapshot between every two tests, pass with the SD card. 2026-10-26, QEMU 11.1.2 builds with it; its `sdhci-pci.c` still migrates no PCI state.
-
-### einat marks the inbound packets it translates back
-
-Patch: `feed/net/einat/patches/100-mark-inbound-packets-translated-back.patch`, for EHfive/einat-ebpf.
-
-Problem: einat reverse-translates inbound packets in its tc ingress program, before netfilter sees them, and leaves no trace of having done so. A firewall behind it cannot tell a packet einat let in (a reply, or a new flow to a mapped port under full-cone filtering) from one that arrived for an internal address by other means (a spoofed destination). The usual answer, accepting every forwarded packet from the external zone towards the internal ones, accepts both.
-
-What the patch does: an `inbound_mark` option (`--inbound-mark` on the command line), ORed into `skb->mark` by `ingress_rev_snat` after a successful reverse translation. It is a read-only global of the BPF object, 0 by default, which marks nothing, so without the option einat behaves as before. Hairpinned packets never pass `ingress_rev_snat` (egress redirects them), so they stay unmarked. The Rust side adds the option to the configuration and the command line (hexadecimal accepted) and passes it with the other globals; the rodata struct gains explicit padding, as the loader requires a layout without implicit padding.
-
-How this project uses it: einat runs with `--inbound-mark 0x20000000` (the bit `config/marks.tsv` gives it), and its init script adds one fw4 rule that accepts forwarded packets from wan to lan carrying the bit (r4s-ebpf-datapath design D2, D3).
-
-Verification log: 2026-09-29, the patch applies to einat-ebpf 0.1.11 (`ba647ce`) and builds with the aya loader. 2026-11-15, einat 0.2.0 (aya 0.16): the patch's range-diff against its 0.1.11 form is empty, its index lines and one hunk's offset the only change; it builds, and the NAT tests pass on the emulated R4S, the inbound connection the mark lets in among them.
+## The openwrt series
 
 ### qosify stays unconfigured after a slow start
 
 Patch: `patches/openwrt/0006-qosify-configure-the-daemon-whenever-it-comes-up.patch`, for openwrt/openwrt.
 
 Problem: qosify's init script waits 10 seconds for the daemon's ubus object and, if it has not appeared by then, gives up on configuring it: no shaping and no classification until the next reload, with only "Command failed: Request timed out" in the log. The daemon registers once its BPF programs are loaded, which on a busy boot takes longer; the emulator hit it on every boot.
+
+Why it matters here: qosify shapes and classifies the WAN of every image (network/qos).
 
 What the patch does: `service_running` waits in the background, so the boot does not wait along, for as long as procd runs the daemon, and configures it once it appears; it then returns whether procd runs the daemon, as the `running` action expects. A first version waited two minutes; with every CPU of the test VM kept busy the daemon took longer, and stayed unconfigured. `PKG_RELEASE` goes to 2.
 
@@ -99,23 +57,13 @@ Patch: `patches/openwrt/0007-rockchip-wait-for-a-NIC-s-IRQ-only-on-that-NIC-s-ow
 
 Problem: `40-net-smp-affinity` runs its whole body on every net `add` event, whatever the device: each bridge, veth or tunnel sets every NIC's IRQ affinity again and waits up to ten seconds per NIC for the IRQ to show in `/proc/interrupts`. procd runs hotplug scripts one after another, so a NIC whose IRQ carries another name (the emulator's virtio NICs) holds up every later net event: dae's own veths and a container bridge were bound minutes late.
 
+Why it matters here: honk's veths and podman's bridge must be bound within the transparent proxy's 60 seconds (network/transparent-proxy), and the emulator's NICs, whose IRQs carry other names, held up every net event after them.
+
 What the patch does: `set_interface_core` waits for a NIC's IRQ only on that NIC's own event. Any other net event still sets the affinity of every NIC whose IRQ is listed already, and skips the others without waiting. A NIC's driver may request its IRQ only when the NIC is brought up, as r8169 and stmmac do, so the IRQ can appear after the NIC's own event stopped waiting: the next net device to appear then sets it, as before the patch.
 
 Verification log: 2026-09-29, a bridge created after dae is bound within the spec's 60 seconds (`tests/network/test_transparent_proxy.py`).
 
 2026-10-05: the script run with stand-ins for `/proc/interrupts` and `/proc/irq` (the emulator's virtio IRQs never match): a bridge's event set eth0, whose IRQ was listed, and skipped eth1, whose IRQ was not, at once; the next event set both. On the devices, the IRQs of the NICs are not checked by a test.
-
-### ksmbd-tools: shares on a disk that is not mounted
-
-Patch: `patches/packages/0001-ksmbd-tools-share-only-what-is-mounted-and-start-onc.patch`, for openwrt/packages.
-
-Problem: ksmbd's init script shares every configured path whether or not the disk it belongs on is mounted. A share on a USB disk that is late or absent then shares the empty directory underneath, on the router's flash: what clients write there fills the flash, and disappears from view once the disk is mounted over it. Nothing starts the service again when the disk arrives, and nothing withdraws a share whose disk is unmounted while the service runs.
-
-What the patch does: `smb_add_share` leaves a share out unless every fstab mount point its path lies on is mounted (`procd_mountpoints_ready`, patch 0035). `service_triggers` adds a reload trigger per share path for the mount, and one for the unmount (procd's unmount helpers, patch 0035), so the mount brings the share and the unmount takes it away: `mount.remove` follows the unmount (patch 0036), and `/proc/mounts` tells the reload what went. A reload starts the service anew, as every start resets the server hard; a restart would drop the service, and its triggers with it, until it had started again, so a disk back within that time went unnoticed. A start with every share waiting stops a running server, after that hard reset, and starts nothing. Shares on no fstab mount point are unaffected. `PKG_RELEASE` goes to 4.
-
-How this project uses it: the share `shares` lies on the data disk, whose fstab entry exists from the first boot (r4s-services D2).
-
-Verification log: 2026-09-29, in the emulator ksmbd stays down without the data disk and starts when it is plugged in (`tests/storage/test_data_disk.py`, `tests/services/test_file_sharing.py`). With patches 0035 and 0036, the data disk removed while the service runs stops it, port 445 included, and its return brings the shares back (the file-sharing test "Data disk removed while sharing", both boards). The file-sharing tests "Data disk removed while an unmount script runs" and "Share within a disk within another" check a reload asked for while the unmount waits and the nested mount points (device-integrity D7).
 
 ### ubox: a log file on a disk that is not mounted
 
@@ -123,9 +71,9 @@ Patch: `patches/openwrt/0008-ubox-log-to-a-file-only-while-its-mount-point-is-mo
 
 Problem: the log service leaves its log file out while the file's fstab mount point is not mounted, but only at boot. A start or reload later on, such as the reload that any change to the system configuration brings, creates the directory on the root filesystem and logs there: onto the flash, underneath where the disk mounts.
 
-What the patch does: the log file is left out whenever a mount point that holds it is not mounted (`procd_mountpoints_ready`, patch 0035: of mount points within one another, every one counts, where the old check took any); its mount trigger starts it once the mount point is mounted, as at boot. `PKG_RELEASE` goes to 2.
+Why it matters here: the persistent log is `/mnt/data/logs/messages`, on the data disk (r4s-services D2).
 
-How this project uses it: the persistent log is `/mnt/data/logs/messages`, on the data disk (r4s-services D2).
+What the patch does: the log file is left out whenever a mount point that holds it is not mounted (`procd_mountpoints_ready`, patch 0035: of mount points within one another, every one counts, where the old check took any); its mount trigger starts it once the mount point is mounted, as at boot. `PKG_RELEASE` goes to 2.
 
 Verification log: 2026-09-29, in the emulator the log service restarted while the data disk is absent writes nothing to the SD card, and starts writing to the disk when it is plugged in (`tests/storage/test_data_disk.py`).
 
@@ -191,33 +139,7 @@ Why it matters here: `pppoe.so` dials the WAN of every image. Only root sets the
 
 What the patch does: both functions check the room with the untruncated length, so a name that does not fit fails discovery with "Would create too-long packet", as any other tag that does not fit does; `sendPADI` copies as many bytes as the tag states.
 
-### crun: an update's JSON checked before it is used
-
-Patch: `patches/packages/0003-crun-check-the-generated-JSON-before-using-it.patch` (adds the package patch `100-update-check-the-generated-JSON-before-using-it.patch`), for github.com/containers/crun.
-
-Problem: `libcrun_container_update_from_values`, which `crun update` runs, ignores the status of `json_gen_get_buf`. When json-c cannot allocate the document or its text, the buffer stays unset, and the indeterminate pointer is parsed as the update's JSON. crun's other callers of `json_gen_get_buf` check the status; crun's main has the same code (2026-10-05).
-
-Why it matters here: `podman update` runs `crun update` for the containers of orbyt-containers, and a router runs out of memory more readily than a server. The review of the build's warnings found it (`'buf' may be used uninitialized`).
-
-What the patch does: the update fails with an error, after freeing the generator, as the other callers do.
-
-### bash: six places of undefined behavior
-
-Patch: `patches/packages/0004-bash-fix-the-undefined-behavior-of-six-places.patch` (adds the package patches `100` to `105`), for bash (bug-bash@gnu.org, git.savannah.gnu.org/git/bash.git).
-
-Problem: the review of bash 5.3's warnings at `-O3` (docs/undefined-behavior.md) found five faults behind them and one next to them, none fixed in bash's devel branch (1c20880e, 2026-09-23):
-- `make_command` clears every command's flags through a `SIMPLE_COM` pointer, larger than the group or subshell structure it points to (`-Warray-bounds`).
-- `parse_comsub` restores `extglob` from a local it never set, when parsing a command substitution changes the compatibility level, as a `PS2` that assigns `BASH_COMPAT` does.
-- `array_value_internal` goes on with an array that expanding its subscript (`${ unset A; ...; }`) unset, freed or gave another type: it reads freed memory, and at `-O3` the shell crashed, or an index it never computed.
-- `split_at_delims` leaves the word counts unset for a string of whitespace delimiters, and programmable completion sets `COMP_CWORD` from an indeterminate value.
-- `do_redirection_internal` restores a word's flags from a variable never set, when expanding the word turns posix mode on (`${POSIXLY_CORRECT:=...}`).
-- `pushd --9223372036854775808` overflows a subtraction.
-
-Why it matters here: bash is in every image, and `-O3` is free to exploit any of them.
-
-What the patches do: one patch per fault, each the smallest change that removes it. `array_value_internal` looks the array up again after each expansion of its subscript and expands to nothing when its type changed; `pushd` checks the offset before it subtracts. The others store what they left unset, or keep what they read twice.
-
-Verification log: 2026-10-05, on the VM, with the R6S's `-O3` build run through the image's musl loader. The array whose subscript unsets it and makes it indexed expands to nothing, in a function and at global scope, where the unpatched shell printed another element or crashed; arrays, groups, subshells, functions, posix mode through a redirection word, and `pushd` with `--9223372036854775808` and `--1` behave as before or fail with bash's own errors. The interactive cases (`PS2`, completion) were not run.
+Verification log: 2026-10-05, found by the review of the R4S's UB-indicative warnings at `-O3` (toolchain-o3 task 3.3) and patched; the patched pppd builds in both boards' images since. No test reaches the overflow: a service name that long is root's alone to set.
 
 ### build: each job's output whole in a package's log
 
@@ -255,18 +177,6 @@ What the patch does: libtool passes every option that starts with `-fsanitize` t
 
 Verification log: 2026-10-06, on the VM: libmd, libmnl and musl-fts linked under LTO with `-fsanitize-trap` and no call into a runtime once their libtool passed every sanitizer option (patch 0021 gives their own copies this patch's change).
 
-### build: the sanitizer options through the packages' libtool
-
-Patch: `patches/openwrt/0021-build-pass-the-sanitizer-options-through-the-package.patch`, for openwrt/openwrt.
-
-Problem: most packages built with autotools carry their own copy of libtool, which passes `-fsanitize=` to the link but drops the sanitizers' other options, `-fsanitize-trap` among them. Patch 0019 fixes libtool itself, but reaches only the packages that OpenWrt regenerates with its own libtool, those that ask for the libtool fixup.
-
-Why it matters here: in the `ubsan` profile, libmd, libmnl and musl-fts, among others, failed to link for want of libubsan.
-
-What the patch does: in a build whose `TARGET_CFLAGS` sanitize, every `ltmain.sh` a package carries gets `-fsanitize*` among the options it passes through, before the package is configured, as the build's own libtool has it. The line it extends is the same in every libtool from 2.2 to 2.5, and a copy without it stops the build. Regenerating the packages' build systems with the build's libtool, tried first, broke libffi's build directories. A build without sanitizers is unchanged.
-
-Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree: the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions.
-
 ### gcc: each LTRANS job's output whole
 
 Patch: `patches/openwrt/0020-toolchain-gcc-write-each-LTRANS-job-s-output-whole.patch` (adds the GCC patch `toolchain/gcc/patches-15.x/990-lto-wrapper-write-each-LTRANS-job-s-output-whole.patch`), for GCC, carried by openwrt/openwrt until then.
@@ -278,6 +188,18 @@ Why it matters here: the warnings of such a package's link would be placed in th
 What the patch does: lto-wrapper runs its make with `--output-sync=target`, so each job's output is written whole once the job ends, and the jobs keep running in parallel. GNU make has had the option since 4.0, and lto-wrapper already needs GNU make to run LTRANS in parallel.
 
 Verification log: see the builds of both boards in `docs/undefined-behavior.md` and `docs/ci.md`.
+
+### build: the sanitizer options through the packages' libtool
+
+Patch: `patches/openwrt/0021-build-pass-the-sanitizer-options-through-the-package.patch`, for openwrt/openwrt.
+
+Problem: most packages built with autotools carry their own copy of libtool, which passes `-fsanitize=` to the link but drops the sanitizers' other options, `-fsanitize-trap` among them. Patch 0019 fixes libtool itself, but reaches only the packages that OpenWrt regenerates with its own libtool, those that ask for the libtool fixup.
+
+Why it matters here: in the `ubsan` profile, libmd, libmnl and musl-fts, among others, failed to link for want of libubsan.
+
+What the patch does: in a build whose `TARGET_CFLAGS` sanitize, every `ltmain.sh` a package carries gets `-fsanitize*` among the options it passes through, before the package is configured, as the build's own libtool has it. The line it extends is the same in every libtool from 2.2 to 2.5, and a copy without it stops the build. Regenerating the packages' build systems with the build's libtool, tried first, broke libffi's build directories. A build without sanitizers is unchanged.
+
+Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree: the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions.
 
 ### busybox: printf without arithmetic on a null pointer
 
@@ -303,7 +225,7 @@ What the patch does: it moves past each copy in the new buffer.
 
 Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
 
-### libubox: 64-bit integers formatted without assuming alignment
+### libubox: 64-bit integers read without assuming alignment
 
 Patch: `patches/openwrt/0025-libubox-blobmsg_json-read-64-bit-integers-without-as.patch` (adds the libubox patch `package/libs/libubox/patches/100-blobmsg_json-read-64-bit-integers-without-assuming-alignment.patch`), for git.openwrt.org/project/libubox, carried by openwrt/openwrt until then.
 
@@ -437,42 +359,6 @@ What the patch does: one helper registers a trigger for an event and an action o
 
 Verification log: 2026-10-12, the triggers `procd.sh` builds, compared before and after with the build tree's host `jshn`: the same for one mount point with restart, reload and start (as ubox's log, ksmbd-tools, transmission, nfs-kernel-server and postgresql call them), and `mount.remove` from the unmount helpers. 2026-11-08: with `mount.remove` after the unmount (patch 0036) an unmount trigger is a mount trigger on that event, its action without arguments. 2026-11-21: 0035 and 0051 to 0053 give the `procd.sh` the one patch did.
 
-### procd: the script a mount trigger runs named from $initscript
-
-Patch: `patches/openwrt/0051-procd-name-the-script-a-mount-trigger-runs-from-initscript.patch`, for openwrt/openwrt.
-
-Problem: `_procd_add_mount_trigger` ran `/etc/init.d/$name`, a variable of whoever called it: a trigger an init script registered with it directly, or from a function with a `$name` of its own, ran another script or none.
-
-Why it matters here: the unmount triggers (patch 0035) call it through the same helper as the mount triggers, from init scripts that set `$name` for their own instances.
-
-What the patch does: `_procd_add_mount_trigger` names the script itself, from `$initscript` as `readlink` resolves it, as the mount helpers named it for their call.
-
-Verification log: 2026-10-12, the triggers `procd.sh` builds, with the build tree's host `jshn`: each names its own init script.
-
-### procd: one condition for the mount points of a mount trigger
-
-Patch: `patches/openwrt/0052-procd-one-condition-for-the-mount-points-of-a-mount-trigger.patch`, for openwrt/openwrt.
-
-Problem: the mount helpers passed the mount points of their paths as one argument, joined by newlines, so paths on several mount points gave a single `eq` against the whole list, which no event matched.
-
-Why it matters here: ksmbd's shares and the log can lie on different mount points of the data disk (`/mnt/data` and a mount point inside it), and a service must follow each.
-
-What the patch does: the mount points are separate arguments, split on lines as `procd_get_mountpoints` lists them, which `_procd_add_mount_trigger` turns into one `or` that any of them meets.
-
-Verification log: 2026-10-12, one `or` for two mount points; 2026-10-26, with an fstab of `/mnt/data` and `/mnt/data/media`: one `mount.add` trigger with an `or` of both, and a `mount.remove` trigger for each.
-
-### procd: a mount point with a space in it counted as mounted
-
-Patch: `patches/openwrt/0053-procd-a-mount-point-with-a-space-in-it-counts-as-mounted.patch`, for openwrt/openwrt.
-
-Problem: `procd_mountpoints_ready <path>...`, upstream's check since a530a202, tells whether every fstab mount point that holds the paths is mounted. It took a mount point with a space in it for one never mounted: it split the list of mount points on any white space, and compared each with the second field of `/proc/mounts` as the kernel escapes it (`\040` for a space).
-
-Why it matters here: ksmbd leaves a share out unless the mount points its path lies on are mounted (patch packages/0001), and a share path an administrator names may hold a space.
-
-What the patch does: the list is split on lines, once `procd_get_mountpoints` has run, since `config_foreach` splits its list of sections on `IFS`; the field is unescaped, and the mount point reaches awk through the environment, which leaves it as it is.
-
-Verification log: 2026-10-26, `procd_mountpoints_ready` false for a path under a mount point that is not mounted inside one that is (device-integrity D7). The R4S's suites then found the services on the data disk started without it: that version split the list with a newline `IFS`, under which `config_foreach` took the whole list of sections for one and `procd_get_mountpoints` found no mount point, so every path counted as mounted. In a chroot of the R4S's root filesystem with its BusyBox and the VM's `/proc`, the current version: `/mnt/data/shares` not mounted, `/proc/self` mounted, a path no fstab mount point holds mounted, and `/proc/self` with `/mnt/data/logs` not mounted; the awk alone found mount points with a space, a tab and a backslash in `/proc/mounts`' escapes.
-
 ### fstools: mount.remove once the device is unmounted, with its mount point
 
 Patch: `patches/openwrt/0036-fstools-send-mount.remove-once-the-device-is-unmount.patch` (adds the fstools patch `package/system/fstools/patches/101-blockd-send-mount.remove-once-the-device-is-unmounted.patch`), for fstools, carried by openwrt/openwrt until then. Two patches until 2026-11-21, 0036 and 0044, the second rewriting the first's lines; one fault of one function, so one patch (patch-hygiene D2).
@@ -496,66 +382,6 @@ Why it matters here: ingress shaping redirects to the interface's ifb (patch 003
 What the patch does: `ubus call qosify status` reports each active interface's ifb as `ifb`, and `qosify-status` shows that device. `PKG_RELEASE` goes to 6.
 
 Verification log: the network/qos test "Ingress shaping on a device with a long name" on both boards.
-
-### wsdd2: the random seed without overflow
-
-Patch: `patches/packages/0005-wsdd2-seed-without-overflow.patch` (adds the package patch `020-wsd-seed-without-overflow.patch`), for openwrt/packages: wsdd2's own repository, github.com/Netgear/wsdd2, is gone, and openwrt/packages builds it from its mirror.
-
-Problem: `set_seed()` folds the endpoint's UUID into its seed by shifting the first 16 bits of each pair left by 16 as an `int`. For a value of 0x8000 or more, as half of all UUIDs have, the result does not fit in an `int`, which is undefined behavior. It also has `time()` write a `time_t` into an `unsigned long`, which is too small for it on a 32-bit target with a 64-bit `time_t`, as musl's are.
-
-Why it matters here: the `ubsan` profile's fifth run trapped here: wsdd2 trapped on almost every start, and procd started it again, through every suite.
-
-What the patch does: the shift is done as `unsigned long`, and the seed takes `time()`'s result. `srand48()` takes the low 32 bits of its seed, which stay the same.
-
-Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
-
-### podman: equal database paths matched without resolving them
-
-Patch: `patches/packages/0006-podman-match-equal-database-paths-without-resolving-.patch` (adds the podman patch `utils/podman/patches/020-libpod-match-equal-database-paths-without-resolving-them.patch`), for podman, carried by openwrt/packages until then.
-
-Problem: `ValidateDBConfig` compares the paths the database recorded with the runtime's own, resolving the symlinks of each in turn; a path is resolved only if it exists. Without `--runroot`, the runtime's run root is the database's, the same string. The storage creates the run root after the validation, so a second podman process that creates it between the first one's two resolutions makes the same path compare unequal: `database run root "/run/containers/storage" does not match our run root "/tmp/run/containers/storage": database configuration mismatch`. Since podman 6, only the SQLite state validates its configuration: the BoltDB state is left for the migration to SQLite. Upstream fixed the same race for the volume path by creating it first (containers/podman#23515).
-
-Why it matters here: the image's run root goes through `/run` → `/var/run` → `/tmp/run`, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk. CI run 37324813891 lost a device sync to it (`device-robustness` D4).
-
-What the patch does: the SQLite state resolves the paths only when they differ as strings; equal paths match. `PKG_RELEASE` goes to 2.
-
-Verification log: the services/containers test "Runtime commands at the same time" runs ten rounds of eight `podman info` at once, each on a scratch storage whose run root does not exist yet. Concurrency alone reproduced nothing in ten rounds without the patch, even with the run root behind 32 symlinks: the window is two path resolutions wide. A symlink on the run root's path that keeps changing its target between two names of one directory (a bind mount), as a concurrent creation changes how the path resolves, made all ten rounds fail without the patch (2026-10-12, R6S).
-
-### podman: the storage's feature probes leave no mounts behind
-
-Patch: `patches/packages/0007-podman-lock-the-storage-s-home-mount-for-its-lazy-fe.patch` (adds the podman patch `utils/podman/patches/021-overlay-lock-home-s-mount-for-the-lazy-feature-probes.patch`, to its vendored copy of go.podman.io/storage), for go.podman.io/storage, carried by openwrt/packages until then.
-
-Problem: the storage's overlay driver probes three kernel features when it is first asked about them, after its initialization: idmapped lower layers, in `Status()`, which `podman info` calls, and in the creation of a layer or a container; volatile mounts, in `Status()` and when it mounts a layer; and data-only lower layers. Each probe mounts in a new directory under the driver's home, then unmounts by path. The store holds its graph lock while the driver initializes, which binds the home onto itself unless it is a mount point already (`mount.MakePrivate`), and while `Cleanup()` unmounts the home at a command's end. It does not hold it for `Status()` or the creations. When another process binds the home while a probe has its mounts under the home's previous mount, the bind hides them. podman warns `Unmount ".../overlay/compat1721885628/lower-mapped": invalid argument`, the probe's directory cannot be removed, and the mounts stay until a reboot.
-
-Why it matters here: the storage is on the data disk, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk, on a run root in RAM that has no record of the probes yet. Mounts left under the storage keep the data disk's mount busy until a reboot. CI run 38556156281 lost the services/containers test "Runtime commands at the same time" to it in both attempts: its cleanup could not remove the scratch storage (`Resource busy`).
-
-What the patch does: the driver gets a lock of its own, `home.lock` in the `overlay` directory of the run root. It is held while the driver binds the home, while `Cleanup()` unmounts it, and while a probe that runs after the initialization mounts under the home. It keeps two operations on one mount apart, as the graph lock does for the probes of the initialization, and a probe runs once per run root, so once per boot. Taking the graph lock in `Status()` instead would leave the creations' probes unlocked: they run under the layer store's lock, after which the graph lock cannot be taken. The lock file's name stands in a group of its own, the paths within the run home, beside the storage's group of the paths within the home. `PKG_RELEASE` goes to 3.
-
-Verification log: the services/containers test "Runtime commands at the same time" runs ten rounds of eight podman commands at once, three in a row each, with the probes' records removed as they appear, so that every command probes. Without the patch, 7 and 8 of the 10 rounds left the probes' mounts behind in two runs; with it, none of 30 rounds in three runs did, and every command succeeded (2026-10-15, R4S).
-
-### luci-base: the host tools built in the host build directory
-
-Patch: `patches/luci/0001-luci-base-build-po2lmo-and-jsmin-in-the-host-build-d.patch`, for openwrt/luci.
-
-Problem: luci-base's host build compiles `po2lmo` and `jsmin` with `make -C src/`, in the package's own source directory, after it has written its prepared stamp. Their objects and binaries are then newer than that stamp, so every build prepares luci-base again, for the host and for the target, and packages it anew.
-
-Why it matters here: with the rest of build-acceleration, luci-base was the only package a build with nothing changed still prepared and compiled.
-
-What the patch does: `Host/Prepare` already copies `src/` into the host build directory, so `Host/Compile` builds there, and `Host/Install` takes the tools from there.
-
-Verification log: 2026-10-04, both tools build from a copy of `src/`, as in the host build directory, and with the patch a build with nothing changed no longer prepares luci-base.
-
-### luci-base: the string hash without shifting a negative value
-
-Patch: `patches/luci/0002-luci-base-hash-without-shifting-a-negative-value.patch`, for openwrt/luci.
-
-Problem: `sfh_hash()`, which keys LuCI's translation catalogs, shifts the third of the trailing bytes, as a `signed char`, left by 18 bits. For a byte of 0x80 or more, as UTF-8 text has, that shifts a negative value, which is undefined behavior.
-
-Why it matters here: the `ubsan` profile's third run trapped here translating a page into Simplified Chinese, and the page did not render.
-
-What the patch does: the value is shifted as `uint32_t`. That keeps every hash as GCC computed it, so the catalogs that `po2lmo` made still match.
-
-Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
 
 ### toolchain: rebuilt with its targets when its inputs change
 
@@ -611,18 +437,6 @@ Alternatives considered: 120 alone ends the merge, but on the VM the `oldconfig`
 
 Verification log: the `build/boards` test "A fragment leaves a question for the next" configures a copy of the emulator's prepared U-Boot source as the build does. Without the patches, its merge was still asking after a minute; with 120 alone, the merge ended and the `oldconfig` after it was still asking (2026-10-18, both boards' build trees). With both, it passes on both boards' build trees, and both boards built anew with every U-Boot's `.config`, the boards' and the emulator's, the same as before (2026-10-18).
 
-### netavark: aardvark-dns in a cgroup of its own without systemd
-
-Patch: `patches/packages/0009-netavark-run-aardvark-dns-in-a-cgroup-of-its-own-wit.patch` (adds the netavark patch `010-aardvark-run-aardvark-dns-in-a-cgroup-of-its-own-without-systemd.patch`), for netavark, carried by openwrt/packages until then.
-
-Problem: netavark starts aardvark-dns, the DNS server of a network with DNS enabled, when a container on it needs one, and aardvark-dns then outlives that run of netavark and serves every container of its networks until the last one goes. With systemd it runs in a scope of its own (`systemd-run --scope`); without systemd it stays in the cgroup of whatever ran netavark. procd's 39b5aac8c1 (2026-10-18, in OpenWrt's procd of the pins of 2026-10-25) kills what a service leaves in its cgroup once the service's main process exits, as OpenRC's `rc_cgroup_cleanup` does when a service stops. aardvark-dns then died with the first service that ran a container and ended, its pid file staying behind. The next run of netavark that removed the network's last container found no process behind the pid file, started aardvark-dns on a configuration without a container, which exits at once, and failed: `aardvark-dns failed to start: Error from child process`.
-
-Why it matters here: podman's default network, which orbyt-containers' Pods and orbyt-sync's fetch container join, has DNS enabled. orbyt-sync and `orbyt-containers apply` run as procd instances that end once their work is done. On the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1` and was gone once orbyt-sync had ended; stopping the app Pod then failed (2026-10-26).
-
-What the patch does: on the cgroup v2 hierarchy, a rootful netavark without systemd has aardvark-dns join a cgroup of its own, `/sys/fs/cgroup/aardvark-dns`, made when it is missing, between fork and exec, so that the daemon it forks runs there too. podman moves conmon and the containers into `libpod_parent` the same way. A rootless netavark has no say over the hierarchy and leaves aardvark-dns where it is. `PKG_RELEASE` goes to 2.
-
-Verification log: without the patch, on the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1`, was gone with orbyt-sync, and stopping the app Pod failed as above. With it, the services/containers tests passed on the R4S, "A service's container ended" among them (device-integrity): after orbyt-sync ended, the app Pod stopped and started again, and aardvark-dns answered its name (2026-10-26).
-
 ### build: a host build's stages named after its logs in the time log
 
 Patch: `patches/openwrt/0042-build-name-a-host-build-s-stages-after-its-logs-in-t.patch`, for openwrt/openwrt.
@@ -647,6 +461,174 @@ What the patch does: the service object's new method `trigger_commands` lists th
 
 Verification log: the ops/config-push test "A service that stops with its new configuration" holds a 30 s command ahead of uhttpd's reload.
 
+### build: services disabled in the image
+
+Patch: `patches/openwrt/0046-build-disable-the-services-TARGET_DISABLED_SERVICES-.patch`, for openwrt/openwrt.
+
+Problem: `prepare_rootfs` enables every init script of the image except those its third argument names. The image builder passes `DISABLED_SERVICES` there; a build from source passes nothing. A package cannot ship its service disabled itself either: its `postinst` runs before `default_postinst` enables its init scripts.
+
+Why it matters here: honk must not run before a configuration is pushed (its built-in DNS upstream would answer the LAN), and its start-at-boot switch is its rc.d link, as daeuniverse's LuCI page sets it. With honk disabled in the image and its rc.d links kept through upgrades (`files/lib/upgrade/keep.d/orbyt-config`), a new router starts without it and an upgraded one as it was. daeuniverse's own package disables honk from a uci-defaults script, which a firmware upgrade runs again.
+
+What the patch does: `TARGET_DISABLED_SERVICES` in "Target Images", passed to `prepare_rootfs` wherever a build from source prepares a root filesystem (`package/Makefile`, `include/image.mk`). The rootfs cache key reads `.config`, so a changed list builds the root filesystem anew.
+
+Verification log: 2026-11-13, the R4S image has no rc.d link of honk's (`/rom/etc/rc.d`, the transparent-proxy test of the image's template).
+
+### procd: the cgroup of an instance that runs again
+
+Patch: `patches/openwrt/0047-procd-keep-the-cgroup-of-an-instance-that-runs-again.patch`, for openwrt/procd.
+
+Problem: once an instance's process has exited, `instance_exit_done` removes the instance's cgroup and its service's, before it decides whether the instance runs again. A restart (an init script's stop, then a start that comes while the old process is still exiting, which procd turns into a restart of the same instance) and a respawn start the instance again in a cgroup procd creates anew, without what the init script had set on the service's cgroup.
+
+Why it matters here: honk's init pins honk to the big cores through the cpuset of honk's service cgroup and enables the memory controller there for honk's telemetry (honk-datapath D5). On the emulator, after `/etc/init.d/honk restart` with pinning on, `services/honk/cpuset.cpus` read 4-5 while the old honk exited and was empty once the new one ran, on every core (`taskset` 3f).
+
+What the patch does: the cgroups go with the instance only, as `instance_free` already removes them when an instance is deleted. An instance that stopped and stays registered keeps its empty cgroup until it starts again or is deleted, as it already keeps a program attached to it (`instance_set_vrf`).
+
+Verification log: 2026-11-13, procd 6 in the R4S image: the transparent-proxy test of CPU pinning, which turns pinning on and restarts honk, finds honk on the big cores in two runs of the network suite; without the patch it ran on every core.
+
+### procd: a shutdown cancels the boot scripts still running
+
+Patch: `patches/openwrt/0048-procd-cancel-the-boot-scripts-still-running-when-the.patch` (adds the procd patch `package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch`), for openwrt/procd.
+
+Problem: procd runs the boot's `S` scripts and the shutdown's `K` scripts in one runqueue, one script at a time, and `rcS()` set that queue up anew for each run with libubox's `runqueue_init()`, which empties the task lists but keeps the count of running tasks. A shutdown that starts while a boot script still runs therefore starts none of its `K` scripts until that script returns, and nothing ends it before the halt: a boot script that never returns (one waiting for a device that never comes, a loop) keeps the system in procd's shutdown state for good, procd feeding the watchdog meanwhile. A reboot then never completes, whoever asked for it.
+
+Why it matters here: orbyt-ab's trial supervisor turns a hung trial boot into a counted reboot (trial-guards D1), which is exactly a reboot while a boot script hangs. On the emulator, a uci-defaults script looping forever on a trial slot kept the system at `- shutdown -` for the ten minutes the probe watched, the script still running, and the rollback test of a hung boot timed out after 30 minutes on its first trial boot.
+
+What the patch does: `rcS()` cancels what is left of the previous run instead of setting the queue up anew. The scripts not yet started are dropped; the running one gets SIGTERM and, 10 s later, SIGKILL, as a `shutdown` script past its 15 s already does; the shutdown's scripts start once it has ended. Every script of that queue gets the 10 s from SIGTERM to SIGKILL (none is cancelled otherwise), the queue is set up once, as procd's queue of single init scripts (`rc()`) is, and a script dropped before it started closes no output: its pipe was never opened, where the completion closed descriptor 0 for it. `PKG_RELEASE` goes to 7.
+
+Alternatives considered: a forced reboot (`reboot -f`) in orbyt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
+
+Verification log: 2026-11-17, the firmware/boot-rollback test of a boot script that hangs during a trial boot. With procd 6, on the emulated R4S and in CI run 43976186041 on both boards, it timed out waiting for the rollback; a probe in the hung script (never committed) found the system at `- shutdown -` from 61 s until 659 s, the script running throughout. With procd 7, each of its three hung trial boots reboots 7 s after the trial's deadline (`- SIGTERM processes -`, `- SIGKILL processes -`, `- reboot -`), the bootlimit is exceeded and slot A confirmed; the R4S's `upgrade` and `boot` suites pass, 44 tests. CI run 44002274413 passed on both boards.
+
+### procd: the script a mount trigger runs named from $initscript
+
+Patch: `patches/openwrt/0051-procd-name-the-script-a-mount-trigger-runs-from-initscript.patch`, for openwrt/openwrt.
+
+Problem: `_procd_add_mount_trigger` ran `/etc/init.d/$name`, a variable of whoever called it: a trigger an init script registered with it directly, or from a function with a `$name` of its own, ran another script or none.
+
+Why it matters here: the unmount triggers (patch 0035) call it through the same helper as the mount triggers, from init scripts that set `$name` for their own instances.
+
+What the patch does: `_procd_add_mount_trigger` names the script itself, from `$initscript` as `readlink` resolves it, as the mount helpers named it for their call.
+
+Verification log: 2026-10-12, the triggers `procd.sh` builds, with the build tree's host `jshn`: each names its own init script.
+
+### procd: one condition for the mount points of a mount trigger
+
+Patch: `patches/openwrt/0052-procd-one-condition-for-the-mount-points-of-a-mount-trigger.patch`, for openwrt/openwrt.
+
+Problem: the mount helpers passed the mount points of their paths as one argument, joined by newlines, so paths on several mount points gave a single `eq` against the whole list, which no event matched.
+
+Why it matters here: ksmbd's shares and the log can lie on different mount points of the data disk (`/mnt/data` and a mount point inside it), and a service must follow each.
+
+What the patch does: the mount points are separate arguments, split on lines as `procd_get_mountpoints` lists them, which `_procd_add_mount_trigger` turns into one `or` that any of them meets.
+
+Verification log: 2026-10-12, one `or` for two mount points; 2026-10-26, with an fstab of `/mnt/data` and `/mnt/data/media`: one `mount.add` trigger with an `or` of both, and a `mount.remove` trigger for each.
+
+### procd: a mount point with a space in it counted as mounted
+
+Patch: `patches/openwrt/0053-procd-a-mount-point-with-a-space-in-it-counts-as-mounted.patch`, for openwrt/openwrt.
+
+Problem: `procd_mountpoints_ready <path>...`, upstream's check since a530a202, tells whether every fstab mount point that holds the paths is mounted. It took a mount point with a space in it for one never mounted: it split the list of mount points on any white space, and compared each with the second field of `/proc/mounts` as the kernel escapes it (`\040` for a space).
+
+Why it matters here: ksmbd leaves a share out unless the mount points its path lies on are mounted (patch packages/0001), and a share path an administrator names may hold a space.
+
+What the patch does: the list is split on lines, once `procd_get_mountpoints` has run, since `config_foreach` splits its list of sections on `IFS`; the field is unescaped, and the mount point reaches awk through the environment, which leaves it as it is.
+
+Verification log: 2026-10-26, `procd_mountpoints_ready` false for a path under a mount point that is not mounted inside one that is (device-integrity D7). The R4S's suites then found the services on the data disk started without it: that version split the list with a newline `IFS`, under which `config_foreach` took the whole list of sections for one and `procd_get_mountpoints` found no mount point, so every path counted as mounted. In a chroot of the R4S's root filesystem with its BusyBox and the VM's `/proc`, the current version: `/mnt/data/shares` not mounted, `/proc/self` mounted, a path no fstab mount point holds mounted, and `/proc/self` with `/mnt/data/logs` not mounted; the awk alone found mount points with a space, a tab and a backslash in `/proc/mounts`' escapes.
+
+## The packages series
+
+### ksmbd-tools: shares on a disk that is not mounted
+
+Patch: `patches/packages/0001-ksmbd-tools-share-only-what-is-mounted-and-start-onc.patch`, for openwrt/packages.
+
+Problem: ksmbd's init script shares every configured path whether or not the disk it belongs on is mounted. A share on a USB disk that is late or absent then shares the empty directory underneath, on the router's flash: what clients write there fills the flash, and disappears from view once the disk is mounted over it. Nothing starts the service again when the disk arrives, and nothing withdraws a share whose disk is unmounted while the service runs.
+
+Why it matters here: the shares are on the data disk, a USB disk that may be late or absent, and services/file-sharing requires that no share be offered from underneath it (device-robustness D1).
+
+What the patch does: `smb_add_share` leaves a share out unless every fstab mount point its path lies on is mounted (`procd_mountpoints_ready`, patch 0035). `service_triggers` adds a reload trigger per share path for the mount, and one for the unmount (procd's unmount helpers, patch 0035), so the mount brings the share and the unmount takes it away: `mount.remove` follows the unmount (patch 0036), and `/proc/mounts` tells the reload what went. A reload starts the service anew, as every start resets the server hard; a restart would drop the service, and its triggers with it, until it had started again, so a disk back within that time went unnoticed. A start with every share waiting stops a running server, after that hard reset, and starts nothing. Shares on no fstab mount point are unaffected. `PKG_RELEASE` goes to 4.
+
+How this project uses it: the share `shares` lies on the data disk, whose fstab entry exists from the first boot (r4s-services D2).
+
+Verification log: 2026-09-29, in the emulator ksmbd stays down without the data disk and starts when it is plugged in (`tests/storage/test_data_disk.py`, `tests/services/test_file_sharing.py`). With patches 0035 and 0036, the data disk removed while the service runs stops it, port 445 included, and its return brings the shares back (the file-sharing test "Data disk removed while sharing", both boards). The file-sharing tests "Data disk removed while an unmount script runs" and "Share within a disk within another" check a reload asked for while the unmount waits and the nested mount points (device-integrity D7).
+
+### crun: an update's JSON checked before it is used
+
+Patch: `patches/packages/0003-crun-check-the-generated-JSON-before-using-it.patch` (adds the package patch `100-update-check-the-generated-JSON-before-using-it.patch`), for github.com/containers/crun.
+
+Problem: `libcrun_container_update_from_values`, which `crun update` runs, ignores the status of `json_gen_get_buf`. When json-c cannot allocate the document or its text, the buffer stays unset, and the indeterminate pointer is parsed as the update's JSON. crun's other callers of `json_gen_get_buf` check the status; crun's main has the same code (2026-10-05).
+
+Why it matters here: `podman update` runs `crun update` for the containers of orbyt-containers, and a router runs out of memory more readily than a server. The review of the build's warnings found it (`'buf' may be used uninitialized`).
+
+What the patch does: the update fails with an error, after freeing the generator, as the other callers do.
+
+Verification log: 2026-10-05, found by the review of the R4S's UB-indicative warnings at `-O3` (toolchain-o3 task 3.3) and patched; the patched crun builds in both boards' images since. No test runs json-c out of memory.
+
+### bash: six places of undefined behavior
+
+Patch: `patches/packages/0004-bash-fix-the-undefined-behavior-of-six-places.patch` (adds the package patches `100` to `105`), for bash (bug-bash@gnu.org, git.savannah.gnu.org/git/bash.git).
+
+Problem: the review of bash 5.3's warnings at `-O3` (docs/undefined-behavior.md) found five faults behind them and one next to them, none fixed in bash's devel branch (1c20880e, 2026-09-23):
+- `make_command` clears every command's flags through a `SIMPLE_COM` pointer, larger than the group or subshell structure it points to (`-Warray-bounds`).
+- `parse_comsub` restores `extglob` from a local it never set, when parsing a command substitution changes the compatibility level, as a `PS2` that assigns `BASH_COMPAT` does.
+- `array_value_internal` goes on with an array that expanding its subscript (`${ unset A; ...; }`) unset, freed or gave another type: it reads freed memory, and at `-O3` the shell crashed, or an index it never computed.
+- `split_at_delims` leaves the word counts unset for a string of whitespace delimiters, and programmable completion sets `COMP_CWORD` from an indeterminate value.
+- `do_redirection_internal` restores a word's flags from a variable never set, when expanding the word turns posix mode on (`${POSIXLY_CORRECT:=...}`).
+- `pushd --9223372036854775808` overflows a subtraction.
+
+Why it matters here: bash is in every image, and `-O3` is free to exploit any of them.
+
+What the patches do: one patch per fault, each the smallest change that removes it. `array_value_internal` looks the array up again after each expansion of its subscript and expands to nothing when its type changed; `pushd` checks the offset before it subtracts. The others store what they left unset, or keep what they read twice.
+
+Verification log: 2026-10-05, on the VM, with the R6S's `-O3` build run through the image's musl loader. The array whose subscript unsets it and makes it indexed expands to nothing, in a function and at global scope, where the unpatched shell printed another element or crashed; arrays, groups, subshells, functions, posix mode through a redirection word, and `pushd` with `--9223372036854775808` and `--1` behave as before or fail with bash's own errors. The interactive cases (`PS2`, completion) were not run.
+
+### wsdd2: the random seed without overflow
+
+Patch: `patches/packages/0005-wsdd2-seed-without-overflow.patch` (adds the package patch `020-wsd-seed-without-overflow.patch`), for openwrt/packages: wsdd2's own repository, github.com/Netgear/wsdd2, is gone, and openwrt/packages builds it from its mirror.
+
+Problem: `set_seed()` folds the endpoint's UUID into its seed by shifting the first 16 bits of each pair left by 16 as an `int`. For a value of 0x8000 or more, as half of all UUIDs have, the result does not fit in an `int`, which is undefined behavior. It also has `time()` write a `time_t` into an `unsigned long`, which is too small for it on a 32-bit target with a 64-bit `time_t`, as musl's are.
+
+Why it matters here: the `ubsan` profile's fifth run trapped here: wsdd2 trapped on almost every start, and procd started it again, through every suite.
+
+What the patch does: the shift is done as `unsigned long`, and the seed takes `time()`'s result. `srand48()` takes the low 32 bits of its seed, which stay the same.
+
+Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
+
+### podman: equal database paths matched without resolving them
+
+Patch: `patches/packages/0006-podman-match-equal-database-paths-without-resolving-.patch` (adds the podman patch `utils/podman/patches/020-libpod-match-equal-database-paths-without-resolving-them.patch`), for podman, carried by openwrt/packages until then.
+
+Problem: `ValidateDBConfig` compares the paths the database recorded with the runtime's own, resolving the symlinks of each in turn; a path is resolved only if it exists. Without `--runroot`, the runtime's run root is the database's, the same string. The storage creates the run root after the validation, so a second podman process that creates it between the first one's two resolutions makes the same path compare unequal: `database run root "/run/containers/storage" does not match our run root "/tmp/run/containers/storage": database configuration mismatch`. Since podman 6, only the SQLite state validates its configuration: the BoltDB state is left for the migration to SQLite. Upstream fixed the same race for the volume path by creating it first (containers/podman#23515).
+
+Why it matters here: the image's run root goes through `/run` → `/var/run` → `/tmp/run`, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk. CI run 37324813891 lost a device sync to it (`device-robustness` D4).
+
+What the patch does: the SQLite state resolves the paths only when they differ as strings; equal paths match. `PKG_RELEASE` goes to 2.
+
+Verification log: the services/containers test "Runtime commands at the same time" runs ten rounds of eight `podman info` at once, each on a scratch storage whose run root does not exist yet. Concurrency alone reproduced nothing in ten rounds without the patch, even with the run root behind 32 symlinks: the window is two path resolutions wide. A symlink on the run root's path that keeps changing its target between two names of one directory (a bind mount), as a concurrent creation changes how the path resolves, made all ten rounds fail without the patch (2026-10-12, R6S).
+
+### podman: the storage's feature probes leave no mounts behind
+
+Patch: `patches/packages/0007-podman-lock-the-storage-s-home-mount-for-its-lazy-fe.patch` (adds the podman patch `utils/podman/patches/021-overlay-lock-home-s-mount-for-the-lazy-feature-probes.patch`, to its vendored copy of go.podman.io/storage), for go.podman.io/storage, carried by openwrt/packages until then.
+
+Problem: the storage's overlay driver probes three kernel features when it is first asked about them, after its initialization: idmapped lower layers, in `Status()`, which `podman info` calls, and in the creation of a layer or a container; volatile mounts, in `Status()` and when it mounts a layer; and data-only lower layers. Each probe mounts in a new directory under the driver's home, then unmounts by path. The store holds its graph lock while the driver initializes, which binds the home onto itself unless it is a mount point already (`mount.MakePrivate`), and while `Cleanup()` unmounts the home at a command's end. It does not hold it for `Status()` or the creations. When another process binds the home while a probe has its mounts under the home's previous mount, the bind hides them. podman warns `Unmount ".../overlay/compat1721885628/lower-mapped": invalid argument`, the probe's directory cannot be removed, and the mounts stay until a reboot.
+
+Why it matters here: the storage is on the data disk, and orbyt-containers and orbyt-sync run podman at the same time after a boot or a mount of the data disk, on a run root in RAM that has no record of the probes yet. Mounts left under the storage keep the data disk's mount busy until a reboot. CI run 38556156281 lost the services/containers test "Runtime commands at the same time" to it in both attempts: its cleanup could not remove the scratch storage (`Resource busy`).
+
+What the patch does: the driver gets a lock of its own, `home.lock` in the `overlay` directory of the run root. It is held while the driver binds the home, while `Cleanup()` unmounts it, and while a probe that runs after the initialization mounts under the home. It keeps two operations on one mount apart, as the graph lock does for the probes of the initialization, and a probe runs once per run root, so once per boot. Taking the graph lock in `Status()` instead would leave the creations' probes unlocked: they run under the layer store's lock, after which the graph lock cannot be taken. The lock file's name stands in a group of its own, the paths within the run home, beside the storage's group of the paths within the home. `PKG_RELEASE` goes to 3.
+
+Verification log: the services/containers test "Runtime commands at the same time" runs ten rounds of eight podman commands at once, three in a row each, with the probes' records removed as they appear, so that every command probes. Without the patch, 7 and 8 of the 10 rounds left the probes' mounts behind in two runs; with it, none of 30 rounds in three runs did, and every command succeeded (2026-10-15, R4S).
+
+### netavark: aardvark-dns in a cgroup of its own without systemd
+
+Patch: `patches/packages/0009-netavark-run-aardvark-dns-in-a-cgroup-of-its-own-wit.patch` (adds the netavark patch `010-aardvark-run-aardvark-dns-in-a-cgroup-of-its-own-without-systemd.patch`), for netavark, carried by openwrt/packages until then.
+
+Problem: netavark starts aardvark-dns, the DNS server of a network with DNS enabled, when a container on it needs one, and aardvark-dns then outlives that run of netavark and serves every container of its networks until the last one goes. With systemd it runs in a scope of its own (`systemd-run --scope`); without systemd it stays in the cgroup of whatever ran netavark. procd's 39b5aac8c1 (2026-10-18, in OpenWrt's procd of the pins of 2026-10-25) kills what a service leaves in its cgroup once the service's main process exits, as OpenRC's `rc_cgroup_cleanup` does when a service stops. aardvark-dns then died with the first service that ran a container and ended, its pid file staying behind. The next run of netavark that removed the network's last container found no process behind the pid file, started aardvark-dns on a configuration without a container, which exits at once, and failed: `aardvark-dns failed to start: Error from child process`.
+
+Why it matters here: podman's default network, which orbyt-containers' Pods and orbyt-sync's fetch container join, has DNS enabled. orbyt-sync and `orbyt-containers apply` run as procd instances that end once their work is done. On the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1` and was gone once orbyt-sync had ended; stopping the app Pod then failed (2026-10-26).
+
+What the patch does: on the cgroup v2 hierarchy, a rootful netavark without systemd has aardvark-dns join a cgroup of its own, `/sys/fs/cgroup/aardvark-dns`, made when it is missing, between fork and exec, so that the daemon it forks runs there too. podman moves conmon and the containers into `libpod_parent` the same way. A rootless netavark has no say over the hierarchy and leaves aardvark-dns where it is. `PKG_RELEASE` goes to 2.
+
+Verification log: without the patch, on the R4S, aardvark-dns ran in `/services/orbyt-sync/instance1`, was gone with orbyt-sync, and stopping the app Pod failed as above. With it, the services/containers tests passed on the R4S, "A service's container ended" among them (device-integrity): after orbyt-sync ended, the app Pod stopped and started again, and aardvark-dns answered its name (2026-10-26).
+
 ### libpfring: ring_bind with the kernel's address type
 
 Patch: `patches/packages/0010-libpfring-build-against-Linux-6.18.57-and-later.patch` (adds the package patch `902-pf_ring-bind-with-the-address-type-of-the-kernel.patch`), for ntop/PF_RING, carried by openwrt/packages until then.
@@ -663,7 +645,7 @@ Verification log: the module is built by both boards' `ci` builds on 6.18.60.
 
 Patch: `patches/packages/0011-rust-update-to-1.99.1.patch`, for openwrt/packages.
 
-Problem: openwrt/packages builds Rust 1.96.1 (2026-11-05); the stable release is 1.99.1 (2026-10-16).
+Problem: openwrt/packages, at its pin of 2026-11-05, builds Rust 1.96.1; the stable release is 1.99.1, released on 2026-10-16.
 
 Why it matters here: honk (honk-datapath) depends on Aya 0.16, whose crates require rustc 1.98.0; with 1.96.1, cargo refuses to build them.
 
@@ -694,6 +676,86 @@ Why it matters here: bpf-linker's `.cargo/config.toml` asks for `clang` on Linux
 What the patch does: `CARGO_HOST_LINKER`, the host triple's linker set to `HOSTCC_NOCACHE`, in the variables of host builds (`CARGO_HOST_CONFIG_VARS`) and of target builds (`CARGO_PKG_CONFIG_VARS`), before the target's own. A setting named for the triple takes precedence over one a crate sets for a `cfg()`.
 
 Verification log: 2026-11-13, bpf-linker/host's build scripts link with the host compiler in the R4S tree, and the image builds.
+
+### rust: LLVM built through ccache
+
+Patch: `patches/packages/0016-rust-build-LLVM-through-ccache-when-the-build-uses-it.patch`, for openwrt/packages.
+
+Problem: with `CONFIG_CCACHE`, the build's C and C++ go through ccache, but rust/host's LLVM, most of the host toolchain's build time, did not: a host toolchain built again, as after a change of its flags, compiled all of LLVM again.
+
+Why it matters here: CI's host stage builds the Rust host toolchain whenever its key changes, and a local tree builds it anew after a new host environment (nixpkgs-2605 D4).
+
+What the patch does: with `CONFIG_CCACHE`, rustbuild gets the build's ccache (`build.ccache`) for LLVM's C++.
+
+Verification log: 2026-10-03, in the patch it was part of (packages/0002 until 2026-11-21, patch-hygiene D2): the host stage's compiler cache report counts LLVM's objects. 2026-11-21: the split series gives the tree the one patch did.
+
+## The luci series
+
+### luci-base: the host tools built in the host build directory
+
+Patch: `patches/luci/0001-luci-base-build-po2lmo-and-jsmin-in-the-host-build-d.patch`, for openwrt/luci.
+
+Problem: luci-base's host build compiles `po2lmo` and `jsmin` with `make -C src/`, in the package's own source directory, after it has written its prepared stamp. Their objects and binaries are then newer than that stamp, so every build prepares luci-base again, for the host and for the target, and packages it anew.
+
+Why it matters here: with the rest of build-acceleration, luci-base was the only package a build with nothing changed still prepared and compiled.
+
+What the patch does: `Host/Prepare` already copies `src/` into the host build directory, so `Host/Compile` builds there, and `Host/Install` takes the tools from there.
+
+Verification log: 2026-10-04, both tools build from a copy of `src/`, as in the host build directory, and with the patch a build with nothing changed no longer prepares luci-base.
+
+### luci-base: the string hash without shifting a negative value
+
+Patch: `patches/luci/0002-luci-base-hash-without-shifting-a-negative-value.patch`, for openwrt/luci.
+
+Problem: `sfh_hash()`, which keys LuCI's translation catalogs, shifts the third of the trailing bytes, as a `signed char`, left by 18 bits. For a byte of 0x80 or more, as UTF-8 text has, that shifts a negative value, which is undefined behavior.
+
+Why it matters here: the `ubsan` profile's third run trapped here translating a page into Simplified Chinese, and the page did not render.
+
+What the patch does: the value is shifted as `uint32_t`. That keeps every hash as GCC computed it, so the catalogs that `po2lmo` made still match.
+
+Verification log: see the `ubsan` run in `docs/undefined-behavior.md`.
+
+## The daeuniverse series
+
+### luci-lib-daeuniverse: BusyBox's timeout
+
+Patch: `patches/daeuniverse/0003-luci-lib-daeuniverse-BusyBox-s-timeout-is-enough.patch`, for daeuniverse/openwrt-packages.
+
+Problem: the library's package check bounds `apk update` with `timeout --signal=TERM --kill-after=5 20`, and the library depends on `coreutils-timeout` for those long options. That builds coreutils and puts it in every image with the LuCI pages, for one call.
+
+Why it matters here: coreutils came into the image with luci-app-honk, and with it 22 warnings of the reviewed-warnings register's kinds (quality/undefined-behavior) across coreutils, of which the image installs only timeout.
+
+What the patch does: the short options `-s TERM -k 5`, which coreutils' timeout and BusyBox's (on by default in OpenWrt's BusyBox, 1.38 here) both take, and a dependency on BusyBox's applet (`+@BUSYBOX_CONFIG_TIMEOUT`, since 2026-11-21) instead of coreutils-timeout, so that no configuration without the applet selects the library.
+
+Verification log: 2026-11-13, the R4S image has no coreutils, and the reviewed-warnings register check passes with 40 warnings of its kinds (22 fewer). On the emulated R4S, `/usr/bin/timeout` is BusyBox's and ends a command on time with these options (`-s TERM -k 5 2 sleep 10` exits 143 after two seconds), and the page's check, `daeuniverse-pkg check honk`, answers `{ "packages": [ ], "warning": "" }`.
+
+## QEMU's
+
+### sdhci-pci loses its card on loadvm (QEMU)
+
+Patch: `patches/qemu/0001-hw-sd-sdhci-pci-migrate-the-PCI-device-state.patch`, for qemu/qemu.
+
+Problem: `sdhci-pci` takes the migration description of the sysbus SDHCI variants, `sdhci_vmstate`, which holds only the controller registers. Its PCI configuration space is never saved, so after `loadvm` (or a migration) the BAR is unmapped, every register reads as all ones, and the guest loses its card ("Controller never released inhibit bit(s)").
+
+Why it matters here: since r4s-ab-rollback, the emulator boots the factory image from its boot disk, an SD card or an eMMC on `sdhci-pci`, and the tests return the machine to a `savevm` snapshot between every two tests.
+
+What the patch does: it gives `sdhci-pci` a description of its own: the PCI device state first, then the shared controller state. Its migration section is then named `sdhci-pci` rather than `sdhci`, so a stream from an earlier QEMU no longer loads into `sdhci-pci`; such a stream holds no PCI state, and its guest lost the card anyway. `flake.nix` builds the emulator's QEMU (aarch64 guests only) with it, and with every other patch in `patches/qemu/`.
+
+Verification log: 2026-09-29, QEMU 11.1.1 builds with the patch, and the emulation tests, which restore a snapshot between every two tests, pass with the SD card. 2026-10-26, QEMU 11.1.2 builds with it; its `sdhci-pci.c` still migrates no PCI state.
+
+## The feed packages' own
+
+### einat marks the inbound packets it translates back
+
+Patch: `feed/net/einat/patches/100-mark-inbound-packets-translated-back.patch`, for EHfive/einat-ebpf.
+
+Problem: einat reverse-translates inbound packets in its tc ingress program, before netfilter sees them, and leaves no trace of having done so. A firewall behind it cannot tell a packet einat let in (a reply, or a new flow to a mapped port under full-cone filtering) from one that arrived for an internal address by other means (a spoofed destination). The usual answer, accepting every forwarded packet from the external zone towards the internal ones, accepts both.
+
+Why it matters here: einat runs with `--inbound-mark 0x20000000` (the bit `config/marks.tsv` gives it), and its init script adds one fw4 rule that accepts forwarded packets from wan to lan carrying the bit (r4s-ebpf-datapath design D2, D3).
+
+What the patch does: an `inbound_mark` option (`--inbound-mark` on the command line), ORed into `skb->mark` by `ingress_rev_snat` after a successful reverse translation. It is a read-only global of the BPF object, 0 by default, which marks nothing, so without the option einat behaves as before. Hairpinned packets never pass `ingress_rev_snat` (egress redirects them), so they stay unmarked. The Rust side adds the option to the configuration and the command line (hexadecimal accepted) and passes it with the other globals; the rodata struct gains explicit padding, as the loader requires a layout without implicit padding.
+
+Verification log: 2026-09-29, the patch applies to einat-ebpf 0.1.11 (`ba647ce`) and builds with the aya loader. 2026-11-15, einat 0.2.0 (aya 0.16): the patch's range-diff against its 0.1.11 form is empty, its index lines and one hunk's offset the only change; it builds, and the NAT tests pass on the emulated R4S, the inbound connection the mark lets in among them.
 
 ### honk: a prebuilt eBPF object
 
@@ -779,52 +841,32 @@ What the patch does: a token cleanup the full set has no room for is left to the
 
 Verification log: 2026-11-15, honk-core's unit tests as 006's; the test of a full set fails with the fatal bound, and the API's metrics test passes (`--features ebpf,native-api,clash-api`). On the emulated R4S under CI-like load, instrumented (never shipped), with 005 and 006 below it: in three runs of the test of a stream of new flows the set held up to 1,461, 2,365 and 2,290 of its 4,096, no token cleanup was left to the janitor, and the same honk process ran through each. The emulator did not fill the set; the patch is for a runner slower than it, where the drain's margin is gone. 2026-11-15, the review: the staging's lifetime checked in honk's eBPF code (`lookup_udp_seen_at` keeps a pending flow's `last_seen_ns`, `UDP_CONN_STATE_TIMEOUT_NS` is 120 s); honk-core's tests as 006's, and the API's metrics test passes (39 tests, `--features ebpf,native-api,clash-api`).
 
-### build: services disabled in the image
+## Prepared for upstream, not carried
 
-Patch: `patches/openwrt/0046-build-disable-the-services-TARGET_DISABLED_SERVICES-.patch`, for openwrt/openwrt.
+### EROFS compression algorithm
 
-Problem: `prepare_rootfs` enables every init script of the image except those its third argument names. The image builder passes `DISABLED_SERVICES` there; a build from source passes nothing. A package cannot ship its service disabled itself either: its `postinst` runs before `default_postinst` enables its init scripts.
+Patch: `docs/upstream/0001-build-make-the-EROFS-compression-selectable.patch`, for openwrt/openwrt.
 
-Why it matters here: honk must not run before a configuration is pushed (its built-in DNS upstream would answer the LAN), and its start-at-boot switch is its rc.d link, as daeuniverse's LuCI page sets it. With honk disabled in the image and its rc.d links kept through upgrades (`files/lib/upgrade/keep.d/orbyt-config`), a new router starts without it and an upgraded one as it was. daeuniverse's own package disables honk from a uci-defaults script, which a firmware upgrade runs again.
+Problem: `include/image.mk:110` tests `CONFIG_EROFS_FS_ZIP_LZMA`, but that symbol does not exist; the Kconfig option is named `KERNEL_EROFS_FS_ZIP_LZMA`. So the LZMA branch never runs, and every EROFS image is in fact compressed with lz4hc.
 
-What the patch does: `TARGET_DISABLED_SERVICES` in "Target Images", passed to `prepare_rootfs` wherever a build from source prepares a root filesystem (`package/Makefile`, `include/image.mk`). The rootfs cache key reads `.config`, so a changed list builds the root filesystem anew.
+Why it matters here: this project's images are EROFS (firmware/rootfs), with the compression it chose, lz4hc; it does not depend on the patch.
 
-Verification log: 2026-11-13, the R4S image has no rc.d link of honk's (`/rom/etc/rc.d`, the transparent-proxy test of the image's template).
+Why a rename alone is not enough: `KERNEL_EROFS_FS_ZIP_LZMA` has no prompt and defaults to y when EROFS is enabled. With only the rename, every EROFS build would **silently switch to LZMA**, and this project's images would change with it, whereas we chose lz4hc.
 
-### procd: the cgroup of an instance that runs again
+What the patch does: it adds a `compression` choice that defaults to lz4hc, matching the current actual behavior; choosing LZMA also selects the kernel's LZMA support. `image.mk` now tests this choice instead.
 
-Patch: `patches/openwrt/0047-procd-keep-the-cgroup-of-an-instance-that-runs-again.patch`, for openwrt/procd.
+Verification log: 2026-09-28, it applies cleanly with `git am` onto openwrt `1019293`, as pinned then, with the F2FS one below.
 
-Problem: once an instance's process has exited, `instance_exit_done` removes the instance's cgroup and its service's, before it decides whether the instance runs again. A restart (an init script's stop, then a start that comes while the old process is still exiting, which procd turns into a restart of the same instance) and a respawn start the instance again in a cgroup procd creates anew, without what the init script had set on the service's cgroup.
+### Kernel options for F2FS compression
 
-Why it matters here: honk's init pins honk to the big cores through the cpuset of honk's service cgroup and enables the memory controller there for honk's telemetry (honk-datapath D5). On the emulator, after `/etc/init.d/honk restart` with pinning on, `services/honk/cpuset.cpus` read 4-5 while the old honk exited and was empty once the new one ran, on every core (`taskset` 3f).
+Patch: `docs/upstream/0002-config-kernel-add-F2FS-compression-options.patch`, for openwrt/openwrt.
 
-What the patch does: the cgroups go with the instance only, as `instance_free` already removes them when an instance is deleted. An instance that stopped and stays registered keeps its empty cgroup until it starts again or is deleted, as it already keeps a program attached to it (`instance_set_vrf`).
+Problem: fstools can format the overlay as compressed f2fs via `fstools_overlay_compression_type=`, but `config/Config-kernel.in` has no matching `KERNEL_F2FS_*` options, so the build configuration cannot select them.
 
-Verification log: 2026-11-13, procd 6 in the R4S image: the transparent-proxy test of CPU pinning, which turns pinning on and restarts honk, finds honk on the big cores in two runs of the network suite; without the patch it ran on every core.
+Why it matters here: it does not depend on this patch; instead, the upstream-native kernel config overlay (`config/kernel.config` → `env/kernel-config`) provides the same options. Once upstream accepts the patch, we can switch back to `CONFIG_KERNEL_F2FS_*` in the seed.
 
-### procd: a shutdown cancels the boot scripts still running
+What the patch does: it adds `KERNEL_F2FS_FS_COMPRESSION` and each algorithm option beneath it (LZO, LZO-RLE, LZ4, LZ4HC, ZSTD). The kernel defaults all of these options to y, and if any of them has no value the build stops, so each one needs a matching `KERNEL_*`. F2FS selects the libraries of the algorithms it compresses with, which are modules when f2fs is one, so `kmod-fs-f2fs` depends on the kmods that hold them (`kmod-lib-lzo`, `kmod-lib-lz4`, `kmod-lib-lz4hc`, `kmod-lib-zstd`), each under its option.
 
-Patch: `patches/openwrt/0048-procd-cancel-the-boot-scripts-still-running-when-the.patch` (adds the procd patch `package/system/procd/patches/103-rcS-cancel-the-boot-scripts-still-running-when-the-shutdown-starts.patch`), for openwrt/procd.
+Verification log: 2026-09-28, this patch and the EROFS one above apply cleanly with `git am` onto openwrt `1019293`, as pinned by the lock.
 
-Problem: procd runs the boot's `S` scripts and the shutdown's `K` scripts in one runqueue, one script at a time, and `rcS()` set that queue up anew for each run with libubox's `runqueue_init()`, which empties the task lists but keeps the count of running tasks. A shutdown that starts while a boot script still runs therefore starts none of its `K` scripts until that script returns, and nothing ends it before the halt: a boot script that never returns (one waiting for a device that never comes, a loop) keeps the system in procd's shutdown state for good, procd feeding the watchdog meanwhile. A reboot then never completes, whoever asked for it.
-
-Why it matters here: orbyt-ab's trial supervisor turns a hung trial boot into a counted reboot (trial-guards D1), which is exactly a reboot while a boot script hangs. On the emulator, a uci-defaults script looping forever on a trial slot kept the system at `- shutdown -` for the ten minutes the probe watched, the script still running, and the rollback test of a hung boot timed out after 30 minutes on its first trial boot.
-
-What the patch does: `rcS()` cancels what is left of the previous run instead of setting the queue up anew. The scripts not yet started are dropped; the running one gets SIGTERM and, 10 s later, SIGKILL, as a `shutdown` script past its 15 s already does; the shutdown's scripts start once it has ended. Every script of that queue gets the 10 s from SIGTERM to SIGKILL (none is cancelled otherwise), the queue is set up once, as procd's queue of single init scripts (`rc()`) is, and a script dropped before it started closes no output: its pipe was never opened, where the completion closed descriptor 0 for it. `PKG_RELEASE` goes to 7.
-
-Alternatives considered: a forced reboot (`reboot -f`) in orbyt-ab's supervisor once a plain one has not completed in time would leave every other reboot during a hung boot script hanging, and skip the `K` scripts and the unmount; a time limit on `boot` runs would be a new policy, and a first boot's uci-defaults may take minutes.
-
-Verification log: 2026-11-17, the firmware/boot-rollback test of a boot script that hangs during a trial boot. With procd 6, on the emulated R4S and in CI run 43976186041 on both boards, it timed out waiting for the rollback; a probe in the hung script (never committed) found the system at `- shutdown -` from 61 s until 659 s, the script running throughout. With procd 7, each of its three hung trial boots reboots 7 s after the trial's deadline (`- SIGTERM processes -`, `- SIGKILL processes -`, `- reboot -`), the bootlimit is exceeded and slot A confirmed; the R4S's `upgrade` and `boot` suites pass, 44 tests. CI run 44002274413 passed on both boards.
-
-### luci-lib-daeuniverse: BusyBox's timeout
-
-Patch: `patches/daeuniverse/0003-luci-lib-daeuniverse-BusyBox-s-timeout-is-enough.patch`, for daeuniverse/openwrt-packages.
-
-Problem: the library's package check bounds `apk update` with `timeout --signal=TERM --kill-after=5 20`, and the library depends on `coreutils-timeout` for those long options. That builds coreutils and puts it in every image with the LuCI pages, for one call.
-
-Why it matters here: coreutils came into the image with luci-app-honk, and with it 22 warnings of the reviewed-warnings register's kinds (quality/undefined-behavior) across coreutils, of which the image installs only timeout.
-
-What the patch does: the short options `-s TERM -k 5`, which coreutils' timeout and BusyBox's (on by default in OpenWrt's BusyBox, 1.38 here) both take, and no dependency on coreutils-timeout.
-
-Verification log: 2026-11-13, the R4S image has no coreutils, and the reviewed-warnings register check passes with 40 warnings of its kinds (22 fewer). On the emulated R4S, `/usr/bin/timeout` is BusyBox's and ends a command on time with these options (`-s TERM -k 5 2 sleep 10` exits 143 after two seconds), and the page's check, `daeuniverse-pkg check honk`, answers `{ "packages": [ ], "warning": "" }`.
+2026-10-05: on `1019293`, `make defconfig` for the NanoPi R4S with `kmod-fs-f2fs` as a module and `KERNEL_F2FS_FS_COMPRESSION` selects `kmod-lib-lz4` and `kmod-lib-zstd`, the algorithms on by default, and neither LZO's nor LZ4HC's kmod. Before submitting: build f2fs as a module with every algorithm on and check that `f2fs.ko` loads with the selected kmods (this project builds F2FS into the kernel).

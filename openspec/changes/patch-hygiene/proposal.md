@@ -10,7 +10,7 @@ On 2026-11-20 the maintainer asked for the project's band-aids to be replaced by
 - **One fault per patch**: 0035's three `procd.sh` fixes become patches of their own; fstools' 0036 and 0044 become one blockd change; 0009 folds into 0038; packages/0002 splits into its three changes. The patched trees stay byte for byte the same.
 - **0021's `sed` goes**: the sanitizers' options reach the links without editing any package's files.
 - **0012 as an exclusion**, if it holds: the modules pass's freshness ignores what the image pass writes, instead of refreshing a stamp.
-- **The write-ups alike**: every entry in docs/patches.md has the same four sections, in order, checked by a test; 0040's trailer names it a backport; titles match subjects.
+- **The write-ups alike**: every entry in docs/patches.md has the same four sections, in order, grouped by where its patch lives and in its files' order, checked by a test.
 - **daeuniverse/0003** depends on BusyBox's `timeout` applet.
 
 ## Capabilities
