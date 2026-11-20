@@ -101,19 +101,17 @@ What the patch does: the prepared stamps of packages (`PKG_FILES_MD5`) and of th
 
 Verification log: 2026-10-04, on the VM. With every file of the packages feed's `lang/golang` set to 2020, Go's host build prepared nothing again: its prepared stamp kept the name of its files' content, where the former name, of their paths and times, changed. Dropping `-fno-plt` from `config/toolchain.seed` prepared all 132 target packages of the R4S again, and neither the kernel nor the host builds; restoring it, the same 132. A first try with `-g0` failed in the kernel, which takes `CONFIG_EXTRA_OPTIMIZATION`, all but `-fno-plt`, as its `KCFLAGS`: without debug information, its modules' BTF could not be made.
 
-### kernel: the modules pass up to date past the image pass
+### kernel: the modules pass ignores what the image pass writes
 
-Patch: `patches/openwrt/0012-kernel-keep-the-modules-pass-up-to-date-past-the-ima.patch`, for openwrt/openwrt.
+Patch: `patches/openwrt/0012-kernel-the-modules-pass-ignores-what-the-image-pass-.patch`, for openwrt/openwrt.
 
 Problem: `Kernel/Make` skips kbuild when its command line is the one of its last run and no file of the kernel tree is newer than that run's stamp. The image pass runs after the modules pass and writes `vmlinux.symvers`, which modpost writes whenever it links `vmlinux` alone. The next build's modules pass finds that file newer than its stamp and runs kbuild, which removes `vmlinux` and `System.map` first and so links the kernel again, BTF included; the image pass then runs again in turn. No build ever skips kbuild.
 
 Why it matters here: a build with nothing changed linked the kernel again in 6.5 of its minutes (5:45 for the modules pass, 0:43 for the image pass, on the VM; build-acceleration, task 2.4).
 
-What the patch does: once the image pass has run, it refreshes the modules pass's stamp, if that pass was up to date before it. The image pass builds on what the modules pass built and changes none of its inputs, so that pass is still up to date. Whether it was is the scan that `Kernel/Make` skips by, now `Kernel/Newer`: a file of the kernel tree, the toolchain or the pass's inputs newer than the stamp, such as a module's source edited before only the image is built (`make target/linux/install`), leaves the stamp as it is, for the next modules pass to build.
+What the patch does: what the image pass writes into the kernel tree, `vmlinux`, `vmlinux.symvers`, `System.map` and the boot images (`KERNEL_MAKE_OUTPUTS_modules`), is left out of the modules pass's scan, as the build system files at the top of the tree are: the outputs of the pass that follows are no inputs of the modules pass. A file that is, such as a module's source, still makes the modules pass build. Until 2026-11-21 the patch refreshed the modules pass's stamp after the image pass instead (patch-hygiene D4).
 
-Verification log: 2026-10-04, on the VM: the first build with the patch ran the modules pass once more; every later build with nothing changed skipped kbuild in both passes, in 2.5 s.
-
-2026-10-05, on the VM, with the stamp refreshed only if it was up to date: a build of the R4S with nothing changed in the kernel skipped kbuild in both passes, and refreshed the modules pass's stamp. With `net/sched/act_csum.c` touched, `make target/linux/install` linked the kernel again and left that stamp as it was; `make target/linux/compile` then built `act_csum.ko` again.
+Verification log: 2026-10-04 and 2026-10-05, on the VM, with the earlier version: every build with nothing changed skipped kbuild in both passes, in 2.5 s; with `net/sched/act_csum.c` touched, `make target/linux/install` linked the kernel again and `make target/linux/compile` then built `act_csum.ko` again. 2026-11-21, on the R4S's tree after a build with nothing changed in the kernel: the image pass had written `vmlinux.symvers` alone outside the top level's dot files.
 
 ### download: a package's source only has to be there
 
