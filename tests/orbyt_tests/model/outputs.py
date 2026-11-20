@@ -89,11 +89,15 @@ class ToolchainRecord(_Record):
 
     That is the flags, its C library, and Rust's standard library.
 
-    ``rust_std`` is absent until the toolchain has built Rust's.
+    ``environment`` names the host environment the host side was built
+    in, by the fingerprint ``ORBYT_BUILD_INPUTS`` ends with
+    (nixpkgs-2605 D4). ``rust_std`` is absent until the toolchain has
+    built Rust's.
     """
 
     cflags: Flags
     libc: Sha256
+    environment: Annotated[str, Field(pattern=r"^[0-9a-z]{32}-orbyt-build-inputs$")]
     rust_std: Sha256 | None = None
 
 

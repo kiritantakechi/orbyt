@@ -45,6 +45,10 @@ libc=$(toolchain_libc "${toolchain_dir}")
 recorded=$(jq -r .libc "${record}")
 [ "${libc}" = "${recorded}" ] ||
 	die "the toolchain's C library is not the one its record names; run 'just toolchain-build'"
+environment=$(toolchain_environment)
+recorded=$(jq -r '.environment // ""' "${record}")
+[ "${recorded}" = "${environment}" ] ||
+	die "the toolchain was built in another host environment; run 'just toolchain-build'"
 rust_std=$(toolchain_rust_std "${tree}")
 recorded=$(jq -r '.rust_std // ""' "${record}")
 [ "${rust_std}" = "${recorded}" ] ||

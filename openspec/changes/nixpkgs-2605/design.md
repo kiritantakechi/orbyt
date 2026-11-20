@@ -32,6 +32,10 @@
 
 The images' root filesystem is written by the tree's own `mkfs.erofs` (OpenWrt's `tools/erofs-utils`, 1.9.4), with fragments and deduplication. The tests read it with the shell's `fsck.erofs --extract`: 25.11's 1.8.10 did, 26.05's 1.9.1 cannot, failing on the packed file whatever the target directory (its first message, "path is not a directory", misleads). `erofs-utils` comes from `nixpkgs-unstable` (1.9.4) with the emulator's tools, as a reader no older than the writer.
 
+### D4. A new environment builds the host side anew, locally too
+
+CI's toolchain key names the host environment (`ORBYT_BUILD_INPUTS`, the fingerprint of the flake's host packages), so a new environment builds the host stage anew there. The local tree's toolchain record named only the flags and the libraries: on 2026-11-21 the R4S's first local build on 26.05 kept the tools built on 25.11, and U-Boot's configuration failed as the tree's `bison` no longer found 25.11's `libtextstyle.so.0`. The record names the environment too (`toolchain_environment` in `scripts/lib/toolchain.sh`, which the key and both scripts read); `toolchain-build` builds the host tools, the toolchains and the host packages anew when it differs, and `build` refuses a toolchain of another environment. The boards' packages stay: a toolchain built from the same files and flags in another environment compiles the same objects, and the toolchain's own files decide their rebuild (build/boards, build/environment).
+
 ## Risks / Trade-offs
 
 - [A newer host compiler breaks a host tool's build] → The host stage in CI shows it before the merge; a fix goes into the tool's patch, upstream-acceptable, as the series' other tool patches.
