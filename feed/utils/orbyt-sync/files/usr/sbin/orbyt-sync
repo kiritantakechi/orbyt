@@ -34,12 +34,18 @@ die() {
 	exit 1
 }
 
-grep -q "${ORBYT_DATA_MOUNT}" /proc/mounts ||
+# shellcheck disable=SC2310 # a predicate: its status is its answer
+orbyt_data_mounted ||
 	die "the data disk is not mounted: there is no local repository"
-api=$(uci -q get orbyt-sync.main.api) || api=https://api.github.com
-repository=$(uci -q get orbyt-sync.main.repository) || repository=kiritantakechi/orbyt
-channel=$(uci -q get orbyt-sync.main.channel) || channel=stable
-keep=$(uci -q get orbyt-sync.main.keep) || keep=3
+# setting <name>: an option of /etc/config/orbyt-sync, which declares them all
+# (firmware-hygiene D5).
+setting() {
+	uci -q get "orbyt-sync.main.$1" || die "orbyt-sync.main.$1 is not set"
+}
+api=$(setting api)
+repository=$(setting repository)
+channel=$(setting channel)
+keep=$(setting keep)
 device=$(orbyt_sync_device)
 case "${1:-}" in
 	--candidate) channel=candidate ;;
@@ -51,7 +57,8 @@ exec 9>"${LOCK}"
 flock 9
 # What a sync downloads and checks serves it alone (fetch downloads afresh every
 # time): none of it outlasts the sync, whether its release became current or not.
-trap 'rm -rf "${REPO:?}/.incoming"/* "${REPO:?}/.verified"' EXIT
+tagged=$(mktemp)
+trap 'rm -rf "${REPO:?}/.incoming"/* "${REPO:?}/.verified" "${tagged}"' EXIT
 
 mkdir -p "${REPO}/.incoming" "${REPO}/releases" "${REPO}/.root/tmp" \
 	"${REPO}/.root/releases" "${REPO}/.root/incoming"
@@ -61,11 +68,26 @@ for mount in ${MOUNTS}; do
 	set -- "$@" --volume "/${mount}:/${mount}:ro"
 done
 # --rootfs takes the first argument after the options as the container's root.
-tag=$(podman run --rm --network podman "$@" \
+podman run --rm --network podman "$@" \
 	--volume "${REPO}/releases:/releases:ro" --volume "${REPO}/.incoming:/incoming" \
 	--rootfs "${REPO}/.root" "${FETCH}" "${api}" "${repository}" "${channel}" "${device}" \
-	/releases /incoming) ||
-	die "fetching the ${channel} release failed; the current release stays"
+	/releases /incoming >"${tagged}" &
+container=$!
+# The container's first request waits for the word that the datapath holds the
+# bridge podman makes for it (firmware-hygiene D3): podman makes podman0 when the
+# container starts, and honk takes a device over only once it exists. Without
+# honk, nothing holds the bridge and nothing is waited for.
+if /etc/init.d/honk enabled 2>/dev/null; then
+	# shellcheck source=../../../../../net/honk/files/honk.sh
+	. /lib/functions/honk.sh
+	# shellcheck disable=SC2310 # a predicate: its status is its answer
+	until honk_holds podman0 || ! kill -0 "${container}" 2>/dev/null; do
+		sleep 1
+	done
+fi
+: >"${REPO}/.incoming/ready"
+wait "${container}" || die "fetching the ${channel} release failed; the current release stays"
+tag=$(cat "${tagged}")
 # The tag the container printed names a directory: a plain file name, never . or ..
 case "${tag}" in
 	'' | [!A-Za-z0-9]* | *[!A-Za-z0-9._-]*) die "the release name '${tag}' is no plain file name" ;;

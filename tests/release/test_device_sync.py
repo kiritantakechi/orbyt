@@ -29,6 +29,7 @@ from orbyt_tests.device.storage import MOUNT, wait_mounted
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.data import read_json, write_json
 from orbyt_tests.model.outputs import RELEASE_FILE, Manifest, Release
+from orbyt_tests.model.poll import until
 from orbyt_tests.model.trees import linked_copy, replace
 from orbyt_tests.sandbox import releases
 from orbyt_tests.sandbox.internet import RELEASES
@@ -57,6 +58,11 @@ CUT = 1 << 20
 # The byte a tampered image has changed.
 TAMPERED = 1 << 20
 SYNC_TIMEOUT = 900
+# A sync run in the background: what it said, and its exit status.
+SYNC_OUT = "/tmp/sync-out"  # noqa: S108 (a path on the router)
+SYNC_STATUS = "/tmp/sync-status"  # noqa: S108 (a path on the router)
+# How long podman may take to bring up the container's bridge.
+BRIDGE_TIMEOUT = 120
 # What the router logged around a failed sync: the container's fetch
 # goes through podman's network and honk, either of which can refuse it
 # (EPERM).
@@ -205,6 +211,37 @@ def test_sync_goes_through_the_proxy(
         ok, said = stand_in.sync()
     assert ok, said
     assert f"{tag} is current" in said
+    assert stand_in.current() == tag
+
+
+@spec(CAPABILITY, "The sync waits for its datapath", "The sync starts before the proxy")
+def test_the_sync_waits_for_the_proxy(
+    stand_in: Releases, data_disk: Disk, isp: Isp
+) -> None:
+    del data_disk  # the local repository's place
+    router = stand_in.router
+    tag = stand_in.publish()
+    with isp.blocking(RELEASES[1]):
+        # honk stays enabled, its datapath gone until it starts again.
+        router.run("/etc/init.d/honk stop")
+        try:
+            router.detach(f"orbyt-sync >{SYNC_OUT} 2>&1; echo $? >{SYNC_STATUS}")
+            until(
+                lambda: router.returncode("ip link show podman0") == 0,
+                timeout=BRIDGE_TIMEOUT,
+                what="the sync's container on podman0",
+            )
+            # The container waits on a bridge honk does not hold.
+            assert router.returncode(f"test -e {LOCAL}/.incoming/ready") != 0
+            assert releases.downloads(stand_in.root, REPOSITORY, tag) == []
+        finally:
+            router.run("/etc/init.d/honk start")
+        status = until(
+            lambda: router.poll(f"cat {SYNC_STATUS}"),
+            timeout=SYNC_TIMEOUT,
+            what="the sync's end",
+        )
+    assert status.strip() == "0", router.run(f"cat {SYNC_OUT}; {SYNC_LOG}")
     assert stand_in.current() == tag
 
 

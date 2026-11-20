@@ -6,8 +6,10 @@
 // the host verifies. That is the asset set of the router's device alone
 // (board-model D10): its signed manifest and package repository, named after the
 // device (<device>-manifest.json, ...), and the upgrade image the manifest names;
-// never the factory image, which only a first flash needs. Every request is
-// tried a few times: the first may leave before honk holds the bridge.
+// never the factory image, which only a first flash needs. Its first request
+// waits for <incoming>/ready, which the host writes once the datapath holds the
+// container's bridge (firmware-hygiene D3); a request that fails in transit is
+// tried again a few times.
 'use strict';
 
 import { glob, mkdir, open, popen, stat } from 'fs';
@@ -17,6 +19,7 @@ import * as uloop from 'uloop';
 const MANIFEST = '/usr/libexec/orbyt-sync/manifest';
 const CERTIFICATES = '/etc/ssl/certs/*.crt';
 const TRIES = 5;
+const READY_SECONDS = 120;
 const TIMEOUT_MS = 30000;
 const REDIRECTS = 10;
 
@@ -74,8 +77,8 @@ function request(url, write) {
 	return complete;
 }
 
-// get(url, write, restart): request url, a few times; restart() comes before
-// each try, to drop what an earlier one wrote.
+// get(url, write, restart): request url, a few times, as a transport fails now
+// and then; restart() comes before each try, to drop what an earlier one wrote.
 function get(url, write, restart) {
 	for (let attempt = 1; attempt <= TRIES; attempt++) {
 		restart();
@@ -137,6 +140,16 @@ if (length(ARGV) != 6)
 let api = ARGV[0], repository = ARGV[1], channel = ARGV[2];
 let device = ARGV[3], releases = ARGV[4], incoming = ARGV[5];
 let found;
+
+// Nothing leaves before the host's word that the datapath holds the bridge.
+let waited = 0;
+
+while (!stat(`${incoming}/ready`)) {
+	if (++waited > READY_SECONDS)
+		fail('the datapath never held the container\'s bridge');
+
+	sleep(1000);
+}
 
 switch (channel) {
 case 'stable':
