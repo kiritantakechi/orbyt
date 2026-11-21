@@ -52,7 +52,7 @@
 
 ## 8. Build-tree tests and the cache key (D8)
 
-- [ ] 8.1 The `build_tree` mark, its selection in CI's system suite and firmware job, the one-board form of "Two boards in one tree"; the unit test of `toolchain-key.sh` and verified-elsewhere's entries trimmed to CI runs.
+- [x] 8.1 The `build_tree` mark, its selection in CI's system suite and firmware job, the one-board form of "Two boards in one tree"; the unit test of `toolchain-key.sh` and verified-elsewhere's entries trimmed to CI runs.
 
   Verify: `spec-coverage` passes; `just test r4s dev -m build_tree` passes on the VM; the system suite selects none of them; the key test fails when an input is removed from the script.
 
