@@ -193,9 +193,9 @@ Problem: most packages built with autotools carry their own copy of libtool, whi
 
 Why it matters here: in the `ubsan` profile, libmd, among others, failed to link for want of libubsan.
 
-What the patch does: in a build whose `TARGET_CFLAGS` sanitize, a package that carries an `ltmain.sh` and does not regenerate its build system already gets the build's libtool by autoreconf, as `PKG_FIXUP:=libtool` does, OpenWrt's own way. GCC's LTO link does not take `-fsanitize-trap` from the objects it links (patch-hygiene D3's first way), so a link needs the option, and the build's libtool passes it. A build without sanitizers is unchanged. It replaces an edit of every package's `ltmain.sh` with `sed`.
+What the patch does: in a build whose `TARGET_CFLAGS` sanitize, a package that carries an `ltmain.sh` that drops the sanitizer options gets the build's libtool by autoreconf, as `PKG_FIXUP:=libtool` does, OpenWrt's own way, and a copy that still drops them, in a package whose build system does not regenerate, stops the build before the package is configured (binutils' copy has the change instead, patch 0056). A package built with CMake or Meson that carries a copy it does not use is regenerated as well. GCC's LTO link does not take `-fsanitize-trap` from the objects it links (patch-hygiene D3's first way), so a link needs the option, and the build's libtool passes it. A build without sanitizers is unchanged. It replaces an edit of every package's `ltmain.sh` with `sed`.
 
-Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree, of the patch's first form (the `sed`): the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions. 2026-11-22, on the VM, in the R4S's `ubsan` tree: without either form, libmd failed to link; libmnl and musl-fts linked, regenerating their build systems already, and libffi linked as well, though its libtool does not pass the option. With this form, the four link with no call into a runtime and as many trap instructions as with the first form: 4,870, 1,290, 92 and 222. libffi's build directories, which regenerating its build system broke in October, build.
+Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree, of the patch's first form (the `sed`): the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions. 2026-11-22, on the VM, in the R4S's `ubsan` tree: without either form, libmd failed to link; libmnl and musl-fts linked, regenerating their build systems already, and libffi linked as well, though its libtool does not pass the option. With this form, the four link with no call into a runtime and as many trap instructions as with the first form: 4,870, 1,290, 92 and 222. libffi's build directories, which regenerating its build system broke in October, build. A whole `ubsan` build of the R4S then stopped at binutils, whose build system autoreconf cannot regenerate (`aclocal`: no `libtool.m4`): OpenWrt's autoreconf goes on after a failure, and libsframe's link asked for libubsan (`mold: fatal: library not found: ubsan`). The hook stops such a package now: binutils without patch 0056 stopped before its configure with the copy named, and with it built unregenerated, its six libraries with no call into a runtime; libmd, regenerated, likewise.
 
 ### busybox: printf without arithmetic on a null pointer
 
@@ -554,6 +554,18 @@ Why it matters here: honk's init restarts a running honk when the data disk is m
 What the patch does: procd reports an instance it stops for good, its process still running, as `stopping`, and `procd_running` counts only an instance that runs and is not stopping. `PKG_RELEASE` goes to 12.
 
 Verification log: 2026-11-21, on the emulated R4S: honk held still (SIGSTOP), the data disk unmounted and honk stopped before procd ran the unmount's command; before the patch honk ran again after its stop, two runs of two.
+
+### binutils: every sanitizer option through its libtool
+
+Patch: `patches/openwrt/0056-binutils-pass-every-sanitizer-option-through-its-lib.patch` (adds the binutils patch `package/devel/binutils/patches/100-ltmain-pass-every-sanitizer-option-through-to-the-link.patch`), for binutils and openwrt/openwrt.
+
+Problem: binutils links its libraries with its own copy of libtool, which passes `-fsanitize=*` to the link but drops the sanitizers' other options, `-fsanitize-trap=*` among them. Unlike other packages it cannot take the build's libtool instead: autoreconf fails on its build system, which is why OpenWrt patches its copy (`PKG_FIXUP:=patch-libtool`).
+
+Why it matters here: in the `ubsan` profile, libsframe, binutils' first library, failed to link for want of libubsan, and patch 0021 stops a package whose libtool drops the options.
+
+What the patch does: binutils' `ltmain.sh` passes every option that starts with `-fsanitize` through, the change patch 0019 makes to libtool. A build without sanitizers is unchanged. Upstream, the patch belongs to the top-level `ltmain.sh` that binutils shares with GCC.
+
+Verification log: 2026-11-22, on the VM, in the R4S's `ubsan` tree: binutils built, its `libbfd`, `libctf`, `libctf-nobfd`, `libdep`, `libopcodes` and `libsframe` with no call into a runtime.
 
 ## The packages series
 

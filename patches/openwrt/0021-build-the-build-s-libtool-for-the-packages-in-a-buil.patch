@@ -13,38 +13,41 @@ for libubsan, which the musl toolchain does not have, and failed to
 link: libmd among others.
 
 In a build whose TARGET_CFLAGS sanitize, a package that carries an
-ltmain.sh and does not regenerate its build system already gets the
-build's libtool by autoreconf, as PKG_FIXUP:=libtool does: the build's
-libtool passes every sanitizer option on to the link (tools/libtool,
-150-pass-every-sanitizer-option-through-to-the-link.patch). A build
-without sanitizers is unchanged.
+ltmain.sh that drops them gets the build's libtool by autoreconf, as
+PKG_FIXUP:=libtool does: the build's libtool passes every sanitizer
+option on to the link (tools/libtool,
+150-pass-every-sanitizer-option-through-to-the-link.patch). A copy that
+still drops them, in a package whose build system does not regenerate,
+stops the build before the package is configured. A build without
+sanitizers is unchanged.
 
 Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
 Upstream-Status: Pending
 ---
- include/autotools.mk | 15 +++++++++++++++
- 1 file changed, 15 insertions(+)
+ include/autotools.mk | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
 
 diff --git a/include/autotools.mk b/include/autotools.mk
 --- a/include/autotools.mk
 +++ b/include/autotools.mk
-@@ -140,6 +140,21 @@
+@@ -140,6 +140,22 @@
    endif
  endif
  
-+# In a build that sanitizes, a package that carries its own libtool gets the
-+# build's, by autoreconf as PKG_FIXUP:=libtool does: the copies packages carry
-+# pass -fsanitize= to the link but drop the sanitizers' other options,
-+# -fsanitize-trap among them, and the build's passes every one (tools/libtool).
++# In a build that sanitizes, every libtool that links a package's libraries
++# passes the sanitizer options on, as the build's does (tools/libtool): the
++# copies packages carry pass -fsanitize= but drop the others, -fsanitize-trap
++# among them. A package that carries such a copy gets the build's libtool by
++# autoreconf, as PKG_FIXUP:=libtool does, and one that keeps it stops the build.
 +define libtool_sanitize_target
-+	if [ -n "$$$$(find $(PKG_BUILD_DIR) -name ltmain.sh -print)" ]; then $(call autoreconf_target) true; fi;
++	if [ -n "$$$$(find $(PKG_BUILD_DIR) -name ltmain.sh -exec grep -L -e '-fsanitize\*|' {} +)" ]; then $(call autoreconf_target) true; fi; \
++	lts="$$$$(find $(PKG_BUILD_DIR) -name ltmain.sh -exec grep -L -e '-fsanitize\*|' {} +)"; \
++	if [ -n "$$$$lts" ]; then echo "autotools.mk: a libtool that drops the sanitizer options:" $$$$lts >&2; exit 1; fi;
 +endef
 +
 +ifneq ($(filter -fsanitize%,$(TARGET_CFLAGS)),)
-+  ifeq ($(filter autoreconf_target libtool_sanitize_target,$(Hooks/Configure/Pre)),)
-+    PKG_BUILD_DEPENDS += libtool
-+    Hooks/Configure/Pre += libtool_sanitize_target
-+  endif
++  PKG_BUILD_DEPENDS += libtool
++  Hooks/Configure/Pre += libtool_sanitize_target
 +endif
 +
  
