@@ -246,12 +246,12 @@ UPSTREAM = (
                     # The one zone the internet serves, anything else
                     # is NXDOMAIN (host records win over address
                     # rules). Every name under any.example.net
-                    # resolves, so each test query can be one no cache
-                    # has seen. Not a .test zone: the router's dnsmasq
-                    # keeps RFC 6761 names local and never forwards
-                    # them.
+                    # resolves, in both families, so each test query
+                    # can be one no cache has seen. Not a .test zone:
+                    # the router's dnsmasq keeps RFC 6761 names local
+                    # and never forwards them.
                     "--address=/#/",
-                    f"--address=/any.example.net/{DIRECT_TARGET[0]}",
+                    *(f"--address=/any.example.net/{to}" for to in DIRECT_TARGET),
                     f"--host-record={DIRECT_NAME},{DIRECT_TARGET[0]},{DIRECT_TARGET[1]}",
                     "--host-record=proxied.example.net,{},{}".format(*PROXIED_TARGET),
                     *(
