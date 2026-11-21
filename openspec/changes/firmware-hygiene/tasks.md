@@ -24,6 +24,10 @@
 
   Verify: the pin's record in design D4 (seen 2026-11-21: 4 of 30 restarts unpinned without the setup, each where procd freed the service); 20 restarts of a pinned honk keep its cpuset; the transparent proxy suite passes.
 
+- [ ] 2.4 honk's mount and unmount triggers run `move_state`, which restarts a running honk under procd's lock and leaves a stopped one stopped; the data disk's scenario of honk stopped as the disk goes (design D9).
+
+  Verify: the new scenario fails on the image before the change (honk started again by the unmount's queued restart) and passes after; the power-cut test of the device sync module passes alone on the emulated R6S, where its teardown found honk running twice in two runs.
+
 ## 3. Defaults, helpers and layout facts (D5, D6, D7)
 
 - [x] 3.1 Drop the code's copies of the shipped values (orbyt-sync; einat's init and health check), failing on a missing option; bind the trial deadline's and the health check's safety fallbacks, and `orbyt-slot`'s boot limit, to their sources by a unit test.

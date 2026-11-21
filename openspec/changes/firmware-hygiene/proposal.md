@@ -25,6 +25,7 @@ None.
 - `firmware/ab-upgrade`: the upgrade's functions are the platform's own, handed off by name: no file order decides which definition runs.
 - `firmware/health-check`: the trial watchdog is the image's first boot script, asserted on the image; the checks wait on their own conditions, not on running last.
 - `release/device-sync`: the sync starts once the datapath it goes through holds the container bridge.
+- `storage/data-disk`: the data disk's mount and unmount move a running honk's state and leave a stopped honk stopped.
 
 ## Impact
 

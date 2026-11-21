@@ -21,7 +21,8 @@ STOP=01
 # honk's data directory (its state database, subscriptions and geodata) is on
 # the data disk while that is mounted and writable, and in RAM otherwise: honk
 # writes to it all the time, so never to the boot disk. The data disk's mount
-# and unmount restart honk onto it and off it.
+# and unmount restart a running honk onto it and off it, and leave a stopped one
+# stopped (move_state).
 #
 # honk starts at boot while this script is enabled, as daeuniverse's LuCI page
 # switches it. The image ships it disabled, and an upgrade keeps its rc.d links
@@ -123,6 +124,7 @@ prepare() {
 }
 
 extra_command "check" "<file>: check a configuration as the service would run it"
+extra_command "move_state" "restart a running honk onto the data disk or off it"
 
 # check <configuration file>: honk's check of the entry the service would make
 # around the file, in a directory of its own (config-push validates this way).
@@ -183,8 +185,18 @@ reload_service() {
 	procd_send_signal "${CONF}" "${CONF}" HUP
 }
 
+# move_state: after the data disk's mount or unmount, a running honk restarted
+# with its data directory where it now belongs; a stopped honk stays stopped
+# (firmware-hygiene D9). procd's lock is held through the restart, whose start
+# takes none of its own, so a stop issued meanwhile comes after it and stops it.
+move_state() {
+	procd_lock
+	procd_running "${CONF}" "${CONF}" || return 0
+	restart
+}
+
 service_triggers() {
 	procd_add_reload_trigger "${CONF}"
-	procd_add_restart_mount_trigger "${STATE_DISK}"
-	procd_add_restart_unmount_trigger "${STATE_DISK}"
+	procd_add_action_mount_trigger move_state "${STATE_DISK}"
+	procd_add_action_unmount_trigger move_state "${STATE_DISK}"
 }

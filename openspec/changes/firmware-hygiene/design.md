@@ -70,6 +70,10 @@ Alternative: the code as the one source and config files without values. Rejecte
 
 orbyt-keyring's build fails when it has no keys; `manifest`'s interpreter line and the other scripts' strict mode agree; orbyt-metrics' description is rewritten; the A/B upgrade splits its partition pair with `read`, not the positional parameters; each `shellcheck source=` comment sits above the `.` it describes; `92-orbyt-services` says why the LAN reaches the tailnet (subnet routes) and a WireGuard peer only answers (remote access).
 
+### D9. A stopped honk stays stopped
+
+honk's init restarted it on the data disk's mount and unmount, to move its data directory, and a restart procd has queued runs even once honk was stopped meanwhile, starting it again: the R6S's suite found honk running after its stop, the restart that a teardown's unplug of the data disk had queued just before starting it again (pinned 2026-11-21: the stop's `ubus call service delete` ran, the honk left running was a later instance, and a stop with no unmount around it ended honk within 40 s). Its start takes no lock of procd's, so it also lands after a stop issued between the restart's own stop and start. The mount and unmount triggers run `move_state` instead: under procd's lock for the whole restart, it restarts a running honk and leaves a stopped one stopped. A stopped honk has no triggers (procd deletes them with the service), so only a stop between the event and its command meets one. The data disk's spec states it.
+
 ## Risks / Trade-offs
 
 - [The hand-off patches a target file] → an Orbyt-only patch beside 0004; `just patch` fails loudly when upstream changes the three functions' context.

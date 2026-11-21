@@ -43,7 +43,13 @@ from orbyt_tests.model.poll import until
 from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.sandbox.net import DIRECT_NAME, DIRECT_TARGET, PROXIED_TARGET, PROXY
 from orbyt_tests.services import app
-from orbyt_tests.services.datapath import PROXY_TIMEOUT, wait_proxy
+from orbyt_tests.services.datapath import (
+    PROXY_TIMEOUT,
+    proxy_pid,
+    proxy_start,
+    proxy_stop,
+    wait_proxy,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -423,6 +429,49 @@ def test_the_proxy_s_state_follows_the_data_disk(
         wait_mounted(router)
     _proxy_on(router, "data disk")
     assert pod.client().probe("tcp", PROXIED_TARGET[0])["address"] == PROXY[0]
+
+
+def _proxy_triggered(router: Router) -> list[dict[str, object]]:
+    """Return procd's trigger commands for honk yet to end."""
+    return [
+        command
+        for command in router.trigger_commands()
+        if "/etc/init.d/honk" in str(command["command"])
+    ]
+
+
+@spec(
+    CAPABILITY,
+    "The proxy's state follows the data disk",
+    "Proxy stopped as the data disk goes",
+)
+def test_a_proxy_stopped_as_the_disk_goes_stays_stopped(
+    pod: Online, data_disk: Disk, proxy: Online
+) -> None:
+    del proxy  # honk on, with its state where the disk is
+    router = pod.router
+    _proxy_on(router, "data disk")
+    announce(router, data_disk, "remove")
+    try:
+        # honk's restart off the disk queued, and honk stopped before
+        # procd has run it.
+        until(
+            lambda: _proxy_triggered(router),
+            timeout=PLUG_TIMEOUT,
+            every=0.2,
+            what="honk's trigger command for the unmount",
+        )
+        proxy_stop(router)
+        until(
+            lambda: not _proxy_triggered(router),
+            timeout=PROXY_TIMEOUT,
+            what="honk's trigger commands run",
+        )
+        assert not proxy_pid(router)
+    finally:
+        announce(router, data_disk, "add")
+        wait_mounted(router)
+        proxy_start(router)
 
 
 @spec(CAPABILITY, "Periodic read-only snapshots", "Snapshots after a long time off")

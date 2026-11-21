@@ -603,4 +603,9 @@ def proxy_stop(router: Router) -> None:
         lambda: not proxy_pid(router) and not hooks(router, "br-lan"),
         timeout=PROXY_TIMEOUT,
         what="honk gone",
+        notes=lambda: [
+            f"honk-core: {proxy_pid(router) or 'none'}",
+            f"br-lan holds {hooks(router, 'br-lan')}",
+            router.run('ubus call service list \'{"name": "honk"}\'; true'),
+        ],
     )
