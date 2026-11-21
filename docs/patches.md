@@ -543,6 +543,18 @@ What the patch does: procd passes every `ubus.object.add` to the triggers too, a
 
 Verification log: 2026-11-21, the series applies.
 
+### procd: an instance procd stops is not running
+
+Patch: `patches/openwrt/0055-procd-an-instance-procd-stops-is-not-running.patch` (adds the procd patch `package/system/procd/patches/105-instance-report-an-instance-stopped-for-good.patch`), for procd and openwrt/openwrt.
+
+Problem: procd's service list says `running` for an instance as long as its process lives, and an instance procd stops for good, its service deleted, lives on until it exits, up to its term timeout. `procd_running` reads it as running, so an init script that acts on a running service only, as one that restarts it, acts on a service that has just been stopped, and starts it again.
+
+Why it matters here: honk's init restarts a running honk when the data disk is mounted or unmounted, and leaves a stopped one stopped (firmware-hygiene D9); honk can take seconds to shut down, and the R6S's suite found it started again after its stop.
+
+What the patch does: procd reports an instance it stops for good, its process still running, as `stopping`, and `procd_running` counts only an instance that runs and is not stopping. `PKG_RELEASE` goes to 12.
+
+Verification log: 2026-11-21, on the emulated R4S: honk held still (SIGSTOP), the data disk unmounted and honk stopped before procd ran the unmount's command; before the patch honk ran again after its stop, two runs of two.
+
 ## The packages series
 
 ### ksmbd-tools: shares on a disk that is not mounted

@@ -451,6 +451,10 @@ def test_a_proxy_stopped_as_the_disk_goes_stays_stopped(
     del proxy  # honk on, with its state where the disk is
     router = pod.router
     _proxy_on(router, "data disk")
+    # honk held still, as a honk slow to shut down is: procd's stop of
+    # it waits for its term timeout, through procd's run of the
+    # unmount's command.
+    router.run("kill -STOP $(pidof honk-core)")
     announce(router, data_disk, "remove")
     try:
         # honk's restart off the disk queued, and honk stopped before

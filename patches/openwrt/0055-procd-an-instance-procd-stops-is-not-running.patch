@@ -1,0 +1,98 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sat, 21 Nov 2026 23:00:00 +0800
+Subject: [PATCH] procd: an instance procd stops is not running
+
+procd's service list says "running" for an instance as long as its
+process lives, and an instance that procd stops for good, the service
+deleted, lives on until it exits, up to its term timeout. procd_running
+read it as running, so that an init script that acts on a running
+service only, as one that restarts it, did so on a service that had just
+been stopped, and started it again.
+
+Carry the procd patch that reports such an instance as "stopping", and
+have procd_running count only an instance that runs and is not
+stopping. The procd patch is meant for procd upstream.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ package/system/procd/Makefile                      |  2 +-
+ package/system/procd/files/procd.sh                | 13 ++++++++---
+ ...tance-report-an-instance-stopped-for-good.patch | 27 ++++++++++++++++++++++
+ 3 files changed, 38 insertions(+), 4 deletions(-)
+
+diff --git a/package/system/procd/Makefile b/package/system/procd/Makefile
+index e3f6bc66..0e29bafe 100644
+--- a/package/system/procd/Makefile
++++ b/package/system/procd/Makefile
+@@ -8,7 +8,7 @@
+ include $(TOPDIR)/rules.mk
+ 
+ PKG_NAME:=procd
+-PKG_RELEASE:=11
++PKG_RELEASE:=12
+ 
+ PKG_SOURCE_PROTO:=git
+ PKG_SOURCE_URL=$(PROJECT_GIT)/project/procd.git
+diff --git a/package/system/procd/files/procd.sh b/package/system/procd/files/procd.sh
+index a30ab73e..959769ce 100644
+--- a/package/system/procd/files/procd.sh
++++ b/package/system/procd/files/procd.sh
+@@ -640,13 +640,20 @@ _procd_add_instance() {
+ procd_running() {
+ 	local service="$1"
+ 	local instance="${2:-*}"
+-	[ "$instance" = "*" ] || instance="'$instance'"
++	local list
+ 
+ 	json_init
+ 	json_add_string name "$service"
+-	local running=$(_procd_ubus_call list | jsonfilter -l 1 -e "@['$service'].instances[$instance].running")
++	list=$(_procd_ubus_call list)
+ 
+-	[ "$running" = "true" ]
++	# An instance procd stops for good runs until its process exits, but is
++	# no longer running.
++	if [ "$instance" = "*" ]; then
++		[ -n "$(printf '%s' "$list" | jsonfilter -l 1 -e "@['$service'].instances[@.running=true && !@.stopping]")" ]
++	else
++		[ "$(printf '%s' "$list" | jsonfilter -e "@['$service'].instances['$instance'].running")" = "true" ] &&
++			[ -z "$(printf '%s' "$list" | jsonfilter -e "@['$service'].instances['$instance'].stopping")" ]
++	fi
+ }
+ 
+ _procd_kill() {
+diff --git a/package/system/procd/patches/105-instance-report-an-instance-stopped-for-good.patch b/package/system/procd/patches/105-instance-report-an-instance-stopped-for-good.patch
+new file mode 100644
+index 00000000..6357536c
+--- /dev/null
++++ b/package/system/procd/patches/105-instance-report-an-instance-stopped-for-good.patch
+@@ -0,0 +1,27 @@
++From: kiritantakechi <kiritantakechi@gmail.com>
++Subject: [PATCH] instance: report an instance stopped for good
++
++A service's instance that procd stops, the service deleted or the
++instance dropped, runs until its process exits, up to its term timeout,
++and the dump says "running" all that while, so that a script cannot
++tell it from one that runs on. Report such an instance as "stopping".
++
++Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
++---
++ service/instance.c | 3 +++
++ 1 file changed, 3 insertions(+)
++
++diff --git a/service/instance.c b/service/instance.c
++index 0847c32..1fc8648 100644
++--- a/service/instance.c
+++++ b/service/instance.c
++@@ -2608,6 +2608,9 @@ void instance_dump(struct blob_buf *b, struct service_instance *in, int verbose)
++ 	blobmsg_add_u8(b, "running", in->proc.pending);
++ 	if (in->proc.pending)
++ 		blobmsg_add_u32(b, "pid", in->proc.pid);
+++	/* Stopped for good: it goes once its process exits, and runs no more. */
+++	if (in->proc.pending && in->halt && !in->restart)
+++		blobmsg_add_u8(b, "stopping", 1);
++ 	if (in->incarnation)
++ 		blobmsg_add_u64(b, "incarnation", in->incarnation);
++ 	if (in->jail_reporting) {
