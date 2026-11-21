@@ -50,7 +50,7 @@ A patch that goes leaves its number unused, as docs/patches.md requires. Each ch
 2. The profile's packages that carry a libtool are fixed up with the build's libtool (patch 0019), OpenWrt's own mechanism; libffi's build directories, which that broke, are fixed at their cause.
 3. Neither: each package whose libtool drops the option carries a patch to its `ltmain.sh`, as upstream regenerating it would.
 
-Verified on the R4S's `ubsan` tree: libffi, libmd, libmnl and musl-fts link with no call into a runtime and with the trap counts of 0021's log.
+Verified on the R4S's `ubsan` tree: libffi, libmd, libmnl and musl-fts link with no call into a runtime and with the trap counts of 0021's log. The first way does not hold: GCC's LTO link does not take `-fsanitize-trap` from the objects (seen 2026-11-21). The second holds (seen 2026-11-22): with autoreconf for every package that carries an `ltmain.sh`, the four link with no call into a runtime and the trap counts of the `sed` (libffi's 4,870 against October's 4,909 under either), and libffi builds, its earlier breakage not recurring; without either, libmd fails. 0021 is that hook, in a build that sanitizes only.
 
 ### D4. 0012 as an exclusion
 

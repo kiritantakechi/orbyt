@@ -185,17 +185,17 @@ What the patch does: lto-wrapper runs its make with `--output-sync=target`, so e
 
 Verification log: see the builds of both boards in `docs/undefined-behavior.md` and `docs/ci.md`.
 
-### build: the sanitizer options through the packages' libtool
+### build: the build's libtool for the packages, in a build that sanitizes
 
-Patch: `patches/openwrt/0021-build-pass-the-sanitizer-options-through-the-package.patch`, for openwrt/openwrt.
+Patch: `patches/openwrt/0021-build-the-build-s-libtool-for-the-packages-in-a-buil.patch`, for openwrt/openwrt.
 
-Problem: most packages built with autotools carry their own copy of libtool, which passes `-fsanitize=` to the link but drops the sanitizers' other options, `-fsanitize-trap` among them. Patch 0019 fixes libtool itself, but reaches only the packages that OpenWrt regenerates with its own libtool, those that ask for the libtool fixup.
+Problem: most packages built with autotools carry their own copy of libtool, which passes `-fsanitize=` to the link but drops the sanitizers' other options, `-fsanitize-trap` among them. Patch 0019 fixes libtool itself, but reaches only the packages that OpenWrt regenerates with its own libtool, those that ask for the libtool or autoreconf fixup.
 
-Why it matters here: in the `ubsan` profile, libmd, libmnl and musl-fts, among others, failed to link for want of libubsan.
+Why it matters here: in the `ubsan` profile, libmd, among others, failed to link for want of libubsan.
 
-What the patch does: in a build whose `TARGET_CFLAGS` sanitize, every `ltmain.sh` a package carries gets `-fsanitize*` among the options it passes through, before the package is configured, as the build's own libtool has it. The line it extends is the same in every libtool from 2.2 to 2.5, and a copy without it stops the build. Regenerating the packages' build systems with the build's libtool, tried first, broke libffi's build directories. A build without sanitizers is unchanged.
+What the patch does: in a build whose `TARGET_CFLAGS` sanitize, a package that carries an `ltmain.sh` and does not regenerate its build system already gets the build's libtool by autoreconf, as `PKG_FIXUP:=libtool` does, OpenWrt's own way. GCC's LTO link does not take `-fsanitize-trap` from the objects it links (patch-hygiene D3's first way), so a link needs the option, and the build's libtool passes it. A build without sanitizers is unchanged. It replaces an edit of every package's `ltmain.sh` with `sed`.
 
-Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree: the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions.
+Verification log: 2026-10-06, on the VM, in the R4S's `ubsan` tree, of the patch's first form (the `sed`): the 27 copies of libtool in the R4S's packages, 2.2.7a to 2.5.4, all have the line. libffi (libtool 2.4.7), libmd, libmnl and musl-fts linked under LTO with no call into a runtime and 4,909, 1,290, 92 and 222 trap instructions. 2026-11-22, on the VM, in the R4S's `ubsan` tree: without either form, libmd failed to link; libmnl and musl-fts linked, regenerating their build systems already, and libffi linked as well, though its libtool does not pass the option. With this form, the four link with no call into a runtime and as many trap instructions as with the first form: 4,870, 1,290, 92 and 222. libffi's build directories, which regenerating its build system broke in October, build.
 
 ### busybox: printf without arithmetic on a null pointer
 

@@ -1,0 +1,52 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Tue, 6 Oct 2026 04:48:53 +0800
+Subject: [PATCH] build: the build's libtool for the packages, in a build that
+ sanitizes
+
+A link that libtool runs takes only the options libtool passes on, and
+the copies of libtool that packages carry pass -fsanitize= but drop the
+sanitizers' other options, -fsanitize-trap among them. With
+CONFIG_TARGET_OPTIMIZATION holding -fsanitize=undefined
+-fsanitize-trap=undefined, a library that such a libtool linked asked
+for libubsan, which the musl toolchain does not have, and failed to
+link: libmd among others.
+
+In a build whose TARGET_CFLAGS sanitize, a package that carries an
+ltmain.sh and does not regenerate its build system already gets the
+build's libtool by autoreconf, as PKG_FIXUP:=libtool does: the build's
+libtool passes every sanitizer option on to the link (tools/libtool,
+150-pass-every-sanitizer-option-through-to-the-link.patch). A build
+without sanitizers is unchanged.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ include/autotools.mk | 15 +++++++++++++++
+ 1 file changed, 15 insertions(+)
+
+diff --git a/include/autotools.mk b/include/autotools.mk
+--- a/include/autotools.mk
++++ b/include/autotools.mk
+@@ -140,6 +140,21 @@
+   endif
+ endif
+ 
++# In a build that sanitizes, a package that carries its own libtool gets the
++# build's, by autoreconf as PKG_FIXUP:=libtool does: the copies packages carry
++# pass -fsanitize= to the link but drop the sanitizers' other options,
++# -fsanitize-trap among them, and the build's passes every one (tools/libtool).
++define libtool_sanitize_target
++	if [ -n "$$$$(find $(PKG_BUILD_DIR) -name ltmain.sh -print)" ]; then $(call autoreconf_target) true; fi;
++endef
++
++ifneq ($(filter -fsanitize%,$(TARGET_CFLAGS)),)
++  ifeq ($(filter autoreconf_target libtool_sanitize_target,$(Hooks/Configure/Pre)),)
++    PKG_BUILD_DEPENDS += libtool
++    Hooks/Configure/Pre += libtool_sanitize_target
++  endif
++endif
++
+ 
+ HOST_FIXUP?=$(PKG_FIXUP)
+ HOST_LIBTOOL_PATHS?=$(if $(PKG_LIBTOOL_PATHS),$(PKG_LIBTOOL_PATHS),.)
