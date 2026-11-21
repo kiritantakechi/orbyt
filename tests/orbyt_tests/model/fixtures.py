@@ -25,7 +25,8 @@ from orbyt_tests.model.outputs import (
     Manifest,
 )
 
-UPGRADE_IMAGE = "targets/*-sysupgrade.tar.gz"
+# The signed build's upgrade image, among its files.
+SIGNED_UPGRADE = "targets/*-sysupgrade.tar.gz"
 SIGNED_ENV = "ORBYT_SIGNED"
 
 
@@ -110,5 +111,5 @@ def signed_boards(
 @pytest.fixture(scope="session")
 def upgrade_image(signed_repo: Path) -> Path:
     """Return the signed single-slot upgrade image of the build."""
-    (image,) = signed_repo.glob(UPGRADE_IMAGE)
+    (image,) = signed_repo.glob(SIGNED_UPGRADE)
     return image
