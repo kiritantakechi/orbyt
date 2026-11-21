@@ -28,17 +28,17 @@
 
 ## 4. Helpers and errors (D5, D6)
 
-- [ ] 4.1 `scratch_dir`, `build_jobs`, `require_board`, `manifest_write`, `toolchain_record_differs`, used by every script that spelled them out.
+- [x] 4.1 `scratch_dir`, `build_jobs`, `require_board`, `manifest_write`, `toolchain_record_differs`, used by every script that spelled them out.
 
   Verify: the unit suite's library tests (dead code included) pass; `just build r4s dev` with nothing changed rebuilds nothing; a build's manifest is unchanged.
 
-- [ ] 4.2 The kernel version required; the compiler caches failing when selected and missing.
+- [x] 4.2 The kernel version required; the compiler caches failing when selected and missing.
 
   Verify: unit tests for both; `just build r4s dev` passes.
 
 ## 5. Names and documents (D7)
 
-- [ ] 5.1 `ORBYT_CACHE_*`, the check and recipe names, `lan_subnet`, the flake's quality shell once, `fetch.sh`'s index (checked, kept or dropped).
+- [x] 5.1 `ORBYT_CACHE_*`, the check and recipe names, `lan_subnet`, the flake's quality shell once, `fetch.sh`'s index (checked, kept or dropped).
 
   Verify: `just check` and the unit suite pass; `nix flake check` passes; `just fetch` followed by `just patch` applies.
 
