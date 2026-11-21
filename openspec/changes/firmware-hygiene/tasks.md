@@ -24,7 +24,7 @@
 
   Verify: the pin's record in design D4 (seen 2026-11-21: 4 of 30 restarts unpinned without the setup, each where procd freed the service); 20 restarts of a pinned honk keep its cpuset; the transparent proxy suite passes.
 
-- [ ] 2.4 honk's mount and unmount triggers run `move_state`, which restarts a running honk under procd's lock and leaves a stopped one stopped; patch 0055, procd reporting an instance it stops for good and `procd_running` not counting it; the data disk's scenario of honk stopped as the disk goes, honk held still (design D9).
+- [x] 2.4 honk's mount and unmount triggers run `move_state`, which restarts a running honk under procd's lock and leaves a stopped one stopped; patch 0055, procd reporting an instance it stops for good and `procd_running` not counting it; the data disk's scenario of honk stopped as the disk goes, honk held still (design D9).
 
   Verify: the new scenario fails on the image with `move_state` alone (honk started again by the unmount's queued restart) and passes with 0055; the power-cut test of the device sync module passes alone on the emulated R6S, where its teardown found honk running twice in two runs.
 
