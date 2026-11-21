@@ -3,20 +3,20 @@
 Validation is automated and needs no R4S. Every scenario of the release pipeline's specs (`release/*` and `ops/config-push` in `openspec/specs`; the change in `openspec/changes/archive/2026-09-30-r4s-release-pipeline`) maps to a test, or is registered in `tests/verified-elsewhere.toml` with what verifies it instead (the signing approval, which GitHub's environment protection enforces and `scripts/github-audit.sh` reads back). The tool output is authoritative for this mapping, and `just check` fails on any archived scenario without a test:
 
 ```sh
-nix develop .#quality -c uv run --directory tests --locked spec-coverage
+nix develop .#quality -c just check spec-coverage
 ```
 
-The tests run on the host (the workflows' audits, signing, publishing, the weekly bump) and in the emulator (device sync, the config push, the upgrade drill), in the `release` shard of `system-test`, with release keys made for the run:
+The tests run on the host (the workflows' audits, signing, publishing, the weekly bump) and in the emulator (device sync, the config push, the upgrade drill), in the `release` job of `system-test`, with release keys made for the run:
 
 ```sh
-nix develop -c just test dev release ops unit
+nix develop -c just test <board> dev release ops unit
 ```
 
 `upgrade-drill` runs the drill tests again after signing, with the production keys, from the latest stable release:
 
 ```sh
-nix develop -c just drill-base
-ORBYT_SIGNED=<signed build> nix develop -c just test drill-base -m drill
+nix develop -c just drill-base <board>
+ORBYT_SIGNED=<signed build> nix develop -c just test <board> drill-base -m drill
 ```
 
 ## The first release
