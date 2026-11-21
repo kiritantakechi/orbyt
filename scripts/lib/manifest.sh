@@ -17,13 +17,16 @@ source_commit() (
 # manifest_write <dir> [<list>]: write <dir>/manifest.json, the object on the
 # standard input with files the sha256 of each file <list> names, one path in
 # <dir> on each line, or of every file in <dir> but the manifest itself, and
-# check it (manifest_files_check). sha256sum escapes a name with a backslash or
-# a line break, and starts its line with a backslash, which the capture below
-# would misread: no such name is listed. Names that are no plain paths fail the
-# check.
+# check it (manifest_files_check). The object goes to jq as a file: a release's
+# manifest, with every package of every board, is past what one argument may
+# hold. sha256sum escapes a name with a backslash or a line break, and starts
+# its line with a backslash, which the capture below would misread: no such name
+# is listed. Names that are no plain paths fail the check.
+# shellcheck disable=SC2154 # scratch, which scratch_dir sets
 manifest_write() (
 	dir=$1 list=${2:-}
-	fields=$(cat)
+	scratch_dir orbyt-manifest
+	cat >"${scratch}/fields.json"
 	if [ -n "${list}" ]; then
 		[ -s "${list}" ] || die "manifest_write: ${list} names no file"
 		hashes=$(cd "${dir}" && xargs sha256sum -- <"${list}")
@@ -35,8 +38,8 @@ manifest_write() (
 		*\\*) die "a file's name holds a backslash or a line break: ${hashes}" ;;
 		*) ;;
 	esac
-	printf '%s\n' "${hashes}" | LC_ALL=C sort -k 2 | jq -R -n --argjson fields "${fields}" '
-		$fields + {files: [inputs | capture("^(?<sha>[0-9a-f]+)  (?<path>.+)$") | {(.path): .sha}] | add}
+	printf '%s\n' "${hashes}" | LC_ALL=C sort -k 2 | jq -R -n --slurpfile fields "${scratch}/fields.json" '
+		$fields[0] + {files: [inputs | capture("^(?<sha>[0-9a-f]+)  (?<path>.+)$") | {(.path): .sha}] | add}
 	' >"${dir}/manifest.json"
 	manifest_files_check "${dir}/manifest.json"
 )

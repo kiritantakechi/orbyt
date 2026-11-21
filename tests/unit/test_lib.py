@@ -644,6 +644,28 @@ def test_the_manifest_lists_its_directory_s_files(tmp_path: Path) -> None:
     }
 
 
+def test_a_release_s_manifest_is_written_whole(tmp_path: Path) -> None:
+    # A manifest that lists every package of a ci build, rewritten for
+    # the files signed: past what one argument of a command may hold.
+    build = tmp_path / "build"
+    build.mkdir()
+    (build / "image.img.gz").write_bytes(b"image")
+    listed = {f"packages/package-{number}.apk": "0" * 64 for number in range(40000)}
+    (tmp_path / "manifest.json").write_text(json.dumps({"files": listed}))
+    (tmp_path / "list").write_text("image.img.gz\n")
+    result = library(
+        "manifest",
+        'manifest_write "$1" "$2" <"$3"',
+        str(build),
+        str(tmp_path / "list"),
+        str(tmp_path / "manifest.json"),
+    )
+    assert result.returncode == 0, result.stderr
+    assert json.loads((build / "manifest.json").read_text()) == {
+        "files": {"image.img.gz": hashlib.sha256(b"image").hexdigest()}
+    }
+
+
 def test_a_name_sha256sum_escapes_is_not_listed(tmp_path: Path) -> None:
     build = tmp_path / "build"
     build.mkdir()
