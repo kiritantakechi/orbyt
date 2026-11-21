@@ -73,3 +73,11 @@ reason = "a bare list style no LuCI view uses"
 [[class]]
 class = "valign-middle"
 reason = "a table alignment no LuCI view uses"
+
+[[class]]
+class = "brand"
+reason = "bootstrap's header link with the hostname, from bootstrap's own header template; this theme's header is its own, with Orbyt's mark"
+
+[[class]]
+class = "map"
+reason = "bootstrap's rule for a tab menu marked map (.cbi-tabmenu.map), which no view of this LuCI builds: ui.js gives a tab menu cbi-tabmenu alone"
