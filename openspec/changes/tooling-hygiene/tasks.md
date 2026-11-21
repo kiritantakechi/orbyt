@@ -2,17 +2,17 @@
 
 ## 1. fmt and check alike (design D1)
 
-- [ ] 1.1 `format_files` and the shared prelude in `scripts/lib/core.sh`, used by `check.sh` and `fmt.sh`; a code-standards test with a misindented preinit hook.
+- [x] 1.1 `format_files` and the shared prelude in `scripts/lib/core.sh`, used by `check.sh` and `fmt.sh`; a code-standards test with a misindented preinit hook.
 
   Verify: the test passes (check fails on the hook, fmt fixes it); `just check` passes.
 
 ## 2. Workflows that run recipes (D2, D3)
 
-- [ ] 2.1 `bump-open.sh`, `drill-check.sh` with its test over every combination, `release-sign.sh` checking the build's board; every step through `just`.
+- [x] 2.1 `bump-open.sh`, `drill-check.sh` with its test over every combination, `release-sign.sh` checking the build's board; every step through `just`.
 
   Verify: `tests/build/test_ci.py` and the release suite's signing tests pass; actionlint passes.
 
-- [ ] 2.2 The `uv-cache` action for check, system-test and drill; the runner's preparation in the Nix action; the path list once (anchors, read by `runs.sh` through yq); `just download-key`; `NIX_CONFIG` dropped if the installer enables its features.
+- [x] 2.2 The `uv-cache` action for check, system-test and drill; the runner's preparation in the Nix action; the path list once (anchors, read by `runs.sh` through yq); `just download-key`; `NIX_CONFIG` dropped if the installer enables its features.
 
   Verify: `test_ci.py` passes without the copies' equality test; actionlint passes.
 
@@ -22,7 +22,7 @@
 
 ## 3. No maintainer's machine (D4)
 
-- [ ] 3.1 `github_repository`, `ORBYT_WORKDIR_IMAGE`, `ORBYT_TESTDIR`'s default, docs/dev-setup.md's placeholders.
+- [x] 3.1 `github_repository`, `ORBYT_WORKDIR_IMAGE`, `ORBYT_TESTDIR`'s default, docs/dev-setup.md's placeholders.
 
   Verify: a grep finds no user, home directory, volume or repository name of the maintainer's in scripts/ and docs/ (the CI records' run links aside); a unit test of `github_repository` with an origin remote and without one.
 
@@ -42,13 +42,13 @@
 
   Verify: `just check` and the unit suite pass; `nix flake check` passes; `just fetch` followed by `just patch` applies.
 
-- [ ] 5.2 The design citations named by their change; docs/conventions.md, docs/ci.md, docs/dev-setup.md and docs/validation brought to the present; `.gitignore` and the exemption list.
+- [x] 5.2 The design citations named by their change; docs/conventions.md, docs/ci.md, docs/dev-setup.md and docs/validation brought to the present; `.gitignore` and the exemption list.
 
   Verify: a grep finds no "design D" citation without its change; `just check` passes; every command in docs/ runs as written (each recipe and its arguments exist).
 
 ## 6. dae's layout (D8)
 
-- [ ] 6.1 config-push's `dae/` refusal, its test and scenario, and docs/ops.md's "Moving from dae" go.
+- [x] 6.1 config-push's `dae/` refusal, its test and scenario, and docs/ops.md's "Moving from dae" go.
 
   Verify: `spec-coverage` passes with the scenario removed; the configuration push suite passes on the emulated R4S.
 
