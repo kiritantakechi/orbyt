@@ -1,0 +1,19 @@
+{#
+	luci-theme-orbyt: the lockup (orbyt-theme D2, D4): the mark, "Orbyt", and the
+	router's hostname and model below it, in the header as the link home and on the
+	login as it is. The mark is its file, mark.svg, printed inline so that its
+	colors follow the page's color scheme. One lockup on a page: the mark's ids are
+	its own. Licensed under the Apache License 2.0, as LuCI.
+-#}
+
+{%
+	import { readfile } from 'fs';
+
+	const boardinfo = ubus.call('system', 'board') ?? {};
+	const tag = link ? 'a' : 'div';
+-%}
+
+<{{ tag }} class="lockup"{% if (link): %} href="/" aria-label="Orbyt"{% endif %}>
+	{{ readfile(`/www${media}/mark.svg`) }}
+	<span class="lockup-text">Orbyt<small>{{ striptags(boardinfo.hostname ?? '?') }}{% if (boardinfo.model): %} · {{ striptags(boardinfo.model) }}{% endif %}</small></span>
+</{{ tag }}>

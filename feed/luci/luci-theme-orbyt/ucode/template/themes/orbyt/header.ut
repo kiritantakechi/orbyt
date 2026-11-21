@@ -9,7 +9,6 @@
 	import { getuid, getspnam } from 'luci.core';
 
 	const boardinfo = ubus.call('system', 'board') ?? {};
-	const hostname = striptags(boardinfo.hostname ?? '?');
 
 	http.prepare_content('text/html; charset=UTF-8');
 -%}
@@ -70,10 +69,7 @@
 				<button class="icon-btn menu-toggle" id="menu-toggle" type="button" aria-controls="sidebar" aria-expanded="false" aria-label="{{ _('Menu') }}">
 					<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
 				</button>
-				<a class="lockup" href="/" aria-label="Orbyt">
-					{% include('themes/orbyt/mark', { id: 'header' }) %}
-					<span class="lockup-text">Orbyt<small>{{ hostname }}{% if (boardinfo.model): %} · {{ striptags(boardinfo.model) }}{% endif %}</small></span>
-				</a>
+				{% include('themes/orbyt/lockup', { link: true }) %}
 				<div class="spacer"></div>
 				<div id="indicators"></div>
 				{# Bare strings are luci-base's, in all its languages. luci-base has no

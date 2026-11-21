@@ -38,6 +38,8 @@ The theme's variables take TouhouAsia's semantic values, light on `:root` and da
 | selection, link hover | `#a7f3d0`, `#065f46` | rgba(100,255,218,.24), `#64ffda` |
 | warning, danger, info | `#b45309`, `#b91c1c`, `#1d4ed8` with their 50 tints | `#fbbf24`, `#f87171`, `#93c5fd` with tints at 14% (info's of `#60a5fa`) |
 
+The sizes take TouhouAsia's too: its spacing scale (4 to 64 px) as `--space-*`, its radii (4 px, 8 px, the pill), its 40 and 32 px controls, and its focus ring, a 2 px gap in the ground's color and 2 px of the focus color, as one token. A component's own metrics, as its gaps of 6 and 10 px, stay with the component, as in TouhouAsia's components; each rule that sets a font size sets its tracking from TouhouAsia's table. `!important` stands only where bootstrap's own functional rules have it and against a style LuCI writes inline.
+
 The bootstrap compatibility variables LuCI's modules read point at these; `--disabled-opacity` stays for LuCI applications' own styles, which the theme's rules never use. Motion is TouhouAsia's: color, background, border and shadow transitions only, 140 ms, ease-out, the drawer's slide 220 ms, none under reduced motion.
 
 ### D2. The layout
@@ -65,7 +67,7 @@ TouhouAsia's 72 px header and 40 px page titles are for documents; an admin page
 
 ### D4. The mark
 
-The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 6.4 at 1:30 cut free by a 9.6 gap, filled with the stream gradient (light `#059669`, `#10b981`, `#1e40af`; dark `#64ffda`, `#10b981`, `#0284c7`). Inline in the header and the login, its colors from the mode's tokens; `mark.svg` as the pages' icon, which picks its inks by `prefers-color-scheme` (an icon file cannot read the page's pinned mode).
+The ring node on a 64 grid: a ring of radius 21 and width 6.5, a node of radius 6.4 at 1:30 cut free by a 9.6 gap, filled with the stream gradient (light `#059669`, `#10b981`, `#1e40af`; dark `#64ffda`, `#10b981`, `#0284c7`). `mark.svg` is its one file, geometry and colors: the pages' icon, and the lockup's mark, which the lockup's template (`lockup.ut`, the header's and the login's) prints inline. Its stops take `light-dark()` of the two inks, so that inline they follow the page's color scheme, pinned or automatic, and as the icon, which cannot read the page, the browser's.
 
 ### D5. Fonts
 

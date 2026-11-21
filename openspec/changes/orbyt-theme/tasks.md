@@ -28,6 +28,10 @@
 
   Verify: no file names the archived change or its decisions; `just check` passes.
 
+- [ ] 2.6 The theme's own debt (D1, D4): one focus ring and the secondary role defined once; the ink on a zone's color a token; TouhouAsia's spacing scale and radii as tokens and the table's tracking on every rule that sets a size; `!important` stated where it stands; the mark's one file, `mark.svg`, printed inline by one lockup template.
+
+  Verify: with the tokens put back as values, the stylesheet is the one before; in a static preview of LuCI's markup, light and dark at 1280, 900 and 375 pixels, every element's computed style is the one before but the tracking's, and the mark's colors are the same; on the emulator, the theme's tests pass.
+
 ## 3. In a browser (design D6)
 
 - [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.
