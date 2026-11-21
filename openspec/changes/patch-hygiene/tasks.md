@@ -34,6 +34,10 @@
 
   Verify: the two experiments of 0012's log hold; otherwise 0012 stays and its write-up says why.
 
+- [ ] 3.3 A Rust package's link takes the sanitizer options its crates' C is compiled with (packages 0018), so that the `ubsan` profile builds with honk, which joined the image after its last build (D3).
+
+  Verify: a whole `ubsan` build of the R4S passes, whose own check finds no call into a runtime in its root filesystem; the dev profile's packages are unchanged.
+
 ## 4. Write-ups and small fixes (D5, D6)
 
 - [x] 4.1 Bring every write-up to the four sections, grouped and in order, fix 0025's title and the Rust entry's dates, and add the write-up check to `tests/build/test_upstream_pinning.py`.

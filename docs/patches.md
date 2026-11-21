@@ -721,6 +721,18 @@ What the patch does: with `CONFIG_CCACHE`, rustbuild gets the build's ccache (`b
 
 Verification log: 2026-10-03, in the patch it was part of (packages/0002 until 2026-11-21, patch-hygiene D2): the host stage's compiler cache report counts LLVM's objects. 2026-11-21: the split series gives the tree the one patch did.
 
+### rust: target links with the sanitizers their C is compiled with
+
+Patch: `patches/packages/0018-rust-link-target-artifacts-with-the-sanitizers-their.patch`, for openwrt/packages.
+
+Problem: a crate that builds C, as libsqlite3-sys and aws-lc-sys do with cc-rs, compiles it with `TARGET_CFLAGS`, and the C links into the target artifact through the target's compiler. OpenWrt's package build gives a link the sanitizer options of `TARGET_CFLAGS` (`TARGET_LDFLAGS`, patch 0017 of the openwrt series), but a Rust package's link takes only `RUSTFLAGS`.
+
+Why it matters here: in the `ubsan` profile, honk-core, which links SQLite and aws-lc under LTO, failed to link: the link expanded their checks without `-fsanitize-trap`, as calls into libubsan, which the musl toolchain does not have. The profile had not been built since honk joined the image.
+
+What the patch does: `rust-values.mk` passes the sanitizer options of `TARGET_CFLAGS` to the target's link as link arguments. A build without sanitizers is unchanged.
+
+Verification log: 2026-11-22, on the VM: the R4S's whole `ubsan` build stopped at honk-core's link, with undefined `__ubsan_handle_*` referenced thousands of times from SQLite and aws-lc.
+
 ## The luci series
 
 ### luci-base: the host tools built in the host build directory

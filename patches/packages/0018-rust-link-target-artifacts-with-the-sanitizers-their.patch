@@ -1,0 +1,39 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: kiritantakechi <kiritantakechi@gmail.com>
+Date: Sun, 22 Nov 2026 07:40:00 +0800
+Subject: [PATCH] rust: link target artifacts with the sanitizers their C is
+ compiled with
+
+A crate that builds C, as libsqlite3-sys and aws-lc-sys do with cc-rs,
+compiles it with TARGET_CFLAGS, and the C links into the target
+artifact through the target's compiler. OpenWrt's package build gives
+a link the sanitizer options of TARGET_CFLAGS (TARGET_LDFLAGS), but a
+Rust package's link takes only RUSTFLAGS. With CONFIG_TARGET_OPTIMIZATION
+holding -fsanitize=undefined -fsanitize-trap=undefined under LTO, the
+link expanded the C's checks without -fsanitize-trap, as calls into
+libubsan, which the musl toolchain does not have, and failed: thousands
+of undefined __ubsan_handle_* in a binary linking SQLite and aws-lc.
+
+Pass the sanitizer options of TARGET_CFLAGS to the target's link, as
+link arguments. A build without sanitizers is unchanged.
+
+Signed-off-by: kiritantakechi <kiritantakechi@gmail.com>
+Upstream-Status: Pending
+---
+ lang/rust/rust-values.mk | 7 +++++++
+ 1 file changed, 7 insertions(+)
+
+diff --git a/lang/rust/rust-values.mk b/lang/rust/rust-values.mk
+--- a/lang/rust/rust-values.mk
++++ b/lang/rust/rust-values.mk
+@@ -152,3 +152,10 @@
+ CARGO_PKG_PROFILE:=$(if $(CONFIG_DEBUG),dev,release)
+ 
+ CARGO_RUSTFLAGS+=-Clink-arg=-fuse-ld=$(TARGET_LINKER)
++
++# A sanitizer is a link option too: C that a crate's build compiles with
++# TARGET_CFLAGS, as cc-rs does, links into the target artifact, whose link adds
++# the sanitizer's runtime or, with -fsanitize-trap, leaves it out, and under LTO
++# expands the checks. The target's link takes the sanitizer options of
++# TARGET_CFLAGS, as OpenWrt's TARGET_LDFLAGS does.
++CARGO_RUSTFLAGS+=$(patsubst %,-Clink-arg=%,$(filter -fsanitize%,$(TARGET_CFLAGS)))
