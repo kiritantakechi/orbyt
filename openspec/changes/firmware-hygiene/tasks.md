@@ -2,9 +2,9 @@
 
 ## 1. The A/B upgrade handed off by name (design D1)
 
-- [ ] 1.1 Add the hand-off scenario to `tests/firmware/test_ab_upgrade.py`: with the A/B upgrade's file renamed to sort first, a valid image is written to the inactive slot only and an image for another device is refused before anything is written.
+- [x] 1.1 Add the hand-off scenario to `tests/firmware/test_ab_upgrade.py`: with the A/B upgrade's file renamed to sort first, a valid image is written to the inactive slot only and an image for another device is refused before anything is written.
 
-  Verify: `spec-coverage --change firmware-hygiene` reports it covered; on the emulated R4S it fails before 1.2 (the stock whole-disk check refuses the valid image) and passes after.
+  Verify: `spec-coverage --change firmware-hygiene` reports it covered; on the emulated R4S it fails before 1.2 and passes after. Seen 2026-11-21 on the R4S's ci build of 5b320c3, its A/B file (`wrt-ab.sh`) renamed to sort first: platform.sh's own check passed the valid image and also an image for another device, and began its whole-disk upgrade of it; the suite's run passes it on the image with 0050.
 
 - [x] 1.2 Rename `z-orbyt-ab.sh` to `orbyt-ab.sh` with its functions as `orbyt_ab_check_image`, `orbyt_ab_do_upgrade` and `orbyt_ab_copy_config`; add patch 0050 making rockchip's `platform.sh` the hand-off, keeping `REQUIRE_IMAGE_METADATA=1`; the tests source the upgrade files as sysupgrade does; update docs/ab-layout.md and orbyt-brand D1's citation.
 
