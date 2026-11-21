@@ -6,31 +6,31 @@
 
   Verify: `spec-coverage --change firmware-hygiene` reports it covered; on the emulated R4S it fails before 1.2 (the stock whole-disk check refuses the valid image) and passes after.
 
-- [ ] 1.2 Rename `z-orbyt-ab.sh` to `orbyt-ab.sh` with its functions as `orbyt_ab_check_image`, `orbyt_ab_do_upgrade` and `orbyt_ab_copy_config`; add patch 0050 making rockchip's `platform.sh` the hand-off, keeping `REQUIRE_IMAGE_METADATA=1`; the tests source the upgrade files as sysupgrade does; update docs/ab-layout.md and orbyt-brand D1's citation.
+- [x] 1.2 Rename `z-orbyt-ab.sh` to `orbyt-ab.sh` with its functions as `orbyt_ab_check_image`, `orbyt_ab_do_upgrade` and `orbyt_ab_copy_config`; add patch 0050 making rockchip's `platform.sh` the hand-off, keeping `REQUIRE_IMAGE_METADATA=1`; the tests source the upgrade files as sysupgrade does; update docs/ab-layout.md and orbyt-brand D1's citation.
 
   Verify: `just patch` applies; `firmware/test_ab_upgrade.py`, `test_boot_rollback.py` and the release suite's upgrade from local files pass on the emulated R4S.
 
 ## 2. Boot order and readiness (D2, D3, D4)
 
-- [ ] 2.1 Add the boot-order test (the image's first boot script is `S00orbyt-trial`) and drop the health check init's claim to run last.
+- [x] 2.1 Add the boot-order test (the image's first boot script is `S00orbyt-trial`) and drop the health check init's claim to run last.
 
   Verify: the test passes on the image; `spec-coverage` covers "The trial watchdog starts first".
 
-- [ ] 2.2 Add `honk_holds` to honk's package, use it in `50-honk`, and make `orbyt-sync` wait for it on `podman0` when honk is enabled; reword `fetch`'s retry as a transport retry.
+- [x] 2.2 Add `honk_holds` to honk's package, use it in `50-honk`, and make `orbyt-sync` wait for it on `podman0` when honk is enabled; reword `fetch`'s retry as a transport retry.
 
   Verify: the device-sync scenario "The sync starts before the proxy" passes on the emulator (the sync started with honk stopped sends nothing until honk holds the bridge); the release suite passes.
 
-- [ ] 2.3 Pin procd's removal of a replaced service's cgroup on the emulator (the window the honk init's comment describes), have honk's instance set its cgroup up itself (`honk-start`), and drop honk's `service_started` setup.
+- [x] 2.3 Pin procd's removal of a replaced service's cgroup on the emulator (the window the honk init's comment describes), have honk's instance set its cgroup up itself (`honk-start`), and drop honk's `service_started` setup.
 
   Verify: the pin's record in design D4 (seen 2026-11-21: 4 of 30 restarts unpinned without the setup, each where procd freed the service); 20 restarts of a pinned honk keep its cpuset; the transparent proxy suite passes.
 
 ## 3. Defaults, helpers and layout facts (D5, D6, D7)
 
-- [ ] 3.1 Drop the code's copies of the shipped values (orbyt-sync; einat's init and health check), failing on a missing option; bind the trial deadline's and the health check's safety fallbacks, and `orbyt-slot`'s boot limit, to their sources by a unit test.
+- [x] 3.1 Drop the code's copies of the shipped values (orbyt-sync; einat's init and health check), failing on a missing option; bind the trial deadline's and the health check's safety fallbacks, and `orbyt-slot`'s boot limit, to their sources by a unit test.
 
   Verify: `just check`; the unit test passes and fails when one value is changed; the health check, device-sync and NAT tests pass on the emulator.
 
-- [ ] 3.2 Export the result path and the monotonic clock from `orbyt.ab` and use them; use `orbyt_data_mounted` and `ORBYT_DATA` wherever the test or the path is spelled out; run the health check's checks as argument vectors, after checking how the image's ucode reports a killed child.
+- [x] 3.2 Export the result path and the monotonic clock from `orbyt.ab` and use them; use `orbyt_data_mounted` and `ORBYT_DATA` wherever the test or the path is spelled out; run the health check's checks as argument vectors, after checking how the image's ucode reports a killed child.
 
   Verify: the base system's ucode compile test passes; the health check suite passes on the emulator.
 
