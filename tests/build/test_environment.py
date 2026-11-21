@@ -1,8 +1,10 @@
 """build/environment: entry points refuse macOS, stop at failures.
 
-They patch what changed, and pass their arguments on as given.
+They patch what changed, pass their arguments on as given, and talk to
+the clone's own repository.
 """
 
+import hashlib
 import json
 import os
 import shutil
@@ -12,6 +14,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from orbyt_tests import spec
+from orbyt_tests.model import git
 from orbyt_tests.model.boards import load_all
 from orbyt_tests.model.repository import REPO_DIR
 from orbyt_tests.model.series import Series
@@ -183,3 +186,83 @@ def test_failing_patch_leaves_the_tree(series: Series) -> None:
     assert patch.name in applied.stderr
     assert series.head == head
     assert series.times() == before
+
+
+# GitHub, standing in: the fork alone has a release, its assets the
+# files in assets/; any other repository has none.
+FORK = "someone/fork"
+FORK_GH = f"""#!/bin/sh
+here=$(dirname "$0")
+case "$1" in
+    api)
+        [ "$2" = "repos/{FORK}/releases/latest" ] && exec cat "$here/latest.json"
+        echo "gh: Not Found (HTTP 404)" >&2
+        exit 1
+        ;;
+    release)
+        shift 3
+        while [ "$#" -gt 0 ]; do
+            case "$1" in
+                --repo) repository=$2 ;;
+                --pattern) pattern=$2 ;;
+                --dir) dir=$2 ;;
+            esac
+            shift 2
+        done
+        [ "$repository" = "{FORK}" ] || {{ echo "release not found" >&2; exit 1; }}
+        cp "$here"/assets/$pattern "$dir/"
+        ;;
+esac
+"""
+
+
+@spec(CAPABILITY, "No machine of one maintainer's", "A fork's clone")
+def test_a_fork_s_clone_fetches_the_fork_s_releases(tmp_path: Path) -> None:
+    # The fork's clone: its scripts and boards, and a remote on GitHub
+    # after one elsewhere.
+    clone = tmp_path / "clone"
+    for part in ("scripts", "boards"):
+        shutil.copytree(REPO_DIR / part, clone / part)
+    git.run(clone, "init", "-q")
+    git.run(
+        clone, "remote", "add", "codeberg", "https://codeberg.org/someone/orbyt.git"
+    )
+    git.run(clone, "remote", "add", "origin", f"https://github.com/{FORK}.git")
+    board = load_all()[0]
+    factory = f"{board.device}-factory.img.gz"
+    ci = tmp_path / "work" / "out" / board.id / "ci"
+    (ci / "targets").mkdir(parents=True)
+    (ci / "manifest.json").write_text("{}")
+    (ci / "targets" / factory).write_bytes(b"this build's factory image")
+    (ci / "u-boot-qemu.bin").write_bytes(b"this build's emulator firmware")
+    # The fork's latest release carries the board.
+    gh = tmp_path / "gh"
+    (gh / "assets").mkdir(parents=True)
+    (gh / "gh").write_text(FORK_GH)
+    (gh / "gh").chmod(0o755)
+    image = b"the fork's factory image"
+    (gh / "assets" / factory).write_bytes(image)
+    digest = hashlib.sha256(image).hexdigest()
+    (gh / "assets" / f"{board.device}-manifest.json").write_text(
+        json.dumps({"files": {f"targets/{factory}": digest}})
+    )
+    assets = [{"name": path.name} for path in sorted((gh / "assets").iterdir())]
+    (gh / "latest.json").write_text(json.dumps({"tag_name": "r1", "assets": assets}))
+    environment = {
+        name: value for name, value in os.environ.items() if name != "GITHUB_REPOSITORY"
+    }
+    result = subprocess.run(
+        [clone / "scripts" / "drill-base.sh", board.id],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={
+            **environment,
+            "PATH": f"{gh}{os.pathsep}{os.environ['PATH']}",
+            "ORBYT_WORKDIR": str(tmp_path / "work"),
+        },
+    )
+    assert result.returncode == 0, result.stderr
+    assert "drill base: r1, the latest stable release" in result.stderr
+    base = tmp_path / "work" / "out" / board.id / "drill-base" / "targets"
+    assert (base / factory).read_bytes() == image
