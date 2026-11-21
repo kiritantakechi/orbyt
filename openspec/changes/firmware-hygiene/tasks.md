@@ -34,29 +34,29 @@
 
   Verify: the base system's ucode compile test passes; the health check suite passes on the emulator.
 
-- [ ] 3.3 Share the rockchip boards' U-Boot watchdog block, fix the R4S-only comments, and add the partition-map consistency test.
+- [x] 3.3 Share the rockchip boards' U-Boot watchdog block, fix the R4S-only comments, and add the partition-map consistency test.
 
   Verify: both boards' U-Boot configs are unchanged (`diffconfig` compared before and after); the unit test passes and fails when one copy of the map is changed.
 
-- [ ] 3.4 honk's keep.d entry from its package (START and STOP), the seeds' append form for `ubsan.seed`, the kmod exclusion test, `release.seed` renamed `device-sync.seed`.
+- [x] 3.4 honk's keep.d entry from its package (START and STOP), the seeds' append form for `ubsan.seed`, the kmod exclusion test, `release.seed` renamed `device-sync.seed`.
 
   Verify: the image's sysupgrade.conf list holds the same paths as before; the ubsan and ci profiles merge to the same `.config` as before; the unit tests pass.
 
-- [ ] 3.5 orbyt-data writes its fstab stub alone (`80-orbyt-data`); ksmbd's hardening in its template (packages/0015); the data disk's paths from orbyt-data's library.
+- [x] 3.5 orbyt-data writes its fstab stub alone (`80-orbyt-data`); ksmbd's hardening in its template (packages/0015); the data disk's paths from orbyt-data's library.
 
   Verify: the file-sharing and data-disk suites pass on the emulator; the image's ksmbd.conf is unchanged.
 
 ## 4. Leftovers (D8)
 
-- [ ] 4.1 The keyring's build check, `manifest`'s strict mode, orbyt-metrics' description, the partition pair read with `read`, the `shellcheck source=` placements, the VPN zones' comment.
+- [x] 4.1 The keyring's build check, `manifest`'s strict mode, orbyt-metrics' description, the partition pair read with `read`, the `shellcheck source=` placements, the VPN zones' comment.
 
   Verify: `just check`; an orbyt-keyring build without keys fails.
 
 ## 5. Verification
 
-- [ ] 5.1 `just check`, the unit and quality suites, and the firmware, release, services and network suites on the emulated R4S, the Mac's load gated and sampled.
+- [x] 5.1 `just check`, the unit and quality suites, and the firmware, release, services and network suites on the emulated R4S, the Mac's load gated and sampled.
 
-  Verify: every test passes; the run's load samples are recorded with the results.
+  Verify: every test passes; the run's load samples are recorded with the results. Seen 2026-11-21: the R4S's whole suite at f8e8668, 21:54 to 02:01Z, 599 passed and 13 failed; the failures were the harness's (try_run's timeout, three assertions, the resolver's IPv6 record, two reviewed theme classes, the stale R6S tree) and pass on their fixes, re-run on the R4S. The Mac's 1-minute load over 246 samples: median 6.7, 90th percentile 9.2, two samples over 20 (34.4 at most).
 
 ## Workflow follow-up
 
