@@ -131,9 +131,9 @@ def test_trial_failure_reboots(router: Router) -> None:
     previous_boot = router.boot_id()
     router.detach(f"{QUICK} && orbyt-healthcheck")
     router.wait_rebooted(previous_boot)
-    # The check failed in the boot that rebooted, and the slot on trial
-    # boots again.
-    assert router.run(f"cat {FAILURES}").split() == [previous_boot]
+    # The check failed in the boot that rebooted, as often as the limits
+    # let it try, and in no other; the slot on trial boots again.
+    assert set(router.run(f"cat {FAILURES}").split()) == {previous_boot}
     assert slot(router) == running
     confirmed = f"slot {running} passed its trial boot and is confirmed"
     router.wait_logged(confirmed, by="orbyt-healthcheck", timeout=300, every=2)
