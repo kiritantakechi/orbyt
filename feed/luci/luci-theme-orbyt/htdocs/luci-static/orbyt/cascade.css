@@ -8,7 +8,10 @@
  *
  * The rules that make LuCI's widgets work (dropdowns, tooltips, the modal, tab
  * panes, the file browser, tables stacked on phones) follow LuCI's bootstrap
- * theme, restyled here. Licensed under the Apache License 2.0, as LuCI.
+ * theme, restyled here. !important stands where bootstrap's own rules have it,
+ * and against a style LuCI writes inline (a zone's color, the realtime graphs,
+ * a view's state colors); nowhere else but for reduced motion.
+ * Licensed under the Apache License 2.0, as LuCI.
  */
 
 /* Tokens ------------------------------------------------------------------- */
@@ -33,6 +36,8 @@
 	--rule: #059669;
 	--focus: #047857;
 	--focus-gap: #ffffff;
+	/* The focus ring: a gap in the ground's color, then the focus color. */
+	--focus-ring: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
 	--selection: #a7f3d0;
 	--link-hover: #065f46;
 	--accent: #047857;
@@ -47,10 +52,8 @@
 	--crit-ink: #ffffff;
 	--info: #1d4ed8;
 	--info-soft: #eff6ff;
-	/* The stream gradient of the mark (orbyt-theme D4). */
-	--stream-a: #059669;
-	--stream-b: #10b981;
-	--stream-c: #1e40af;
+	/* The ink on a zone's own color, LuCI's light pastels, in either mode. */
+	--on-zone: #0f172a;
 	/* Series of LuCI's graphs (orbyt-theme D10): blue, orange, aqua, validated as a
 	 * set against each mode's surface. Red stays the color of errors. */
 	--chart-1: #2a78d6;
@@ -60,8 +63,22 @@
 	--font-ui: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
 		"Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", Inter, sans-serif;
 	--font-code: ui-monospace, "SF Mono", Menlo, Consolas, "Monaspace Neon Var", monospace;
+	/* TouhouAsia's spacing scale. A component's own metrics, as its gaps of 6 and
+	 * 10 px, stay with the component, as in TouhouAsia's. */
+	--space-1: 4px;
+	--space-2: 8px;
+	--space-3: 12px;
+	--space-4: 16px;
+	--space-5: 20px;
+	--space-6: 24px;
+	--space-8: 32px;
+	--space-10: 40px;
+	--space-12: 48px;
+	--space-16: 64px;
 	/* Rectangles take 8 px; inline code 4 px; buttons, tags and rules are pills. */
+	--r-sm: 4px;
 	--r: 8px;
+	--r-pill: 999px;
 	--header: 64px;
 	--sidebar: 256px;
 	--field-height: 40px;
@@ -138,8 +155,6 @@
 	--crit-ink: #040d1a;
 	--info: #93c5fd;
 	--info-soft: rgb(96 165 250 / .14);
-	--stream-a: #64ffda;
-	--stream-c: #0284c7;
 	--chart-1: #3987e5;
 	--chart-2: #d95926;
 	--chart-3: #199e70;
@@ -190,7 +205,7 @@ h1, h2 { font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
 h3 { font-size: 20px; font-weight: 800; letter-spacing: -0.012em; }
 legend { font-size: 16px; font-weight: 800; letter-spacing: -0.011em; }
 h4 { font-size: 16px; letter-spacing: -0.011em; color: var(--accent); }
-h5, h6 { font-size: 13px; letter-spacing: 0; }
+h5, h6 { font-size: 13px; letter-spacing: -0.006em; }
 h6 { color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 
 /* A heading after running content keeps its distance, as in views that build their
@@ -238,11 +253,11 @@ a:hover {
 	color: var(--ink);
 }
 
-/* The focus ring: a gap in the ground's color, then the focus color (orbyt-theme
- * D1); the outline is transparent so that forced colors still show one. */
+/* The focus ring (orbyt-theme D1); the outline is transparent so that forced
+ * colors still show one. */
 :focus-visible {
 	outline: 2px solid transparent;
-	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
+	box-shadow: var(--focus-ring);
 }
 
 ul, ol {
@@ -263,7 +278,7 @@ dl dt { font-weight: 600; }
 dl dd { margin: 0 0 0 .75em; }
 
 hr {
-	margin: 24px 0;
+	margin: var(--space-6) 0;
 	border: 0;
 	border-bottom: 1px solid var(--line-brand);
 }
@@ -298,7 +313,7 @@ code, pre, kbd, samp {
 
 :not(pre) > code {
 	padding: .1em .35em;
-	border-radius: 4px;
+	border-radius: var(--r-sm);
 	background: var(--sunken);
 	color: var(--ink);
 }
@@ -307,7 +322,7 @@ code, pre, kbd, samp {
 pre {
 	display: block;
 	margin: 0 0 1em;
-	padding: 16px;
+	padding: var(--space-4);
 	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
 	background: var(--surface);
@@ -351,16 +366,12 @@ fieldset legend {
 	letter-spacing: 0;
 }
 
-/* The mark (orbyt-theme D4): its gradient takes the mode's stream colors. */
+/* The mark (orbyt-theme D4): mark.svg, inline, which holds its own colors. */
 .orbyt-mark {
 	width: 32px;
 	height: 32px;
 	flex: none;
 }
-
-.orbyt-mark .stream-a { stop-color: var(--stream-a); }
-.orbyt-mark .stream-b { stop-color: var(--stream-b); }
-.orbyt-mark .stream-c { stop-color: var(--stream-c); }
 
 /* The shell (orbyt-theme D2) ------------------------------------------------- */
 
@@ -378,9 +389,9 @@ fieldset legend {
 	grid-column: 1 / -1;
 	display: flex;
 	align-items: center;
-	gap: 16px;
+	gap: var(--space-4);
 	height: var(--header);
-	padding: 0 32px;
+	padding: 0 var(--space-8);
 	border-bottom: 1px solid var(--line);
 	background: var(--canvas);
 }
@@ -437,7 +448,7 @@ fieldset legend {
 	align-items: center;
 	height: 22px;
 	padding: 0 10px;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--sunken);
 	color: var(--muted);
 	font-size: 12px;
@@ -460,19 +471,20 @@ fieldset legend {
 	gap: 2px;
 	padding: 2px;
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 }
 
 .segmented button {
 	display: inline-flex;
 	align-items: center;
 	height: 28px;
-	padding: 0 12px;
+	padding: 0 var(--space-3);
 	border: 0;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: none;
 	color: var(--muted);
 	font: inherit;
+	letter-spacing: -0.006em;
 	font-size: 13px;
 	font-weight: 500;
 	cursor: pointer;
@@ -495,7 +507,7 @@ fieldset legend {
 	height: 40px;
 	padding: 0;
 	border: 0;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: none;
 	color: var(--ink);
 	cursor: pointer;
@@ -526,7 +538,7 @@ fieldset legend {
 	display: flex;
 	flex-direction: column;
 	gap: 28px;
-	padding: 32px 24px 24px 32px;
+	padding: var(--space-8) var(--space-6) var(--space-6) var(--space-8);
 	border-right: 1px solid var(--line);
 	background: var(--canvas);
 }
@@ -539,7 +551,7 @@ fieldset legend {
 
 /* The eyebrow: TouhouAsia's label above a table of contents. */
 .mainmenu h2 {
-	margin: 0 0 12px;
+	margin: 0 0 var(--space-3);
 	color: var(--accent);
 	font-family: var(--font-code);
 	font-size: 12px;
@@ -558,9 +570,10 @@ fieldset legend {
 .menu-list a {
 	position: relative;
 	display: block;
-	padding: 6px 0 6px 16px;
+	padding: 6px 0 6px var(--space-4);
 	color: var(--muted);
 	font-size: 14px;
+	letter-spacing: -0.006em;
 	line-height: 1.4;
 }
 
@@ -580,23 +593,24 @@ fieldset legend {
 	bottom: 6px;
 	left: -2px;
 	width: 3px;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--rule);
 }
 
 .sidebar-foot {
 	display: grid;
 	justify-items: start;
-	gap: 16px;
+	gap: var(--space-4);
 	margin-top: auto;
 	color: var(--faint);
 	font-size: 12px;
+	letter-spacing: 0;
 }
 
 .sidebar-foot .modes {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 .sidebar-foot .modes a.active {
@@ -613,6 +627,7 @@ fieldset legend {
 
 .menu-logout {
 	font-size: 14px;
+	letter-spacing: -0.006em;
 	font-weight: 600;
 }
 
@@ -634,9 +649,10 @@ fieldset legend {
 	max-width: 1200px;
 	min-width: 0;
 	margin: 0 auto;
-	padding: 32px 48px 0;
+	padding: var(--space-8) var(--space-12) 0;
 	color: var(--muted);
 	font-size: 14px;
+	letter-spacing: -0.006em;
 	white-space: nowrap;
 }
 
@@ -672,25 +688,25 @@ fieldset legend {
 #maincontent {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 	width: 100%;
 	max-width: 1200px;
 	margin: 0 auto;
-	padding: 20px 48px 64px;
+	padding: var(--space-5) var(--space-12) var(--space-16);
 }
 
 #maincontent > #view {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 .footer {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 8px;
+	gap: var(--space-2);
 	margin-top: auto;
-	padding: 20px 48px 28px;
+	padding: var(--space-5) var(--space-12) 28px;
 	border-top: 1px solid var(--line);
 	background: var(--surface);
 	color: var(--faint);
@@ -711,7 +727,7 @@ fieldset legend {
 .cbi-map {
 	display: flex;
 	flex-direction: column;
-	gap: 24px;
+	gap: var(--space-6);
 }
 
 /* The page's title, from the left edge, no rule under it: the brand rule marks
@@ -743,9 +759,9 @@ fieldset legend {
 .cbi-section {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--space-4);
 	min-width: 0;
-	padding: 24px;
+	padding: var(--space-6);
 	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
 	background: var(--surface);
@@ -755,7 +771,7 @@ fieldset legend {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .cbi-section .cbi-section,
@@ -781,7 +797,7 @@ fieldset legend {
 }
 
 .cbi-section-error {
-	padding: 10px 12px;
+	padding: 10px var(--space-3);
 	border: 1px solid color-mix(in srgb, var(--crit) 30%, transparent);
 	border-radius: var(--r);
 	background: var(--crit-soft);
@@ -801,9 +817,9 @@ fieldset legend {
 .cbi-value {
 	display: grid;
 	grid-template-columns: 200px minmax(0, 1fr);
-	gap: 6px 24px;
+	gap: 6px var(--space-6);
 	align-items: start;
-	padding: 16px 0;
+	padding: var(--space-4) 0;
 	border-bottom: 1px solid var(--line);
 }
 
@@ -854,6 +870,7 @@ fieldset legend {
 	margin: 0 0 0 1.4em;
 	color: var(--faint);
 	font-size: 13px;
+	letter-spacing: -0.006em;
 }
 
 .cbi-value-description:not(:empty)::before {
@@ -930,7 +947,7 @@ select,
 	max-width: 420px;
 	min-height: var(--field-height);
 	margin: 0;
-	padding: 9px 12px;
+	padding: 9px var(--space-3);
 	border: 1px solid var(--line-strong);
 	border-radius: var(--r);
 	background: var(--raised);
@@ -966,7 +983,7 @@ select:focus,
 .cbi-dropdown:focus {
 	border-color: var(--accent);
 	outline: 2px solid transparent;
-	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
+	box-shadow: var(--focus-ring);
 }
 
 .cbi-dropdown[open] {
@@ -1070,7 +1087,7 @@ input[type="checkbox"]::before,
 input[type="radio"]::before {
 	inset: 0;
 	border: 1.5px solid var(--bd-color);
-	border-radius: 4px;
+	border-radius: var(--r-sm);
 	background: var(--raised);
 	transition: var(--motion);
 }
@@ -1122,7 +1139,7 @@ input[type="radio"]:checked::after {
 
 input[type="checkbox"]:focus-visible::before,
 input[type="radio"]:focus-visible::before {
-	box-shadow: 0 0 0 2px var(--focus-gap), 0 0 0 4px var(--focus);
+	box-shadow: var(--focus-ring);
 }
 
 input[type="checkbox"].cbi-input-invalid,
@@ -1177,7 +1194,7 @@ label > input[type="radio"] {
 	display: inline-flex;
 	align-items: center;
 	gap: 10px;
-	margin-right: 24px;
+	margin-right: var(--space-6);
 	cursor: pointer;
 }
 
@@ -1238,13 +1255,14 @@ label > input[type="radio"] {
 
 .cbi-dynlist > .item {
 	position: relative;
-	padding: 9px 2.6em 9px 12px;
+	padding: 9px 2.6em 9px var(--space-3);
 	border: 1px solid var(--line-strong);
 	border-radius: var(--r);
 	background: var(--raised);
 	color: var(--ink);
 	font-family: var(--font-code);
 	font-size: 13px;
+	letter-spacing: 0;
 	overflow: hidden;
 	word-break: break-all;
 	pointer-events: auto;
@@ -1265,6 +1283,7 @@ label > input[type="radio"] {
 	color: var(--crit);
 	font-family: var(--font-ui);
 	font-size: 16px;
+	letter-spacing: -0.011em;
 	font-weight: 600;
 	pointer-events: auto;
 	cursor: pointer;
@@ -1404,7 +1423,7 @@ label > input[type="radio"] {
 .cbi-dropdown > ul.dropdown > li,
 .cbi-dropdown:not(.btn):not(.cbi-button) > ul > li {
 	min-height: 20px;
-	padding: 9px 12px;
+	padding: 9px var(--space-3);
 	color: var(--ink);
 }
 
@@ -1438,7 +1457,7 @@ label > input[type="radio"] {
 .cbi-dropdown > ul > li input[type="text"] {
 	min-height: 0;
 	height: 26px;
-	padding: 2px 8px;
+	padding: 2px var(--space-2);
 }
 
 .cbi-dropdown[open] {
@@ -1527,26 +1546,41 @@ button,
 	font: inherit;
 }
 
-/* A button is the secondary by default, an outline of the text at 26%; the roles
- * below set the same five properties: the ink, the line and fill, and the line,
- * fill and ink on hover. */
+/* A button is the secondary by default, an outline of the text at 26%, and so are
+ * LuCI's edit, add, save, action and neutral buttons; the roles below set the
+ * same six properties: the ink, the line and fill, and the line, fill and ink on
+ * hover. */
 .btn,
-.cbi-button {
+.cbi-button,
+.cbi-button-positive,
+.cbi-button-fieldadd,
+.cbi-button-add,
+.cbi-button-save,
+.cbi-button-neutral,
+.cbi-button-download,
+.cbi-button-up,
+.cbi-button-down,
+.cbi-button-action,
+.cbi-button-reload,
+.cbi-button-edit {
 	--on-color: var(--ink);
 	--btn-line: var(--outline);
 	--btn-fill: transparent;
 	--btn-line-hover: var(--accent);
 	--btn-fill-hover: var(--accent-soft);
 	--btn-on-hover: var(--ink);
+}
 
+.btn,
+.cbi-button {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
 	gap: 6px;
 	min-height: var(--field-height);
-	padding: 0 20px;
+	padding: 0 var(--space-5);
 	border: 1px solid var(--btn-line);
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--btn-fill);
 	color: var(--on-color);
 	font-weight: 600;
@@ -1568,23 +1602,6 @@ button,
 .btn.active {
 	border-color: var(--accent);
 	background: var(--accent-soft);
-}
-
-/* Secondary: edit, add, save, action and neutral buttons. */
-.cbi-button-positive,
-.cbi-button-fieldadd,
-.cbi-button-add,
-.cbi-button-save,
-.cbi-button-neutral,
-.cbi-button-download,
-.cbi-button-up,
-.cbi-button-down,
-.cbi-button-action,
-.cbi-button-reload,
-.cbi-button-edit {
-	--on-color: var(--ink);
-	--btn-line: var(--outline);
-	--btn-fill: transparent;
 }
 
 /* Primary: the page's apply, and whatever LuCI marks important. */
@@ -1669,6 +1686,7 @@ button,
 	min-height: 48px;
 	padding: 0 22px;
 	font-size: 15px;
+	letter-spacing: -0.009em;
 }
 
 /* Small buttons, and every button inside a table, are 32 px. */
@@ -1676,7 +1694,7 @@ button,
 .table .td .btn,
 .table .td .cbi-button {
 	min-height: var(--button-small);
-	padding: 0 16px;
+	padding: 0 var(--space-4);
 	font-size: 13px;
 }
 
@@ -1684,6 +1702,7 @@ button,
 	float: right;
 	color: var(--faint);
 	font-size: 20px;
+	letter-spacing: -0.012em;
 	font-weight: 600;
 	line-height: 1;
 }
@@ -1703,8 +1722,8 @@ button,
 	flex-wrap: wrap;
 	justify-content: flex-end;
 	align-items: center;
-	gap: 12px;
-	padding: 8px 0 0;
+	gap: var(--space-3);
+	padding: var(--space-2) 0 0;
 }
 
 .cbi-page-actions > :not([method="post"]):not(.cbi-button-apply):not(.cbi-button-negative):not(.cbi-button-save):not(.cbi-button-reset) {
@@ -1720,7 +1739,7 @@ button,
 	display: flex;
 	flex-wrap: wrap;
 	justify-content: flex-end;
-	gap: 8px;
+	gap: var(--space-2);
 }
 
 /* Tabs: text, the brand rule under the active one (orbyt-theme D3) ------------- */
@@ -1729,7 +1748,7 @@ button,
 .cbi-tabmenu {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 0 24px;
+	gap: 0 var(--space-6);
 	margin: 0;
 	padding: 0;
 	border-bottom: 1px solid var(--line);
@@ -1749,7 +1768,7 @@ button,
 	position: relative;
 	display: block;
 	margin-bottom: -1px;
-	padding: 12px 0 14px;
+	padding: var(--space-3) 0 14px;
 	color: var(--muted);
 	font-size: 15px;
 	font-weight: 500;
@@ -1779,7 +1798,7 @@ button,
 	bottom: 0;
 	left: 0;
 	height: 3px;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--rule);
 }
 
@@ -1790,12 +1809,13 @@ button,
 	justify-content: center;
 	min-width: 18px;
 	height: 18px;
-	margin-right: 4px;
+	margin-right: var(--space-1);
 	padding: 0 5px;
-	border-radius: 9px;
+	border-radius: var(--r-pill);
 	background: var(--crit);
 	color: var(--crit-ink);
 	font-size: 11.5px;
+	letter-spacing: 0;
 	font-weight: 600;
 }
 
@@ -1846,7 +1866,7 @@ button,
 table.table th,
 table.table td {
 	display: table-cell;
-	padding: 10px 12px;
+	padding: 10px var(--space-3);
 	border-top: 1px solid var(--line);
 	text-align: left;
 	vertical-align: middle;
@@ -1901,6 +1921,7 @@ table.table tr:has(> th) + tr > td {
 body[data-page="admin-status-overview"] .table .td[width="33%"] {
 	color: var(--faint);
 	font-size: 13px;
+	letter-spacing: -0.006em;
 	font-weight: 500;
 }
 
@@ -1991,7 +2012,7 @@ th[data-sort-direction="desc"]::after { content: "\a0\25bc"; }
 
 .td.cbi-section-actions > * {
 	display: flex;
-	gap: 4px;
+	gap: var(--space-1);
 	justify-content: flex-end;
 }
 
@@ -2047,7 +2068,7 @@ table table td,
 	--tone-soft: var(--info-soft);
 
 	position: relative;
-	padding: 16px 20px;
+	padding: var(--space-4) var(--space-5);
 	border: 1px solid color-mix(in srgb, var(--tone) 30%, transparent);
 	border-radius: var(--r);
 	background: var(--tone-soft);
@@ -2071,6 +2092,7 @@ table table td,
 
 .alert-message h4 {
 	font-size: 16px;
+	letter-spacing: -0.011em;
 	font-weight: 600;
 }
 
@@ -2115,7 +2137,7 @@ table table td,
 	height: 22px;
 	margin: .125em 0 .125em .4em;
 	padding: 0 10px;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--sunken);
 	color: var(--muted);
 	font-size: 12px;
@@ -2203,7 +2225,7 @@ body.modal-overlay-active #modal_overlay {
 	max-width: 600px;
 	min-height: 32px;
 	margin: 6em auto;
-	padding: 24px;
+	padding: var(--space-6);
 	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
 	background: var(--surface);
@@ -2247,6 +2269,7 @@ body.modal-overlay-active #modal_overlay {
 	width: 100%;
 	margin-top: .5em;
 	font-size: 15px !important;
+	letter-spacing: -0.009em;
 }
 
 /* Tooltips -------------------------------------------------------------------- */
@@ -2300,15 +2323,15 @@ body.modal-overlay-active #modal_overlay {
 	position: relative;
 	min-width: 170px;
 	height: 6px;
-	margin: 1.6em 0 4px;
-	border-radius: 999px;
+	margin: 1.6em 0 var(--space-1);
+	border-radius: var(--r-pill);
 	background: var(--sunken);
 }
 
 .cbi-progressbar > div {
 	height: 100%;
 	width: 0%;
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--accent);
 }
 
@@ -2334,7 +2357,7 @@ body.modal-overlay-active #modal_overlay {
 
 .spinning {
 	position: relative;
-	padding-left: 32px !important;
+	padding-left: var(--space-8) !important;
 }
 
 .spinning::before {
@@ -2396,7 +2419,7 @@ body.modal-overlay-active #modal_overlay {
 }
 
 .ifacebox .ifacebox-head {
-	padding: 4px 8px;
+	padding: var(--space-1) var(--space-2);
 	border-bottom: 1px solid var(--line);
 	background: var(--sunken);
 	color: var(--ink);
@@ -2409,7 +2432,7 @@ body.modal-overlay-active #modal_overlay {
 }
 
 .ifacebox .ifacebox-body {
-	padding: 6px 8px;
+	padding: 6px var(--space-2);
 }
 
 #cbi-network-interface .ifacebox-body {
@@ -2424,7 +2447,7 @@ body.modal-overlay-active #modal_overlay {
 .ifacebadge {
 	display: inline-flex;
 	align-items: center;
-	gap: 4px;
+	gap: var(--space-1);
 	padding: 3px 7px;
 	border: 1px solid var(--line);
 	border-radius: var(--r);
@@ -2466,7 +2489,7 @@ body.modal-overlay-active #modal_overlay {
 .network-status-table {
 	display: flex;
 	flex-wrap: wrap;
-	gap: 12px;
+	gap: var(--space-3);
 }
 
 .network-status-table .ifacebox {
@@ -2522,9 +2545,9 @@ body.modal-overlay-active #modal_overlay {
 	align-items: center;
 	gap: 7px;
 	min-height: 24px;
-	padding: 0 10px 0 8px;
+	padding: 0 10px 0 var(--space-2);
 	border: 1px solid var(--line);
-	border-radius: 999px;
+	border-radius: var(--r-pill);
 	background: var(--raised) !important;
 	color: var(--ink);
 	font-size: 12px;
@@ -2546,9 +2569,9 @@ body.modal-overlay-active #modal_overlay {
 	background: rgb(var(--zone-color-rgb));
 }
 
-/* A bar of any zone's color: its text stays the dark ink in both modes. */
+/* A bar of any zone's color: its text in the ink for it, in both modes. */
 .ifacebox-head[style*="--zone-color-rgb"] {
-	color: #0f172a;
+	color: var(--on-zone);
 }
 
 .zonebadge > em,
@@ -2684,7 +2707,7 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 	margin-bottom: 2px;
 	padding: 3px 6px;
 	border: 1px solid var(--line);
-	border-radius: 4px;
+	border-radius: var(--r-sm);
 	background-color: var(--raised);
 	line-height: 16px;
 	overflow: hidden;
@@ -2742,7 +2765,7 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 	display: flex;
 	width: 16px;
 	height: 16px;
-	margin-right: 4px;
+	margin-right: var(--space-1);
 }
 
 .uci-change-legend-label > * > * {
@@ -2801,8 +2824,8 @@ img[src$="/resources/cbi/link.svg"] { --glyph: url(icons/link.svg); }
 .cbi-filebrowser > ul > li {
 	display: flex;
 	flex-direction: row;
-	padding: 2px 4px;
-	border-radius: 4px;
+	padding: 2px var(--space-1);
+	border-radius: var(--r-sm);
 }
 
 .cbi-filebrowser > ul > li:hover {
@@ -2887,6 +2910,7 @@ form.inline { display: inline; margin-bottom: 0; }
 #view div[style] > svg text[style] {
 	fill: var(--muted) !important;
 	font: 12px var(--font-ui) !important;
+	letter-spacing: 0;
 	text-shadow: none !important;
 }
 
@@ -2936,22 +2960,22 @@ form.inline { display: inline; margin-bottom: 0; }
 	display: grid;
 	place-items: center;
 	min-height: 100%;
-	padding: 24px 16px;
+	padding: var(--space-6) var(--space-4);
 }
 
 .login-card {
 	display: flex;
 	flex-direction: column;
-	gap: 16px;
+	gap: var(--space-4);
 	width: min(400px, 100%);
-	padding: 32px;
+	padding: var(--space-8);
 	border: 1px solid var(--line-brand);
 	border-radius: var(--r);
 	background: var(--surface);
 }
 
 .login-title {
-	margin-top: 8px;
+	margin-top: var(--space-2);
 }
 
 .login-card .cbi-section {
@@ -3026,8 +3050,8 @@ form.inline { display: inline; margin-bottom: 0; }
 
 @media (max-width: 800px) {
 	.topbar {
-		gap: 8px;
-		padding: 0 16px;
+		gap: var(--space-2);
+		padding: 0 var(--space-4);
 	}
 
 	/* The header keeps the menu's button, the lockup and the indicators; logout and
@@ -3053,16 +3077,16 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 
 	.crumbs {
-		padding: 20px 20px 0;
+		padding: var(--space-5) var(--space-5) 0;
 	}
 
 	.container,
 	#maincontent {
-		padding: 16px 20px 40px;
+		padding: var(--space-4) var(--space-5) var(--space-10);
 	}
 
 	.footer {
-		padding: 16px 20px 24px;
+		padding: var(--space-4) var(--space-5) var(--space-6);
 	}
 
 	.cbi-map > h2,
@@ -3072,7 +3096,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 
 	.cbi-section {
-		padding: 20px;
+		padding: var(--space-5);
 	}
 
 	.cbi-value {
@@ -3109,7 +3133,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	/* The footer's links one per line, without the separator between them. */
 	.footer {
 		flex-direction: column;
-		gap: 4px;
+		gap: var(--space-1);
 	}
 
 	.footer > [aria-hidden="true"] {
@@ -3118,7 +3142,7 @@ form.inline { display: inline; margin-bottom: 0; }
 
 	.modal {
 		margin: 1.5em auto;
-		padding: 20px;
+		padding: var(--space-5);
 	}
 
 	.table {
@@ -3208,10 +3232,11 @@ form.inline { display: inline; margin-bottom: 0; }
 	.tr[data-title]::before {
 		display: block;
 		flex: 1 1 100%;
-		padding: 4px 6px;
+		padding: var(--space-1) 6px;
 		border-bottom: 1px solid var(--line);
 		background: var(--sunken) !important;
 		font-size: 15px;
+		letter-spacing: -0.009em;
 		font-weight: 600;
 	}
 
@@ -3220,6 +3245,7 @@ form.inline { display: inline; margin-bottom: 0; }
 		display: block;
 		color: var(--muted);
 		font-size: 12px;
+		letter-spacing: 0;
 		font-weight: 600;
 		overflow: hidden;
 		text-overflow: ellipsis;
@@ -3268,6 +3294,7 @@ form.inline { display: inline; margin-bottom: 0; }
 	select,
 	.cbi-dropdown > ul > li {
 		font-size: 16px !important;
+		letter-spacing: -0.011em;
 	}
 
 	.cbi-dynlist > .item {
@@ -3278,7 +3305,7 @@ form.inline { display: inline; margin-bottom: 0; }
 
 	.cbi-page-actions,
 	.actions {
-		padding: 8px 0 0;
+		padding: var(--space-2) 0 0;
 	}
 
 	[data-page="admin-status-overview"] .td[width="33%"] {
