@@ -183,8 +183,10 @@ class Router:
         """
         try:
             stdout, _, code = self._connected().run(command, timeout=timeout)
-        except ExecutionError:
-            # A command cut short: its time limit, or its connection's.
+        except ExecutionError, subprocess.TimeoutExpired:
+            # A command cut short: its connection's end, or its time
+            # limit, past which labgrid leaves its ssh client running
+            # (the disconnect ends it).
             self.disconnect()
             return None
         except Exception as error:
