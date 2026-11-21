@@ -78,15 +78,11 @@ class Listener:
     def receives(self, send: Callable[[], object]) -> bool:
         """Return whether what ``send`` sends arrives in time.
 
-        The listener gives up at the timeout. ``send`` sends again each
-        second: the emulated path can lose a datagram now and then, and
-        what lets one in lets every one in, as what keeps one out keeps
-        every one out.
+        The listener gives up at its timeout. ``send`` sends once: the
+        emulated path loses no datagram, 40 of 40 arriving on the first
+        send on the R4S (test-hygiene D7, 2026-11-21).
         """
-        while self.process.poll() is None:
-            send()
-            with contextlib.suppress(subprocess.TimeoutExpired):
-                self.process.wait(timeout=1)
+        send()
         self.process.communicate()
         return self.process.wait() == 0
 
