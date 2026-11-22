@@ -1744,22 +1744,27 @@ button,
 
 /* Tabs: text, the brand rule under the active one (orbyt-theme D3) ------------- */
 
+/* One row on its hairline, as TouhouAsia's tab strip: tabs that outgrow it scroll
+ * sideways, by touch, trackpad or the focus, so that the active tab's rule always
+ * lies on the hairline, where a scrollbar would lie too. The strip would clip an
+ * outer ring, so a tab takes the ring inside its edge. */
 .tabs,
 .cbi-tabmenu {
 	display: flex;
-	flex-wrap: wrap;
 	gap: 0 var(--space-6);
 	margin: 0;
 	padding: 0;
-	border-bottom: 1px solid var(--line);
+	box-shadow: inset 0 -1px var(--line);
 	list-style: none;
+	overflow: auto hidden;
+	scrollbar-width: none;
 }
 
 .tabs > li,
 .cbi-tabmenu > li {
 	display: flex;
+	flex: none;
 	align-items: center;
-	max-width: 48%;
 	margin: 0;
 }
 
@@ -1767,15 +1772,18 @@ button,
 .cbi-tabmenu > li > a {
 	position: relative;
 	display: block;
-	margin-bottom: -1px;
 	padding: var(--space-3) 0 14px;
+	border-radius: var(--r-sm);
 	color: var(--muted);
 	font-size: 15px;
 	font-weight: 500;
 	letter-spacing: -0.009em;
-	overflow: hidden;
-	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.tabs > li > a:focus-visible,
+.cbi-tabmenu > li > a:focus-visible {
+	box-shadow: inset 0 0 0 2px var(--focus);
 }
 
 .tabs > li > a:hover,
@@ -3066,7 +3074,7 @@ form.inline { display: inline; margin-bottom: 0; }
 
 	.topbar .logout,
 	.topbar .segmented,
-	.lockup small {
+	.topbar .lockup small {
 		display: none;
 	}
 
@@ -3119,10 +3127,10 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 }
 
-/* Below 480 pixels the lockup is the mark alone, and the header keeps its room for
- * the indicators and the switch. */
+/* Below 480 pixels the header's lockup is the mark alone, and the header keeps its
+ * room for the indicators and the switch; the login's keeps its name. */
 @media (max-width: 480px) {
-	.lockup-text {
+	.topbar .lockup-text {
 		display: none;
 	}
 }
@@ -3261,9 +3269,14 @@ form.inline { display: inline; margin-bottom: 0; }
 	}
 
 	/* Stacked, the actions are one more labelled field: label and buttons start
-	 * at the left like every other cell's. */
+	 * at the left like every other cell's, and the cell takes the row. LuCI fixes
+	 * its width inline where the page was first drawn (form.js,
+	 * stabilizeActionColumnWidth), which a page drawn wider than a phone would
+	 * keep. */
 	.td.cbi-section-actions {
 		flex-basis: 100%;
+		width: auto !important;
+		min-width: 0 !important;
 		max-width: 100%;
 		padding: 3px 6px;
 		overflow: initial;
