@@ -64,9 +64,9 @@
 
 ## 10. Verification
 
-- [ ] 10.1 The whole system suite of both boards on the emulator, the Mac's load gated and sampled.
+- [x] 10.1 The whole system suite of both boards on the emulator, the Mac's load gated and sampled.
 
-  Verify: every test passes on the R4S and the R6S.
+  Verify: every test passes on the R4S and the R6S. Seen 2026-11-22 at 83fd67f, each run started with the Mac's 1- and 5-minute load below 6: the R4S's whole suite, 12:56 to 17:03Z, 623 passed and 4 skipped as they are meant to (two traps only a ubsan build makes, the release keys only the ci profile carries, a test of LAN ports for a board with several), its 1-minute load over 247 samples a median of 5.7, a 90th percentile of 10.1 and at most 24.6; the R6S's, 17:55 to 21:32Z, 624 passed and 3 skipped (the same but the LAN ports'), its load a median of 8.1, a 90th percentile of 11.6 and at most 30.5.
 
 ## Workflow follow-up
 
