@@ -50,9 +50,9 @@
 
 ## 4. Verification
 
-- [ ] 4.1 `just check`, the unit suite, and the system suite on the emulator on 3.15t.
+- [x] 4.1 `just check`, the unit suite, and the system suite on the emulator on 3.15t.
 
-  Verify: all pass.
+  Verify: all pass. Seen 2026-11-22: `just check` passes at 83fd67f; the unit suite (193 tests) and the system suite ran on 3.15t in the R4S's whole suite at 83fd67f, 2026-11-22 12:56 to 17:03Z: 623 passed, and 4 skipped as they are meant to (two traps only a ubsan build makes, the release keys only the ci profile carries, a test of LAN ports for a board with several); the Mac's 1-minute load over 247 samples had a median of 5.7, a 90th percentile of 10.1 and a maximum of 24.6.
 
 - [ ] 4.2 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 

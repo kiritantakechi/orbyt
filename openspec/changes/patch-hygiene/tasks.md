@@ -12,9 +12,9 @@
 
   Verify: `spec-coverage --change patch-hygiene` covers them; on the image with the old 0006 the first two pass and the status query fails (seen 2026-11-21).
 
-- [ ] 1.3 The procd patch passing `ubus.object.add` to the service triggers; 0006 rewritten as the raw trigger on qosify's registration, `service_running` gone; the write-ups.
+- [x] 1.3 The procd patch passing `ubus.object.add` to the service triggers; 0006 rewritten as the raw trigger on qosify's registration, `service_running` gone; the write-ups.
 
-  Verify: 1.2's tests and the QoS suite pass on the emulated R4S.
+  Verify: 1.2's tests and the QoS suite pass on the emulated R4S. Seen 2026-11-22: 1.2's tests and the QoS suite passed in the R4S's whole suite at 83fd67f.
 
 ## 2. One fault per patch (D2)
 
@@ -44,15 +44,15 @@
 
   Verify: the check passes, and fails on a write-up with a section removed.
 
-- [ ] 4.2 daeuniverse/0003's dependency on BusyBox's `timeout`.
+- [x] 4.2 daeuniverse/0003's dependency on BusyBox's `timeout`.
 
-  Verify: `just patch`; the honk LuCI app builds and its tests pass.
+  Verify: `just patch`; the honk LuCI app builds and its tests pass. Seen 2026-11-22: the series applies; luci-app-honk built in both boards' images at 83fd67f, and its tests (`network/test_transparent_proxy.py`) passed in the R4S's whole suite.
 
 ## 5. Verification
 
-- [ ] 5.1 `just check`; the unit and quality suites; the network and services suites on the emulated R4S, the Mac's load gated and sampled.
+- [x] 5.1 `just check`; the unit and quality suites; the network and services suites on the emulated R4S, the Mac's load gated and sampled.
 
-  Verify: every test passes.
+  Verify: every test passes. Seen 2026-11-22: `just check` passes at 83fd67f; the R4S's whole suite at 83fd67f, 2026-11-22 12:56 to 17:03Z: 623 passed, and 4 skipped as they are meant to (two traps only a ubsan build makes, the release keys only the ci profile carries, a test of LAN ports for a board with several); the Mac's 1-minute load over 247 samples had a median of 5.7, a 90th percentile of 10.1 and a maximum of 24.6, the unit, quality, network and services suites among it.
 
 ## Workflow follow-up
 

@@ -54,9 +54,9 @@
 
 ## 7. Verification
 
-- [ ] 7.1 `just check`, the unit and quality suites, and a build of both boards on the VM with nothing changed.
+- [x] 7.1 `just check`, the unit and quality suites, and a build of both boards on the VM with nothing changed.
 
-  Verify: every check and test passes; the builds rebuild nothing.
+  Verify: every check and test passes; the builds rebuild nothing. Seen 2026-11-22: `just check` passes at 83fd67f; the unit and quality suites passed in the R4S's whole suite; both boards built at 83fd67f and then again: no package, tool or toolchain stage ran, only OpenWrt's image step, which every build runs, and each board's manifest was the first build's, byte for byte.
 
 ## Workflow follow-up
 

@@ -16,9 +16,9 @@
 
 ## 2. The local host side (design D4)
 
-- [ ] 2.0 Record the host environment in the toolchain's record; build the host side anew when it changes, and refuse a toolchain of another environment in `build`.
+- [x] 2.0 Record the host environment in the toolchain's record; build the host side anew when it changes, and refuse a toolchain of another environment in `build`.
 
-  Verify: the toolchain tests of `build/test_boards.py`, the new environment's among them, pass; the R4S's local build on 26.05 rebuilds the tools and the toolchains and builds its image.
+  Verify: the toolchain tests of `build/test_boards.py`, the new environment's among them, pass; the R4S's local build on 26.05 rebuilds the tools and the toolchains and builds its image. Seen: the toolchain tests of `build/test_boards.py` passed in the R4S's whole suite at 83fd67f (2026-11-22); on 2026-11-21 the R4S's local build on 26.05 rebuilt the host tools (01:03 to 01:10 +0800) and the toolchain (01:27 to 01:49) after e439b2b and built its image, the toolchain's record naming the new environment.
 
 ## 3. Verification (design D2)
 
@@ -26,9 +26,9 @@
 
   Verify: the host stage builds anew; every job passes; the run is recorded in `docs/ci.md` for this change.
 
-- [ ] 3.2 After orbyt-brand's and orbyt-theme's local tests, build the toolchain and the R4S on the VM from this branch.
+- [x] 3.2 After orbyt-brand's and orbyt-theme's local tests, build the toolchain and the R4S on the VM from this branch.
 
-  Verify: the toolchain builds anew with the new environment, and the R4S's image builds.
+  Verify: the toolchain builds anew with the new environment, and the R4S's image builds. Seen 2026-11-21: the toolchain built anew with the new environment (01:27 to 01:49 +0800) and the R4S's image built; on 2026-11-22, after the local tests, both boards built at the stack's head, 83fd67f.
 
 ## Workflow follow-up
 
