@@ -225,7 +225,14 @@ requirement = "LuCI's icons and colors in the theme's style"
 scenario = "A realtime graph"
 by = "2026-11-18, the load and bandwidth graphs, light and dark: the box on the surface with the theme's border, grid and labels in its line and muted colors, and each line in the series color its legend's underline has (load 1, 5, 15 minutes blue, orange, aqua; inbound blue, outbound aqua)"
 
-# testing/harness: a property of CI.
+# testing/harness: a property of CI, and one checked once by running each test
+# apart.
+
+[[scenario]]
+capability = "testing/harness"
+requirement = "Tests independent of their order"
+scenario = "A test run alone"
+by = "2026-11-22, the emulated R4S: each of the 91 tests of the six modules that share a router (network/test_dns.py, network/test_transparent_proxy.py, ops/test_config_push.py, services/test_containers.py, services/test_file_sharing.py, storage/test_data_disk.py) passed run alone, and each module passed whole with its last test run first (test-hygiene 4.1)"
 
 [[scenario]]
 capability = "testing/harness"

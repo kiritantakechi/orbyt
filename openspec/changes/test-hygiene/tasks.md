@@ -24,9 +24,9 @@
 
 ## 4. Independent tests (D4)
 
-- [ ] 4.1 Module fixtures for the Pod, the data disk and the trigger queue; the order comments gone.
+- [x] 4.1 Module fixtures for the Pod, the data disk and the trigger queue; the order comments gone.
 
-  Verify: each test of the six modules passes alone (`-k`), and each module passes whole, on the emulated R4S.
+  Verify: each test of the six modules passes alone (`-k`), and each module passes whole, on the emulated R4S. Seen 2026-11-22 on the R4S's dev image of f1bb09a, 00:32 to 11:19Z: each of the 91 tests of the six modules passed run alone, and each module passed whole with its last test run first (6, 26, 25, 12, 8 and 14 passed); every run started with the Mac's 1- and 5-minute load below 8, whose 5-minute value over the 646 samples had a median of 4.5 and a 90th percentile of 9.4.
 
 ## 5. Each fact once (D5)
 
