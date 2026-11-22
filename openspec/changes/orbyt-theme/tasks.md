@@ -2,9 +2,9 @@
 
 ## 1. The test (design D6)
 
-- [ ] 1.1 Add the mark's scenario to `tests/firmware/test_web_theme.py`: the login page and a page after logging in hold the mark and link `/luci-static/orbyt/mark.svg` as their icon, which the router serves.
+- [x] 1.1 Add the mark's scenario to `tests/firmware/test_web_theme.py`: the login page and a page after logging in hold the mark and link `/luci-static/orbyt/mark.svg` as their icon, which the router serves.
 
-  Verify: `spec-coverage --change orbyt-theme` reports it covered; on the emulator it fails before 2.3 and passes after.
+  Verify: `spec-coverage --change orbyt-theme` reports it covered; on the emulator it fails before 2.3 and passes after. Seen: `spec-coverage --change orbyt-theme` reports the scenario covered; on 2026-11-23, on the R4S image of 83fd67f, the lockup's template replaced by its source without the lines that print the mark, the login page rendered with its lockup and no mark, and the test failed; with the image's template back, it passed, as it had in the R4S's whole suite.
 
 ## 2. The theme (design D1 to D5)
 
@@ -34,9 +34,9 @@
 
 ## 3. In a browser (design D6)
 
-- [ ] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.
+- [x] 3.1 Look at the emulator's LuCI against the canvas: the overview, an interface form, the login, the apply dialog, a dropdown, the firewall zones and a realtime graph, light and dark, at 1024, 900 and 375 pixels; fix what does not hold; re-date the browser-verified scenarios.
 
-  Verify: each view holds the canvas's look and LuCI's function in both modes and both widths.
+  Verify: each view holds the canvas's look and LuCI's function in both modes and both widths. Seen 2026-11-23 on the R4S image of 83fd67f: the overview, an interface form with its device dropdown, the login, the apply dialog, the firewall's zones and the load and bandwidth graphs, light and dark, at 1024, 900 and 375 pixels. Three did not hold and are fixed, each seen again with the stylesheet in place: at phone width the tabs wrapped to a second row, leaving the active tab's rule off the hairline (now one row that scrolls sideways), the login's lockup lost its name and hostname with the header's (now the header's alone), and a page first drawn wider than a phone kept LuCI's inline width on its actions cells and grew wider than the window (now the stacked cell takes the row). The browser-verified scenarios are re-dated.
 
 ## 4. Verification
 

@@ -193,37 +193,37 @@ by = "docs/optimization.md lists every no-lto opt-out with its patch in patches/
 
 # firmware/web-theme: looked at in a browser against the emulator's LuCI, reached
 # from the Mac through a port forwarded into the test's network namespace
-# (orbyt-theme D6), on the R4S image of the theme's first design.
+# (orbyt-theme D6), on the R4S image of 83fd67f with the stylesheet of 2026-11-23.
 
 [[scenario]]
 capability = "firmware/web-theme"
 requirement = "Light and dark"
 scenario = "A browser that prefers dark"
-by = "2026-11-18, the login page and the overview with the browser emulating a dark preference and nothing stored: :root's data-darkmode was true, the theme choice automatic, the page dark; on 2026-11-17 the overview, an interface form and the apply dialog the same way"
+by = "2026-11-23, the browser emulating a dark preference and nothing stored: the login page and the overview dark, :root's data-darkmode true and the theme choice automatic, the mark's stops in their dark inks; at 375 pixels the overview turned dark as the preference changed, the choice still automatic"
 
 [[scenario]]
 capability = "firmware/web-theme"
 requirement = "Light and dark"
 scenario = "Dark pinned in a light browser"
-by = "2026-11-18, the browser emulating a light preference: Dark pinned with the switch on the interfaces page, then the firewall page opened: prefers-color-scheme light, the key luci-theme-orbyt stored as dark, data-darkmode true, the page dark; the login page likewise with the key set"
+by = "2026-11-23, the browser emulating a light preference: Dark pinned with the switch on the interfaces page, then the firewall page opened: prefers-color-scheme light, the key luci-theme-orbyt stored as dark, data-darkmode true, the ground #040d1a, the mark's stops in their dark inks"
 
 [[scenario]]
 capability = "firmware/web-theme"
 requirement = "Usable at phone width"
 scenario = "A page at phone width"
-by = "2026-11-17 and 2026-11-18, at 375 by 812 pixels: the overview, the interfaces page, the firewall's zones and the login, light and dark; the menu drawer opened with its button and closed by a tap beside it, tables stacked as rows, and the document no wider than the window on each page"
+by = "2026-11-23, at 375 by 812 pixels: the overview, the interfaces page, the firewall's zones and the login, light and dark, tables stacked as rows and the document as wide as the window, the interfaces page and the zones also after they were first drawn at 1024 pixels; the menu drawer opened with its button and closed by a tap beside it; the tabs on one row on their hairline, scrolling sideways; the login's lockup with its name and hostname"
 
 [[scenario]]
 capability = "firmware/web-theme"
 requirement = "LuCI's icons and colors in the theme's style"
 scenario = "A device up and one down"
-by = "2026-11-18, the interfaces page's devices, light and dark: the theme's glyphs for LuCI's bridge, Ethernet and tunnel icons, the devices up (br-lan, eth1) in the accent (#0c8f63 light, #34d399 dark) and those down (ethernet_disabled) faint (#8a9a92, #6a7b73); the overview's ports with link in the plugged socket"
+by = "2026-11-23, the interfaces page's devices, light and dark: the theme's glyphs for LuCI's bridge, Ethernet, alias and tunnel icons, the devices up in the accent (#047857 light, #10b981 dark) and those down (ethernet_disabled, alias_disabled, tunnel_disabled) in the off ink (#94a3b8, #64748b); the overview's ports with link (port_up) in the accent"
 
 [[scenario]]
 capability = "firmware/web-theme"
 requirement = "LuCI's icons and colors in the theme's style"
 scenario = "A realtime graph"
-by = "2026-11-18, the load and bandwidth graphs, light and dark: the box on the surface with the theme's border, grid and labels in its line and muted colors, and each line in the series color its legend's underline has (load 1, 5, 15 minutes blue, orange, aqua; inbound blue, outbound aqua)"
+by = "2026-11-23, the load graph light and dark and the bandwidth graph light: the box on the surface with the theme's border, grid and labels in its line and muted colors, and each line in the series color its legend's underline has (load 1, 5, 15 minutes #2a78d6, #eb6834, #1baf7a; inbound #2a78d6, outbound #1baf7a)"
 
 # testing/harness: a property of CI, and one checked once by running each test
 # apart.
