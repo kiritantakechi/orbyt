@@ -1,28 +1,27 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+<svg xmlns="http://www.w3.org/2000/svg" class="orbyt-mark" viewBox="0 0 64 64" aria-hidden="true" focusable="false">
 	<!--
-		Orbyt's mark (orbyt-theme D4): the pages' icon, whose inks follow the
-		browser's preference, as an icon file cannot read the page's pinned mode.
+		Orbyt's mark, the ring node (orbyt-theme D4), its one file: the pages' icon,
+		and the lockup's mark, which the theme's templates print inline. Its colors
+		follow the color scheme: inline, the page's, pinned or automatic; as the
+		icon, which cannot read the page, the browser's.
 	-->
 	<style>
-		.a { stop-color: #059669; }
-		.b { stop-color: #10b981; }
-		.c { stop-color: #1e40af; }
-		@media (prefers-color-scheme: dark) {
-			.a { stop-color: #64ffda; }
-			.c { stop-color: #0284c7; }
-		}
+		svg:root { color-scheme: light dark; }
+		.orbyt-stream-a { stop-color: light-dark(#059669, #64ffda); }
+		.orbyt-stream-b { stop-color: #10b981; }
+		.orbyt-stream-c { stop-color: light-dark(#1e40af, #0284c7); }
 	</style>
 	<defs>
-		<linearGradient id="stream" gradientUnits="userSpaceOnUse" x1="8" y1="8" x2="56" y2="56">
-			<stop class="a" offset="0"/>
-			<stop class="b" offset=".5"/>
-			<stop class="c" offset="1"/>
+		<linearGradient id="orbyt-stream" gradientUnits="userSpaceOnUse" x1="8" y1="8" x2="56" y2="56">
+			<stop class="orbyt-stream-a" offset="0"/>
+			<stop class="orbyt-stream-b" offset=".5"/>
+			<stop class="orbyt-stream-c" offset="1"/>
 		</linearGradient>
-		<mask id="gap">
+		<mask id="orbyt-gap">
 			<rect width="64" height="64" fill="#fff"/>
 			<circle cx="46.85" cy="17.15" r="9.6" fill="#000"/>
 		</mask>
 	</defs>
-	<circle cx="32" cy="32" r="21" fill="none" stroke="url(#stream)" stroke-width="6.5" mask="url(#gap)"/>
-	<circle cx="46.85" cy="17.15" r="6.4" fill="url(#stream)"/>
+	<circle cx="32" cy="32" r="21" fill="none" stroke="url(#orbyt-stream)" stroke-width="6.5" mask="url(#orbyt-gap)"/>
+	<circle cx="46.85" cy="17.15" r="6.4" fill="url(#orbyt-stream)"/>
 </svg>
