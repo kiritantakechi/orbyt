@@ -47,3 +47,18 @@ When qosify's configuration enables the ingress direction of an interface, qosif
 #### Scenario: Ingress shaping on a device with a long name
 - **WHEN** ingress shaping is enabled for a device whose name is 14 characters long, and its configuration is then removed
 - **THEN** qosify's status names the device's ifb, an ifb of that name exists with cake on it, its name begins with the device name's first two characters and ends with its last nine, and after the removal no ifb device remains
+
+### Requirement: Configured whenever the daemon comes up
+qosify's daemon SHALL be given the configuration each time it comes up, without waiting for a configuration change: when the system boots, when qosify is started, and when it is started again after it exits. Until the daemon is up, no boot script waits for it. A query of the service's state SHALL leave the daemon's configuration alone.
+
+#### Scenario: A boot with no configuration change
+- **WHEN** the router boots with its configuration and nothing changes it after the boot
+- **THEN** pppoe-wan is shaped by cake at the configured upload bandwidth once the daemon is up
+
+#### Scenario: The daemon exits and comes back
+- **WHEN** qosify's daemon is killed and the system starts it again
+- **THEN** pppoe-wan is shaped by cake at the configured upload bandwidth again, within the recovery time
+
+#### Scenario: A status query
+- **WHEN** the service's state is queried, by its init script's `running` action and by rpcd's list of the services
+- **THEN** the daemon is not sent its configuration
