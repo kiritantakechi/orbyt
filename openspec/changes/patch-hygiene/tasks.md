@@ -26,17 +26,17 @@
 
 ## 3. 0021 and 0012 (D3, D4)
 
-- [ ] 3.1 Find which of D3's three ways holds, implement it, and drop 0021.
+- [x] 3.1 Find which of D3's three ways holds, implement it, and drop 0021.
 
-  Verify: in the R4S's `ubsan` tree, libffi, libmd, libmnl and musl-fts link with no runtime call and 0021's trap counts; the dev profile's packages are unchanged.
+  Verify: in the R4S's `ubsan` tree, libffi, libmd, libmnl and musl-fts link with no runtime call and 0021's trap counts; the dev profile's packages are unchanged. Seen 2026-11-22 and 23: the second way holds but for binutils, whose build system does not regenerate, which takes the third (0056); the hook acts on packages whose build system uses libtool. At f8c6710 the R4S's whole `ubsan` build passed, with no call into a runtime in its root filesystem, the 28 copies of libtool its configure scripts made all passing the options; libffi, libmd, libmnl and musl-fts linked with no runtime call and 4,870, 1,290, 92 and 222 trap instructions, 0021's counts but libffi's (4,909 in October, under either form now). Against the dev packages before 0021, those at 83fd67f differ only in base-files' revision and the theme's own change.
 
 - [x] 3.2 Try 0012 as an exclusion from `Kernel/Newer`.
 
   Verify: the two experiments of 0012's log hold; otherwise 0012 stays and its write-up says why.
 
-- [ ] 3.3 A Rust package's link takes the sanitizer options its crates' C is compiled with (packages 0018), so that the `ubsan` profile builds with honk, which joined the image after its last build (D3).
+- [x] 3.3 A Rust package's link takes the sanitizer options its crates' C is compiled with (packages 0018), so that the `ubsan` profile builds with honk, which joined the image after its last build (D3).
 
-  Verify: a whole `ubsan` build of the R4S passes, whose own check finds no call into a runtime in its root filesystem; the dev profile's packages are unchanged.
+  Verify: a whole `ubsan` build of the R4S passes, whose own check finds no call into a runtime in its root filesystem; the dev profile's packages are unchanged. Seen 2026-11-23 at f8c6710: the whole `ubsan` build passed, honk-core linked, and its own check found no call into a runtime in the root filesystem; the dev profile's packages, honk's among them, are the ones before the patch.
 
 ## 4. Write-ups and small fixes (D5, D6)
 
