@@ -73,3 +73,10 @@ While the system validates an upgrade image, it SHALL go on feeding its watchdog
 #### Scenario: A validation slower than the watchdog
 - **WHEN** validating an upgrade image takes longer than the watchdog's timeout
 - **THEN** the router is not reset, the system answers other requests meanwhile, and the validation request is answered with its result once the validation ends
+
+### Requirement: The platform hands the upgrade to the A/B slots
+The platform's upgrade steps (checking an image, writing it, carrying the configuration over) SHALL be handed to the A/B upgrade by name. Which definition of a step runs MUST NOT depend on the order in which the upgrade's files are read, and the upgrade's checks, the device metadata check among them, MUST hold whatever the files are named.
+
+#### Scenario: The A/B upgrade's file read first
+- **WHEN** the A/B upgrade's file is renamed so that it is read before every other upgrade file, and an upgrade runs with a valid upgrade image and then with an image for another device
+- **THEN** the valid image is accepted and written to the inactive slot only, and the image for another device is rejected before anything is written
