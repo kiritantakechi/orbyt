@@ -41,5 +41,5 @@ Each slot's boot partition SHALL hold a kernel FIT whose default configuration c
 - **WHEN** the factory image is inspected
 - **THEN**:
   - sector 64 holds a loader for the board's SoC;
-  - sector 16384 holds a U-Boot FIT whose default configuration is compatible with the board's name, loads TF-A and boots with `run wrt_boot`;
+  - sector 16384 holds a U-Boot FIT whose default configuration is compatible with the board's name, loads TF-A and boots with `run orbyt_boot`;
   - the kernel FIT on both boot-A and boot-B carries a device tree compatible with the board's name and its SoC, with the board's Ethernet and PCIe controllers enabled
