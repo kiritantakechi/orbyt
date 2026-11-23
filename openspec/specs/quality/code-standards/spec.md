@@ -98,3 +98,10 @@ The tests' Python SHALL run on free-threaded CPython 3.15, managed by uv, with i
 #### Scenario: A dependency turns the GIL back on
 - **WHEN** the tests' Python imports every dependency the tests use
 - **THEN** the interpreter is a free-threaded 3.15 build and reports the GIL disabled
+
+### Requirement: The formatters see what the checks see
+`just fmt` SHALL format exactly the files whose format `just check` checks, chosen by one definition both use, so that every format failure the check reports is one the formatter fixes.
+
+#### Scenario: A preinit hook badly indented
+- **WHEN** a shell hook of the image that its name does not mark as shell (a preinit hook) is indented against shfmt's style
+- **THEN** `just check` fails on it, and `just fmt` fixes it

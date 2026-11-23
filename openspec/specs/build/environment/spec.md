@@ -82,3 +82,10 @@ Every build, of the host stage or of a board, SHALL record when each of its stag
 #### Scenario: Find what holds up a build
 - **WHEN** a build finishes
 - **THEN** its output lists the stages that took the most time, each with its wall share and its solo time, and the full record is kept with the build's logs
+
+### Requirement: No machine of one maintainer's
+The scripts and documents SHALL name no user, home directory, volume or repository of one machine: the repository a script talks to SHALL come from the clone's own remote or from CI's environment, and paths on the host SHALL come from the build's configuration. A script that cannot tell which repository it serves SHALL fail and say so.
+
+#### Scenario: A fork's clone
+- **WHEN** the release drill's base is fetched in a fork's clone
+- **THEN** it downloads the fork's releases, not the original repository's
