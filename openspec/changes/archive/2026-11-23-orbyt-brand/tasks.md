@@ -36,9 +36,9 @@
 
   Verify: the build succeeds with `orbyt-` image files; the tests pass, the new scenario among them. Seen 2026-11-22: the R4S built at 83fd67f, its image `orbyt-rockchip-armv8-friendlyarm_nanopi-r4s-erofs-factory.img.gz`; the R4S's whole suite at 83fd67f, 2026-11-22 12:56 to 17:03Z: 623 passed, and 4 skipped as they are meant to (two traps only a ubsan build makes, the release keys only the ci profile carries, a test of LAN ports for a board with several); the Mac's 1-minute load over 247 samples had a median of 5.7, a 90th percentile of 10.1 and a maximum of 24.6, the boot chain's, the base system's and the release suite's tests and the new scenario among them.
 
-- [ ] 3.2 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
+- [x] 3.2 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: every job passes; the run is recorded in `docs/ci.md` for this change.
+  Verify: every job passes; the run is recorded in `docs/ci.md` for this change. Seen: the release verification's run on main at 4740b94 (build 45095056994, check 45095056946, 2026-11-23): every job passed on both boards (`docs/ci.md`).
 
 ## Workflow follow-up
 

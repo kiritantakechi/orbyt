@@ -22,9 +22,9 @@
 
 ## 3. Verification (design D2)
 
-- [ ] 3.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
+- [x] 3.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: the host stage builds anew; every job passes; the run is recorded in `docs/ci.md` for this change.
+  Verify: the host stage builds anew; every job passes; the run is recorded in `docs/ci.md` for this change. Seen: the release verification's run on main at 4740b94 (build 45095056994, check 45095056946, 2026-11-23): the host stage found no toolchain under its new key and built anew, in 205 minutes; every job passed (`docs/ci.md`).
 
 - [x] 3.2 After orbyt-brand's and orbyt-theme's local tests, build the toolchain and the R4S on the VM from this branch.
 

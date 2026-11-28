@@ -40,9 +40,9 @@
 
 ## 4. Verification
 
-- [ ] 4.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
+- [x] 4.1 CI's release verification: the one run on the stack's final head builds and tests both boards with this change (2026-11-19: CI runs only to verify a release; changes are verified locally until then).
 
-  Verify: every job passes; the run is recorded in `docs/ci.md` for this change.
+  Verify: every job passes; the run is recorded in `docs/ci.md` for this change. Seen: the release verification's run on main at 4740b94 (build 45095056994, check 45095056946, 2026-11-23): every job passed on both boards, the theme's tests among the system suite (`docs/ci.md`).
 
 ## Workflow follow-up
 

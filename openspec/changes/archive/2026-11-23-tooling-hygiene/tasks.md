@@ -16,9 +16,9 @@
 
   Verify: `test_ci.py` passes without the copies' equality test; actionlint passes.
 
-- [ ] 2.3 The emulator built in the host stage, cached by its inputs, imported by the test jobs.
+- [x] 2.3 The emulator built in the host stage, cached by its inputs, imported by the test jobs.
 
-  Verify: on the VM, `nix copy --to file://` and a `--no-check-sigs` import into a fresh store give a dev shell that builds nothing; the release run shows no QEMU compile in its test jobs.
+  Verify: on the VM, `nix copy --to file://` and a `--no-check-sigs` import into a fresh store give a dev shell that builds nothing; the release run shows no QEMU compile in its test jobs. Seen 2026-11-21 on the VM: the emulator packed (39 store paths), imported with `--no-check-sigs` into a fresh store and valid there, where the dev shell had no QEMU derivation left to build. Seen 2026-11-23, in the release verification's run (45095056994): the host stage saved the emulator under its inputs' key, and each of the twelve test jobs restored it and built no QEMU, only the shells' small wrappers.
 
 ## 3. No maintainer's machine (D4)
 
