@@ -137,7 +137,7 @@ ensure_fhs() {
 # files, which the other checks read as they are.
 repo_files() (
 	git -C "${REPO_DIR}" ls-files --cached --others --exclude-standard |
-		grep -vE '^(patches|docs/upstream|\.claude)/' |
+		grep -vE '^(patches|docs/upstream|\.agents|\.claude)/' |
 		while IFS= read -r file; do
 			[ ! -e "${REPO_DIR}/${file}" ] || printf '%s\n' "${file}"
 		done

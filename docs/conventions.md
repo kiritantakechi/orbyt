@@ -25,7 +25,7 @@ The "Check name" column in the table below uses the names that `scripts/check.sh
 | Test harness layering: no module imports from a layer above its own (`tests/tach.toml`) | `tach` | — |
 | Spec-to-test structure: markers point to existing scenarios, one test per scenario, directory rules (r4s-build-foundation D13) | `spec-coverage` | — |
 
-Files exempt from these rules, listed once, in `repo_files` (`scripts/lib/core.sh`), from which every check takes its files: `patches/` and `docs/upstream/` (upstream patches are kept verbatim) and `.claude/` (tool-generated). editorconfig-checker also leaves out the lock files, which their tools write. OpenWrt package `Makefile`s mix tabs and two spaces by upstream convention, so their indent style is not checked.
+Files exempt from these rules, listed once, in `repo_files` (`scripts/lib/core.sh`), from which every check takes its files: `patches/` and `docs/upstream/` (upstream patches are kept verbatim), and `.agents/` and `.claude/` (tool-generated: OpenSpec's skills, which `.claude/skills` links to). editorconfig-checker also leaves out the lock files, which their tools write. OpenWrt package `Makefile`s mix tabs and two spaces by upstream convention, so their indent style is not checked.
 
 ## Script skeleton
 
